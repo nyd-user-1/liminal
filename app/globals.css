@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+/* Liminal theme — Component Catalog §1 (structure) + §1b (brand values).
+   Light theme only. Every token doubles as a Tailwind utility
+   (e.g. bg-primary, text-text-muted, border-border, rounded-field). */
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  /* Brand */
+  --color-primary: #3f8290; /* teal-600 — buttons, active tab, focus ring */
+  --color-primary-hover: #35707c; /* teal-700 */
+  --color-primary-weak: #b7d8dd; /* teal-200 */
+  --color-accent: #f0ae55; /* amber-500 — links on navy, highlights, logo arc */
+  --color-accent-ink: #c58a2e; /* amber-700 — accent on white surfaces (AA) */
+
+  /* Chrome */
+  --color-sidebar-bg: #1c2440; /* navy-900 */
+  --color-sidebar-active: #2b3557; /* navy-700 band */
+  --color-sidebar-text: #93a0bd;
+  --color-canvas: #f2f3f6;
+  --color-surface: #ffffff;
+  --color-border: #e6e7eb;
+  --color-field-border: #d1d5db;
+  --color-field-border-focus: #3f8290;
+
+  /* Text tones */
+  --color-text: #212a47; /* navy ink — headings/primary */
+  --color-text-body: #4b5563;
+  --color-text-muted: #9ca3af;
+
+  /* Semantic status */
+  --color-success: #16a34a;
+  --color-success-tint: #dcfce7;
+  --color-warning: #b7791f;
+  --color-warning-tint: #fbe8c9;
+  --color-danger: #dc2626;
+  --color-danger-tint: #fee2e2;
+  --color-info: #35707c;
+  --color-info-tint: #e3f0f2; /* teal-100 stands in for Carepatron lavender */
+
+  /* Overlays */
+  --color-scrim: rgb(18 13 40 / 0.5);
+  --color-stage: #111019; /* video-call stage */
+
+  /* Liminal ramps */
+  --color-navy-900: #1c2440;
+  --color-navy-700: #2b3557;
+  --color-teal-700: #35707c;
+  --color-teal-600: #3f8290;
+  --color-teal-500: #6fb3bc; /* brand band — decorative, not text */
+  --color-teal-200: #b7d8dd;
+  --color-teal-100: #e3f0f2;
+  --color-amber-700: #c58a2e;
+  --color-amber-500: #f0ae55;
+  --color-amber-100: #fbeed9;
+
+  /* Radius */
+  --radius-field: 8px; /* inputs, buttons, icon-squares */
+  --radius-card: 12px; /* cards, menus, dialogs */
+
+  /* Shadow */
+  --shadow-card: 0 1px 3px rgb(0 0 0 / 0.06);
+  --shadow-menu: 0 10px 30px rgb(0 0 0 / 0.12);
+}
+
+body {
+  background-color: var(--color-canvas);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+}

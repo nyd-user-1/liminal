@@ -1,0 +1,146 @@
+"use client";
+
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { Icon, IconSquare, type IconName } from "@/components/ui/icons";
+
+// Catalog `DropdownMenu` + `MenuItem` — portaled + fixed off the trigger so
+// scroll containers can't clip it; outside click / Escape / scroll dismisses.
+// (Dismiss/positioning pattern adapted from hq's menu.tsx.)
+
+const MenuCloseCtx = createContext<() => void>(() => {});
+
+export function MenuItem({
+  icon,
+  iconSquare,
+  label,
+  subtitle,
+  onClick,
+  danger,
+  selected,
+}: {
+  icon?: IconName;
+  /** Render the icon in a grey rounded square (catalog "+ New" style). */
+  iconSquare?: boolean;
+  label: ReactNode;
+  subtitle?: ReactNode;
+  onClick: () => void;
+  danger?: boolean;
+  selected?: boolean;
+}) {
+  const close = useContext(MenuCloseCtx);
+  return (
+    <button
+      role="menuitem"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+        close();
+      }}
+      className={`flex w-full items-center gap-2.5 rounded-field px-2.5 py-2 text-left text-[15px] font-medium transition-colors hover:bg-[#F3F4F6] ${
+        danger ? "text-danger" : "text-text"
+      }`}
+    >
+      {icon && (iconSquare ? <IconSquare name={icon} /> : <Icon name={icon} className={danger ? "" : "text-text-body"} />)}
+      <span className="min-w-0 flex-1">
+        {label}
+        {subtitle && <span className="block truncate text-sm font-normal text-text-muted">{subtitle}</span>}
+      </span>
+      {selected && <Icon name="check" size={16} className="text-primary" />}
+    </button>
+  );
+}
+
+export function MenuDivider() {
+  return <div className="my-1 h-px bg-border" />;
+}
+
+export function MenuSectionLabel({ children }: { children: ReactNode }) {
+  return <div className="px-2.5 pb-1 pt-2 text-[13px] font-semibold text-text-muted">{children}</div>;
+}
+
+export function DropdownMenu({
+  trigger,
+  children,
+  label = "Open menu",
+  align = "right",
+  width = "w-56",
+  triggerClassName = "",
+}: {
+  trigger: ReactNode;
+  children: ReactNode;
+  label?: string;
+  align?: "left" | "right";
+  width?: string;
+  triggerClassName?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left?: number; right?: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("click", close);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [open]);
+
+  const toggle = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    const r = btnRef.current?.getBoundingClientRect();
+    if (r) {
+      setPos(
+        align === "right"
+          ? { top: r.bottom + 4, right: window.innerWidth - r.right }
+          : { top: r.bottom + 4, left: r.left },
+      );
+    }
+    setOpen(true);
+  };
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={toggle}
+        aria-label={label}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className={triggerClassName}
+      >
+        {trigger}
+      </button>
+      {open &&
+        pos &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <MenuCloseCtx.Provider value={() => setOpen(false)}>
+            <div
+              role="menu"
+              onClick={(e) => e.stopPropagation()}
+              style={{ top: pos.top, left: pos.left, right: pos.right }}
+              className={`fixed z-50 flex ${width} flex-col rounded-card border border-border bg-surface p-2 shadow-menu`}
+            >
+              {children}
+            </div>
+          </MenuCloseCtx.Provider>,
+          document.body,
+        )}
+    </>
+  );
+}
