@@ -17,10 +17,13 @@ export function DatePicker({
   value,
   onChange,
   className = "",
+  showMonthNav = true,
 }: {
   value?: string; // YYYY-MM-DD
   onChange: (date: string) => void;
   className?: string;
+  /** Hide the ‹ › month arrows when an external control drives navigation. */
+  showMonthNav?: boolean;
 }) {
   const initial = value ? new Date(`${value}T00:00:00`) : new Date();
   const [viewYear, setViewYear] = useState(initial.getFullYear());
@@ -43,10 +46,12 @@ export function DatePicker({
         <span className="text-[15px] font-semibold text-text">
           {first.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
         </span>
-        <span className="flex">
-          <IconButton icon="chevron-left" label="Previous month" onClick={() => shift(-1)} className="h-7 w-7" />
-          <IconButton icon="chevron-right" label="Next month" onClick={() => shift(1)} className="h-7 w-7" />
-        </span>
+        {showMonthNav && (
+          <span className="flex">
+            <IconButton icon="chevron-left" label="Previous month" onClick={() => shift(-1)} className="h-7 w-7" />
+            <IconButton icon="chevron-right" label="Next month" onClick={() => shift(1)} className="h-7 w-7" />
+          </span>
+        )}
       </div>
       <div className="grid grid-cols-7 gap-y-1 text-center">
         {WEEKDAYS.map((d, i) => (

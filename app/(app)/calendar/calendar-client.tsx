@@ -5,6 +5,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker } from "@/components/ui/date-picker";
+import { Divider } from "@/components/ui/divider";
 import { IconButton } from "@/components/ui/icon-button";
 import { Icon } from "@/components/ui/icons";
 import { Select } from "@/components/ui/select";
@@ -151,43 +152,65 @@ export function CalendarClient({
     setPanel({ kind: "create", draft: { practitionerId: defaultPractitioner, ...draft } });
 
   const detail = panel?.kind === "detail" ? appointments.find((a) => a.id === panel.id) ?? null : null;
+  const [rangeOpen, setRangeOpen] = useState(false);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* Toolbar (catalog `Toolbar calendar` variant) */}
+      {/* Toolbar (catalog `Toolbar calendar` variant) — range label ▾ + arrows
+          left (Google-calendar pattern); Today · view · practitioner right. */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Button variant="secondary" size="sm" onClick={() => setAnchor(dateKey(new Date()))}>
-          Today
-        </Button>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setRangeOpen((o) => !o)}
+            className="flex items-center gap-1.5 rounded-field px-2 py-1 text-[17px] font-semibold text-text transition-colors hover:bg-canvas"
+          >
+            {rangeLabel(days)}
+            <Icon name="chevron-down" size={16} className="text-text-muted" />
+          </button>
+          {rangeOpen && (
+            <div className="absolute left-0 top-full z-50 mt-1 rounded-card border border-border bg-surface p-4 shadow-menu">
+              <DatePicker
+                value={anchor}
+                onChange={(d) => {
+                  setAnchor(d);
+                  setRangeOpen(false);
+                }}
+              />
+            </div>
+          )}
+        </div>
         <span className="flex">
           <IconButton icon="chevron-left" label="Previous" onClick={() => shift(-1)} />
           <IconButton icon="chevron-right" label="Next" onClick={() => shift(1)} />
         </span>
-        <span className="min-w-40 text-[17px] font-semibold text-text">{rangeLabel(days)}</span>
-        <Select
-          aria-label="Calendar view"
-          className="w-28"
-          options={[
-            { value: "day", label: "Day" },
-            { value: "week", label: "Week" },
-          ]}
-          value={view}
-          onValueChange={(v) => setView(v as "day" | "week")}
-        />
-        <Select
-          aria-label="Practitioner filter"
-          className="w-52"
-          placeholder="Some practitioners"
-          options={[
-            { value: "all", label: "All practitioners" },
-            ...practitioners.map((p) => ({ value: p.id, label: p.name })),
-          ]}
-          value={filterValue}
-          onValueChange={(v) =>
-            setVisible(v === "all" || v === "" ? new Set(practitioners.map((p) => p.id)) : new Set([v]))
-          }
-        />
-        <div className="ml-auto">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={() => setAnchor(dateKey(new Date()))}>
+            Today
+          </Button>
+          <Select
+            aria-label="Calendar view"
+            className="w-28"
+            options={[
+              { value: "day", label: "Day" },
+              { value: "week", label: "Week" },
+            ]}
+            value={view}
+            onValueChange={(v) => setView(v as "day" | "week")}
+          />
+          <Select
+            aria-label="Practitioner filter"
+            className="w-52"
+            placeholder="Some practitioners"
+            options={[
+              { value: "all", label: "All practitioners" },
+              ...practitioners.map((p) => ({ value: p.id, label: p.name })),
+            ]}
+            value={filterValue}
+            onValueChange={(v) =>
+              setVisible(v === "all" || v === "" ? new Set(practitioners.map((p) => p.id)) : new Set([v]))
+            }
+          />
           <Button
             leftIcon="plus"
             onClick={() => {
@@ -202,9 +225,11 @@ export function CalendarClient({
 
       <div className="flex min-h-0 flex-1 gap-4">
         {/* Rail: mini month + practitioner filter */}
-        <aside className="hidden w-72 shrink-0 flex-col gap-5 overflow-y-auto rounded-card border border-border bg-surface p-4 shadow-card lg:flex">
-          {/* key remounts the mini-month so its view follows toolbar navigation */}
-          <DatePicker key={anchor.slice(0, 7)} value={anchor} onChange={setAnchor} />
+        <aside className="hidden w-72 shrink-0 flex-col gap-4 overflow-y-auto overflow-x-hidden rounded-card border border-border bg-surface p-4 shadow-card lg:flex">
+          {/* key remounts the mini-month so its view follows toolbar navigation;
+              month nav hidden — the toolbar arrows drive navigation (no dupes) */}
+          <DatePicker key={anchor.slice(0, 7)} value={anchor} onChange={setAnchor} showMonthNav={false} />
+          <Divider />
           <div>
             <p className="mb-2 text-[13px] font-semibold text-text-muted">Practitioners</p>
             <div className="space-y-1">
