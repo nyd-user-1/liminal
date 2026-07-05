@@ -1,4 +1,5 @@
 import { hasDb, sql } from "@/lib/db";
+import { isoDateOnly, isoDateTime } from "@/lib/format";
 import { mockId, mockStore } from "@/lib/mock";
 import "@/lib/mock/threads";
 import "@/lib/mock/clients"; // client rows for name joins + portal-login mapping
@@ -30,9 +31,9 @@ type ThreadRow = {
   client_id: string;
   subject: string;
   status: ThreadStatus;
-  last_message_at: string | null;
-  created_at: string;
-  updated_at: string;
+  last_message_at: string | Date | null;
+  created_at: string | Date;
+  updated_at: string | Date;
 };
 
 function toThread(r: ThreadRow): Thread {
@@ -41,9 +42,9 @@ function toThread(r: ThreadRow): Thread {
     clientId: r.client_id,
     subject: r.subject,
     status: r.status,
-    lastMessageAt: r.last_message_at,
-    createdAt: r.created_at,
-    updatedAt: r.updated_at,
+    lastMessageAt: isoDateTime(r.last_message_at),
+    createdAt: isoDateTime(r.created_at),
+    updatedAt: isoDateTime(r.updated_at),
   };
 }
 
@@ -52,8 +53,8 @@ type MessageRow = {
   thread_id: string;
   sender_id: string;
   body: string;
-  read_at: string | null;
-  created_at: string;
+  read_at: string | Date | null;
+  created_at: string | Date;
 };
 
 function toMessage(r: MessageRow): Message {
@@ -62,8 +63,8 @@ function toMessage(r: MessageRow): Message {
     threadId: r.thread_id,
     senderId: r.sender_id,
     body: r.body,
-    readAt: r.read_at,
-    createdAt: r.created_at,
+    readAt: isoDateTime(r.read_at),
+    createdAt: isoDateTime(r.created_at),
   };
 }
 
@@ -251,7 +252,7 @@ export async function clientForUser(userId: string): Promise<Client | null> {
       userId: r.user_id as string,
       firstName: r.first_name as string,
       lastName: r.last_name as string,
-      dob: r.dob as string | null,
+      dob: isoDateOnly(r.dob as string | Date | null),
       email: r.email as string | null,
       phone: r.phone as string | null,
       address: r.address as string | null,
@@ -260,8 +261,8 @@ export async function clientForUser(userId: string): Promise<Client | null> {
       status: r.status as Client["status"],
       tags: (r.tags as string[]) ?? [],
       primaryPractitionerId: r.primary_practitioner_id as string | null,
-      createdAt: r.created_at as string,
-      updatedAt: r.updated_at as string,
+      createdAt: isoDateTime(r.created_at as string | Date),
+      updatedAt: isoDateTime(r.updated_at as string | Date),
     };
   }
   return [...mockStore().clients.values()].find((c) => c.userId === userId) ?? null;

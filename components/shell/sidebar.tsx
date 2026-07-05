@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { CountBadge } from "@/components/ui/badge";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { Avatar } from "@/components/ui/avatar";
+import { Badge, CountBadge } from "@/components/ui/badge";
+import { DropdownMenu, MenuDivider, MenuItem } from "@/components/ui/dropdown-menu";
 import { Icon, type IconName } from "@/components/ui/icons";
 import { Logo } from "@/components/ui/logo";
 import { UserChip } from "@/components/ui/user-chip";
@@ -30,7 +32,26 @@ export function Sidebar({
   homeHref?: string;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+
+  const signOut = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/sign-in");
+    router.refresh();
+  };
+
+  // ⌘, / Ctrl+, → Settings (honors the shortcut hint shown in the account menu).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
+        e.preventDefault();
+        router.push("/settings");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [router]);
 
   return (
     <aside
@@ -76,8 +97,64 @@ export function Sidebar({
         })}
       </nav>
 
-      <div className={`border-t border-sidebar-active p-3 ${collapsed ? "flex justify-center" : ""}`}>
-        <UserChip name={user.name} hue={user.avatarHue} onNavy collapsed={collapsed} className="max-w-full" />
+      <div className="border-t border-sidebar-active p-3">
+        <DropdownMenu
+          label="Account menu"
+          placement="top"
+          align="left"
+          width="w-64"
+          triggerClassName={collapsed ? "flex w-full justify-center" : "w-full"}
+          trigger={<UserChip name={user.name} hue={user.avatarHue} onNavy collapsed={collapsed} className="max-w-full" />}
+        >
+          {/* Identity header */}
+          <div className="flex items-center gap-3 px-2.5 py-2">
+            <Avatar name={user.name} hue={user.avatarHue} size="md" />
+            <span className="min-w-0">
+              <span className="block truncate text-[15px] font-semibold text-text">{user.name}</span>
+              <span className="block truncate text-sm text-text-muted">{user.email}</span>
+            </span>
+          </div>
+
+          <MenuDivider />
+
+          <MenuItem
+            icon="gear"
+            label="Settings"
+            onClick={() => router.push("/settings")}
+            trailing={
+              <kbd className="rounded-[5px] border border-border bg-canvas px-1.5 py-0.5 text-[12px] font-medium text-text-muted">
+                ⌘,
+              </kbd>
+            }
+          />
+          <MenuItem
+            icon="paint-roller"
+            label="Design system"
+            onClick={() => router.push("/design-system")}
+            trailing={<Badge variant="info">New</Badge>}
+          />
+          <MenuItem
+            icon="person-circle"
+            label="Appearance"
+            onClick={() => {}}
+            trailing={<span className="text-[13px] font-medium text-text-muted">Light</span>}
+          />
+
+          <MenuDivider />
+
+          <MenuItem
+            icon="message"
+            label="Get help"
+            onClick={() => {
+              window.location.href = "mailto:support@liminal.health";
+            }}
+            trailing={<Icon name="chevron-right" size={16} className="text-text-muted" />}
+          />
+
+          <MenuDivider />
+
+          <MenuItem icon="log-out" label="Sign out" onClick={signOut} danger />
+        </DropdownMenu>
       </div>
     </aside>
   );

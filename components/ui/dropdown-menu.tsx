@@ -18,6 +18,7 @@ export function MenuItem({
   onClick,
   danger,
   selected,
+  trailing,
 }: {
   icon?: IconName;
   /** Render the icon in a grey rounded square (catalog "+ New" style). */
@@ -27,6 +28,8 @@ export function MenuItem({
   onClick: () => void;
   danger?: boolean;
   selected?: boolean;
+  /** Right-aligned slot — shortcut hint, status Badge, or chevron. */
+  trailing?: ReactNode;
 }) {
   const close = useContext(MenuCloseCtx);
   return (
@@ -46,7 +49,11 @@ export function MenuItem({
         {label}
         {subtitle && <span className="block truncate text-sm font-normal text-text-muted">{subtitle}</span>}
       </span>
-      {selected && <Icon name="check" size={16} className="text-primary" />}
+      {trailing ? (
+        <span className="ml-1 shrink-0">{trailing}</span>
+      ) : (
+        selected && <Icon name="check" size={16} className="text-primary" />
+      )}
     </button>
   );
 }
@@ -64,6 +71,7 @@ export function DropdownMenu({
   children,
   label = "Open menu",
   align = "right",
+  placement = "bottom",
   width = "w-56",
   triggerClassName = "",
 }: {
@@ -71,11 +79,14 @@ export function DropdownMenu({
   children: ReactNode;
   label?: string;
   align?: "left" | "right";
+  /** Which side of the trigger the menu opens. `top` = drop-up (e.g. a
+   *  bottom-of-sidebar account chip). */
+  placement?: "bottom" | "top";
   width?: string;
   triggerClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; left?: number; right?: number } | null>(null);
+  const [pos, setPos] = useState<{ top?: number; bottom?: number; left?: number; right?: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -103,11 +114,11 @@ export function DropdownMenu({
     }
     const r = btnRef.current?.getBoundingClientRect();
     if (r) {
-      setPos(
-        align === "right"
-          ? { top: r.bottom + 4, right: window.innerWidth - r.right }
-          : { top: r.bottom + 4, left: r.left },
-      );
+      const horizontal =
+        align === "right" ? { right: window.innerWidth - r.right } : { left: r.left };
+      const vertical =
+        placement === "top" ? { bottom: window.innerHeight - r.top + 4 } : { top: r.bottom + 4 };
+      setPos({ ...horizontal, ...vertical });
     }
     setOpen(true);
   };
@@ -133,7 +144,7 @@ export function DropdownMenu({
             <div
               role="menu"
               onClick={(e) => e.stopPropagation()}
-              style={{ top: pos.top, left: pos.left, right: pos.right }}
+              style={{ top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right }}
               className={`fixed z-50 flex ${width} flex-col rounded-card border border-border bg-surface p-2 shadow-menu`}
             >
               {children}

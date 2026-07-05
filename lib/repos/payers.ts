@@ -1,4 +1,5 @@
 import { hasDb, sql } from "@/lib/db";
+import { isoDateTime } from "@/lib/format";
 import { mockId, mockStore } from "@/lib/mock";
 import "@/lib/mock/payers";
 import type { InsurancePolicy, Payer } from "@/lib/types";
@@ -10,13 +11,19 @@ type PayerRow = {
   id: string;
   name: string;
   payer_code: string;
-  created_at: string;
-  updated_at: string;
+  created_at: string | Date;
+  updated_at: string | Date;
   policy_count?: number;
 };
 
 function toPayer(r: PayerRow): Payer {
-  return { id: r.id, name: r.name, payerCode: r.payer_code, createdAt: r.created_at, updatedAt: r.updated_at };
+  return {
+    id: r.id,
+    name: r.name,
+    payerCode: r.payer_code,
+    createdAt: isoDateTime(r.created_at),
+    updatedAt: isoDateTime(r.updated_at),
+  };
 }
 
 export interface PayerListItem extends Payer {
@@ -107,8 +114,8 @@ export async function policiesForClient(
       kind: InsurancePolicy["kind"];
       status: InsurancePolicy["status"];
       copay_cents: number | null;
-      created_at: string;
-      updated_at: string;
+      created_at: string | Date;
+      updated_at: string | Date;
       payer_name: string;
       payer_code: string;
     }>;
@@ -121,8 +128,8 @@ export async function policiesForClient(
       kind: r.kind,
       status: r.status,
       copayCents: r.copay_cents,
-      createdAt: r.created_at,
-      updatedAt: r.updated_at,
+      createdAt: isoDateTime(r.created_at),
+      updatedAt: isoDateTime(r.updated_at),
       payerName: r.payer_name,
       payerCode: r.payer_code,
     }));

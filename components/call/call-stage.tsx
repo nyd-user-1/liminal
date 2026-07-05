@@ -1,25 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Divider } from "@/components/ui/divider";
 import { Icon } from "@/components/ui/icons";
-import { SidePanel } from "@/components/ui/side-panel";
 import { Spinner } from "@/components/ui/spinner";
-import { ScribePanel } from "@/components/notes/scribe-panel";
+import { Toggle } from "@/components/ui/toggle";
+import { loadScribeSettings, ScribePanel } from "@/components/notes/scribe-panel";
 import { CallControls } from "@/components/call/call-controls";
 import { CallHeader } from "@/components/call/call-header";
 import { useWebRTC } from "@/components/call/use-webrtc";
 import { VideoTile } from "@/components/call/video-tile";
-import { formatDateLong, formatTime } from "@/lib/format";
 import type { AppointmentStatus, AvatarHue } from "@/lib/types";
 
 // Full-viewport telehealth stage (near-black `--color-stage`, catalog §3b·67)
 // shared by the practitioner page and the portal page. States: pre-join lobby
-// (camera preview + mic/cam toggles + Join) → waiting (spinner over the
-// remote tile) → connected. Practitioner variant adds the AI Scribe and
-// Appointment SidePanels; client variant adds the visibility caption.
+// (camera preview + mic/cam toggles + AI Scribe card + Join) → waiting →
+// connected. Practitioner variant docks the AI Scribe panel on the right
+// (open by default, collapsible from the top-right); client variant adds the
+// visibility caption instead.
 
 export interface CallAppointmentSummary {
   id: string;
@@ -31,21 +32,28 @@ export interface CallAppointmentSummary {
   notesBrief: string | null;
 }
 
-const statusVariant: Record<AppointmentStatus, "info" | "success" | "neutral" | "danger" | "warning"> = {
-  scheduled: "info",
-  confirmed: "success",
-  arrived: "info",
-  completed: "neutral",
-  cancelled: "danger",
-  no_show: "warning",
-};
-
-function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+/** Diagonal expand/collapse arrows — not in the foundation set, local SVG. */
+function PanelArrowsSvg({ open }: { open: boolean }) {
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-sm font-medium text-text-muted">{label}</span>
-      <span className="text-[15px] text-text">{children}</span>
-    </div>
+    <svg viewBox="0 0 24 24" width={20} height={20} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      {open ? (
+        // collapse: arrows pointing inward
+        <>
+          <path d="M10 3v7H3" />
+          <path d="M10 10L3 3" />
+          <path d="M14 21v-7h7" />
+          <path d="M14 14l7 7" />
+        </>
+      ) : (
+        // expand: arrows pointing outward
+        <>
+          <path d="M15 3h6v6" />
+          <path d="M21 3l-7 7" />
+          <path d="M9 21H3v-6" />
+          <path d="M3 21l7-7" />
+        </>
+      )}
+    </svg>
   );
 }
 
@@ -76,9 +84,31 @@ export function CallStage({
 }) {
   const router = useRouter();
   const call = useWebRTC(room);
-  const [panel, setPanel] = useState<"scribe" | "appointment" | null>(null);
   const [copied, setCopied] = useState(false);
+  // AI Scribe panel — docked beside the stage, open by default; the panel
+  // owns the scribe state and reports the actual transcribing state back up.
+  const [panelOpen, setPanelOpen] = useState(variant === "practitioner");
+  const [recording, setRecording] = useState(false);
+  const [scribeOnJoin, setScribeOnJoin] = useState(true); // lobby toggle
+  const [alwaysOnDefault, setAlwaysOnDefault] = useState(true);
+  const [autoStartScribe, setAutoStartScribe] = useState(false);
   const selfStream = call.displayStream ?? call.localStream;
+
+  // Seed the lobby toggle from persisted scribe settings (after mount).
+  useEffect(() => {
+    if (variant !== "practitioner") return;
+    const s = loadScribeSettings();
+    setScribeOnJoin(s.alwaysOn);
+    setAlwaysOnDefault(s.alwaysOn);
+  }, [variant]);
+
+  const join = () => {
+    if (variant === "practitioner" && scribeOnJoin) {
+      setAutoStartScribe(true);
+      setPanelOpen(true);
+    }
+    void call.join();
+  };
 
   const endCall = () => {
     call.leave();
@@ -130,8 +160,34 @@ export function CallStage({
             />
           </VideoTile>
         </div>
+        {variant === "practitioner" && (
+          <Card className="w-full max-w-2xl !p-5">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-field bg-teal-100 text-primary">
+                <Icon name="sparkle" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[15px] font-semibold text-text">Take notes with AI Scribe</p>
+                <p className="text-sm text-text-muted">Turn sessions into professional notes</p>
+              </div>
+              <Toggle checked={scribeOnJoin} onChange={setScribeOnJoin} />
+            </div>
+            <Divider className="my-4" />
+            <div className="flex flex-col gap-2.5 text-sm text-text-body">
+              <span className="flex items-center gap-2.5">
+                <span className="h-2 w-2 shrink-0 rounded-full bg-success" aria-hidden />
+                Stable connection
+              </span>
+              <span className="flex items-center gap-2.5">
+                <Icon name="gear" size={16} className="shrink-0 text-text-muted" />
+                AI Scribe is {alwaysOnDefault ? "always switched on" : "switched off by default"} for
+                appointments
+              </span>
+            </div>
+          </Card>
+        )}
         <div className="flex flex-col items-center gap-3">
-          <Button size="xl" leftIcon="video" className="min-w-56" onClick={() => void call.join()}>
+          <Button size="xl" leftIcon="video" className="min-w-56" onClick={join}>
             Join call
           </Button>
           <button
@@ -162,24 +218,25 @@ export function CallStage({
   // ── in call (waiting / connecting / connected) ──────────────────────────────
   const connected = call.status === "connected";
   return (
-    <div className="fixed inset-0 z-40 bg-stage">
-      <div className="relative h-full w-full p-3 pt-16 pb-24 sm:p-4 sm:pt-16 sm:pb-24">
+    <div className="fixed inset-0 z-40 flex bg-stage">
+      <div className="relative h-full min-w-0 flex-1 p-3 pt-16 pb-24 sm:p-4 sm:pt-16 sm:pb-24">
         <CallHeader
           title={title}
           startedAt={call.startedAt}
           participants={connected ? 2 : 1}
           visibilityNote={variant === "practitioner" ? "Only visible to you" : null}
-          recording={variant === "practitioner" && panel === "scribe"}
+          recording={variant === "practitioner" && recording}
           right={
             variant === "practitioner" ? (
-              <>
-                <Button size="sm" leftIcon="sparkle" onClick={() => setPanel("scribe")}>
-                  AI Scribe
-                </Button>
-                <Button size="sm" variant="secondary" leftIcon="calendar" onClick={() => setPanel("appointment")}>
-                  Appointment
-                </Button>
-              </>
+              <button
+                type="button"
+                aria-label={panelOpen ? "Hide AI Scribe panel" : "Show AI Scribe panel"}
+                title={panelOpen ? "Hide AI Scribe panel" : "Show AI Scribe panel"}
+                onClick={() => setPanelOpen((o) => !o)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-field bg-white/10 text-white transition-colors hover:bg-white/20"
+              >
+                <PanelArrowsSvg open={panelOpen} />
+              </button>
             ) : null
           }
         />
@@ -198,17 +255,19 @@ export function CallStage({
           )}
         </VideoTile>
 
-        <VideoTile
-          stream={selfStream}
-          name={selfName}
-          hue={selfHue}
-          size="thumbnail"
-          label="You"
-          muted
-          mirrored={!call.sharing}
-          videoOff={!call.camOn && !call.sharing}
-          className="absolute bottom-24 right-4 sm:right-6"
-        />
+        {/* wrapper owns the positioning — VideoTile's root is `relative` */}
+        <div className="absolute bottom-24 right-4 sm:right-6">
+          <VideoTile
+            stream={selfStream}
+            name={selfName}
+            hue={selfHue}
+            size="thumbnail"
+            label="You"
+            muted
+            mirrored={!call.sharing}
+            videoOff={!call.camOn && !call.sharing}
+          />
+        </div>
 
         {variant === "client" && (
           <p className="pointer-events-none absolute inset-x-0 bottom-[4.5rem] text-center text-[13px] text-white/50">
@@ -228,47 +287,20 @@ export function CallStage({
         />
       </div>
 
+      {/* Docked scribe panel — stays mounted while collapsed so a recording
+          session keeps transcribing in the background. */}
       {variant === "practitioner" && (
-        <>
-          <SidePanel
-            open={panel === "scribe"}
-            onClose={() => setPanel(null)}
-            title="AI Scribe"
-            icon="sparkle"
-            width="max-w-md"
-          >
-            <ScribePanel appointmentId={room} />
-          </SidePanel>
-          <SidePanel
-            open={panel === "appointment"}
-            onClose={() => setPanel(null)}
-            title="Appointment"
-            icon="calendar"
-            width="max-w-md"
-          >
-            {appointment ? (
-              <div className="flex flex-col gap-5">
-                <DetailRow label="Time">
-                  {formatDateLong(appointment.startsAt)}
-                  <br />
-                  {formatTime(appointment.startsAt)} – {formatTime(appointment.endsAt)}
-                </DetailRow>
-                <DetailRow label="Status">
-                  <Badge variant={statusVariant[appointment.status]} className="capitalize">
-                    {appointment.status.replace("_", " ")}
-                  </Badge>
-                </DetailRow>
-                <DetailRow label="Client">{appointment.client}</DetailRow>
-                <DetailRow label="Service">{appointment.service}</DetailRow>
-                {appointment.notesBrief && <DetailRow label="Notes">{appointment.notesBrief}</DetailRow>}
-              </div>
-            ) : (
-              <p className="text-[15px] text-text-body">
-                No appointment is linked to this call — the room id doesn&apos;t match a scheduled appointment.
-              </p>
-            )}
-          </SidePanel>
-        </>
+        <aside
+          className={`h-full w-[400px] shrink-0 border-l border-border bg-surface ${panelOpen ? "" : "hidden"}`}
+        >
+          <ScribePanel
+            appointmentId={room}
+            appointment={appointment}
+            autoStart={autoStartScribe}
+            onCollapse={() => setPanelOpen(false)}
+            onRecordingChange={setRecording}
+          />
+        </aside>
       )}
     </div>
   );

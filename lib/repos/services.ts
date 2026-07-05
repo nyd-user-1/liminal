@@ -1,4 +1,5 @@
 import { hasDb, sql } from "@/lib/db";
+import { isoDateTime } from "@/lib/format";
 import { mockId, mockStore } from "@/lib/mock";
 import "@/lib/mock/services";
 import type { Availability, AvatarHue, Location, LocationKind, Service } from "@/lib/types";
@@ -14,8 +15,8 @@ type ServiceRow = {
   color: string;
   telehealth: boolean;
   active: boolean;
-  created_at: string;
-  updated_at: string;
+  created_at: string | Date;
+  updated_at: string | Date;
 };
 
 function toService(r: ServiceRow): Service {
@@ -27,8 +28,8 @@ function toService(r: ServiceRow): Service {
     color: r.color,
     telehealth: r.telehealth,
     active: r.active,
-    createdAt: r.created_at,
-    updatedAt: r.updated_at,
+    createdAt: isoDateTime(r.created_at),
+    updatedAt: isoDateTime(r.updated_at),
   };
 }
 
@@ -37,8 +38,8 @@ type LocationRow = {
   name: string;
   address: string | null;
   kind: LocationKind;
-  created_at: string;
-  updated_at: string;
+  created_at: string | Date;
+  updated_at: string | Date;
 };
 
 function toLocation(r: LocationRow): Location {
@@ -47,8 +48,8 @@ function toLocation(r: LocationRow): Location {
     name: r.name,
     address: r.address,
     kind: r.kind,
-    createdAt: r.created_at,
-    updatedAt: r.updated_at,
+    createdAt: isoDateTime(r.created_at),
+    updatedAt: isoDateTime(r.updated_at),
   };
 }
 
@@ -58,8 +59,8 @@ type AvailabilityRow = {
   weekday: number;
   start_time: string; // Postgres TIME → "09:00:00"
   end_time: string;
-  created_at: string;
-  updated_at: string;
+  created_at: string | Date;
+  updated_at: string | Date;
 };
 
 const hhmm = (t: string) => t.slice(0, 5);
@@ -71,8 +72,8 @@ function toAvailability(r: AvailabilityRow): Availability {
     weekday: r.weekday,
     startTime: hhmm(r.start_time),
     endTime: hhmm(r.end_time),
-    createdAt: r.created_at,
-    updatedAt: r.updated_at,
+    createdAt: isoDateTime(r.created_at),
+    updatedAt: isoDateTime(r.updated_at),
   };
 }
 

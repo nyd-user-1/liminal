@@ -1,4 +1,5 @@
 import { hasDb, sql } from "@/lib/db";
+import { isoDateTime } from "@/lib/format";
 import { mockId, mockStore } from "@/lib/mock";
 import "@/lib/mock/policies";
 import type { InsurancePolicy, Payer, PolicyKind, PolicyStatus } from "@/lib/types";
@@ -21,8 +22,8 @@ type PolicyRow = {
   kind: PolicyKind;
   status: PolicyStatus;
   copay_cents: number | null;
-  created_at: string;
-  updated_at: string;
+  created_at: string | Date;
+  updated_at: string | Date;
 };
 
 function toPolicy(r: PolicyRow): InsurancePolicy {
@@ -35,8 +36,8 @@ function toPolicy(r: PolicyRow): InsurancePolicy {
     kind: r.kind,
     status: r.status,
     copayCents: r.copay_cents,
-    createdAt: r.created_at,
-    updatedAt: r.updated_at,
+    createdAt: isoDateTime(r.created_at),
+    updatedAt: isoDateTime(r.updated_at),
   };
 }
 
@@ -46,15 +47,15 @@ export async function listPayers(): Promise<Payer[]> {
       id: string;
       name: string;
       payer_code: string;
-      created_at: string;
-      updated_at: string;
+      created_at: string | Date;
+      updated_at: string | Date;
     }>;
     return rows.map((r) => ({
       id: r.id,
       name: r.name,
       payerCode: r.payer_code,
-      createdAt: r.created_at,
-      updatedAt: r.updated_at,
+      createdAt: isoDateTime(r.created_at),
+      updatedAt: isoDateTime(r.updated_at),
     }));
   }
   return [...mockStore().payers.values()].sort((a, b) => a.name.localeCompare(b.name));

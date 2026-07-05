@@ -1,4 +1,5 @@
 import { hasDb, sql } from "@/lib/db";
+import { isoDateTime } from "@/lib/format";
 import { mockId, mockStore } from "@/lib/mock";
 import "@/lib/mock/notes";
 import "@/lib/mock/clients"; // client fixtures — name joins work in mock mode regardless of sibling import order
@@ -16,10 +17,10 @@ type NoteRow = {
   title: string;
   body_md: string;
   status: NoteStatus;
-  signed_at: string | null;
-  deleted_at: string | null;
-  created_at: string;
-  updated_at: string;
+  signed_at: string | Date | null;
+  deleted_at: string | Date | null;
+  created_at: string | Date;
+  updated_at: string | Date;
 };
 
 function toNote(r: NoteRow): Note {
@@ -32,10 +33,10 @@ function toNote(r: NoteRow): Note {
     title: r.title,
     bodyMd: r.body_md,
     status: r.status,
-    signedAt: r.signed_at,
-    deletedAt: r.deleted_at,
-    createdAt: r.created_at,
-    updatedAt: r.updated_at,
+    signedAt: isoDateTime(r.signed_at),
+    deletedAt: isoDateTime(r.deleted_at),
+    createdAt: isoDateTime(r.created_at),
+    updatedAt: isoDateTime(r.updated_at),
   };
 }
 
@@ -45,8 +46,8 @@ type TemplateRow = {
   template: NoteTemplateKind;
   body_md: string;
   is_builtin: boolean;
-  created_at: string;
-  updated_at: string;
+  created_at: string | Date;
+  updated_at: string | Date;
 };
 
 function toTemplate(r: TemplateRow): NoteTemplate {
@@ -56,8 +57,8 @@ function toTemplate(r: TemplateRow): NoteTemplate {
     template: r.template,
     bodyMd: r.body_md,
     isBuiltin: r.is_builtin,
-    createdAt: r.created_at,
-    updatedAt: r.updated_at,
+    createdAt: isoDateTime(r.created_at),
+    updatedAt: isoDateTime(r.updated_at),
   };
 }
 
@@ -250,8 +251,8 @@ export async function getTranscript(appointmentId: string): Promise<Transcript |
       segments: Transcript["segments"];
       summary_md: string | null;
       status: Transcript["status"];
-      created_at: string;
-      updated_at: string;
+      created_at: string | Date;
+      updated_at: string | Date;
     }>;
     const r = rows[0];
     if (!r) return null;
@@ -261,8 +262,8 @@ export async function getTranscript(appointmentId: string): Promise<Transcript |
       segments: r.segments,
       summaryMd: r.summary_md,
       status: r.status,
-      createdAt: r.created_at,
-      updatedAt: r.updated_at,
+      createdAt: isoDateTime(r.created_at),
+      updatedAt: isoDateTime(r.updated_at),
     };
   }
   return [...mockStore().transcripts.values()].find((t) => t.appointmentId === appointmentId) ?? null;
@@ -293,8 +294,8 @@ export async function saveTranscript(
       segments: TranscriptSegment[];
       summary_md: string | null;
       status: Transcript["status"];
-      created_at: string;
-      updated_at: string;
+      created_at: string | Date;
+      updated_at: string | Date;
     };
     return {
       id: r.id,
@@ -302,8 +303,8 @@ export async function saveTranscript(
       segments: r.segments,
       summaryMd: r.summary_md,
       status: r.status,
-      createdAt: r.created_at,
-      updatedAt: r.updated_at,
+      createdAt: isoDateTime(r.created_at),
+      updatedAt: isoDateTime(r.updated_at),
     };
   }
   const now = new Date().toISOString();

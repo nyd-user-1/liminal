@@ -1,4 +1,5 @@
 import { hasDb, sql } from "@/lib/db";
+import { isoDateTime } from "@/lib/format";
 import { mockId, mockStore } from "@/lib/mock";
 import "@/lib/mock/forms";
 import "@/lib/mock/clients";
@@ -15,8 +16,8 @@ type FormRow = {
   description: string | null;
   schema: { blocks?: FormBlock[] } | FormBlock[];
   status: FormStatus;
-  created_at: string;
-  updated_at: string;
+  created_at: string | Date;
+  updated_at: string | Date;
 };
 
 function toForm(r: FormRow): Form {
@@ -27,8 +28,8 @@ function toForm(r: FormRow): Form {
     description: r.description,
     schema,
     status: r.status,
-    createdAt: r.created_at,
-    updatedAt: r.updated_at,
+    createdAt: isoDateTime(r.created_at),
+    updatedAt: isoDateTime(r.updated_at),
   };
 }
 
@@ -38,9 +39,9 @@ type ResponseRow = {
   client_id: string;
   answers: Record<string, unknown>;
   status: FormResponseStatus;
-  submitted_at: string | null;
-  created_at: string;
-  updated_at: string;
+  submitted_at: string | Date | null;
+  created_at: string | Date;
+  updated_at: string | Date;
 };
 
 function toResponse(r: ResponseRow): FormResponse {
@@ -50,9 +51,9 @@ function toResponse(r: ResponseRow): FormResponse {
     clientId: r.client_id,
     answers: r.answers ?? {},
     status: r.status,
-    submittedAt: r.submitted_at,
-    createdAt: r.created_at,
-    updatedAt: r.updated_at,
+    submittedAt: isoDateTime(r.submitted_at),
+    createdAt: isoDateTime(r.created_at),
+    updatedAt: isoDateTime(r.updated_at),
   };
 }
 

@@ -1,4 +1,5 @@
 import { hasDb, sql } from "@/lib/db";
+import { isoDateTime } from "@/lib/format";
 import { mockId, mockStore } from "@/lib/mock";
 import "@/lib/mock/files";
 import type { FileKind, FileRecord } from "@/lib/types";
@@ -15,7 +16,7 @@ type FileRow = {
   size_bytes: number;
   url: string;
   kind: FileKind;
-  created_at: string;
+  created_at: string | Date;
 };
 
 function toFile(r: FileRow): FileRecord {
@@ -28,7 +29,7 @@ function toFile(r: FileRow): FileRecord {
     sizeBytes: Number(r.size_bytes),
     url: r.url,
     kind: r.kind,
-    createdAt: r.created_at,
+    createdAt: isoDateTime(r.created_at),
   };
 }
 

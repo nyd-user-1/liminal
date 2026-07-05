@@ -24,6 +24,36 @@ export function formatDateTime(d: string | Date): string {
   return `${formatDate(d)} · ${formatTime(d)}`;
 }
 
+/** "07/04/2026 2:30 PM" */
+export function formatDateTimeNumeric(d: string | Date): string {
+  const date = toDate(d);
+  const day = date.toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" });
+  return `${day} ${formatTime(date)}`;
+}
+
+// ── DB row normalizers (repo layer) ───────────────────────────────────────────
+// The neon driver returns Postgres date/timestamptz columns as JS Date objects
+// while mock-mode rows carry ISO strings. Repos pass every date-ish column
+// through these so both modes hand components identical shapes (strings).
+
+/** timestamptz column → full ISO string. Identity on strings / null. */
+export function isoDateTime(v: string | Date): string;
+export function isoDateTime(v: string | Date | null): string | null;
+export function isoDateTime(v: string | Date | null): string | null {
+  return v instanceof Date ? v.toISOString() : v;
+}
+
+/** Plain `date` column → "YYYY-MM-DD" (local calendar parts — no TZ day shift). */
+export function isoDateOnly(v: string | Date): string;
+export function isoDateOnly(v: string | Date | null): string | null;
+export function isoDateOnly(v: string | Date | null): string | null {
+  if (v instanceof Date) {
+    const p = (n: number) => String(n).padStart(2, "0");
+    return `${v.getFullYear()}-${p(v.getMonth() + 1)}-${p(v.getDate())}`;
+  }
+  return v ? v.slice(0, 10) : v;
+}
+
 /** 12500 → "$125.00" */
 export function formatCents(cents: number): string {
   return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });

@@ -27,8 +27,9 @@ async function resolveClientId(appointmentId: string, explicit: string | null): 
 
 /**
  * POST /api/ai/generate-note
- *   { appointmentId, template, clientId?, perspective?, verbosity? } → creates a
- *     draft note from the session transcript and returns { note }.
+ *   { appointmentId, template, clientId?, perspective?, verbosity?, extraNotes? }
+ *     → creates a draft note from the session transcript (extraNotes appended
+ *     as a practitioner-addendum section) and returns { note }.
  *   { transcript, template } → returns { title, bodyMd, summaryMd } only.
  *
  * STUB — wire an LLM key here (template body_md is the prompt skeleton; the
@@ -45,6 +46,7 @@ export async function POST(req: Request) {
       template?: unknown;
       perspective?: unknown;
       verbosity?: unknown;
+      extraNotes?: unknown;
     };
     try {
       body = await req.json();
@@ -61,7 +63,11 @@ export async function POST(req: Request) {
     const segments = passed ?? (saved && saved.segments.length > 0 ? saved.segments : DEMO_SEGMENTS);
 
     await delay(); // simulated LLM latency
-    const { bodyMd, summaryMd } = generatedNote(kind, segments);
+    const { bodyMd: generatedMd, summaryMd } = generatedNote(kind, segments);
+    // Custom notes typed during the call ("Add notes" tab) are woven in as a
+    // practitioner-addendum section so they reach the drafted note verbatim.
+    const extraNotes = typeof body.extraNotes === "string" ? body.extraNotes.trim() : "";
+    const bodyMd = extraNotes ? `${generatedMd}\n\n## Practitioner notes\n${extraNotes}` : generatedMd;
     const templateName = (await listTemplates()).find((t) => t.template === kind)?.name ?? "Note";
     const d = new Date();
     const title = `${templateName} ${d.getMonth() + 1}/${d.getDate()} — AI Scribe`;

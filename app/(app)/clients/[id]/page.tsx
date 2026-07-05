@@ -21,8 +21,15 @@ import { PersonalTab } from "./personal-tab";
 
 export const dynamic = "force-dynamic";
 
-export default async function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ClientDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const { id } = await params;
+  const { tab } = await searchParams;
   const client = await getClient(id);
   if (!client) notFound();
 
@@ -43,6 +50,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
     <>
       <ClientHeader client={client} />
       <ClientTabs
+        initialTab={tab}
         tabs={[
           {
             key: "overview",

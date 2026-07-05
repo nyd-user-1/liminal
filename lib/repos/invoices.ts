@@ -1,4 +1,5 @@
 import { hasDb, sql } from "@/lib/db";
+import { isoDateOnly, isoDateTime } from "@/lib/format";
 import { mockId, mockStore } from "@/lib/mock";
 import "@/lib/mock/invoices";
 import "@/lib/mock/clients";
@@ -13,14 +14,14 @@ type InvoiceRow = {
   client_id: string;
   appointment_id: string | null;
   status: InvoiceStatus;
-  issued_on: string | null;
-  due_on: string | null;
+  issued_on: string | Date | null;
+  due_on: string | Date | null;
   subtotal_cents: number;
   tax_cents: number;
   total_cents: number;
   stripe_checkout_id: string | null;
-  created_at: string;
-  updated_at: string;
+  created_at: string | Date;
+  updated_at: string | Date;
   client_name?: string;
 };
 
@@ -31,14 +32,14 @@ function toInvoice(r: InvoiceRow): Invoice {
     clientId: r.client_id,
     appointmentId: r.appointment_id,
     status: r.status,
-    issuedOn: r.issued_on,
-    dueOn: r.due_on,
+    issuedOn: isoDateOnly(r.issued_on),
+    dueOn: isoDateOnly(r.due_on),
     subtotalCents: r.subtotal_cents,
     taxCents: r.tax_cents,
     totalCents: r.total_cents,
     stripeCheckoutId: r.stripe_checkout_id,
-    createdAt: r.created_at,
-    updatedAt: r.updated_at,
+    createdAt: isoDateTime(r.created_at),
+    updatedAt: isoDateTime(r.updated_at),
   };
 }
 
@@ -118,7 +119,7 @@ export async function getInvoice(id: string): Promise<InvoiceDetail | null> {
       user_id: string | null;
       first_name: string;
       last_name: string;
-      dob: string | null;
+      dob: string | Date | null;
       email: string | null;
       phone: string | null;
       address: string | null;
@@ -127,8 +128,8 @@ export async function getInvoice(id: string): Promise<InvoiceDetail | null> {
       status: Client["status"];
       tags: string[];
       primary_practitioner_id: string | null;
-      created_at: string;
-      updated_at: string;
+      created_at: string | Date;
+      updated_at: string | Date;
     }>;
     const c = clientRows[0];
     client = c
@@ -137,7 +138,7 @@ export async function getInvoice(id: string): Promise<InvoiceDetail | null> {
           userId: c.user_id,
           firstName: c.first_name,
           lastName: c.last_name,
-          dob: c.dob,
+          dob: isoDateOnly(c.dob),
           email: c.email,
           phone: c.phone,
           address: c.address,
@@ -146,8 +147,8 @@ export async function getInvoice(id: string): Promise<InvoiceDetail | null> {
           status: c.status,
           tags: c.tags,
           primaryPractitionerId: c.primary_practitioner_id,
-          createdAt: c.created_at,
-          updatedAt: c.updated_at,
+          createdAt: isoDateTime(c.created_at),
+          updatedAt: isoDateTime(c.updated_at),
         }
       : null;
     const itemRows = (await sql`
@@ -165,15 +166,15 @@ export async function getInvoice(id: string): Promise<InvoiceDetail | null> {
     const payRows = (await sql`
       SELECT id, invoice_id, amount_cents, method, stripe_payment_intent, paid_at, created_at
       FROM payments WHERE invoice_id = ${id} ORDER BY paid_at
-    `) as Array<{ id: string; invoice_id: string; amount_cents: number; method: PaymentMethod; stripe_payment_intent: string | null; paid_at: string; created_at: string }>;
+    `) as Array<{ id: string; invoice_id: string; amount_cents: number; method: PaymentMethod; stripe_payment_intent: string | null; paid_at: string | Date; created_at: string | Date }>;
     payments = payRows.map((r) => ({
       id: r.id,
       invoiceId: r.invoice_id,
       amountCents: r.amount_cents,
       method: r.method,
       stripePaymentIntent: r.stripe_payment_intent,
-      paidAt: r.paid_at,
-      createdAt: r.created_at,
+      paidAt: isoDateTime(r.paid_at),
+      createdAt: isoDateTime(r.created_at),
     }));
   } else {
     const store = mockStore();
@@ -317,7 +318,7 @@ export async function recordPayment(
       INSERT INTO payments (invoice_id, amount_cents, method, stripe_payment_intent, paid_at)
       VALUES (${invoiceId}, ${input.amountCents}, ${input.method}, ${input.stripePaymentIntent ?? null}, ${paidAt})
       RETURNING id, invoice_id, amount_cents, method, stripe_payment_intent, paid_at, created_at
-    `) as Array<{ id: string; invoice_id: string; amount_cents: number; method: PaymentMethod; stripe_payment_intent: string | null; paid_at: string; created_at: string }>;
+    `) as Array<{ id: string; invoice_id: string; amount_cents: number; method: PaymentMethod; stripe_payment_intent: string | null; paid_at: string | Date; created_at: string | Date }>;
     const r = rows[0];
     payment = {
       id: r.id,
@@ -325,8 +326,8 @@ export async function recordPayment(
       amountCents: r.amount_cents,
       method: r.method,
       stripePaymentIntent: r.stripe_payment_intent,
-      paidAt: r.paid_at,
-      createdAt: r.created_at,
+      paidAt: isoDateTime(r.paid_at),
+      createdAt: isoDateTime(r.created_at),
     };
   } else {
     payment = {

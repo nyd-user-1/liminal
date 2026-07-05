@@ -1,4 +1,5 @@
 import { hasDb, sql } from "@/lib/db";
+import { isoDateTime } from "@/lib/format";
 import { mockId, mockStore } from "@/lib/mock";
 import "@/lib/mock/appointments";
 import { getService } from "@/lib/repos/services";
@@ -15,15 +16,15 @@ type AppointmentRow = {
   practitioner_id: string;
   service_id: string;
   location_id: string | null;
-  starts_at: string;
-  ends_at: string;
+  starts_at: string | Date;
+  ends_at: string | Date;
   status: AppointmentStatus;
   video_room: string | null;
   booked_via: BookedVia;
   notes_brief: string | null;
   cancelled_reason: string | null;
-  created_at: string;
-  updated_at: string;
+  created_at: string | Date;
+  updated_at: string | Date;
 };
 
 function toAppointment(r: AppointmentRow): Appointment {
@@ -33,15 +34,15 @@ function toAppointment(r: AppointmentRow): Appointment {
     practitionerId: r.practitioner_id,
     serviceId: r.service_id,
     locationId: r.location_id,
-    startsAt: r.starts_at,
-    endsAt: r.ends_at,
+    startsAt: isoDateTime(r.starts_at),
+    endsAt: isoDateTime(r.ends_at),
     status: r.status,
     videoRoom: r.video_room,
     bookedVia: r.booked_via,
     notesBrief: r.notes_brief,
     cancelledReason: r.cancelled_reason,
-    createdAt: r.created_at,
-    updatedAt: r.updated_at,
+    createdAt: isoDateTime(r.created_at),
+    updatedAt: isoDateTime(r.updated_at),
   };
 }
 

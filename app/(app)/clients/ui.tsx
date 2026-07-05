@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icons";
 import type { TagHue } from "@/components/ui/tag";
+import { isoDateOnly } from "@/lib/format";
 import type { AppointmentStatus, AvatarHue, ClientStatus, InvoiceStatus, PolicyStatus } from "@/lib/types";
 
 // Clients-area presentation helpers: FieldDisplay (catalog §3 molecule — the
@@ -103,9 +104,11 @@ export function tagHue(tag: string): TagHue {
   return TAG_HUES[hash(tag) % TAG_HUES.length];
 }
 
-/** "1994-03-18" → "Mar 18, 1994 (32)" — dob is a plain date, not a timestamp. */
-export function formatDob(dob: string): string {
-  const [y, m, d] = dob.split("-").map(Number);
+/** "1994-03-18" → "Mar 18, 1994 (32)" — dob is a plain date, not a timestamp.
+ * Defensive: also accepts a Date (DB drivers) or a malformed value → "–". */
+export function formatDob(dob: string | Date): string {
+  const [y, m, d] = (isoDateOnly(dob) ?? "").split("-").map(Number);
+  if (!y || Number.isNaN(y)) return "–";
   const date = new Date(y, (m ?? 1) - 1, d ?? 1);
   const now = new Date();
   let age = now.getFullYear() - y;

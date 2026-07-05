@@ -1,4 +1,5 @@
 import { hasDb, sql } from "@/lib/db";
+import { isoDateOnly, isoDateTime } from "@/lib/format";
 import { mockId, mockStore } from "@/lib/mock";
 import "@/lib/mock/clients";
 import type { AvatarHue, Client, ClientStatus } from "@/lib/types";
@@ -11,7 +12,7 @@ type ClientRow = {
   user_id: string | null;
   first_name: string;
   last_name: string;
-  dob: string | null;
+  dob: string | Date | null;
   email: string | null;
   phone: string | null;
   address: string | null;
@@ -20,8 +21,8 @@ type ClientRow = {
   status: ClientStatus;
   tags: string[] | null;
   primary_practitioner_id: string | null;
-  created_at: string;
-  updated_at: string;
+  created_at: string | Date;
+  updated_at: string | Date;
 };
 
 function toClient(r: ClientRow): Client {
@@ -30,7 +31,7 @@ function toClient(r: ClientRow): Client {
     userId: r.user_id,
     firstName: r.first_name,
     lastName: r.last_name,
-    dob: r.dob,
+    dob: isoDateOnly(r.dob),
     email: r.email,
     phone: r.phone,
     address: r.address,
@@ -39,8 +40,8 @@ function toClient(r: ClientRow): Client {
     status: r.status,
     tags: r.tags ?? [],
     primaryPractitionerId: r.primary_practitioner_id,
-    createdAt: r.created_at,
-    updatedAt: r.updated_at,
+    createdAt: isoDateTime(r.created_at),
+    updatedAt: isoDateTime(r.updated_at),
   };
 }
 

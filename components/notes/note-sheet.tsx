@@ -17,19 +17,25 @@ import { KebabMenu } from "@/components/ui/kebab-menu";
 import { Modal } from "@/components/ui/modal";
 import { Skeleton, Spinner } from "@/components/ui/spinner";
 import { Tabs } from "@/components/ui/tabs";
+import { TextLink } from "@/components/ui/text-link";
 import { useToast } from "@/components/ui/toast";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatDateTimeNumeric } from "@/lib/format";
 import type { Note, Transcript } from "@/lib/types";
 
 // Catalog `BottomSheet` — full-screen slide-up document surface: dark top
-// strip (× close / minimize), doc title + meta, right actions (Save · Sign →
-// confirm Modal · Download · KebabMenu), Tabs, page-like editor body, and an
-// optional left `AIPanel` rail when the note's appointment has a transcript.
+// strip (× close / minimize-restore), client-name header + note meta, right
+// actions (Save · Sign → confirm Modal), Tabs, page-like editor body with a
+// hover KebabMenu on the note card, and an optional left `AIPanel` rail when
+// the note's appointment has a transcript.
 
-// "minimize" is not in the foundation icon set → local inline SVG (FLAG).
-const MinimizeIcon = () => (
-  <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" aria-hidden>
-    <line x1="5" y1="19" x2="19" y2="19" />
+// Diagonal expand/collapse arrows (⤢) — not in the foundation icon set →
+// local inline SVG (FLAG). Triggers minimize/restore.
+const ExpandCollapseIcon = () => (
+  <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <polyline points="15 4 20 4 20 9" />
+    <line x1="20" y1="4" x2="14" y2="10" />
+    <polyline points="9 20 4 20 4 15" />
+    <line x1="4" y1="20" x2="10" y2="14" />
   </svg>
 );
 
@@ -79,6 +85,7 @@ export function NoteSheet({
   const [signing, setSigning] = useState(false);
   const [minimized, setMinimized] = useState(false);
   const [tab, setTab] = useState("note");
+  const [editorFocused, setEditorFocused] = useState(false);
   const [askOpen, setAskOpen] = useState(false);
   const [askContext, setAskContext] = useState("");
   const [summaryLoading, setSummaryLoading] = useState(true);
@@ -211,7 +218,7 @@ export function NoteSheet({
           aria-label="Minimize note"
           className="inline-flex h-8 w-8 items-center justify-center rounded-field text-sidebar-text transition-colors hover:bg-sidebar-active hover:text-white"
         >
-          <MinimizeIcon />
+          <ExpandCollapseIcon />
         </button>
       </div>
 
@@ -224,25 +231,21 @@ export function NoteSheet({
         )}
         {note && data && (
           <>
-            {/* doc header */}
+            {/* doc header — client name (→ record Documentation tab) over note meta */}
             <div className="flex flex-wrap items-center gap-3 border-b border-border bg-surface px-6 py-3">
               <IconSquare name="note" />
               <div className="min-w-0 flex-1">
-                <input
-                  value={title}
-                  readOnly={locked}
-                  onChange={(e) => {
-                    setTitle(e.target.value);
-                    setDirty(true);
-                  }}
-                  aria-label="Note title"
-                  className="w-full max-w-xl bg-transparent text-[19px] font-semibold text-text outline-none placeholder:text-text-muted"
-                  placeholder="Untitled note"
-                />
+                <TextLink
+                  href={`/clients/${note.clientId}?tab=documentation`}
+                  onClick={onClose}
+                  className="max-w-full truncate"
+                >
+                  {data.client}
+                </TextLink>
                 <p className="flex flex-wrap items-center gap-x-2 text-[13px] text-text-muted">
-                  <span className="font-medium text-text-body">{data.client}</span>
+                  <span>Note</span>
                   <span>·</span>
-                  <span>{formatDateTime(note.createdAt)}</span>
+                  <span>{formatDateTimeNumeric(note.createdAt)}</span>
                   <span>·</span>
                   <span>{data.author}</span>
                 </p>
@@ -262,26 +265,6 @@ export function NoteSheet({
                     </Button>
                   </>
                 )}
-                <IconButton icon="download" label="Download (.md)" onClick={download} />
-                <KebabMenu>
-                  <MenuItem
-                    icon="sparkle"
-                    label="Ask AI"
-                    onClick={() => {
-                      setAskContext(editorRef.current?.getSelectionText() ?? "");
-                      setAskOpen(true);
-                    }}
-                  />
-                  <MenuItem
-                    icon="copy"
-                    label="Copy as Markdown"
-                    onClick={() => {
-                      navigator.clipboard?.writeText(bodyMd);
-                      toast("Copied note markdown", "success");
-                    }}
-                  />
-                  {!locked && <MenuItem icon="trash" label="Delete note" danger onClick={remove} />}
-                </KebabMenu>
               </div>
             </div>
 
@@ -333,18 +316,52 @@ export function NoteSheet({
 
               <main className="min-h-0 flex-1 overflow-y-auto">
                 {tab === "note" ? (
-                  <div className="mx-auto my-6 min-h-[70%] max-w-3xl rounded-card border border-border bg-surface p-8 shadow-card">
-                    <NotesEditor
-                      key={`${note.id}:${locked}`}
-                      ref={editorRef}
-                      value={bodyMd}
-                      readOnly={locked}
-                      onChange={(md) => {
-                        setBodyMd(md);
-                        setDirty(true);
+                  <div
+                    className={`group relative mx-auto my-6 min-h-[70%] max-w-3xl rounded-card border bg-surface p-8 shadow-card transition-colors ${
+                      editorFocused ? "border-primary" : "border-border"
+                    }`}
+                  >
+                    {/* hover kebab — top-right of the note card; stays visible while open */}
+                    <div className="absolute right-3 top-3 z-10 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 has-[[aria-expanded=true]]:opacity-100">
+                      <KebabMenu>
+                        <MenuItem
+                          icon="sparkle"
+                          label="Ask AI"
+                          onClick={() => {
+                            setAskContext(editorRef.current?.getSelectionText() ?? "");
+                            setAskOpen(true);
+                          }}
+                        />
+                        <MenuItem
+                          icon="copy"
+                          label="Copy as Markdown"
+                          onClick={() => {
+                            navigator.clipboard?.writeText(bodyMd);
+                            toast("Copied note markdown", "success");
+                          }}
+                        />
+                        <MenuItem icon="download" label="Download" onClick={download} />
+                        {!locked && <MenuItem icon="trash" label="Delete note" danger onClick={remove} />}
+                      </KebabMenu>
+                    </div>
+                    <div
+                      onFocus={() => setEditorFocused(true)}
+                      onBlur={(e) => {
+                        if (!e.currentTarget.contains(e.relatedTarget)) setEditorFocused(false);
                       }}
-                      onSave={save}
-                    />
+                    >
+                      <NotesEditor
+                        key={`${note.id}:${locked}`}
+                        ref={editorRef}
+                        value={bodyMd}
+                        readOnly={locked}
+                        onChange={(md) => {
+                          setBodyMd(md);
+                          setDirty(true);
+                        }}
+                        onSave={save}
+                      />
+                    </div>
                   </div>
                 ) : (
                   data.transcript && (
@@ -352,40 +369,26 @@ export function NoteSheet({
                       <h3 className="mb-4 text-[16px] font-semibold text-text">Chapters</h3>
                       <ChapterList chapters={deriveChapters(data.transcript.segments)} />
                       <div className="my-6 h-px bg-border" />
-                      <div className="mb-4 flex items-center justify-between">
-                        <h3 className="text-[16px] font-semibold text-text">Transcript</h3>
-                        <IconButton
-                          icon="copy"
-                          label="Copy transcript"
-                          onClick={() => {
-                            navigator.clipboard?.writeText(
-                              data.transcript!.segments.map((s) => `${s.speaker}: ${s.text}`).join("\n"),
-                            );
-                            toast("Copied transcript", "success");
-                          }}
-                        />
+                      {/* Transcript section — copy appears top-right on hover */}
+                      <div className="group/transcript relative">
+                        <div className="mb-4 flex items-center justify-between">
+                          <h3 className="text-[16px] font-semibold text-text">Transcript</h3>
+                          <IconButton
+                            icon="copy"
+                            label="Copy transcript"
+                            className="opacity-0 transition-opacity focus-visible:opacity-100 group-hover/transcript:opacity-100"
+                            onClick={() => {
+                              navigator.clipboard?.writeText(
+                                data.transcript!.segments.map((s) => `${s.speaker}: ${s.text}`).join("\n"),
+                              );
+                              toast("Copied transcript", "success");
+                            }}
+                          />
+                        </div>
+                        <TranscriptPanel segments={data.transcript.segments} />
                       </div>
-                      <TranscriptPanel segments={data.transcript.segments} />
                     </div>
                   )
-                )}
-
-                {/* floating Ask pill */}
-                {tab === "note" && !locked && (
-                  <div className="pointer-events-none sticky bottom-6 flex justify-end pr-6">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      leftIcon="sparkle"
-                      className="pointer-events-auto rounded-full shadow-menu"
-                      onClick={() => {
-                        setAskContext(editorRef.current?.getSelectionText() ?? "");
-                        setAskOpen(true);
-                      }}
-                    >
-                      Ask AI
-                    </Button>
-                  </div>
                 )}
               </main>
             </div>

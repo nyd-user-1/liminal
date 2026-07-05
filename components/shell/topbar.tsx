@@ -9,7 +9,8 @@ import { UserChip } from "@/components/ui/user-chip";
 import type { SessionUser } from "@/lib/auth";
 
 // Catalog `TopBar` — white strip: optional page title left; right cluster =
-// actions slot + bell + UserChip → ProfileMenu (header · Sign out).
+// actions slot + bell + UserChip → avatar menu (identity header · Sign out).
+// The fuller account menu lives on the sidebar's bottom-left UserChip.
 
 export function TopBar({
   title,
@@ -34,7 +35,7 @@ export function TopBar({
       <div className="ml-auto flex items-center gap-2">
         {actions}
         <IconButton icon="bell" label="Notifications" />
-        <DropdownMenu label="Account menu" trigger={<UserChip name={user.name} hue={user.avatarHue} />}>
+        <DropdownMenu label="Avatar menu" trigger={<UserChip name={user.name} hue={user.avatarHue} />}>
           <div className="flex items-center gap-3 px-2.5 py-2">
             <Avatar name={user.name} hue={user.avatarHue} size="md" />
             <span className="min-w-0">
