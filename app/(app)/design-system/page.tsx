@@ -236,6 +236,51 @@ function featureImport(c: { name: string; path: string; desc: string }) {
   return `import { ${c.name} } from "@/components/${c.path.replace(/\.(t|j)sx?$/, "")}"; // ${c.desc}`;
 }
 
+// Where each feature component renders in the running app.
+const LIVE_AT: Record<string, string> = {
+  BillingDashboard: "/billing",
+  ClientBilling: "/clients/[id]?tab=billing",
+  ClientInvoices: "/clients/[id]?tab=billing",
+  InvoiceDetail: "/billing/[id]",
+  InvoiceStatusBadge: "/billing",
+  NewInvoicePanel: "/billing",
+  PayerPanel: "/billing (Payers tab)",
+  PrintActions: "/billing/[id]/print",
+  RecordPaymentModal: "/billing/[id]",
+  CallStage: "/calls/[room]",
+  CallHeader: "/calls/[room]",
+  CallControls: "/calls/[room]",
+  VideoTile: "/calls/[room]",
+  useWebRTC: "/calls/[room]",
+  FormBuilder: "/templates/forms/[id]",
+  FormsTemplates: "/templates (Forms tab)",
+  IntakeWizard: "/portal/forms/[responseId]",
+  SendFormModal: "/templates (Forms tab)",
+  InboxList: "/inbox",
+  ThreadView: "/inbox/[id] + /portal/messages/[id]",
+  NotesEditor: "inside NoteSheet",
+  ClientNotes: "/clients/[id]?tab=documentation",
+  NoteSheet: "opens from ClientNotes + the scribe flow",
+  ScribePanel: "/calls/[room] (docked panel)",
+  AskAiPanel: "inside NoteSheet",
+  AiBits: "inside NoteSheet + ScribePanel",
+  AppShell: "every workspace/portal page",
+  Sidebar: "inside AppShell",
+  TopBar: "inside AppShell",
+  NavPanel: "/settings",
+};
+
+type FeatureItem = { name: string; path: string; desc: string; composedOf?: Array<{ name: string; feature?: boolean }> };
+
+// Multi-line paste block: import · file + live route · composition graph.
+function featureCopy(c: FeatureItem) {
+  const lines = [featureImport(c), `// file: components/${c.path}${LIVE_AT[c.name] ? ` · live at: ${LIVE_AT[c.name]}` : ""}`];
+  if (c.composedOf?.length) {
+    lines.push(`// composed of: ${c.composedOf.map((p) => (p.feature ? `${p.name} (feature)` : p.name)).join(", ")}`);
+  }
+  return lines.join("\n");
+}
+
 function buildManifest() {
   return [
     "// Liminal design system manifest — REUSE these; never create a new primitive or duplicate a feature component.",
@@ -245,7 +290,7 @@ function buildManifest() {
     ...Object.values(KIT_IMPORTS),
     "",
     "// ── Feature components ──",
-    ...FEATURES.flatMap((g) => g.items.map(featureImport)),
+    ...FEATURES.flatMap((g) => g.items.map((c) => featureCopy(c))),
   ].join("\n");
 }
 
@@ -338,35 +383,53 @@ function Spec({ name, desc, wide, children }: { name: string; desc: string; wide
   );
 }
 
-// Lucide-style copy chip: plain text at rest; on hover it becomes a grey pill
-// with a copy button; click copies `copy` (defaults to the visible name) and
-// flashes a check. Pass `copy` an import line for path-precise pastes.
-function CopyName({ value, copy, title }: { value: string; copy?: string; title?: string }) {
+// One feature component's registry card. Same affordance as Spec: teal border
+// + top-right copy icon on hover; the WHOLE card is the click target (these
+// cards have no interactive demos). Copies the featureCopy() paste block.
+function FeatureCard({ c }: { c: FeatureItem }) {
   const [copied, setCopied] = useState(false);
   return (
     <button
       type="button"
-      title={title ?? `Copy "${copy ?? value}"`}
-      aria-label={`Copy ${value}`}
+      title="Copy import + file + composition"
+      aria-label={`Copy ${c.name} reference`}
       onClick={async () => {
         try {
-          await navigator.clipboard.writeText(copy ?? value);
+          await navigator.clipboard.writeText(featureCopy(c));
           setCopied(true);
           setTimeout(() => setCopied(false), 1200);
-        } catch {
-          /* clipboard unavailable — no-op */
-        }
+        } catch {}
       }}
-      className="group/copy -mx-2 -my-1 inline-flex items-center gap-2 rounded-field px-2 py-1 text-left font-mono text-[15px] font-semibold text-text transition-colors hover:bg-canvas"
+      className="group/feat rounded-card border border-border bg-surface p-4 text-left shadow-card transition-colors hover:border-primary"
     >
-      {value}
-      <Icon
-        name={copied ? "check" : "copy"}
-        size={15}
-        className={`shrink-0 transition-opacity ${
-          copied ? "text-success opacity-100" : "text-text-muted opacity-0 group-hover/copy:opacity-100"
-        }`}
-      />
+      <div className="flex items-start justify-between gap-2">
+        <p className="font-mono text-[15px] font-semibold text-text">{c.name}</p>
+        <Icon
+          name={copied ? "check" : "copy"}
+          size={16}
+          className={`mt-0.5 shrink-0 transition-opacity ${
+            copied ? "text-success opacity-100" : "text-text-muted opacity-0 group-hover/feat:opacity-100"
+          }`}
+        />
+      </div>
+      <p className="mt-1 text-sm text-text-body">{c.desc}</p>
+      <p className="mt-2 font-mono text-[12px] text-text-muted">
+        components/{c.path}
+        {LIVE_AT[c.name] && <span className="text-text-muted/70"> · live at {LIVE_AT[c.name]}</span>}
+      </p>
+      {c.composedOf && (
+        <div className="mt-3 border-t border-border pt-3">
+          <p className="mb-1.5 text-[12px] font-semibold text-text-muted">Composed of →</p>
+          <div className="flex flex-wrap gap-1.5">
+            {c.composedOf.map((p) => (
+              <Tag key={p.name} hue={p.feature ? "grey" : "teal"}>
+                {p.name}
+                {p.feature && <span className="ml-1 text-[11px] opacity-70">feature</span>}
+              </Tag>
+            ))}
+          </div>
+        </div>
+      )}
     </button>
   );
 }
@@ -868,7 +931,7 @@ export default function DesignSystemPage() {
                         await navigator.clipboard.writeText(`<Icon name="${n}" />`);
                         toast(`Copied <Icon name="${n}" />`, "success");
                       }}
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-field border border-border text-text-body transition-colors hover:border-primary hover:text-primary"
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-field border border-border text-text-body transition-colors hover:bg-canvas"
                     >
                       <Icon name={n} />
                     </button>
@@ -895,29 +958,9 @@ export default function DesignSystemPage() {
                 <h3 className="text-[13px] font-semibold uppercase tracking-wide text-text-muted">{group.area}</h3>
                 <span className="text-[13px] text-text-muted">· {group.items.length}</span>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid items-start gap-3 sm:grid-cols-2">
                 {group.items.map((c) => (
-                  <div key={c.path} className="rounded-card border border-border bg-surface p-4 shadow-card">
-                    <div className="flex items-center justify-between gap-2">
-                      <CopyName value={c.name} copy={featureImport(c)} title="Copy import line" />
-                      <Badge variant="neutral">feature</Badge>
-                    </div>
-                    <p className="mt-1 text-sm text-text-body">{c.desc}</p>
-                    <p className="mt-2 font-mono text-[12px] text-text-muted">components/{c.path}</p>
-                    {c.composedOf && (
-                      <div className="mt-3 border-t border-border pt-3">
-                        <p className="mb-1.5 text-[12px] font-semibold text-text-muted">Composed of →</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {c.composedOf.map((p) => (
-                            <Tag key={p.name} hue={p.feature ? "grey" : "teal"}>
-                              {p.name}
-                              {p.feature && <span className="ml-1 text-[11px] opacity-70">feature</span>}
-                            </Tag>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  <FeatureCard key={c.path} c={c} />
                 ))}
               </div>
             </section>
