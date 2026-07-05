@@ -6,8 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Divider } from "@/components/ui/divider";
-import { IconButton } from "@/components/ui/icon-button";
-import { Icon } from "@/components/ui/icons";
+import { TopBarActions } from "@/components/shell/topbar-slot";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { formatTime } from "@/lib/format";
@@ -20,7 +19,7 @@ import {
   addDays,
   dateKey,
   minutesOfDay,
-  rangeLabel,
+
   startOfWeek,
 } from "./calendar-utils";
 import { AppointmentDetailPanel, AppointmentFormPanel, type CreateDraft } from "./appointment-panels";
@@ -144,7 +143,6 @@ export function CalendarClient({
 
   // ── toolbar state helpers ───────────────────────────────────────────────────
 
-  const shift = (dir: 1 | -1) => setAnchor((a) => addDays(a, dir * (view === "week" ? 7 : 1)));
   const filterValue = visible.size === practitioners.length ? "all" : visible.size === 1 ? [...visible][0] : "";
   const defaultPractitioner = visible.size >= 1 ? [...visible][0] : practitioners[0]?.id;
 
@@ -152,83 +150,67 @@ export function CalendarClient({
     setPanel({ kind: "create", draft: { practitionerId: defaultPractitioner, ...draft } });
 
   const detail = panel?.kind === "detail" ? appointments.find((a) => a.id === panel.id) ?? null : null;
-  const [rangeOpen, setRangeOpen] = useState(false);
+  const anchorLabel = new Date(`${anchor}T00:00:00`).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* Toolbar (catalog `Toolbar calendar` variant) — range label ▾ + arrows
-          left (Google-calendar pattern); Today · view · practitioner right. */}
+      {/* Page action lives in the TopBar (canonical rule — CLAUDE.md) */}
+      <TopBarActions>
+        <Button
+          leftIcon="plus"
+          onClick={() => {
+            const now = new Date();
+            openCreate({ date: dateKey(now), startMin: Math.min(19 * 60, (now.getHours() + 1) * 60) });
+          }}
+        >
+          New
+        </Button>
+      </TopBarActions>
+
+      {/* Toolbar (catalog `Toolbar calendar` variant) — anchor date · Today ·
+          view · practitioner. Date navigation lives in the rail DatePicker. */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setRangeOpen((o) => !o)}
-            className="flex items-center gap-1.5 rounded-field px-2 py-1 text-[17px] font-semibold text-text transition-colors hover:bg-canvas"
-          >
-            {rangeLabel(days)}
-            <Icon name="chevron-down" size={16} className="text-text-muted" />
-          </button>
-          {rangeOpen && (
-            <div className="absolute left-0 top-full z-50 mt-1 rounded-card border border-border bg-surface p-4 shadow-menu">
-              <DatePicker
-                value={anchor}
-                onChange={(d) => {
-                  setAnchor(d);
-                  setRangeOpen(false);
-                }}
-              />
-            </div>
-          )}
-        </div>
-        <span className="flex">
-          <IconButton icon="chevron-left" label="Previous" onClick={() => shift(-1)} />
-          <IconButton icon="chevron-right" label="Next" onClick={() => shift(1)} />
-        </span>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <Button variant="secondary" size="sm" onClick={() => setAnchor(dateKey(new Date()))}>
-            Today
-          </Button>
-          <Select
-            aria-label="Calendar view"
-            className="w-28"
-            options={[
-              { value: "day", label: "Day" },
-              { value: "week", label: "Week" },
-            ]}
-            value={view}
-            onValueChange={(v) => setView(v as "day" | "week")}
-          />
-          <Select
-            aria-label="Practitioner filter"
-            className="w-52"
-            placeholder="Some practitioners"
-            options={[
-              { value: "all", label: "All practitioners" },
-              ...practitioners.map((p) => ({ value: p.id, label: p.name })),
-            ]}
-            value={filterValue}
-            onValueChange={(v) =>
-              setVisible(v === "all" || v === "" ? new Set(practitioners.map((p) => p.id)) : new Set([v]))
-            }
-          />
-          <Button
-            leftIcon="plus"
-            onClick={() => {
-              const now = new Date();
-              openCreate({ date: dateKey(now), startMin: Math.min(19 * 60, (now.getHours() + 1) * 60) });
-            }}
-          >
-            New
-          </Button>
-        </div>
+        <span className="mr-2 text-[17px] font-semibold text-text">{anchorLabel}</span>
+        <Button variant="secondary" onClick={() => setAnchor(dateKey(new Date()))}>
+          Today
+        </Button>
+        <Select
+          aria-label="Calendar view"
+          className="w-28"
+          options={[
+            { value: "day", label: "Day" },
+            { value: "week", label: "Week" },
+          ]}
+          value={view}
+          onValueChange={(v) => setView(v as "day" | "week")}
+        />
+        <Select
+          aria-label="Practitioner filter"
+          className="w-52"
+          placeholder="Some practitioners"
+          options={[
+            { value: "all", label: "All practitioners" },
+            ...practitioners.map((p) => ({ value: p.id, label: p.name })),
+          ]}
+          value={filterValue}
+          onValueChange={(v) =>
+            setVisible(v === "all" || v === "" ? new Set(practitioners.map((p) => p.id)) : new Set([v]))
+          }
+        />
       </div>
 
       <div className="flex min-h-0 flex-1 gap-4">
         {/* Rail: mini month + practitioner filter */}
-        <aside className="hidden w-72 shrink-0 flex-col gap-4 overflow-y-auto overflow-x-hidden rounded-card border border-border bg-surface p-4 shadow-card lg:flex">
-          {/* key remounts the mini-month so its view follows toolbar navigation;
-              month nav hidden — the toolbar arrows drive navigation (no dupes) */}
-          <DatePicker key={anchor.slice(0, 7)} value={anchor} onChange={setAnchor} showMonthNav={false} />
+        {/* w-80: DatePicker (w-64) + p-4 + borders need 290px — w-72 overflowed
+            by 2px and rendered a horizontal scrollbar (always-show setting) */}
+        <aside className="hidden w-80 shrink-0 flex-col gap-4 overflow-y-auto rounded-card border border-border bg-surface p-4 shadow-card lg:flex">
+          {/* key remounts the mini-month so its view follows the anchor; its
+              own ‹ › arrows are THE calendar navigation (single source) */}
+          <DatePicker key={anchor.slice(0, 7)} value={anchor} onChange={setAnchor} />
           <Divider />
           <div>
             <p className="mb-2 text-[13px] font-semibold text-text-muted">Practitioners</p>
