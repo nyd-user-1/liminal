@@ -25,6 +25,7 @@ import { ListRow } from "@/components/ui/list-row";
 import { Logo } from "@/components/ui/logo";
 import { Modal } from "@/components/ui/modal";
 import { PageHeader } from "@/components/ui/page-header";
+import { TopBarActions } from "@/components/shell/topbar-slot";
 import { Pagination } from "@/components/ui/pagination";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { Radio } from "@/components/ui/radio";
@@ -632,24 +633,20 @@ export default function DesignSystemPage() {
 
   return (
     <div className="mx-auto max-w-4xl">
-      <PageHeader
-        icon="paint-roller"
-        title="Design System"
-        actions={
-          <Button
-            size="sm"
-            variant="secondary"
-            leftIcon="copy"
-            onClick={async () => {
-              await navigator.clipboard.writeText(buildManifest());
-              toast("Copied the full component manifest", "success");
-            }}
-          >
-            Copy manifest
-          </Button>
-        }
-      />
-      <p className="mb-6 mt-2 max-w-2xl text-[15px] text-text-body">
+      <TopBarActions>
+        <Button
+          size="sm"
+          variant="secondary"
+          leftIcon="copy"
+          onClick={async () => {
+            await navigator.clipboard.writeText(buildManifest());
+            toast("Copied the full component manifest", "success");
+          }}
+        >
+          Copy manifest
+        </Button>
+      </TopBarActions>
+      <p className="mb-6 max-w-2xl text-[15px] text-text-body">
         The Liminal theme foundations, the full shared UI kit, and a reference index of the feature
         components — organized into tabs so only the active panel renders. Hover any name to copy its
         exact import; “Copy manifest” grabs the whole inventory for pasting into an agent prompt.
