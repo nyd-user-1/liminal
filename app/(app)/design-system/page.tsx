@@ -297,18 +297,42 @@ function SwatchGroup({ title, colors }: { title: string; colors: Array<{ name: s
   );
 }
 
-// One primitive's live demo. The name is a copy chip whose payload is the
-// exact import line (+ variant summary), so pasting it into a prompt hands an
-// agent the precise file to reuse.
+// One primitive's live demo. Hovering the card shows a teal border + a copy
+// icon top-right; clicking anywhere in the header copies the exact import
+// line (+ variant summary). The demo area below stays interactive.
 function Spec({ name, desc, wide, children }: { name: string; desc: string; wide?: boolean; children: ReactNode }) {
+  const [copied, setCopied] = useState(false);
   const imp = KIT_IMPORTS[name];
   const payload = imp ? (imp.includes("//") ? imp : `${imp} // ${desc}`) : name;
   return (
-    <div className={`overflow-hidden rounded-card border border-border bg-surface shadow-card ${wide ? "lg:col-span-2" : ""}`}>
-      <div className="border-b border-border px-5 py-3">
-        <CopyName value={name} copy={payload} title="Copy import line" />
-        <p className="text-sm text-text-body">{desc}</p>
-      </div>
+    <div
+      className={`group/spec overflow-hidden rounded-card border border-border bg-surface shadow-card transition-colors hover:border-primary ${wide ? "lg:col-span-2" : ""}`}
+    >
+      <button
+        type="button"
+        title="Copy import line"
+        aria-label={`Copy ${name} import line`}
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(payload);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1200);
+          } catch {}
+        }}
+        className="flex w-full items-start justify-between gap-3 border-b border-border px-5 py-3 text-left"
+      >
+        <span className="min-w-0">
+          <span className="block font-mono text-[15px] font-semibold text-text">{name}</span>
+          <span className="block text-sm text-text-body">{desc}</span>
+        </span>
+        <Icon
+          name={copied ? "check" : "copy"}
+          size={16}
+          className={`mt-0.5 shrink-0 transition-opacity ${
+            copied ? "text-success opacity-100" : "text-text-muted opacity-0 group-hover/spec:opacity-100"
+          }`}
+        />
+      </button>
       <div className="flex flex-wrap items-center gap-3 px-5 py-5">{children}</div>
     </div>
   );
