@@ -1,12 +1,12 @@
-import { EmptyState } from "@/components/ui/empty-state";
-import { PageHeader } from "@/components/ui/page-header";
+import { InboxList } from "@/components/messaging/inbox-list";
+import { listThreads, threadClients } from "@/lib/repos/threads";
 
-// Placeholder — replaced by the Portal/Inbox agent (task 10).
-export default function InboxPage() {
-  return (
-    <>
-      <PageHeader icon="inbox" title="Inbox" className="mb-6" />
-      <EmptyState icon="inbox" title="No conversations yet" subtext="Client messages will appear here." />
-    </>
-  );
+// Practitioner Inbox — secure-messaging thread index (Portal/Inbox, task 10).
+// The (app) layout guarantees a practitioner/admin session.
+
+export const dynamic = "force-dynamic";
+
+export default async function InboxPage() {
+  const [threads, clients] = await Promise.all([listThreads(), threadClients()]);
+  return <InboxList threads={threads} clients={clients} />;
 }

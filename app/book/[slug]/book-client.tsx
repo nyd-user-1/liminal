@@ -1,0 +1,279 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Field } from "@/components/ui/field";
+import { Icon } from "@/components/ui/icons";
+import { Select } from "@/components/ui/select";
+import { Spinner } from "@/components/ui/spinner";
+import { Tag } from "@/components/ui/tag";
+import { TextLink } from "@/components/ui/text-link";
+import { formatCents } from "@/lib/format";
+import type { PractitionerLite } from "@/lib/repos/services";
+import { serviceColorHex } from "@/lib/service-colors";
+import type { Service } from "@/lib/types";
+
+// Booking wizard: service → date + free slot → contact details → confirm →
+// done. Slots come from GET /api/book (availability minus booked); POST
+// /api/book creates client-if-new (lead) + the appointment (booked_via link).
+
+type Step = "service" | "time" | "details" | "confirm" | "done";
+
+const slotLabel = (hhmm: string) => {
+  const [h, m] = hhmm.split(":").map(Number);
+  return new Date(0, 0, 0, h, m).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+};
+
+const prettyDate = (key: string) =>
+  new Date(`${key}T00:00:00`).toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+
+export function BookClient({
+  services,
+  practitioners,
+  lockedPractitionerId,
+}: {
+  services: Service[];
+  practitioners: PractitionerLite[];
+  lockedPractitionerId: string | null;
+}) {
+  const [step, setStep] = useState<Step>("service");
+  const [serviceId, setServiceId] = useState("");
+  const [practitionerId, setPractitionerId] = useState(lockedPractitionerId ?? practitioners[0]?.id ?? "");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [slots, setSlots] = useState<string[] | null>(null);
+  const [first, setFirst] = useState("");
+  const [last, setLast] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const service = services.find((s) => s.id === serviceId);
+  const practitioner = practitioners.find((p) => p.id === practitionerId);
+
+  const loadSlots = useCallback(async (pid: string, sid: string, d: string) => {
+    setSlots(null);
+    setTime("");
+    const res = await fetch(
+      `/api/book?practitionerId=${encodeURIComponent(pid)}&serviceId=${encodeURIComponent(sid)}&date=${d}`,
+    );
+    const data = await res.json().catch(() => ({}));
+    setSlots(Array.isArray(data.slots) ? data.slots : []);
+  }, []);
+
+  useEffect(() => {
+    if (date && serviceId && practitionerId) void loadSlots(practitionerId, serviceId, date);
+  }, [date, serviceId, practitionerId, loadSlots]);
+
+  const submit = async () => {
+    setBusy(true);
+    setError("");
+    const res = await fetch("/api/book", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        practitionerId,
+        serviceId,
+        date,
+        time,
+        firstName: first,
+        lastName: last,
+        email,
+        phone,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) {
+      if (res.status === 409) {
+        setStep("time");
+        void loadSlots(practitionerId, serviceId, date);
+      }
+      setError(data.error ?? "Something went wrong. Please try again.");
+      return;
+    }
+    setStep("done");
+  };
+
+  const back = (to: Step) => (
+    <TextLink onClick={() => setStep(to)} className="text-sm">
+      ← Back
+    </TextLink>
+  );
+
+  const summary = (
+    <div className="divide-y divide-border rounded-card border border-border">
+      {[
+        ["Service", service ? `${service.name} · ${service.durationMin} mins · ${formatCents(service.priceCents)}` : "—"],
+        ["Practitioner", practitioner?.name ?? "—"],
+        ["When", date && time ? `${prettyDate(date)} at ${slotLabel(time)}` : "—"],
+        ["Where", service?.telehealth ? "Telehealth — video link by email" : "Union Square Office, 31 E 17th St"],
+      ].map(([label, value]) => (
+        <div key={label} className="flex gap-3 px-4 py-2.5 text-[15px]">
+          <span className="w-28 shrink-0 text-text-muted">{label}</span>
+          <span className="text-text">{value}</span>
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="rounded-card border border-border bg-surface p-6 shadow-card sm:p-8">
+      {step === "service" && (
+        <>
+          <h1 className="text-[22px] font-bold text-text">Book an appointment</h1>
+          <p className="mt-1 text-[15px] text-text-body">Choose the type of visit to get started.</p>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            {services.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => {
+                  setServiceId(s.id);
+                  setStep("time");
+                }}
+                className="flex items-start gap-3 rounded-card border border-border bg-surface p-4 text-left transition-colors hover:border-primary"
+              >
+                <span
+                  className="mt-1 inline-block h-3 w-3 shrink-0 rounded-full"
+                  style={{ background: serviceColorHex(s.color) }}
+                />
+                <span className="min-w-0">
+                  <span className="flex flex-wrap items-center gap-2 text-[15px] font-semibold text-text">
+                    {s.name}
+                    {s.telehealth && (
+                      <Tag hue="teal">
+                        <Icon name="video" size={12} /> Telehealth
+                      </Tag>
+                    )}
+                  </span>
+                  <span className="mt-0.5 block text-sm text-text-muted">
+                    {s.durationMin} mins · {formatCents(s.priceCents)}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {step === "time" && service && (
+        <>
+          {back("service")}
+          <h1 className="mt-2 text-[22px] font-bold text-text">Pick a date &amp; time</h1>
+          <p className="mt-1 text-[15px] text-text-body">
+            {service.name} · {service.durationMin} mins · {formatCents(service.priceCents)}
+          </p>
+          {!lockedPractitionerId && practitioners.length > 1 && (
+            <Select
+              className="mt-4 max-w-xs"
+              label="Practitioner"
+              options={practitioners.map((p) => ({ value: p.id, label: p.name }))}
+              value={practitionerId}
+              onValueChange={setPractitionerId}
+            />
+          )}
+          <div className="mt-5 flex flex-col gap-6 sm:flex-row">
+            <DatePicker value={date} onChange={setDate} />
+            <div className="min-w-0 flex-1">
+              <p className="mb-2 text-sm font-medium text-text-body">
+                {date ? `Available times · ${prettyDate(date)}` : "Select a date to see available times."}
+              </p>
+              {date && slots === null && <Spinner className="mt-2 text-primary" />}
+              {date && slots !== null && slots.length === 0 && (
+                <p className="text-[15px] text-text-muted">
+                  No availability on this day — try another date.
+                </p>
+              )}
+              {date && slots !== null && slots.length > 0 && (
+                <div className="grid grid-cols-3 gap-2 md:grid-cols-4">
+                  {slots.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setTime(s)}
+                      className={`rounded-field border px-2 py-2 text-sm font-medium transition-colors ${
+                        time === s
+                          ? "border-primary bg-teal-100 text-primary"
+                          : "border-field-border text-text-body hover:border-primary"
+                      }`}
+                    >
+                      {slotLabel(s)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="mt-6 flex justify-end">
+            <Button disabled={!date || !time} onClick={() => setStep("details")}>
+              Continue
+            </Button>
+          </div>
+        </>
+      )}
+
+      {step === "details" && (
+        <>
+          {back("time")}
+          <h1 className="mt-2 text-[22px] font-bold text-text">Your details</h1>
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <Field label="First name" required value={first} onChange={(e) => setFirst(e.target.value)} autoComplete="given-name" />
+            <Field label="Last name" required value={last} onChange={(e) => setLast(e.target.value)} autoComplete="family-name" />
+            <Field label="Email" required type="email" className="sm:col-span-2" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+            <Field label="Phone" type="tel" className="sm:col-span-2" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" hint="Optional" />
+          </div>
+          <div className="mt-6 flex justify-end">
+            <Button
+              disabled={!first.trim() || !last.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)}
+              onClick={() => setStep("confirm")}
+            >
+              Review booking
+            </Button>
+          </div>
+        </>
+      )}
+
+      {step === "confirm" && (
+        <>
+          {back("details")}
+          <h1 className="mt-2 text-[22px] font-bold text-text">Confirm your appointment</h1>
+          <div className="mt-5 space-y-4">
+            {summary}
+            <p className="text-sm text-text-muted">
+              Booking as {first} {last} · {email}
+              {phone ? ` · ${phone}` : ""}
+            </p>
+            {error && <p className="text-[13px] text-danger">{error}</p>}
+          </div>
+          <div className="mt-6 flex justify-end">
+            <Button loading={busy} onClick={submit}>
+              Confirm booking
+            </Button>
+          </div>
+        </>
+      )}
+
+      {step === "done" && (
+        <div className="py-6 text-center">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success-tint text-success">
+            <Icon name="check" size={28} />
+          </span>
+          <h1 className="mt-4 text-[22px] font-bold text-text">You&apos;re booked!</h1>
+          <p className="mx-auto mt-2 max-w-md text-[15px] text-text-body">
+            {service?.name} with {practitioner?.name} on {prettyDate(date)} at {slotLabel(time)}. A
+            confirmation is on its way to {email}.
+            {service?.telehealth ? " Your video link will arrive before the visit." : ""}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}

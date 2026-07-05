@@ -1,12 +1,21 @@
-import { EmptyState } from "@/components/ui/empty-state";
-import { PageHeader } from "@/components/ui/page-header";
+import { getUser } from "@/lib/auth";
+import { logEvent } from "@/lib/audit";
+import { listClients, listPractitioners } from "@/lib/repos/clients";
+import { ClientsIndex } from "./clients-index";
 
-// Placeholder — replaced by the Clients/EHR agent (task 6).
-export default function ClientsPage() {
-  return (
-    <>
-      <PageHeader icon="users" title="Clients" className="mb-6" />
-      <EmptyState icon="users" title="No clients yet" subtext="Your client list will appear here." />
-    </>
-  );
+// Clients index — server component loads the full list; searching, filtering
+// and pagination happen client-side in ClientsIndex (demo-scale dataset).
+
+export const dynamic = "force-dynamic";
+
+export default async function ClientsPage() {
+  const user = await getUser();
+  const [clients, practitioners] = await Promise.all([listClients(), listPractitioners()]);
+  await logEvent({
+    actorId: user?.id ?? null,
+    action: "client.list",
+    entity: "client",
+    meta: { count: clients.length },
+  });
+  return <ClientsIndex clients={clients} practitioners={practitioners} />;
 }

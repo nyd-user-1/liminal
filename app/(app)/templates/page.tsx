@@ -1,12 +1,9 @@
-import { EmptyState } from "@/components/ui/empty-state";
-import { PageHeader } from "@/components/ui/page-header";
+import { TemplatesIndex } from "./templates-client";
 
-// Placeholder — replaced by the Clinical-docs agent (task 7).
+// Templates — note-template gallery (Notes tab) + form templates (Forms tab).
+
+export const dynamic = "force-dynamic";
+
 export default function TemplatesPage() {
-  return (
-    <>
-      <PageHeader icon="clipboard" title="Templates" className="mb-6" />
-      <EmptyState icon="clipboard" title="No templates yet" subtext="Note templates and forms will appear here." />
-    </>
-  );
+  return <TemplatesIndex />;
 }

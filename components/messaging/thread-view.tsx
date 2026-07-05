@@ -1,0 +1,162 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { Avatar } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
+import { formatDateTime } from "@/lib/format";
+import type { AvatarHue, Message, Thread } from "@/lib/types";
+
+// Shared secure-messaging thread view (catalog §4 Inbox thread pane) — used
+// by the practitioner Inbox and the client portal Messages page. Bubbles:
+// mine = teal tint, right-aligned; theirs = white surface, left-aligned.
+
+export interface SenderInfo {
+  name: string;
+  hue: AvatarHue;
+}
+
+/** Render message bodies with tappable in-app links (e.g. /portal/forms/…). */
+function MessageBody({ body }: { body: string }) {
+  const parts = body.split(/(\/(?:portal|inbox)\/[\w/-]+)/g);
+  return (
+    <>
+      {parts.map((p, i) =>
+        p.startsWith("/portal/") || p.startsWith("/inbox/") ? (
+          <Link key={i} href={p} className="font-medium text-primary underline underline-offset-2">
+            {p}
+          </Link>
+        ) : (
+          <span key={i}>{p}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+export function ThreadView({
+  thread,
+  messages,
+  senders,
+  meId,
+  canManage,
+}: {
+  thread: Thread & { clientName: string };
+  messages: Message[];
+  senders: Record<string, SenderInfo>;
+  meId: string;
+  /** Practitioner-side: shows the Close / Reopen action. */
+  canManage?: boolean;
+}) {
+  const router = useRouter();
+  const toast = useToast();
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const send = async () => {
+    if (!draft.trim() || busy) return;
+    setBusy(true);
+    const res = await fetch("/api/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ threadId: thread.id, body: draft.trim() }),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      toast(data?.error ?? "Could not send the message.", "danger");
+      return;
+    }
+    setDraft("");
+    router.refresh();
+  };
+
+  const setStatus = async (status: "open" | "closed") => {
+    setBusy(true);
+    const res = await fetch(`/api/threads/${thread.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      toast("Could not update the conversation.", "danger");
+      return;
+    }
+    toast(status === "closed" ? "Conversation closed." : "Conversation reopened.", "success");
+    router.refresh();
+  };
+
+  const closed = thread.status === "closed";
+
+  return (
+    <div className="flex h-full min-h-0 flex-col rounded-card border border-border bg-surface shadow-card">
+      <div className="flex items-center gap-3 border-b border-border px-5 py-4">
+        <Avatar name={thread.clientName} size="md" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="truncate text-[15px] font-semibold text-text">{thread.clientName}</span>
+            <Badge variant={closed ? "neutral" : "success"}>{closed ? "Closed" : "Open"}</Badge>
+          </div>
+          <p className="truncate text-sm text-text-muted">{thread.subject}</p>
+        </div>
+        {canManage && (
+          <Button variant="secondary" size="sm" disabled={busy} onClick={() => setStatus(closed ? "open" : "closed")}>
+            {closed ? "Reopen" : "Close"}
+          </Button>
+        )}
+      </div>
+
+      <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
+        {messages.map((m) => {
+          const mine = m.senderId === meId;
+          const sender = senders[m.senderId];
+          return (
+            <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+              <div className={`flex max-w-[75%] items-end gap-2 ${mine ? "flex-row-reverse" : ""}`}>
+                <Avatar name={sender?.name ?? "User"} hue={sender?.hue} size="sm" />
+                <div>
+                  <div
+                    className={`whitespace-pre-wrap rounded-card px-4 py-2.5 text-[15px] text-text ${
+                      mine ? "bg-teal-100" : "border border-border bg-surface"
+                    }`}
+                  >
+                    <MessageBody body={m.body} />
+                  </div>
+                  <p className={`mt-1 text-[13px] text-text-muted ${mine ? "text-right" : ""}`}>
+                    {sender?.name ?? "User"} · {formatDateTime(m.createdAt)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {closed ? (
+        <p className="border-t border-border px-5 py-4 text-sm text-text-muted">
+          This conversation is closed{canManage ? " — reopen it to reply." : "."}
+        </p>
+      ) : (
+        <div className="flex items-end gap-3 border-t border-border px-5 py-4">
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send();
+            }}
+            rows={2}
+            placeholder="Write a message…"
+            className="min-h-[44px] flex-1 resize-y rounded-field border border-field-border bg-surface px-3 py-2.5 text-[15px] text-text placeholder:text-text-muted outline-none transition-colors focus:border-field-border-focus"
+          />
+          <Button leftIcon="send" onClick={send} loading={busy} disabled={!draft.trim()}>
+            Send
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
