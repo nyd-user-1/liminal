@@ -1,5 +1,4 @@
 import { EmptyState } from "@/components/ui/empty-state";
-import { PageHeader } from "@/components/ui/page-header";
 import { listThreads } from "@/lib/repos/threads";
 import { requirePortalClient } from "../data";
 import { MessagesList } from "./messages-list";
@@ -13,7 +12,6 @@ export default async function PortalMessagesPage() {
   if (!client) {
     return (
       <>
-        <PageHeader icon="message" title="Messages" className="mb-6" />
         <EmptyState icon="message" title="No client record is linked to this login" />
       </>
     );

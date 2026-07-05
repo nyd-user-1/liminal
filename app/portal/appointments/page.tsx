@@ -1,5 +1,4 @@
 import { EmptyState } from "@/components/ui/empty-state";
-import { PageHeader } from "@/components/ui/page-header";
 import { listAppointments } from "@/lib/repos/appointments";
 import { authorNames } from "@/lib/repos/notes";
 import { listLocations, listServices } from "@/lib/repos/services";
@@ -16,7 +15,6 @@ export default async function PortalAppointmentsPage() {
   if (!client) {
     return (
       <>
-        <PageHeader icon="calendar-check" title="Appointments" className="mb-6" />
         <EmptyState icon="calendar-check" title="No client record is linked to this login" />
       </>
     );
@@ -44,7 +42,6 @@ export default async function PortalAppointmentsPage() {
 
   return (
     <>
-      <PageHeader icon="calendar-check" title="Appointments" className="mb-5" />
       <AppointmentsList appointments={rows} />
     </>
   );

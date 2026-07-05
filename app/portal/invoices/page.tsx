@@ -1,5 +1,4 @@
 import { EmptyState } from "@/components/ui/empty-state";
-import { PageHeader } from "@/components/ui/page-header";
 import { listInvoices } from "@/lib/repos/invoices";
 import { requirePortalClient } from "../data";
 import { InvoicesList } from "./invoices-list";
@@ -14,7 +13,6 @@ export default async function PortalInvoicesPage() {
   if (!client) {
     return (
       <>
-        <PageHeader icon="credit-card" title="Invoices" className="mb-6" />
         <EmptyState icon="credit-card" title="No client record is linked to this login" />
       </>
     );
@@ -24,7 +22,6 @@ export default async function PortalInvoicesPage() {
 
   return (
     <>
-      <PageHeader icon="credit-card" title="Invoices" className="mb-5" />
       <InvoicesList
         invoices={invoices.map((i) => ({
           id: i.id,

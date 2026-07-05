@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Icon, IconSquare } from "@/components/ui/icons";
 import { ListRow } from "@/components/ui/list-row";
-import { PageHeader } from "@/components/ui/page-header";
+import { TopBarActions } from "@/components/shell/topbar-slot";
 import { Select } from "@/components/ui/select";
 import { SidePanel } from "@/components/ui/side-panel";
 import { useToast } from "@/components/ui/toast";
@@ -75,16 +75,11 @@ export function LocationsSettings({ initialLocations }: { initialLocations: Loca
   return (
     <div className="mx-auto max-w-3xl">
       <Breadcrumb items={[{ label: "Settings", href: "/settings" }, { label: "Locations" }]} className="mb-2" />
-      <PageHeader
-        icon="globe"
-        title="Locations"
-        className="mb-6"
-        actions={
-          <Button leftIcon="plus" onClick={() => open({ mode: "create" })}>
-            New location
-          </Button>
-        }
-      />
+      <TopBarActions>
+        <Button leftIcon="plus" onClick={() => open({ mode: "create" })}>
+          New location
+        </Button>
+      </TopBarActions>
       <div className="space-y-2.5">
         {locations.map((l) => (
           <ListRow

@@ -12,7 +12,7 @@ import { Field } from "@/components/ui/field";
 import { IconSquare } from "@/components/ui/icons";
 import { KebabMenu } from "@/components/ui/kebab-menu";
 import { Modal } from "@/components/ui/modal";
-import { PageHeader } from "@/components/ui/page-header";
+import { TopBarActions } from "@/components/shell/topbar-slot";
 import { Select } from "@/components/ui/select";
 import { SidePanel } from "@/components/ui/side-panel";
 import { Skeleton } from "@/components/ui/spinner";
@@ -140,24 +140,18 @@ export function TemplatesIndex() {
 
   return (
     <>
-      <PageHeader
-        icon="clipboard"
-        title="Templates"
-        className="mb-4"
-        actions={
-          tab === "notes" ? (
-            <Button
-              size="sm"
-              leftIcon="plus"
-              onClick={() =>
-                setEditor({ id: null, name: "", template: "progress", bodyMd: "", isBuiltin: false })
-              }
-            >
-              New template
-            </Button>
-          ) : undefined
-        }
-      />
+      {tab === "notes" && (
+        <TopBarActions>
+          <Button
+            leftIcon="plus"
+            onClick={() =>
+              setEditor({ id: null, name: "", template: "progress", bodyMd: "", isBuiltin: false })
+            }
+          >
+            New template
+          </Button>
+        </TopBarActions>
+      )}
       <Tabs
         className="mb-6"
         active={tab}

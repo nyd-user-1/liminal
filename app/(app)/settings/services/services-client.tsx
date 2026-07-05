@@ -8,7 +8,7 @@ import { ColorSwatch } from "@/components/ui/color-swatch";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Icon } from "@/components/ui/icons";
 import { ListRow } from "@/components/ui/list-row";
-import { PageHeader } from "@/components/ui/page-header";
+import { TopBarActions } from "@/components/shell/topbar-slot";
 import { SidePanel } from "@/components/ui/side-panel";
 import { Tag } from "@/components/ui/tag";
 import { useToast } from "@/components/ui/toast";
@@ -101,16 +101,11 @@ export function ServicesSettings({ initialServices }: { initialServices: Service
   return (
     <div className="mx-auto max-w-3xl">
       <Breadcrumb items={[{ label: "Settings", href: "/settings" }, { label: "Services" }]} className="mb-2" />
-      <PageHeader
-        icon="clipboard"
-        title="Services"
-        className="mb-6"
-        actions={
-          <Button leftIcon="plus" onClick={() => open({ mode: "create" })}>
-            New service
-          </Button>
-        }
-      />
+      <TopBarActions>
+        <Button leftIcon="plus" onClick={() => open({ mode: "create" })}>
+          New service
+        </Button>
+      </TopBarActions>
       <div className="space-y-2.5">
         {services.map((s) => (
           <ListRow

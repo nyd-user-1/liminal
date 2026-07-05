@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icons";
-import { PageHeader } from "@/components/ui/page-header";
 import { TextLink } from "@/components/ui/text-link";
 import { formatDateLong, formatTime } from "@/lib/format";
 import { listAppointments } from "@/lib/repos/appointments";
@@ -24,7 +23,6 @@ export default async function PortalHomePage() {
   if (!client) {
     return (
       <>
-        <PageHeader icon="grid" title="Home" className="mb-6" />
         <EmptyState icon="person-circle" title="No client record is linked to this login" subtext="Ask your practice to connect your portal account." />
       </>
     );
@@ -48,7 +46,6 @@ export default async function PortalHomePage() {
 
   return (
     <>
-      <PageHeader icon="grid" title={`Welcome back, ${client.firstName}`} className="mb-6" />
 
       {pendingForms.length > 0 && (
         <Banner

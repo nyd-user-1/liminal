@@ -1,27 +1,58 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { DropdownMenu, MenuDivider, MenuItem } from "@/components/ui/dropdown-menu";
 import { IconButton } from "@/components/ui/icon-button";
+import type { IconName } from "@/components/ui/icons";
+import { PageHeader } from "@/components/ui/page-header";
 import { UserChip } from "@/components/ui/user-chip";
+import { TOPBAR_ACTIONS_ID } from "@/components/shell/topbar-slot";
 import type { SessionUser } from "@/lib/auth";
 
-// Catalog `TopBar` — white strip: optional page title left; right cluster =
-// actions slot + bell + UserChip → avatar menu (identity header · Sign out).
-// The fuller account menu lives on the sidebar's bottom-left UserChip.
+// Catalog `TopBar` — white strip: page icon + H1 inline-left (route-derived,
+// SSR-safe), right cluster = page actions (via TopBarActions portal) + bell +
+// UserChip → avatar menu. One canonical title everywhere — no per-page drift.
+
+// Longest-prefix wins: order specific → general.
+const ROUTE_TITLES: Array<[prefix: string, icon: IconName, title: string]> = [
+  ["/calendar", "calendar", "Calendar"],
+  ["/inbox", "inbox", "Inbox"],
+  ["/clients", "users", "Clients"],
+  ["/billing", "dollar", "Billing"],
+  ["/templates", "clipboard", "Templates"],
+  ["/settings/services", "clipboard", "Services"],
+  ["/settings/locations", "globe", "Locations"],
+  ["/settings/availability", "clock", "Availability"],
+  ["/settings", "gear", "Settings"],
+  ["/design-system", "paint-roller", "Design System"],
+  ["/portal/appointments", "calendar-check", "Appointments"],
+  ["/portal/records", "file-text", "Records"],
+  ["/portal/forms", "clipboard", "Forms"],
+  ["/portal/invoices", "credit-card", "Invoices"],
+  ["/portal/messages", "message", "Messages"],
+];
+
+function routeTitle(pathname: string, user: SessionUser): { icon: IconName; title: string } {
+  if (pathname === "/portal") return { icon: "grid", title: `Welcome back, ${user.name.split(" ")[0]}` };
+  const hit = ROUTE_TITLES.find(([p]) => pathname === p || pathname.startsWith(`${p}/`));
+  return hit ? { icon: hit[1], title: hit[2] } : { icon: "grid", title: "Liminal" };
+}
 
 export function TopBar({
   title,
   user,
   actions,
 }: {
+  /** Optional override; defaults to the route-derived title. */
   title?: string;
   user: SessionUser;
   actions?: ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const derived = routeTitle(pathname, user);
 
   const signOut = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -31,8 +62,9 @@ export function TopBar({
 
   return (
     <header className="flex h-16 shrink-0 items-center gap-3 border-b border-border bg-surface px-6">
-      {title && <h1 className="text-[19px] font-semibold text-text">{title}</h1>}
+      <PageHeader icon={title ? undefined : derived.icon} title={title ?? derived.title} />
       <div className="ml-auto flex items-center gap-2">
+        <div id={TOPBAR_ACTIONS_ID} className="flex items-center gap-2" />
         {actions}
         <IconButton icon="bell" label="Notifications" />
         <DropdownMenu label="Avatar menu" trigger={<UserChip name={user.name} hue={user.avatarHue} />}>

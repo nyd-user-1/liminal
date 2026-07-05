@@ -9,7 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { KebabMenu } from "@/components/ui/kebab-menu";
 import { MenuItem } from "@/components/ui/dropdown-menu";
-import { PageHeader } from "@/components/ui/page-header";
+import { TopBarActions } from "@/components/shell/topbar-slot";
 import { Pagination } from "@/components/ui/pagination";
 import { SearchInput } from "@/components/ui/search-input";
 import { Table, Td, Tr } from "@/components/ui/table";
@@ -147,16 +147,11 @@ export function ClientsIndex({
 
   return (
     <>
-      <PageHeader
-        icon="users"
-        title="Clients"
-        className="mb-6"
-        actions={
-          <Button leftIcon="plus" onClick={() => setPanelOpen(true)}>
-            New client
-          </Button>
-        }
-      />
+      <TopBarActions>
+        <Button leftIcon="plus" onClick={() => setPanelOpen(true)}>
+          New client
+        </Button>
+      </TopBarActions>
 
       <Toolbar count={filtered.length} countLabel={filtered.length === 1 ? "client" : "clients"} className="mb-4">
         <SearchInput

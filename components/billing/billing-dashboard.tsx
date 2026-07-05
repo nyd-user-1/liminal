@@ -13,7 +13,7 @@ import { Icon, IconSquare } from "@/components/ui/icons";
 import { KebabMenu } from "@/components/ui/kebab-menu";
 import { ListRow } from "@/components/ui/list-row";
 import { MenuItem } from "@/components/ui/dropdown-menu";
-import { PageHeader } from "@/components/ui/page-header";
+import { TopBarActions } from "@/components/shell/topbar-slot";
 import { Pagination } from "@/components/ui/pagination";
 import { SearchInput } from "@/components/ui/search-input";
 import { StatCard } from "@/components/ui/stat-card";
@@ -150,22 +150,17 @@ export function BillingDashboard({
 
   return (
     <>
-      <PageHeader
-        icon="dollar"
-        title="Billing"
-        className="mb-4"
-        actions={
-          tab === "invoices" ? (
-            <Button leftIcon="plus" onClick={() => setNewInvoiceOpen(true)}>
-              New invoice
-            </Button>
-          ) : (
-            <Button leftIcon="plus" onClick={() => setPayerPanel({ open: true, payer: null })}>
-              New payer
-            </Button>
-          )
-        }
-      />
+      <TopBarActions>
+        {tab === "invoices" ? (
+          <Button leftIcon="plus" onClick={() => setNewInvoiceOpen(true)}>
+            New invoice
+          </Button>
+        ) : (
+          <Button leftIcon="plus" onClick={() => setPayerPanel({ open: true, payer: null })}>
+            New payer
+          </Button>
+        )}
+      </TopBarActions>
       <Tabs
         className="mb-6"
         items={[

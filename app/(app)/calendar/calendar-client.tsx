@@ -156,8 +156,6 @@ export function CalendarClient({
     <div className="flex h-full min-h-0 flex-col">
       {/* Toolbar (catalog `Toolbar calendar` variant) */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Icon name="calendar" size={24} className="text-text-body" />
-        <h1 className="mr-2 text-[22px] font-bold text-text">Calendar</h1>
         <Button variant="secondary" size="sm" onClick={() => setAnchor(dateKey(new Date()))}>
           Today
         </Button>

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
-import { PageHeader } from "@/components/ui/page-header";
+import { TopBarActions } from "@/components/shell/topbar-slot";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import type { AvailabilityRule, PractitionerLite } from "@/lib/repos/services";
@@ -80,16 +80,11 @@ export function AvailabilitySettings({
   return (
     <div className="mx-auto max-w-3xl">
       <Breadcrumb items={[{ label: "Settings", href: "/settings" }, { label: "Availability" }]} className="mb-2" />
-      <PageHeader
-        icon="clock"
-        title="Availability"
-        className="mb-6"
-        actions={
-          <Button loading={busy} disabled={invalid} onClick={save}>
-            Save availability
-          </Button>
-        }
-      />
+      <TopBarActions>
+        <Button loading={busy} disabled={invalid} onClick={save}>
+          Save availability
+        </Button>
+      </TopBarActions>
 
       <Select
         label="Practitioner"

@@ -9,7 +9,7 @@ import { Field } from "@/components/ui/field";
 import { IconSquare } from "@/components/ui/icons";
 import { ListRow } from "@/components/ui/list-row";
 import { Modal } from "@/components/ui/modal";
-import { PageHeader } from "@/components/ui/page-header";
+import { TopBarActions } from "@/components/shell/topbar-slot";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { formatDate, formatTime } from "@/lib/format";
@@ -57,16 +57,11 @@ export function MessagesList({ threads }: { threads: ThreadSummary[] }) {
 
   return (
     <>
-      <PageHeader
-        icon="message"
-        title="Messages"
-        className="mb-5"
-        actions={
-          <Button leftIcon="plus" onClick={() => setComposeOpen(true)}>
-            New message
-          </Button>
-        }
-      />
+      <TopBarActions>
+        <Button leftIcon="plus" onClick={() => setComposeOpen(true)}>
+          New message
+        </Button>
+      </TopBarActions>
 
       {threads.length === 0 ? (
         <EmptyState

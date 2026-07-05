@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Icon, IconSquare, type IconName } from "@/components/ui/icons";
-import { PageHeader } from "@/components/ui/page-header";
 
 // Settings hub — NavPanel-style rows routing to breadcrumbed sub-pages
 // (catalog: Settings opens a secondary nav, not one tabbed page).
@@ -28,8 +27,7 @@ const SECTIONS: Array<{ href: string; icon: IconName; title: string; subtitle: s
 
 export default function SettingsPage() {
   return (
-    <div className="mx-auto max-w-2xl">
-      <PageHeader icon="gear" title="Settings" className="mb-6" />
+    <div className="max-w-2xl">
       <p className="mb-4 text-[13px] font-semibold text-text-muted">Scheduling</p>
       <div className="space-y-2.5">
         {SECTIONS.map((s) => (

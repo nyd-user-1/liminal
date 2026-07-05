@@ -9,7 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Field } from "@/components/ui/field";
 import { ListRow } from "@/components/ui/list-row";
 import { Modal } from "@/components/ui/modal";
-import { PageHeader } from "@/components/ui/page-header";
+import { TopBarActions } from "@/components/shell/topbar-slot";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
 import { Tabs } from "@/components/ui/tabs";
@@ -86,16 +86,11 @@ export function InboxList({
 
   return (
     <>
-      <PageHeader
-        icon="inbox"
-        title="Inbox"
-        className="mb-5"
-        actions={
-          <Button leftIcon="plus" onClick={() => setComposeOpen(true)}>
-            Compose
-          </Button>
-        }
-      />
+      <TopBarActions>
+        <Button leftIcon="plus" onClick={() => setComposeOpen(true)}>
+          Compose
+        </Button>
+      </TopBarActions>
 
       <Tabs
         className="mb-4"

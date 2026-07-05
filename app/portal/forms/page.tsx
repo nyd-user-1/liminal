@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { IconSquare } from "@/components/ui/icons";
 import { ListRow } from "@/components/ui/list-row";
-import { PageHeader } from "@/components/ui/page-header";
 import { formatDate } from "@/lib/format";
 import { listResponses } from "@/lib/repos/forms";
 import { requirePortalClient } from "../data";
@@ -19,7 +18,6 @@ export default async function PortalFormsPage() {
   if (!client) {
     return (
       <>
-        <PageHeader icon="clipboard" title="Forms" className="mb-6" />
         <EmptyState icon="clipboard" title="No client record is linked to this login" />
       </>
     );
@@ -31,7 +29,6 @@ export default async function PortalFormsPage() {
 
   return (
     <>
-      <PageHeader icon="clipboard" title="Forms" className="mb-5" />
 
       {responses.length === 0 ? (
         <EmptyState icon="clipboard" title="No forms yet" subtext="Forms your care team sends will appear here." />

@@ -1,5 +1,4 @@
 import { EmptyState } from "@/components/ui/empty-state";
-import { PageHeader } from "@/components/ui/page-header";
 import { logEvent } from "@/lib/audit";
 import { listFiles } from "@/lib/repos/files";
 import { authorNames, listNotes } from "@/lib/repos/notes";
@@ -15,7 +14,6 @@ export default async function PortalRecordsPage() {
   if (!client) {
     return (
       <>
-        <PageHeader icon="file-text" title="Records" className="mb-6" />
         <EmptyState icon="file-text" title="No client record is linked to this login" />
       </>
     );
@@ -30,7 +28,6 @@ export default async function PortalRecordsPage() {
 
   return (
     <>
-      <PageHeader icon="file-text" title="Records" className="mb-5" />
       <RecordsList
         notes={notes.map((n) => ({
           id: n.id,
