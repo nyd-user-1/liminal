@@ -25,7 +25,6 @@ import { ListRow } from "@/components/ui/list-row";
 import { Logo } from "@/components/ui/logo";
 import { Modal } from "@/components/ui/modal";
 import { PageHeader } from "@/components/ui/page-header";
-import { TopBarActions } from "@/components/shell/topbar-slot";
 import { Pagination } from "@/components/ui/pagination";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { Radio } from "@/components/ui/radio";
@@ -440,19 +439,6 @@ function featureCopy(c: FeatureItem) {
   return lines.join("\n");
 }
 
-function buildManifest() {
-  return [
-    "// Liminal design system manifest — REUSE these; never create a new primitive or duplicate a feature component.",
-    "// Live gallery: /design-system · conventions: CLAUDE.md + BUILD_SPEC.md",
-    "",
-    "// ── UI kit primitives (components/ui) ──",
-    ...Object.values(KIT_IMPORTS),
-    "",
-    "// ── Feature components ──",
-    ...FEATURES.flatMap((g) => g.items.map((c) => featureCopy(c))),
-  ].join("\n");
-}
-
 // ── Shared layout helpers ─────────────────────────────────────────────────────
 
 function Swatch({ name, hex }: { name: string; hex: string }) {
@@ -510,7 +496,7 @@ function Spec({ name, desc, wide, children }: { name: string; desc: string; wide
   const payload = imp ? (imp.includes("//") ? imp : `${imp} // ${desc}`) : name;
   return (
     <div
-      className={`group/spec overflow-hidden rounded-card border border-border bg-surface shadow-card transition-colors hover:border-primary ${wide ? "lg:col-span-2" : ""}`}
+      className={`group/spec overflow-hidden rounded-card border border-border bg-surface shadow-card transition-colors hover:border-primary ${wide ? "lg:col-span-2 lg:order-first" : ""}`}
     >
       <button
         type="button"
@@ -559,7 +545,7 @@ function FeatureCard({ c }: { c: FeatureItem }) {
           setTimeout(() => setCopied(false), 1200);
         } catch {}
       }}
-      className="group/feat rounded-card border border-border bg-surface p-4 text-left shadow-card transition-colors hover:border-primary"
+      className="group/feat h-full rounded-card border border-border bg-surface p-4 text-left shadow-card transition-colors hover:border-primary"
     >
       <div className="flex items-start justify-between gap-2">
         <p className="font-mono text-[15px] font-semibold text-text">{c.name}</p>
@@ -593,11 +579,11 @@ function FeatureCard({ c }: { c: FeatureItem }) {
   );
 }
 
-function Group({ title, children }: { title: string; children: ReactNode }) {
+function Group({ title, cols = 2, children }: { title: string; cols?: 2 | 3; children: ReactNode }) {
   return (
     <section className="space-y-4">
-      <h3 className="text-[13px] font-semibold uppercase tracking-wide text-text-muted">{title}</h3>
-      <div className="grid gap-4 lg:grid-cols-2">{children}</div>
+      <h2 className="text-[19px] font-semibold text-text">{title}</h2>
+      <div className={`grid gap-4 ${cols === 3 ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>{children}</div>
     </section>
   );
 }
@@ -632,28 +618,9 @@ export default function DesignSystemPage() {
   const featureTotal = FEATURES.reduce((n, g) => n + g.items.length, 0);
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <TopBarActions>
-        <Button
-          size="sm"
-          variant="secondary"
-          leftIcon="copy"
-          onClick={async () => {
-            await navigator.clipboard.writeText(buildManifest());
-            toast("Copied the full component manifest", "success");
-          }}
-        >
-          Copy manifest
-        </Button>
-      </TopBarActions>
-      <p className="mb-6 max-w-2xl text-[15px] text-text-body">
-        The Liminal theme foundations, the full shared UI kit, and a reference index of the feature
-        components — organized into tabs so only the active panel renders. Hover any name to copy its
-        exact import; “Copy manifest” grabs the whole inventory for pasting into an agent prompt.
-      </p>
-
+    <div>
       <Tabs
-        className="mb-8"
+        className="mb-6"
         active={tab}
         onChange={setTab}
         items={[
@@ -707,7 +674,7 @@ export default function DesignSystemPage() {
       {/* ── PRIMITIVES ──────────────────────────────────────────────── */}
       {tab === "primitives" && (
         <div className="space-y-10">
-          <Group title="Actions">
+          <Group title="Actions" cols={3}>
             <Spec name="Button" desc="primary · secondary · ghost · danger; sizes sm–xl.">
               <Button variant="primary">Primary</Button>
               <Button variant="secondary">Secondary</Button>
@@ -748,7 +715,7 @@ export default function DesignSystemPage() {
           </Group>
 
           <Group title="Form inputs">
-            <Spec name="Field" desc="Label + input + hint/error; affix slots." wide>
+            <Spec name="Field" desc="Label + input + hint/error; affix slots.">
               <div className="grid w-full gap-4 sm:grid-cols-2">
                 <Field label="Full name" name="name" placeholder="Jane Doe" />
                 <Field label="Fee" name="fee" prefix="$" suffix="/ session" placeholder="120" />
@@ -756,10 +723,10 @@ export default function DesignSystemPage() {
                 <Field label="NPI" name="npi" hint="10-digit provider ID" placeholder="1234567890" />
               </div>
             </Spec>
-            <Spec name="Textarea" desc="Multi-line Field." wide>
+            <Spec name="Textarea" desc="Multi-line Field.">
               <Textarea className="w-full" label="Session summary" name="summary" placeholder="Type a note…" />
             </Spec>
-            <Spec name="Select" desc="Native + searchable (color-dot) variants." wide>
+            <Spec name="Select" desc="Native + searchable (color-dot) variants.">
               <div className="grid w-full gap-4 sm:grid-cols-2">
                 <Select
                   label="Status"
@@ -785,6 +752,9 @@ export default function DesignSystemPage() {
                   ]}
                 />
               </div>
+            </Spec>
+            <Spec name="DatePicker" desc="Mini month grid; today + selected states.">
+              <DatePicker value={date} onChange={setDate} />
             </Spec>
             <Spec name="SearchInput" desc="Input with a leading search icon.">
               <SearchInput className="w-full" placeholder="Search clients…" />
@@ -830,9 +800,6 @@ export default function DesignSystemPage() {
               <FilterChip label="Status" value={statusFilter || undefined} onClick={() => setStatusFilter("Active")} onClear={() => setStatusFilter("")} />
               <FilterChip label="Assignee" onClick={() => {}} />
             </Spec>
-            <Spec name="DatePicker" desc="Mini month grid; today + selected states.">
-              <DatePicker value={date} onChange={setDate} />
-            </Spec>
             <Spec name="FileUpload" desc="Dropzone → uploaded tile." wide>
               <FileUpload
                 className="w-full"
@@ -850,6 +817,29 @@ export default function DesignSystemPage() {
           </Group>
 
           <Group title="Data display">
+            <Spec name="Icon set" desc="The line-icon registry (IconName) — click an icon to copy its JSX." wide>
+              <div className="flex w-full flex-wrap gap-2">
+                {DEMO_ICONS.map((n) => (
+                  <Tooltip key={n} label={n}>
+                    <button
+                      type="button"
+                      aria-label={`Copy icon ${n}`}
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(`<Icon name="${n}" />`);
+                        toast(`Copied <Icon name="${n}" />`, "success");
+                      }}
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-field border border-border text-text-body transition-colors hover:bg-canvas"
+                    >
+                      <Icon name={n} />
+                    </button>
+                  </Tooltip>
+                ))}
+              </div>
+            </Spec>
+            <Spec name="Logo" desc="Brand wordmark; onLight / onNavy.">
+              <Logo />
+              <span className="rounded-lg bg-sidebar-bg px-4 py-3"><Logo variant="onNavy" /></span>
+            </Spec>
             <Spec name="Avatar" desc="Initials on a per-user hue; sizes + group.">
               <Avatar name="Brendan Stanton" hue="teal" size="sm" />
               <Avatar name="Amara Okafor" hue="amber" size="md" />
@@ -921,14 +911,14 @@ export default function DesignSystemPage() {
                 </Tr>
               </Table>
             </Spec>
+            <Spec name="Stepper" desc="Numbered steps: done ✓ · active · upcoming." wide>
+              <Stepper className="w-full" steps={["Details", "Insurance", "Consent", "Review"]} active={1} />
+            </Spec>
             <Spec name="ProgressBar" desc="Thin track + primary fill; optional %.">
               <div className="w-full space-y-3">
                 <ProgressBar value={38} showLabel />
                 <ProgressBar value={72} showLabel />
               </div>
-            </Spec>
-            <Spec name="Stepper" desc="Numbered steps: done ✓ · active · upcoming." wide>
-              <Stepper className="w-full" steps={["Details", "Insurance", "Consent", "Review"]} active={1} />
             </Spec>
             <Spec name="Spinner / Skeleton" desc="Inline loader + placeholder bars.">
               <Spinner className="text-primary" />
@@ -958,12 +948,6 @@ export default function DesignSystemPage() {
             <Spec name="Pagination" desc="Prev/next + range label under a Table.">
               <Pagination className="w-full" page={page} pageCount={5} onPageChange={setPage} />
             </Spec>
-            <Spec name="Toolbar" desc="Strip above an index table." wide>
-              <Toolbar className="w-full" count={128} countLabel="clients" actions={<Button size="sm" leftIcon="plus">New</Button>}>
-                <SearchInput placeholder="Search…" className="w-56" />
-                <FilterChip label="Status" onClick={() => {}} />
-              </Toolbar>
-            </Spec>
             <Spec name="KebabMenu" desc="Dots trigger → DropdownMenu of actions.">
               <KebabMenu>
                 <MenuItem icon="eye" label="View" onClick={() => {}} />
@@ -988,6 +972,12 @@ export default function DesignSystemPage() {
               <span className="rounded-lg bg-sidebar-bg p-2">
                 <UserChip name="Brendan Stanton" hue="teal" onNavy />
               </span>
+            </Spec>
+            <Spec name="Toolbar" desc="Strip above an index table." wide>
+              <Toolbar className="w-full" count={128} countLabel="clients" actions={<Button size="sm" leftIcon="plus">New</Button>}>
+                <SearchInput placeholder="Search…" className="w-56" />
+                <FilterChip label="Status" onClick={() => {}} />
+              </Toolbar>
             </Spec>
           </Group>
 
@@ -1062,7 +1052,7 @@ export default function DesignSystemPage() {
                 </SettingsCard>
               </div>
             </Spec>
-            <Spec name="Divider" desc="Hairline; labeled 'or' variant.">
+            <Spec name="Divider" desc="Hairline; labeled 'or' variant." wide>
               <div className="w-full space-y-4">
                 <Divider />
                 <Divider label="or" />
@@ -1070,29 +1060,6 @@ export default function DesignSystemPage() {
             </Spec>
             <Spec name="PageHeader" desc="Icon + title + right-aligned actions." wide>
               <PageHeader className="w-full" icon="users" title="Clients" actions={<Button leftIcon="plus">New client</Button>} />
-            </Spec>
-            <Spec name="Logo" desc="Brand wordmark; onLight / onNavy.">
-              <Logo />
-              <span className="rounded-lg bg-sidebar-bg px-4 py-3"><Logo variant="onNavy" /></span>
-            </Spec>
-            <Spec name="Icon set" desc="The line-icon registry (IconName) — click an icon to copy its JSX." wide>
-              <div className="flex w-full flex-wrap gap-2">
-                {DEMO_ICONS.map((n) => (
-                  <Tooltip key={n} label={n}>
-                    <button
-                      type="button"
-                      aria-label={`Copy icon ${n}`}
-                      onClick={async () => {
-                        await navigator.clipboard.writeText(`<Icon name="${n}" />`);
-                        toast(`Copied <Icon name="${n}" />`, "success");
-                      }}
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-field border border-border text-text-body transition-colors hover:bg-canvas"
-                    >
-                      <Icon name={n} />
-                    </button>
-                  </Tooltip>
-                ))}
-              </div>
             </Spec>
           </Group>
         </div>
@@ -1109,11 +1076,8 @@ export default function DesignSystemPage() {
 
           {FEATURES.map((group) => (
             <section key={group.area}>
-              <div className="mb-3 flex items-center gap-2">
-                <h3 className="text-[13px] font-semibold uppercase tracking-wide text-text-muted">{group.area}</h3>
-                <span className="text-[13px] text-text-muted">· {group.items.length}</span>
-              </div>
-              <div className="grid items-start gap-3 sm:grid-cols-2">
+              <h2 className="mb-3 text-[19px] font-semibold text-text">{group.area}</h2>
+              <div className="grid gap-3 sm:grid-cols-2">
                 {group.items.map((c) => (
                   <FeatureCard key={c.path} c={c} />
                 ))}
