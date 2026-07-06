@@ -18,7 +18,6 @@ import {
   addDays,
   dateKey,
   minutesOfDay,
-
   startOfWeek,
 } from "./calendar-utils";
 import { AppointmentDetailPanel, AppointmentFormPanel, type CreateDraft } from "./appointment-panels";

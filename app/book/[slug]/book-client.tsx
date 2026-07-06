@@ -181,7 +181,7 @@ export function BookClient({
             />
           )}
           <div className="mt-5 flex flex-col gap-6 sm:flex-row">
-            <DatePicker value={date} onChange={setDate} />
+            <DatePicker value={date} onChange={setDate} className="sm:w-64 sm:shrink-0" />
             <div className="min-w-0 flex-1">
               <p className="mb-2 text-sm font-medium text-text-body">
                 {date ? `Available times · ${prettyDate(date)}` : "Select a date to see available times."}

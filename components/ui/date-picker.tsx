@@ -38,7 +38,7 @@ export function DatePicker({
   };
 
   return (
-    <div className={`w-64 select-none ${className}`}>
+    <div className={`w-full select-none ${className}`}>
       <div className="mb-2 flex items-center justify-between">
         <span className="text-[15px] font-semibold text-text">
           {first.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
