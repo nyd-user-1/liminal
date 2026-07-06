@@ -581,10 +581,20 @@ function FeatureCard({ c }: { c: FeatureItem }) {
   );
 }
 
+// Section header with a full-width rule beneath it — spans the section, i.e.
+// the left edge of the first card to the right edge of the last.
+function SectionHead({ title }: { title: string }) {
+  return (
+    <div className="border-b border-border pb-2.5">
+      <h2 className="text-[19px] font-semibold text-text">{title}</h2>
+    </div>
+  );
+}
+
 function Group({ title, cols = 2, children }: { title: string; cols?: 2 | 3; children: ReactNode }) {
   return (
     <section className="space-y-4">
-      <h2 className="text-[19px] font-semibold text-text">{title}</h2>
+      <SectionHead title={title} />
       <div className={`grid gap-4 ${cols === 3 ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>{children}</div>
     </section>
   );
@@ -723,19 +733,24 @@ export default function DesignSystemPage() {
 
       {/* ── FOUNDATIONS ─────────────────────────────────────────────── */}
       {tab === "foundations" && (
-        <div className="space-y-4">
+        <div className="space-y-8">
           <DesignRules />
-          <Card className="space-y-6">
-            <SwatchGroup title="Brand" colors={BRAND} />
-            <SwatchGroup title="Chrome" colors={CHROME} />
-            <SwatchGroup title="Text tones" colors={TEXT} />
-            <SwatchGroup title="Semantic status" colors={STATUS} />
-          </Card>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <section className="space-y-4">
+            <SectionHead title="Color Schema" />
+            <Card className="space-y-6">
+              <SwatchGroup title="Brand" colors={BRAND} />
+              <SwatchGroup title="Chrome" colors={CHROME} />
+              <SwatchGroup title="Text tones" colors={TEXT} />
+              <SwatchGroup title="Semantic status" colors={STATUS} />
+            </Card>
+          </section>
+
+          <section className="space-y-4">
+            <SectionHead title="Typography" />
             <Card>
               <p className="mb-4 text-[13px] font-semibold text-text-muted">
-                Typography — Inter (UI/body) · Bricolage Grotesque (marketing display, font-display)
+                Inter (UI / body) · Bricolage Grotesque (marketing display, <code className="rounded bg-canvas px-1 py-0.5">font-display</code>)
               </p>
               <div className="space-y-2.5">
                 <p className="font-display text-[30px] font-extrabold tracking-tight text-text">Display · Bricolage</p>
@@ -745,9 +760,11 @@ export default function DesignSystemPage() {
                 <p className="text-[13px] text-text-muted">Small · 13 — muted metadata</p>
               </div>
             </Card>
+          </section>
 
+          <section className="space-y-4">
+            <SectionHead title="Radius and Elevation" />
             <Card>
-              <p className="mb-4 text-[13px] font-semibold text-text-muted">Radius &amp; elevation</p>
               <div className="flex flex-wrap items-end gap-5">
                 {[
                   { cls: "rounded-field border border-border bg-canvas", label: "field · 8px" },
@@ -762,7 +779,71 @@ export default function DesignSystemPage() {
                 ))}
               </div>
             </Card>
-          </div>
+          </section>
+
+          <section className="space-y-4">
+            <SectionHead title="Images" />
+            <Card className="space-y-5">
+              {/* live examples of the two identity marks */}
+              <div className="flex flex-wrap items-center gap-8">
+                <div className="flex items-center gap-2.5">
+                  <Avatar name="Ava Delgado" hue="teal" size="md" />
+                  <Avatar name="Maya Patel" hue="amber" size="md" />
+                  <Avatar name="Noah Kim" hue="pink" size="md" />
+                  <AvatarGroup
+                    people={[
+                      { name: "Ava Delgado", hue: "teal" },
+                      { name: "Maya Patel", hue: "amber" },
+                      { name: "Noah Kim", hue: "pink" },
+                      { name: "Eli Rosen", hue: "blue" },
+                      { name: "Grace Tanaka" },
+                    ]}
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <Logo variant="onLight" />
+                  <span className="rounded-card px-3 py-2" style={{ backgroundColor: "#1C2440" }}>
+                    <Logo variant="onNavy" />
+                  </span>
+                </div>
+              </div>
+
+              <ul className="space-y-2 text-[15px] text-text-body">
+                <li>
+                  <b className="text-text">Avatars are initials, never photos</b> — a stable per-user hue circle
+                  (teal / amber / pink / blue); no image upload, no PHI in the identity mark. Sizes sm 28 · md 36 · lg 96;
+                  <code className="rounded bg-canvas px-1 py-0.5">AvatarGroup</code> overlaps with a “+n” overflow.
+                </li>
+                <li>
+                  <b className="text-text">The logo is inline SVG</b> (amber rising-arch + lowercase wordmark) so it stays
+                  crisp at any size. Variants <code className="rounded bg-canvas px-1 py-0.5">onLight</code> /
+                  <code className="rounded bg-canvas px-1 py-0.5">onNavy</code>; a raster{" "}
+                  <code className="rounded bg-canvas px-1 py-0.5">logo.webp</code> exists for social/OG only.
+                </li>
+                <li>
+                  <b className="text-text">Product imagery</b> lives in{" "}
+                  <code className="rounded bg-canvas px-1 py-0.5">/public/marketing/*.png</code> at 2× (2880px wide).
+                  Rendered with a native <code className="rounded bg-canvas px-1 py-0.5">&lt;img&gt;</code>,{" "}
+                  <code className="rounded bg-canvas px-1 py-0.5">block w-full</code>, explicit width/height (no layout
+                  shift), specific alt text, and <code className="rounded bg-canvas px-1 py-0.5">loading</code> eager
+                  (hero) / lazy (below the fold). The image itself is never rounded — its <code className="rounded bg-canvas px-1 py-0.5">rounded-card</code> frame is.
+                </li>
+                <li>
+                  <b className="text-text">Payer logos</b> ship as transparent{" "}
+                  <code className="rounded bg-canvas px-1 py-0.5">.webp</code> in <code className="rounded bg-canvas px-1 py-0.5">/public</code>{" "}
+                  (Aetna, BCBS, Cigna, Optum, Anthem, Carelon, Horizon).
+                </li>
+                <li>
+                  <b className="text-text">Formats:</b> vector marks → inline SVG · screenshots → PNG @2× · logos → WebP.
+                  No <code className="rounded bg-canvas px-1 py-0.5">next/image</code> — plain{" "}
+                  <code className="rounded bg-canvas px-1 py-0.5">&lt;img&gt;</code> with intrinsic dimensions.
+                </li>
+                <li className="text-warning">
+                  <b>Gap:</b> no favicon or OpenGraph image is configured in app metadata yet.
+                </li>
+              </ul>
+            </Card>
+          </section>
         </div>
       )}
 
