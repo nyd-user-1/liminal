@@ -129,10 +129,20 @@ export async function searchProviders(opts: {
       params.push(opts.profession);
     }
     const clause = where.length ? `WHERE ${where.join(" AND ")}` : "";
-    const countRows = (await sql.query(`SELECT count(*)::int AS n FROM directory_providers ${clause}`, params)) as Array<{ n: number }>;
+    // A provider can exist as both a medicaid and an nppes row (same NPI).
+    // Dedupe at query time to one row per NPI, preferring the medicaid row (it
+    // carries license + Medicaid participation); rows without an NPI pass
+    // through (COALESCE to id makes each its own partition). Filter first so the
+    // preferred row is chosen among rows that actually match the search.
+    const deduped =
+      `SELECT * FROM (SELECT *, ROW_NUMBER() OVER (` +
+      `PARTITION BY COALESCE(npi, id::text) ` +
+      `ORDER BY CASE source WHEN 'medicaid' THEN 0 ELSE 1 END, id) AS _rn ` +
+      `FROM directory_providers ${clause}) t WHERE _rn = 1`;
+    const countRows = (await sql.query(`SELECT count(*)::int AS n FROM (${deduped}) c`, params)) as Array<{ n: number }>;
     const total = countRows[0]?.n ?? 0;
     const rows = (await sql.query(
-      `SELECT * FROM directory_providers ${clause} ORDER BY name LIMIT $${p++} OFFSET $${p++}`,
+      `SELECT * FROM (${deduped}) d ORDER BY name LIMIT $${p++} OFFSET $${p++}`,
       [...params, pageSize, (page - 1) * pageSize],
     )) as ProviderRow[];
     return { items: rows.map(toProvider), total, page, pageSize };
@@ -152,14 +162,21 @@ export async function getProvider(id: string): Promise<DirectoryProvider | null>
 
 function filterProviders(list: DirectoryProvider[], opts: { q?: string; county?: string; profession?: string }): DirectoryProvider[] {
   const q = opts.q?.trim().toLowerCase();
-  return list
-    .filter((r) => {
-      if (q && !`${r.name} ${r.city ?? ""} ${r.profession ?? ""}`.toLowerCase().includes(q)) return false;
-      if (opts.county && r.county !== opts.county) return false;
-      if (opts.profession && r.profession !== opts.profession) return false;
-      return true;
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const matched = list.filter((r) => {
+    if (q && !`${r.name} ${r.city ?? ""} ${r.profession ?? ""}`.toLowerCase().includes(q)) return false;
+    if (opts.county && r.county !== opts.county) return false;
+    if (opts.profession && r.profession !== opts.profession) return false;
+    return true;
+  });
+  // Dedupe to one row per NPI, preferring medicaid; null-NPI rows pass through.
+  const byNpi = new Map<string, DirectoryProvider>();
+  const passthrough: DirectoryProvider[] = [];
+  for (const r of matched) {
+    if (!r.npi) { passthrough.push(r); continue; }
+    const cur = byNpi.get(r.npi);
+    if (!cur || (r.source === "medicaid" && cur.source !== "medicaid")) byNpi.set(r.npi, r);
+  }
+  return [...byNpi.values(), ...passthrough].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 // ── programs ───────────────────────────────────────────────────────────────

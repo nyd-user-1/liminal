@@ -10,3 +10,7 @@ next-env.d.ts
 uploads/
 .vercel
 dev.log
+
+# NPPES ingest works by streaming (curl | bsdtar | node) — nothing lands on
+# disk. This guards any future disk-based extraction from being committed.
+.nppes-scratch/
