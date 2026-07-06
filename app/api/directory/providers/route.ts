@@ -12,6 +12,7 @@ export async function GET(req: NextRequest) {
     const page = await searchProviders({
       q: p.get("q") ?? undefined,
       zip: p.get("zip") ?? undefined,
+      city: p.get("city") ?? undefined,
       county: p.get("county") ?? undefined,
       profession: p.get("profession") ?? undefined,
       subspecialty: p.get("subspecialty") ?? undefined,

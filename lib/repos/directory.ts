@@ -140,6 +140,7 @@ function toProgram(r: ProgramRow): DirectoryProgram {
 export async function searchProviders(opts: {
   q?: string;
   zip?: string;
+  city?: string;
   county?: string;
   profession?: string;
   subspecialty?: string;
@@ -170,6 +171,10 @@ export async function searchProviders(opts: {
     if (zip5) {
       where.push(`left(regexp_replace(zip,'[^0-9]','','g'),5) = $${p++}`);
       params.push(zip5);
+    }
+    if (opts.city) {
+      where.push(`lower(city) = lower($${p++})`); // city case varies by source
+      params.push(opts.city);
     }
     if (opts.county) {
       where.push(`county = $${p++}`);
@@ -231,6 +236,7 @@ function filterProviders(
   opts: {
     q?: string;
     zip?: string;
+    city?: string;
     county?: string;
     profession?: string;
     subspecialty?: string;
@@ -248,6 +254,7 @@ function filterProviders(
     if (!opts.includeInactive && r.deactivatedAt) return false;
     if (q && !`${r.name} ${r.city ?? ""} ${r.profession ?? ""}`.toLowerCase().includes(q)) return false;
     if (zip5 && (r.zip ?? "").replace(/[^0-9]/g, "").slice(0, 5) !== zip5) return false;
+    if (opts.city && (r.city ?? "").toLowerCase() !== opts.city.toLowerCase()) return false;
     if (opts.county && r.county !== opts.county) return false;
     if (opts.profession && r.profession !== opts.profession) return false;
     if (opts.subspecialty && r.subspecialty !== opts.subspecialty) return false;
@@ -331,16 +338,18 @@ function filterPrograms(list: DirectoryProgram[], opts: { q?: string; county?: s
     .sort((a, b) => a.programName.localeCompare(b.programName));
 }
 
-/** Distinct filter facet values (counties, professions, subspecialties) for filter chips. */
-export async function providerFacets(): Promise<{ counties: string[]; professions: string[]; subspecialties: string[] }> {
+/** Distinct filter facet values (cities, counties, professions, subspecialties) for filter chips. */
+export async function providerFacets(): Promise<{ cities: string[]; counties: string[]; professions: string[]; subspecialties: string[] }> {
   if (hasDb) {
+    const ci = (await sql`SELECT DISTINCT initcap(lower(city)) AS city FROM directory_providers WHERE city IS NOT NULL AND deactivated_at IS NULL ORDER BY city`) as Array<{ city: string }>;
     const c = (await sql`SELECT DISTINCT county FROM directory_providers WHERE county IS NOT NULL AND deactivated_at IS NULL ORDER BY county`) as Array<{ county: string }>;
     const pr = (await sql`SELECT DISTINCT profession FROM directory_providers WHERE profession IS NOT NULL AND deactivated_at IS NULL ORDER BY profession`) as Array<{ profession: string }>;
     const ss = (await sql`SELECT subspecialty, count(*)::int n FROM directory_providers WHERE subspecialty IS NOT NULL AND deactivated_at IS NULL GROUP BY subspecialty ORDER BY n DESC`) as Array<{ subspecialty: string }>;
-    return { counties: c.map((r) => r.county), professions: pr.map((r) => r.profession), subspecialties: ss.map((r) => r.subspecialty) };
+    return { cities: ci.map((r) => r.city), counties: c.map((r) => r.county), professions: pr.map((r) => r.profession), subspecialties: ss.map((r) => r.subspecialty) };
   }
   const list = [...mockStore().directoryProviders.values()];
   return {
+    cities: unique(list.map((r) => r.city)),
     counties: unique(list.map((r) => r.county)),
     professions: unique(list.map((r) => r.profession)),
     subspecialties: unique(list.map((r) => r.subspecialty ?? null)),
