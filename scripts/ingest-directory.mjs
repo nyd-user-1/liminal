@@ -167,8 +167,31 @@ async function ingestOmh() {
 // _fileheader.csv sibling. Column layout is positional/stable (330 cols).
 
 // Fixed NPPES column indices (confirmed against the file header, June 2026).
-const NP = { npi: 0, entity: 1, org: 4, last: 5, first: 6, addr: 28, city: 30, state: 31, zip: 32, phone: 34, lic: 48 };
-const NP_TAX = [47, 51, 55, 59, 63, 67, 71, 75, 79, 83, 87, 91, 95, 99, 103]; // the 15 taxonomy code columns
+const NP = {
+  npi: 0, entity: 1, org: 4, last: 5, first: 6, credential: 10,
+  addr: 28, city: 30, state: 31, zip: 32, phone: 34,
+  enumeration: 36, lastUpdate: 37, deactReason: 38, deactDate: 39, reactDate: 40,
+  sex: 41, soleProp: 307, parentOrg: 309,
+};
+// The 15 taxonomy slots; each slot is 4 consecutive cols: code, license,
+// license-state, primary-switch (so license = code+1, state = code+2, switch = code+3).
+const NP_TAX = [47, 51, 55, 59, 63, 67, 71, 75, 79, 83, 87, 91, 95, 99, 103];
+// Other Provider Identifier: 50 groups of 4 (identifier, type-code, state, issuer)
+// starting at col 107. Type code 05 = the provider's Medicaid ID.
+const NP_OID_BASE = 107;
+
+/** NPPES dates are MM/DD/YYYY → ISO YYYY-MM-DD (or null). */
+function npDate(s) {
+  const m = (s || "").match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m ? `${m[3]}-${m[1]}-${m[2]}` : null;
+}
+/** Scan the 50 Other-Provider-Identifier groups for the Medicaid ID (type 05). */
+function medicaidId(f) {
+  for (let k = 0; k < 50; k++) {
+    if (f[NP_OID_BASE + 4 * k + 1] === "05") return f[NP_OID_BASE + 4 * k] || null;
+  }
+  return null;
+}
 
 // Mental-health taxonomy include-set, confirmed against NUCC v251. Exact codes
 // plus two clean family prefixes (all 103T* are psychologists, all 103G* are
@@ -248,11 +271,40 @@ function makeRecordSplitter() {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/** code → NUCC specialization (for the subspecialty column), e.g.
+ *  2084P0804X → "Child & Adolescent Psychiatry". Confirmed source. */
+async function buildNuccSpecialization() {
+  for (const v of ["251", "250"]) {
+    try {
+      const res = await fetch(`https://www.nucc.org/images/stories/CSV/nucc_taxonomy_${v}.csv`);
+      if (!res.ok) continue;
+      const lines = (await res.text()).split(/\r?\n/).filter(Boolean);
+      const hdr = parseCsvLine(lines[0]);
+      const iC = hdr.indexOf("Code"), iS = hdr.indexOf("Specialization");
+      const m = new Map();
+      for (let k = 1; k < lines.length; k++) {
+        const c = parseCsvLine(lines[k]);
+        if (c[iC]) m.set(c[iC], c[iS] || null);
+      }
+      console.log(`  NUCC v${v}: ${m.size} taxonomy codes loaded (subspecialty labels)`);
+      return m;
+    } catch { /* try next version */ }
+  }
+  console.log("  NUCC fetch failed — subspecialty will be null");
+  return new Map();
+}
+
 async function ingestNppes(input = process.stdin) {
   console.log("• nppes (NPI registry file) — NY practice location, MH taxonomy; streaming stdin");
   console.log(`  taxonomy include-set: ${Object.keys(MH_TAXONOMY).length} exact + prefixes ${Object.keys(MH_TAX_PREFIX).join(", ")}`);
+  const nuccSpec = await buildNuccSpecialization();
 
-  const cols = ["source", "source_id", "npi", "name", "profession", "license_no", "taxonomy", "address", "city", "county", "zip", "phone"];
+  const cols = [
+    "source", "source_id", "npi", "name", "profession", "license_no", "taxonomy", "address", "city", "county", "zip", "phone",
+    "entity_type", "primary_taxonomy", "subspecialty", "taxonomies", "credential", "gender", "license_state",
+    "enumeration_date", "last_update_date", "deactivated_at", "deactivation_reason", "reactivated_at",
+    "is_sole_proprietor", "parent_org", "medicaid_id",
+  ];
   const BATCH = 500;
   const PAUSE_EVERY = 50; // batches
   let scanned = 0, matched = 0, batches = 0, headerSkipped = false;
@@ -266,7 +318,13 @@ async function ingestNppes(input = process.stdin) {
       values.push(`(${cols.map(() => `$${p++}`).join(",")})`);
       for (const c of cols) params.push(rec[c] ?? null);
     }
-    const set = cols.slice(2).map((c) => `${c} = EXCLUDED.${c}`).concat("updated_at = now()").join(", ");
+    // county is derived by scripts/backfill-nppes-county.mjs (NPPES has none), so
+    // never let a re-ingest clobber a backfilled county back to NULL.
+    const set = cols
+      .slice(2)
+      .map((c) => (c === "county" ? "county = COALESCE(EXCLUDED.county, directory_providers.county)" : `${c} = EXCLUDED.${c}`))
+      .concat("updated_at = now()")
+      .join(", ");
     const text =
       `INSERT INTO directory_providers (${cols.join(",")}) VALUES ${values.join(",")} ` +
       `ON CONFLICT (source, source_id) DO UPDATE SET ${set}`;
@@ -297,32 +355,63 @@ async function ingestNppes(input = process.stdin) {
       if (scanned % 10000 === 0) process.stdout.write(`\r  scanned ${scanned}, matched ${matched}…`);
       const f = parseCsvLine(line);
       if (f[NP.state] !== "NY") continue;
-      let taxonomy = null, profession = null;
-      for (const ti of NP_TAX) {
-        const label = taxLabel(f[ti]);
-        if (label) { taxonomy = f[ti]; profession = label; break; }
+
+      // Walk all 15 taxonomy slots: collect the full array, the true primary
+      // (switch=Y, MH or not), and the MH taxonomy that labels this provider —
+      // preferring their MH-and-primary slot, else their first MH slot.
+      const taxonomies = [];
+      let primaryTax = null, firstMh = null, primaryMh = null;
+      for (const t of NP_TAX) {
+        const code = f[t];
+        if (!code) continue;
+        taxonomies.push(code);
+        const isPrimary = f[t + 3] === "Y";
+        if (isPrimary) primaryTax = code;
+        const label = taxLabel(code);
+        if (label) {
+          const slot = { code, label, lic: f[t + 1] || null, st: f[t + 2] || null };
+          if (!firstMh) firstMh = slot;
+          if (isPrimary && !primaryMh) primaryMh = slot;
+        }
       }
-      if (!profession) continue;
+      const mh = primaryMh || firstMh;
+      if (!mh) continue; // no mental-health taxonomy → not our directory
       const npi = f[NP.npi];
       if (!npi || !/^\d+$/.test(npi)) continue;
       const name = f[NP.entity] === "2" ? f[NP.org] : `${f[NP.last]} ${f[NP.first]}`.trim();
       matched++;
-      if (process.env.DRY_RUN && matched <= 5) {
-        console.log(`\n  sample: npi=${npi} | ${f[NP.entity] === "2" ? f[NP.org] : `${f[NP.last]} ${f[NP.first]}`} | ${profession} (${taxonomy}) | ${f[NP.city]}, ${f[NP.state]} ${f[NP.zip]} | lic=${f[NP.lic] || "—"}`);
+      if (process.env.DRY_RUN && matched <= 6) {
+        const sub = nuccSpec.get(mh.code);
+        console.log(`\n  sample: ${name} | ${mh.label}${sub ? " / " + sub : ""} | cred=${f[NP.credential] || "—"} sex=${f[NP.sex] || "—"} | primary=${primaryTax || "—"} | ${f[NP.city]}, ${f[NP.state]} | taxonomies=[${taxonomies.join(",")}]`);
       }
       batch.push({
         source: "nppes",
         source_id: npi,
         npi,
         name: name || "Unknown provider",
-        profession,
-        license_no: f[NP.lic] || null,
-        taxonomy,
+        profession: mh.label,
+        license_no: mh.lic,
+        taxonomy: mh.code,
         address: f[NP.addr] || null,
         city: f[NP.city] || null,
-        county: null, // NPPES has no county; zip→county backfill is a follow-up
+        county: null, // filled by scripts/backfill-nppes-county.mjs (zip→county)
         zip: f[NP.zip] || null,
         phone: f[NP.phone] || null,
+        entity_type: f[NP.entity] || null,
+        primary_taxonomy: primaryTax,
+        subspecialty: nuccSpec.get(mh.code) || null,
+        taxonomies: taxonomies.length ? taxonomies : null,
+        credential: f[NP.credential] || null,
+        gender: f[NP.sex] || null,
+        license_state: mh.st,
+        enumeration_date: npDate(f[NP.enumeration]),
+        last_update_date: npDate(f[NP.lastUpdate]),
+        deactivated_at: npDate(f[NP.deactDate]),
+        deactivation_reason: f[NP.deactReason] || null,
+        reactivated_at: npDate(f[NP.reactDate]),
+        is_sole_proprietor: f[NP.soleProp] === "Y" ? true : f[NP.soleProp] === "N" ? false : null,
+        parent_org: f[NP.parentOrg] || null,
+        medicaid_id: medicaidId(f),
       });
       if (batch.length >= BATCH) await flushBatch();
     }
