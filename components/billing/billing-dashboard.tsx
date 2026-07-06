@@ -180,7 +180,7 @@ export function BillingDashboard({
             <StatCard label="Drafts" value={stats.draftCount} />
           </div>
 
-          <Toolbar count={filtered.length} countLabel="invoices" className="mb-4">
+          <Toolbar className="mb-4">
             <SearchInput
               placeholder="Search invoices or clients"
               className="w-64"
