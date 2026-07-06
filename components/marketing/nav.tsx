@@ -478,7 +478,7 @@ function MyPortalMenu() {
   return (
     <div ref={ref} className="relative">
       <Button variant="secondary" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-haspopup="menu">
-        My portal
+        Log in
       </Button>
       {open && (
         <div
@@ -542,10 +542,10 @@ function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
         </AccordionSection>
         <div className="mt-6 flex flex-col gap-3">
           <Button variant="secondary" fullWidth onClick={() => { onClose(); router.push("/sign-in"); }}>
-            My portal
+            Log in
           </Button>
           <Button fullWidth onClick={() => { onClose(); router.push("/join"); }}>
-            Join as a provider
+            Sign up
           </Button>
         </div>
       </div>
@@ -643,9 +643,9 @@ export function Nav() {
   }, [open, menu, cat]);
 
   const triggers: Array<{ key: MenuKey; label: string }> = [
-    { key: "search", label: "Search providers" },
-    { key: "find", label: "Find care" },
-    { key: "providers", label: "For providers" },
+    { key: "search", label: "Search" },
+    { key: "find", label: "Care" },
+    { key: "providers", label: "Providers" },
     { key: "company", label: "Company" },
   ];
 
@@ -667,7 +667,7 @@ export function Nav() {
             <Logo size="sm" />
           </Link>
 
-          {/* centered links */}
+          {/* nav links — centered in the bar */}
           <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 md:flex">
             {triggers.map((t) => (
               <button
@@ -692,7 +692,7 @@ export function Nav() {
           <div className="ml-auto flex items-center gap-2">
             <div className="hidden items-center gap-2 md:flex">
               <MyPortalMenu />
-              <Button onClick={() => router.push("/join")}>Join as a provider</Button>
+              <Button onClick={() => router.push("/join")}>Sign up</Button>
             </div>
             <IconButton icon="menu" label="Open menu" className="md:hidden" onClick={() => setMobileOpen(true)} />
           </div>

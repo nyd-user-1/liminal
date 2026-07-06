@@ -20,7 +20,7 @@ export function HeroSearch() {
 
   return (
     <SearchInput
-      className="[&_input]:h-14 [&_input]:text-base [&_input]:shadow-card"
+      className="[&_input]:h-14 [&_input]:text-base [&_input]:shadow-card [&_svg]:fill-primary-wash [&_svg]:text-text"
       placeholder="Search therapists, psychiatrists, and programs"
       aria-label="Search providers and programs"
       value={q}

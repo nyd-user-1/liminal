@@ -72,22 +72,14 @@ export default function Home() {
               <span className="text-primary">everyone.</span>
             </h1>
             <p className="mkt-rise mkt-d1 mt-6 max-w-xl text-pretty text-lg text-text-body sm:text-xl">
-              We&apos;ll meet you wherever you are, whenever you&apos;re ready.
+              We meet you where you are.
             </p>
             <div className="mkt-rise mkt-d2 mt-8 max-w-xl">
               <HeroSearch />
             </div>
-            <div className="mkt-rise mkt-d3 mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-text-muted">
-              <span>116,000+ providers</span>
-              <span aria-hidden className="text-primary/40">
-                •
-              </span>
-              <span>6,400+ programs</span>
-              <span aria-hidden className="text-primary/40">
-                •
-              </span>
-              <span>All 62 counties</span>
-            </div>
+            <p className="mkt-rise mkt-d3 mt-5 max-w-xl text-sm text-text-muted">
+              *Search more than 116,000+ mental health providers instantly. No sign up required.
+            </p>
           </div>
 
           {/* mobile product shot */}

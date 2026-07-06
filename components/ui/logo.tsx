@@ -1,11 +1,17 @@
-// Liminal brand mark — lowercase "liminal" wordmark with the amber arch over
-// the "n" and a teal underline rule. Variants: onNavy (sidebar, auth backdrop)
-// · onLight (white surfaces).
+// Liminal brand mark — a standalone amber rising-arch icon (filled with a pale
+// amber) next to the lowercase "liminal" wordmark, both resting on an amber
+// baseline rule. Variants: onNavy (sidebar, auth) · onLight (white surfaces).
 
 const sizes = {
   sm: "text-xl",
   md: "text-2xl",
   lg: "text-4xl",
+} as const;
+
+const archSizes = {
+  sm: "w-5",
+  md: "w-6",
+  lg: "w-9",
 } as const;
 
 export function Logo({
@@ -18,26 +24,16 @@ export function Logo({
   className?: string;
 }) {
   return (
-    <span className={`inline-flex flex-col leading-none ${className}`}>
+    <span className={`inline-flex items-baseline gap-[0.28em] leading-none ${className}`}>
+      {/* amber rising-arch mark (flat bottom flush with the text baseline) */}
+      <svg viewBox="0 -0.5 28 13.5" className={`${archSizes[size]} h-auto shrink-0`} aria-hidden>
+        <path d="M2 13 A 12 12 0 0 1 26 13" fill="#FBE7C4" stroke="#F0AE55" strokeWidth="2.6" strokeLinecap="round" />
+      </svg>
       <span
         className={`font-bold lowercase tracking-tight ${sizes[size]} ${variant === "onNavy" ? "text-white" : "text-text"}`}
       >
-        limi
-        <span className="relative inline-block">
-          n
-          {/* amber arch over the n */}
-          <svg
-            viewBox="0 0 10 5"
-            className="absolute -top-[0.28em] left-1/2 w-[0.58em] -translate-x-1/2"
-            aria-hidden
-          >
-            <path d="M1 5 A 4 4 0 0 1 9 5" fill="none" stroke="#F0AE55" strokeWidth="1.7" strokeLinecap="round" />
-          </svg>
-        </span>
-        al
+        liminal
       </span>
-      {/* teal underline rule */}
-      <span className="mt-1 h-[2.5px] w-full rounded-full bg-teal-500" aria-hidden />
     </span>
   );
 }
