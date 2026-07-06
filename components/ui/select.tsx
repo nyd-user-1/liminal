@@ -18,7 +18,7 @@ export interface SelectOption {
 }
 
 const triggerClass =
-  "h-10 w-full min-w-[180px] rounded-field border border-field-border bg-surface px-3 text-left text-[15px] text-text outline-none transition-colors focus:border-field-border-focus disabled:cursor-not-allowed disabled:bg-[#E5E7EB] disabled:text-text-muted";
+  "h-10 w-full rounded-field border border-field-border bg-surface px-3 text-left text-[15px] text-text outline-none transition-colors focus:border-field-border-focus disabled:cursor-not-allowed disabled:bg-[#E5E7EB] disabled:text-text-muted";
 
 function Dot({ color }: { color?: string }) {
   if (!color) return null;
