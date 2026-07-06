@@ -20,13 +20,15 @@ export function Pagination({
       <span className="text-sm text-text-muted">
         Page {page} of {Math.max(pageCount, 1)}
       </span>
-      <IconButton icon="chevron-left" label="Previous page" disabled={page <= 1} onClick={() => onPageChange(page - 1)} />
-      <IconButton
-        icon="chevron-right"
-        label="Next page"
-        disabled={page >= pageCount}
-        onClick={() => onPageChange(page + 1)}
-      />
+      <div className="flex items-center">
+        <IconButton icon="chevron-left" label="Previous page" disabled={page <= 1} onClick={() => onPageChange(page - 1)} />
+        <IconButton
+          icon="chevron-right"
+          label="Next page"
+          disabled={page >= pageCount}
+          onClick={() => onPageChange(page + 1)}
+        />
+      </div>
     </div>
   );
 }
