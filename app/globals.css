@@ -68,3 +68,21 @@ body {
   color: var(--color-text);
   -webkit-font-smoothing: antialiased;
 }
+
+/* Link "wipe" underline — no line at rest (just text); on hover the underline
+   fills in left→right like a progress bar. Uses currentColor so it matches the
+   link text. Put on a <span> around the text, with `group` on the link so the
+   icon triggers it too. */
+.link-wipe {
+  display: inline-block;
+  padding-bottom: 3px;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 0 1.5px;
+  transition: background-size 0.4s ease;
+}
+.group:hover .link-wipe,
+.link-wipe:hover {
+  background-size: 100% 1.5px;
+}

@@ -618,12 +618,6 @@ function LinkSample({
   );
 }
 
-const LINK_VARIANTS = [
-  { label: "Teal · always-on underline", color: "text-primary hover:text-primary-hover", deco: "underline decoration-1 underline-offset-[3px]" },
-  { label: "Teal · soft → solid on hover", color: "text-primary hover:text-primary-hover", deco: "underline decoration-1 underline-offset-[3px] decoration-primary/40 group-hover:decoration-primary" },
-  { label: "Amber accent-ink · always-on", color: "text-accent-ink hover:text-[#a06f1f]", deco: "underline decoration-1 underline-offset-[3px]" },
-  { label: "Amber accent-ink · soft → solid", color: "text-accent-ink hover:text-[#a06f1f]", deco: "underline decoration-1 underline-offset-[3px] decoration-accent-ink/40 group-hover:decoration-accent-ink" },
-];
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
@@ -739,21 +733,10 @@ export default function DesignSystemPage() {
                 );
               })}
             </Spec>
-            <Spec
-              name="TextLink"
-              desc="Inline primary link; optional leading icon. Rows: teal vs amber accent-ink · Cols: always-on underline vs soft→solid on hover."
-              wide
-            >
-              <div className="grid w-full gap-x-10 gap-y-6 sm:grid-cols-2">
-                {LINK_VARIANTS.map((v) => (
-                  <div key={v.label}>
-                    <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-text-muted">{v.label}</p>
-                    <div className="flex flex-col items-start gap-2">
-                      <LinkSample color={v.color} deco={v.deco}>View all clients</LinkSample>
-                      <LinkSample color={v.color} deco={v.deco} icon="download">Export</LinkSample>
-                    </div>
-                  </div>
-                ))}
+            <Spec name="TextLink" desc="Inline primary link; optional leading icon.">
+              <div className="flex flex-col items-start gap-2">
+                <LinkSample color="text-accent-ink" deco="link-wipe">View all clients</LinkSample>
+                <LinkSample color="text-accent-ink" deco="link-wipe" icon="download">Export</LinkSample>
               </div>
             </Spec>
           </Group>
