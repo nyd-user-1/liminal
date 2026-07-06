@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
@@ -107,33 +106,32 @@ export function AppointmentDetailPanel({
             </Button>
           </>
         ) : (
-          <Button variant="danger" onClick={() => setCancelling(true)}>
-            Cancel appointment
-          </Button>
+          <>
+            {telehealth && (
+              <Link href={`/calls/${a.id}`}>
+                <Button leftIcon="video">Join video call</Button>
+              </Link>
+            )}
+            <Button variant="danger" onClick={() => setCancelling(true)}>
+              Cancel appointment
+            </Button>
+          </>
         )
       }
     >
       {/* identity block */}
-      <div className="mb-4 flex items-center gap-3">
-        <Avatar name={client?.name ?? "Client"} hue="teal" size="md" />
+      <div className="mb-4 flex items-start gap-3">
         <div className="min-w-0">
           <p className="truncate text-[19px] font-semibold text-text">{client?.name ?? "Client"}</p>
+          <p className="text-sm text-text-muted">{formatDateLong(a.startsAt)}</p>
           <p className="text-sm text-text-muted">
-            {formatDateLong(a.startsAt)} · {formatTime(a.startsAt)} – {formatTime(a.endsAt)}
+            {formatTime(a.startsAt)} – {formatTime(a.endsAt)}
           </p>
         </div>
         <Badge variant={meta.variant} className="ml-auto">
           {meta.label}
         </Badge>
       </div>
-
-      {telehealth && a.status !== "cancelled" && (
-        <Link href={`/calls/${a.id}`} className="mb-4 block">
-          <Button leftIcon="video" fullWidth>
-            Join video call
-          </Button>
-        </Link>
-      )}
 
       <div className="divide-y divide-border rounded-card border border-border px-4 py-1">
         <DetailRow label="Service">
@@ -170,7 +168,8 @@ export function AppointmentDetailPanel({
             value={a.status}
             onValueChange={(v) => onStatusChange(a.id, v as AppointmentStatus)}
           />
-          <p className="mt-2 text-[13px] text-text-muted">
+          <p className="mt-2 flex items-center gap-1.5 text-[13px] text-text-body">
+            <Icon name="info" size={14} className="shrink-0 text-info" />
             Tip: drag the chip on the calendar to reschedule.
           </p>
         </div>

@@ -153,7 +153,7 @@ export function ClientsIndex({
         </Button>
       </TopBarActions>
 
-      <Toolbar count={filtered.length} countLabel={filtered.length === 1 ? "client" : "clients"} className="mb-4">
+      <Toolbar className="mb-4">
         <SearchInput
           value={q}
           onChange={(e) => {
@@ -161,7 +161,7 @@ export function ClientsIndex({
             setPage(1);
           }}
           placeholder="Search by name, email or phone"
-          className="w-72"
+          className="max-w-md flex-1"
         />
         <ChipMenu
           label="Status"

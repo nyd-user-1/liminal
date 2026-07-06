@@ -4,7 +4,8 @@ import { Spinner } from "@/components/ui/spinner";
 
 // Catalog `Button` — the one action button.
 // Variants: primary · secondary · ghost · danger (outline) · danger-solid.
-// Sizes: sm (header actions) · md (~40px default) · xl (~52px, full-width auth CTAs).
+// Sizes: sm (header actions) · md (40px default — the standard control height,
+// matches Field/Select/SearchInput) · xl (~52px, full-width auth CTAs).
 
 type Variant = "primary" | "secondary" | "ghost" | "danger" | "danger-solid";
 type Size = "sm" | "md" | "xl";

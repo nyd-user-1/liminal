@@ -163,12 +163,9 @@ export function CallStage({
         {variant === "practitioner" && (
           <Card className="w-full max-w-2xl !p-5">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-field bg-teal-100 text-primary">
-                <Icon name="sparkle" />
-              </span>
               <div className="min-w-0 flex-1">
-                <p className="text-[15px] font-semibold text-text">Take notes with AI Scribe</p>
-                <p className="text-sm text-text-muted">Turn sessions into professional notes</p>
+                <p className="text-[15px] font-semibold text-text">Stenographer</p>
+                <p className="text-sm text-text-muted">Provides live transcription.</p>
               </div>
               <Toggle checked={scribeOnJoin} onChange={setScribeOnJoin} />
             </div>

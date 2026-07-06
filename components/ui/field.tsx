@@ -30,7 +30,7 @@ export function FieldError({ children }: { children: ReactNode }) {
 }
 
 export const fieldClass =
-  "h-11 w-full rounded-field border border-field-border bg-surface px-3 text-[15px] text-text placeholder:text-text-muted outline-none transition-colors focus:border-field-border-focus disabled:bg-[#E5E7EB] disabled:text-text-muted";
+  "h-10 w-full rounded-field border border-field-border bg-surface px-3 text-[15px] text-text placeholder:text-text-muted outline-none transition-colors focus:border-field-border-focus disabled:bg-[#E5E7EB] disabled:text-text-muted";
 
 export function Input({
   error,
@@ -84,7 +84,7 @@ export function Field({
         <Input id={inputId} error={!!error} {...rest} />
       ) : (
         <div
-          className={`flex h-11 w-full items-center rounded-field border bg-surface transition-colors focus-within:border-field-border-focus ${error ? "border-danger" : "border-field-border"}`}
+          className={`flex h-10 w-full items-center rounded-field border bg-surface transition-colors focus-within:border-field-border-focus ${error ? "border-danger" : "border-field-border"}`}
         >
           {prefix && <span className="pl-3 text-[15px] text-text-muted">{prefix}</span>}
           <input

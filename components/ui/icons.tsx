@@ -108,6 +108,13 @@ const paths: Record<string, ReactNode> = {
       <path d="M13.73 21a2 2 0 0 1-3.46 0" />
     </>
   ),
+  info: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="16" x2="12" y2="12" />
+      <line x1="12" y1="8" x2="12.01" y2="8" />
+    </>
+  ),
   "credit-card": (
     <>
       <rect x="1" y="4" width="22" height="16" rx="2" />

@@ -64,7 +64,7 @@ export function TopBar({
 
   return (
     <header className="flex h-16 shrink-0 items-center gap-3 border-b border-border bg-surface px-6">
-      <PageHeader icon={title ? undefined : derived.icon} title={title ?? derived.title} />
+      <PageHeader title={title ?? derived.title} />
       <div className="ml-auto flex items-center gap-2">
         <div id={TOPBAR_ACTIONS_ID} className="flex items-center gap-2" />
         {actions}

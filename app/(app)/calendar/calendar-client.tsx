@@ -173,34 +173,40 @@ export function CalendarClient({
 
       {/* Toolbar (catalog `Toolbar calendar` variant) — anchor date · Today ·
           view · practitioner. Date navigation lives in the rail DatePicker. */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <span className="mr-2 text-[17px] font-semibold text-text">{anchorLabel}</span>
-        <Button variant="secondary" onClick={() => setAnchor(dateKey(new Date()))}>
-          Today
-        </Button>
-        <Select
-          aria-label="Calendar view"
-          className="w-28"
-          options={[
-            { value: "day", label: "Day" },
-            { value: "week", label: "Week" },
-          ]}
-          value={view}
-          onValueChange={(v) => setView(v as "day" | "week")}
-        />
-        <Select
-          aria-label="Practitioner filter"
-          className="w-52"
-          placeholder="Some practitioners"
-          options={[
-            { value: "all", label: "All practitioners" },
-            ...practitioners.map((p) => ({ value: p.id, label: p.name })),
-          ]}
-          value={filterValue}
-          onValueChange={(v) =>
-            setVisible(v === "all" || v === "" ? new Set(practitioners.map((p) => p.id)) : new Set([v]))
-          }
-        />
+      <div className="mb-4 flex flex-wrap items-center gap-2 lg:flex-nowrap lg:gap-4">
+        {/* Left column — mirrors the rail width so date + Today sit above it */}
+        <div className="flex items-center gap-2 lg:w-80 lg:shrink-0">
+          <span className="mr-2 text-[17px] font-semibold text-text">{anchorLabel}</span>
+          <Button variant="secondary" onClick={() => setAnchor(dateKey(new Date()))}>
+            Today
+          </Button>
+        </div>
+        {/* Right column — flex-1 so Week + practitioners align with the grid */}
+        <div className="flex flex-1 flex-wrap items-center gap-2">
+          <Select
+            aria-label="Calendar view"
+            className="w-28"
+            options={[
+              { value: "day", label: "Day" },
+              { value: "week", label: "Week" },
+            ]}
+            value={view}
+            onValueChange={(v) => setView(v as "day" | "week")}
+          />
+          <Select
+            aria-label="Practitioner filter"
+            className="w-52"
+            placeholder="Some practitioners"
+            options={[
+              { value: "all", label: "All practitioners" },
+              ...practitioners.map((p) => ({ value: p.id, label: p.name })),
+            ]}
+            value={filterValue}
+            onValueChange={(v) =>
+              setVisible(v === "all" || v === "" ? new Set(practitioners.map((p) => p.id)) : new Set([v]))
+            }
+          />
+        </div>
       </div>
 
       <div className="flex min-h-0 flex-1 gap-4">

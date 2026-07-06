@@ -4,6 +4,7 @@ import { Icon } from "@/components/ui/icons";
 
 // Catalog `FilterChip` — pill in the table filter bar.
 // add state: "+ Status" outline · applied: label + value + clear ×, tinted.
+// A shared min-width + centered content keeps chips uniform regardless of label.
 
 export function FilterChip({
   label,
@@ -21,7 +22,7 @@ export function FilterChip({
   const applied = value !== undefined && value !== "";
   return (
     <span
-      className={`inline-flex items-center overflow-hidden rounded-full border text-sm font-medium transition-colors ${
+      className={`inline-flex min-w-[7rem] items-center justify-center overflow-hidden rounded-full border text-sm font-medium transition-colors ${
         applied ? "border-primary-weak bg-teal-100 text-primary" : "border-field-border bg-surface text-text-body hover:border-primary"
       } ${className}`}
     >
