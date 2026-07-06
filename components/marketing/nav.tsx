@@ -174,14 +174,14 @@ function PanelRow({ href, icon, label }: { href: string; icon: IconName; label: 
   return (
     <Link
       href={href}
-      className="group flex items-center gap-3 rounded-field px-3 py-2 transition-colors hover:bg-primary-wash"
+      className="group flex items-center gap-3 rounded-field px-3 py-2 transition-colors hover:bg-canvas"
     >
       <Icon
         name={icon}
         size={20}
-        className="shrink-0 text-text-muted transition-colors group-hover:fill-primary-wash group-hover:text-primary"
+        className="shrink-0 text-text-muted transition-colors group-hover:fill-primary-wash group-hover:text-text"
       />
-      <span className="text-[15px] font-medium text-text-body group-hover:text-primary">{label}</span>
+      <span className="text-[15px] font-medium text-text-body group-hover:text-text">{label}</span>
     </Link>
   );
 }
@@ -452,9 +452,9 @@ function CompanyPanel() {
           <PanelRow key={l.href} {...l} />
         ))}
       </div>
-      <div className="border-t border-border bg-canvas px-5 py-4">
-        <Link href="/book/liminal" className="inline-block text-[15px] font-medium text-primary hover:text-primary-hover">
-          Book an appointment in minutes →
+      <div className="border-t border-border bg-canvas px-3 py-3">
+        <Link href="/book/liminal" className="group inline-flex px-2 text-[15px] font-medium text-primary">
+          <span className="link-wipe">Book an appointment in minutes</span>
         </Link>
       </div>
     </div>
