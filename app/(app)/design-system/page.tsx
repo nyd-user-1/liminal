@@ -735,10 +735,11 @@ export default function DesignSystemPage() {
                 );
               })}
             </Spec>
-            <Spec name="TextLink" desc="Inline primary link; optional leading icon.">
+            <Spec name="TextLink" desc="Inline link; primary (default) or underline variant; optional leading icon.">
               <div className="flex flex-col items-start gap-2">
                 <LinkSample color="text-accent-ink" deco="link-wipe">View all clients</LinkSample>
                 <LinkSample color="text-accent-ink" deco="link-wipe" icon="download">Export</LinkSample>
+                <TextLink variant="underline">View all therapists</TextLink>
               </div>
             </Spec>
           </Group>

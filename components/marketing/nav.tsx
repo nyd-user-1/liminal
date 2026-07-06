@@ -10,6 +10,7 @@ import { MenuItem } from "@/components/ui/dropdown-menu";
 import { Icon, type IconName } from "@/components/ui/icons";
 import { IconButton } from "@/components/ui/icon-button";
 import { Logo } from "@/components/ui/logo";
+import { TextLink } from "@/components/ui/text-link";
 import { SearchOverlay } from "@/components/marketing/search-overlay";
 
 // Public marketing nav (Headway pattern, Liminal brand). One shared dropdown
@@ -22,20 +23,32 @@ import { SearchOverlay } from "@/components/marketing/search-overlay";
 // "deepen + stroke-bump" approach, not fill-currentColor).
 
 type MenuKey = "find" | "providers" | "company";
-const WIDTHS: Record<MenuKey, number> = { find: 697, providers: 320, company: 300 };
+const WIDTHS: Record<MenuKey, number> = { find: 636, providers: 320, company: 300 };
 
 // ── content data ─────────────────────────────────────────────────────────────
 
 const BOROUGHS: Array<[label: string, county: string]> = [
-  ["New York (Manhattan)", "New York"],
+  ["Manhattan", "New York"],
   ["Brooklyn", "Kings"],
   ["Queens", "Queens"],
   ["Bronx", "Bronx"],
   ["Staten Island", "Richmond"],
 ];
-// Odd counts so that, once "View all" is appended, it lands in the last
-// column of the last row (not orphaned at the start of a new row).
-const METRO_COUNTIES = ["Nassau", "Suffolk", "Westchester", "Rockland", "Putnam"];
+// The 10 largest non-borough cities by provider volume in the live directory
+// (`directory_providers.city`). The dataset is NYC-only, so beyond the four
+// single-city boroughs every city here is a Queens neighborhood.
+const CITIES = [
+  "Flushing",
+  "Forest Hills",
+  "Jamaica",
+  "Glen Oaks",
+  "Elmhurst",
+  "Bayside",
+  "Rego Park",
+  "Far Rockaway",
+  "Long Island City",
+  "Queens Village",
+];
 const SPECIALTIES = [
   "ADHD",
   "Anxiety and Depression",
@@ -59,7 +72,7 @@ type FindCategory = {
 function locationSections(type: string, icon: IconName) {
   return [
     {
-      header: "Near you",
+      header: "By borough",
       links: BOROUGHS.map(([label, county]) => ({
         label,
         href: `/find-care?type=${type}&county=${encodeURIComponent(county)}`,
@@ -67,10 +80,11 @@ function locationSections(type: string, icon: IconName) {
       })),
     },
     {
-      header: "Find care by county",
-      links: METRO_COUNTIES.map((c) => ({
+      header: "By city",
+      // `q` searches the directory's `city` column, so these filter for real.
+      links: CITIES.map((c) => ({
         label: c,
-        href: `/find-care?type=${type}&county=${encodeURIComponent(c)}`,
+        href: `/find-care?type=${type}&q=${encodeURIComponent(c)}`,
         icon: "globe" as IconName,
       })),
     },
@@ -219,12 +233,9 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
                   <FindLink key={l.href + l.label} href={l.href} label={l.label} />
                 ))}
                 {isLast && (
-                  <Link
-                    href={active.viewAll.href}
-                    className="block px-3 py-2 text-[15px] font-medium text-text underline underline-offset-2 hover:text-primary"
-                  >
+                  <TextLink href={active.viewAll.href} variant="underline" className="px-3 py-2">
                     {active.viewAll.label}
-                  </Link>
+                  </TextLink>
                 )}
               </div>
             </div>
@@ -421,12 +432,19 @@ export function Nav() {
 
   // Animate panel height to fit content on menu / category change.
   useLayoutEffect(() => {
-    if (!open) {
+    const el = contentRef.current;
+    if (!open || !el) {
       setPanelHeight(0);
       return;
     }
-    const h = contentRef.current?.scrollHeight ?? 0;
-    setPanelHeight(h);
+    // Track the panel's *live* content height with a ResizeObserver rather than
+    // measuring once: the width animates between menus, which reflows/​un-wraps
+    // the text, and a one-shot read taken mid-transition freezes a stale (too
+    // tall) height. Observing keeps the box fitting exactly, at any data shape.
+    const ro = new ResizeObserver(() => setPanelHeight(el.scrollHeight));
+    ro.observe(el);
+    setPanelHeight(el.scrollHeight);
+    return () => ro.disconnect();
   }, [open, menu, cat]);
 
   const triggers: Array<{ key: MenuKey; label: string }> = [
