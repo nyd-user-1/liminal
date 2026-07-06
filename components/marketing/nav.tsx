@@ -381,7 +381,7 @@ export function Nav() {
             <DropdownMenu
               label="My portal menu"
               trigger={
-                <span className="inline-flex h-10 items-center rounded-field border border-border bg-surface px-4 text-[15px] font-medium text-primary hover:bg-canvas">
+                <span className="inline-flex h-10 items-center rounded-field border border-border bg-surface px-4 text-[15px] font-medium text-primary hover:border-primary">
                   My portal
                 </span>
               }

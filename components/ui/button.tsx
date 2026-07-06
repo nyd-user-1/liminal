@@ -12,7 +12,7 @@ type Size = "sm" | "md" | "xl";
 
 const variants: Record<Variant, string> = {
   primary: "bg-primary text-white hover:bg-primary-hover",
-  secondary: "bg-surface text-primary border border-border hover:bg-canvas",
+  secondary: "bg-surface text-primary border border-border hover:border-primary",
   ghost: "bg-transparent text-primary hover:bg-teal-100",
   danger: "bg-surface text-danger border border-danger hover:bg-danger-tint",
   "danger-solid": "bg-danger text-white hover:bg-[#B91C1C]",
