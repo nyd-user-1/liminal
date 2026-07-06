@@ -304,7 +304,7 @@ export interface Session {
 
 // ── External provider directory (NY open data) ─────────────────────────────────
 
-export type DirectorySource = "medicaid" | "omh" | "nyc_dohmh";
+export type DirectorySource = "medicaid" | "nppes" | "omh" | "nyc_dohmh";
 
 export interface DirectoryProvider {
   id: string;
