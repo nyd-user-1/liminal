@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/ui/avatar";
+import { DotBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -14,7 +15,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { Pagination } from "@/components/ui/pagination";
 import { SearchInput } from "@/components/ui/search-input";
 import { Table, Td, Tr } from "@/components/ui/table";
-import { Tag } from "@/components/ui/tag";
+import { Tag, TagDot } from "@/components/ui/tag";
 import { TextLink } from "@/components/ui/text-link";
 import { Toolbar } from "@/components/ui/toolbar";
 import { useToast } from "@/components/ui/toast";
@@ -25,8 +26,16 @@ import { NewClientPanel } from "./new-client-panel";
 
 const PAGE_SIZE = 10;
 const STATUS_LABELS: Record<ClientStatus, string> = { lead: "Lead", active: "Active", archived: "Archived" };
+// Dot colour per status — mirrors ClientStatusBadge's Badge variant.
+const STATUS_VARIANT: Record<ClientStatus, "info" | "success" | "neutral"> = {
+  lead: "info",
+  active: "success",
+  archived: "neutral",
+};
 
-/** FilterChip + attached option popover (status/tag pickers in the Toolbar). */
+/** FilterChip + attached option popover (status/tag pickers in the Toolbar).
+ *  Options carry a leading dot matching their badge/tag colour; long lists get
+ *  a search field (reuses the SearchInput primitive). */
 function ChipMenu({
   label,
   value,
@@ -36,11 +45,12 @@ function ChipMenu({
 }: {
   label: string;
   value?: string;
-  options: Array<{ value: string; label: string }>;
+  options: Array<{ value: string; label: string; dot?: ReactNode }>;
   onSelect: (value: string) => void;
   onClear: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [term, setTerm] = useState("");
   const ref = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
@@ -51,27 +61,44 @@ function ChipMenu({
     window.addEventListener("mousedown", onDown);
     return () => window.removeEventListener("mousedown", onDown);
   }, [open]);
+  useEffect(() => {
+    if (!open) setTerm("");
+  }, [open]);
+
+  const searchable = options.length > 6;
+  const shown = searchable && term ? options.filter((o) => o.label.toLowerCase().includes(term.toLowerCase())) : options;
 
   return (
     <span ref={ref} className="relative">
       <FilterChip label={label} value={value} onClick={() => setOpen((o) => !o)} onClear={onClear} />
       {open && (
-        <div className="absolute left-0 top-full z-40 mt-1.5 max-h-64 w-48 overflow-y-auto rounded-card border border-border bg-surface p-2 shadow-menu">
-          {options.map((o) => (
-            <button
-              key={o.value}
-              type="button"
-              onClick={() => {
-                onSelect(o.value);
-                setOpen(false);
-              }}
-              className={`block w-full rounded-field px-2.5 py-2 text-left text-[15px] transition-colors hover:bg-[#F3F4F6] ${
-                o.value === value ? "font-semibold text-primary" : "text-text"
-              }`}
-            >
-              {o.label}
-            </button>
-          ))}
+        <div className="absolute left-0 top-full z-40 mt-1.5 w-56 rounded-card border border-border bg-surface p-2 shadow-menu">
+          {searchable && (
+            <SearchInput
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              placeholder={`Filter ${label.toLowerCase()}…`}
+              className="mb-1.5 w-full"
+            />
+          )}
+          <div className="max-h-64 overflow-y-auto">
+            {shown.map((o) => (
+              <button
+                key={o.value}
+                type="button"
+                onClick={() => {
+                  onSelect(o.value);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center gap-2 rounded-field px-2.5 py-2 text-left text-[15px] transition-colors hover:bg-[#F3F4F6] ${
+                  o.value === value ? "font-semibold text-primary" : "text-text"
+                }`}
+              >
+                {o.dot}
+                <span className="flex-1">{o.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </span>
@@ -179,7 +206,11 @@ export function ClientsIndex({
         <ChipMenu
           label="Status"
           value={status ? STATUS_LABELS[status] : undefined}
-          options={(Object.keys(STATUS_LABELS) as ClientStatus[]).map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
+          options={(Object.keys(STATUS_LABELS) as ClientStatus[]).map((s) => ({
+            value: s,
+            label: STATUS_LABELS[s],
+            dot: <DotBadge variant={STATUS_VARIANT[s]} />,
+          }))}
           onSelect={(v) => {
             setStatus(v as ClientStatus);
             setPage(1);
@@ -187,9 +218,9 @@ export function ClientsIndex({
           onClear={() => setStatus(undefined)}
         />
         <ChipMenu
-          label="Tag"
+          label="Tags"
           value={tag}
-          options={allTags.map((t) => ({ value: t, label: t }))}
+          options={allTags.map((t) => ({ value: t, label: t, dot: <TagDot hue={tagHue(t)} /> }))}
           onSelect={(v) => {
             setTag(v);
             setPage(1);

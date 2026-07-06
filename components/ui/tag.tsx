@@ -29,6 +29,24 @@ const hues: Record<TagHue, string> = {
   violet: "bg-[#EDE9FE] text-[#5B21B6]",
 };
 
+// Saturated per-hue dot — pairs a filter option with the pastel Tag it maps to.
+const dotColors: Record<TagHue, string> = {
+  grey: "bg-text-muted",
+  yellow: "bg-[#EAB308]",
+  pink: "bg-[#EC4899]",
+  green: "bg-[#22C55E]",
+  teal: "bg-teal-500",
+  cyan: "bg-[#06B6D4]",
+  blue: "bg-[#3B82F6]",
+  orange: "bg-[#F97316]",
+  red: "bg-[#EF4444]",
+  violet: "bg-[#8B5CF6]",
+};
+
+export function TagDot({ hue = "grey", className = "" }: { hue?: TagHue; className?: string }) {
+  return <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${dotColors[hue]} ${className}`} />;
+}
+
 export function Tag({
   hue = "grey",
   onDismiss,

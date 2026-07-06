@@ -1,11 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { Icon } from "@/components/ui/icons";
+import { KebabMenu } from "@/components/ui/kebab-menu";
+import { MenuItem } from "@/components/ui/dropdown-menu";
 import { Modal } from "@/components/ui/modal";
 import { Pagination } from "@/components/ui/pagination";
 import { SearchInput } from "@/components/ui/search-input";
@@ -27,6 +31,13 @@ type Facets = { cities?: string[]; counties: string[]; professions?: string[]; s
 // Prescribing is an attribute of a specialty, not a category of its own — these
 // specialties can prescribe medication (shown as an "Rx" marker in the dropdown).
 const PRESCRIBER_SPECIALTIES = new Set(["Psychiatrist", "Psychiatric Nurse Practitioner"]);
+
+const AVATAR_HUES = ["teal", "amber", "pink", "blue"] as const;
+function avatarHue(id: string): (typeof AVATAR_HUES)[number] {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return AVATAR_HUES[h % AVATAR_HUES.length];
+}
 
 // FilterChip + attached popover — same pattern as the Clients index toolbar.
 function ChipMenu({
@@ -121,6 +132,25 @@ export function DirectoryClient({
   const [loading, setLoading] = useState(true);
 
   const [selected, setSelected] = useState<DirectoryProvider | DirectoryProgram | null>(null);
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+
+  const allOnPageChecked = items.length > 0 && items.every((r) => checked.has(r.id));
+  function toggleChecked(id: string) {
+    setChecked((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+  function toggleAllOnPage() {
+    setChecked((s) => {
+      const next = new Set(s);
+      if (allOnPageChecked) items.forEach((r) => next.delete(r.id));
+      else items.forEach((r) => next.add(r.id));
+      return next;
+    });
+  }
 
   const facets = tab === "providers" ? providerFacets : programFacets;
   const needOptions = (tab === "providers" ? facets.professions : facets.types) ?? [];
@@ -196,7 +226,7 @@ export function DirectoryClient({
           }}
           onKeyDown={(e) => e.key === "Enter" && load()}
           placeholder={tab === "providers" ? "Search by name, city, specialty or ZIP" : "Search by program, agency or city"}
-          className="min-w-[16rem] flex-1"
+          className="max-w-md flex-1"
         />
         {tab === "providers" ? (
           <>
@@ -279,32 +309,78 @@ export function DirectoryClient({
       ) : (
         <>
           {tab === "providers" ? (
-            <Table head={["Provider", "Specialty", "Sub-specialty", "Address", "City", "Zip"]}>
-              {(items as DirectoryProvider[]).map((r) => (
-                <Tr key={r.id} onClick={() => setSelected(r)}>
-                  <Td>
-                    <span className="font-medium text-text">{titleCase(r.name)}</span>
-                    {r.credential && <span className="ml-1.5 text-sm font-normal text-text-muted">{r.credential}</span>}
-                  </Td>
-                  <Td>{r.profession ? titleCase(r.profession) : "–"}</Td>
-                  <Td>{r.subspecialty ?? "–"}</Td>
-                  <Td>{r.address ? titleCase(r.address) : "–"}</Td>
-                  <Td>{r.city ? titleCase(r.city) : "–"}</Td>
-                  <Td className="tabular-nums">{(r.zip ?? "").replace(/[^0-9]/g, "").slice(0, 5) || "–"}</Td>
-                </Tr>
-              ))}
+            <Table
+              head={[
+                <Checkbox key="all" aria-label="Select all on page" checked={allOnPageChecked} onChange={toggleAllOnPage} />,
+                "Provider",
+                "Specialty",
+                "Sub-specialty",
+                "Address",
+                "City",
+                "Zip",
+                "",
+              ]}
+            >
+              {(items as DirectoryProvider[]).map((r) => {
+                const name = titleCase(r.name);
+                return (
+                  <Tr key={r.id} onClick={() => setSelected(r)}>
+                    <Td className="w-10" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox aria-label={`Select ${name}`} checked={checked.has(r.id)} onChange={() => toggleChecked(r.id)} />
+                    </Td>
+                    <Td>
+                      <span className="flex items-center gap-2.5">
+                        <Avatar name={name} hue={avatarHue(r.id)} size="sm" />
+                        <TextLink onClick={(e) => { e.stopPropagation(); setSelected(r); }}>{name}</TextLink>
+                        {r.credential && <span className="text-sm text-text-muted">{r.credential}</span>}
+                      </span>
+                    </Td>
+                    <Td>{r.profession ? titleCase(r.profession) : "–"}</Td>
+                    <Td>{r.subspecialty ?? "–"}</Td>
+                    <Td>{r.address ? titleCase(r.address) : "–"}</Td>
+                    <Td>{r.city ? titleCase(r.city) : "–"}</Td>
+                    <Td className="tabular-nums">{(r.zip ?? "").replace(/[^0-9]/g, "").slice(0, 5) || "–"}</Td>
+                    <Td className="w-12" onClick={(e) => e.stopPropagation()}>
+                      <KebabMenu label={`Actions for ${name}`}>
+                        <MenuItem icon="person-circle" label="View details" onClick={() => setSelected(r)} />
+                        <MenuItem icon="send" label="Refer a client" onClick={() => setSelected(r)} />
+                      </KebabMenu>
+                    </Td>
+                  </Tr>
+                );
+              })}
             </Table>
           ) : (
-            <Table head={["Program", "Agency", "Type", "County"]}>
+            <Table
+              head={[
+                <Checkbox key="all" aria-label="Select all on page" checked={allOnPageChecked} onChange={toggleAllOnPage} />,
+                "Program",
+                "Agency",
+                "Type",
+                "County",
+                "",
+              ]}
+            >
               {(items as DirectoryProgram[]).map((r) => (
                 <Tr key={r.id} onClick={() => setSelected(r)}>
+                  <Td className="w-10" onClick={(e) => e.stopPropagation()}>
+                    <Checkbox aria-label={`Select ${r.programName}`} checked={checked.has(r.id)} onChange={() => toggleChecked(r.id)} />
+                  </Td>
                   <Td>
-                    <span className="font-medium text-text">{r.programName}</span>
-                    {r.city && <span className="block text-sm text-text-muted">{r.city}</span>}
+                    <span className="flex items-center gap-2.5">
+                      <Avatar name={r.programName} hue={avatarHue(r.id)} size="sm" />
+                      <TextLink onClick={(e) => { e.stopPropagation(); setSelected(r); }}>{r.programName}</TextLink>
+                    </span>
                   </Td>
                   <Td>{r.agency ?? "–"}</Td>
                   <Td>{r.programType ?? "–"}</Td>
                   <Td>{r.county ?? "–"}</Td>
+                  <Td className="w-12" onClick={(e) => e.stopPropagation()}>
+                    <KebabMenu label={`Actions for ${r.programName}`}>
+                      <MenuItem icon="globe" label="View details" onClick={() => setSelected(r)} />
+                      <MenuItem icon="send" label="Refer a client" onClick={() => setSelected(r)} />
+                    </KebabMenu>
+                  </Td>
                 </Tr>
               ))}
             </Table>

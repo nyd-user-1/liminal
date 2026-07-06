@@ -54,12 +54,12 @@ export function CountBadge({
   );
 }
 
-/** Bare colored status dot. */
+/** Bare colored status dot — mirrors the Badge palette so a dot can match a badge. */
 export function DotBadge({
   variant = "neutral",
   className = "",
 }: {
-  variant?: "neutral" | "success" | "warning" | "danger";
+  variant?: "neutral" | "success" | "warning" | "danger" | "info" | "blue";
   className?: string;
 }) {
   const colors = {
@@ -67,6 +67,8 @@ export function DotBadge({
     success: "bg-success",
     warning: "bg-warning",
     danger: "bg-danger",
+    info: "bg-info", // teal — Lead
+    blue: "bg-blue-500",
   };
-  return <span className={`inline-block h-2 w-2 rounded-full ${colors[variant]} ${className}`} />;
+  return <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${colors[variant]} ${className}`} />;
 }
