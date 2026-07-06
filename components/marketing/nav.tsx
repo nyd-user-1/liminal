@@ -192,9 +192,7 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
               type="button"
               onMouseEnter={() => setCat(c.key)}
               onFocus={() => setCat(c.key)}
-              className={`flex w-full items-center gap-3 rounded-field px-3 py-2.5 text-left transition-colors ${
-                on ? "bg-surface shadow-card" : ""
-              }`}
+              className="flex w-full items-center gap-3 rounded-field px-3 py-2.5 text-left transition-colors"
             >
               <Icon name={c.icon} size={20} className={`shrink-0 ${on ? "text-text" : "text-text-muted"}`} />
               <span className={`text-[15px] font-medium ${on ? "text-text" : "text-text-body"}`}>{c.label}</span>
