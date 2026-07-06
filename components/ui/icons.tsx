@@ -288,6 +288,13 @@ const paths: Record<string, ReactNode> = {
       <path d="M4 4v7a4 4 0 0 0 4 4h12" />
     </>
   ),
+  menu: (
+    <>
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <line x1="3" y1="12" x2="21" y2="12" />
+      <line x1="3" y1="18" x2="21" y2="18" />
+    </>
+  ),
   "book-heart": (
     <>
       <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />

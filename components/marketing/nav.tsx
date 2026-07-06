@@ -1,17 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { AccordionSection } from "@/components/ui/accordion-section";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, MenuItem } from "@/components/ui/dropdown-menu";
+import { MenuItem } from "@/components/ui/dropdown-menu";
 import { Icon, type IconName } from "@/components/ui/icons";
+import { IconButton } from "@/components/ui/icon-button";
 import { Logo } from "@/components/ui/logo";
 import { SearchOverlay } from "@/components/marketing/search-overlay";
 
 // Public marketing nav (Headway pattern, Liminal brand). One shared dropdown
 // panel whose caret + width morph under the active trigger. Search opens a
-// Modal (⌘K). "My portal" uses the DropdownMenu primitive.
+// Modal (⌘K). "My portal" is the secondary Button + a left-aligned menu.
+// Below md, the centered links collapse into a full-screen MobileMenu.
 //
 // Icon hover treatment: our set has no filled variants, so rows deepen the
 // icon from text-muted → text-text and bump stroke-width on hover (the
@@ -182,8 +186,8 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
   const active = FIND_CATEGORIES.find((c) => c.key === cat) ?? FIND_CATEGORIES[0];
   return (
     <div className="flex">
-      {/* left third — category rail (active = white card, neutral ink) */}
-      <div className="w-1/3 bg-canvas p-2">
+      {/* left third — category rail (grey comes from the panel gradient) */}
+      <div className="w-1/3 p-2">
         {FIND_CATEGORIES.map((c) => {
           const on = c.key === cat;
           return (
@@ -259,6 +263,95 @@ function CompanyPanel() {
   );
 }
 
+// My portal — the real secondary Button primitive + a left-aligned dropdown.
+function MyPortalMenu() {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const go = (href: string) => {
+    setOpen(false);
+    router.push(href);
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      <Button variant="secondary" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-haspopup="menu">
+        My portal
+      </Button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute left-0 top-full z-50 mt-2 flex w-56 flex-col rounded-card border border-border bg-surface p-2 shadow-menu"
+        >
+          <MenuItem icon="person-circle" label="Patient portal" onClick={() => go("/sign-in")} />
+          <MenuItem icon="lock" label="Provider portal" onClick={() => go("/sign-in")} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Mobile menu — full-screen sheet with collapsible sections (Headway pattern).
+function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const router = useRouter();
+  if (!open || typeof document === "undefined") return null;
+  const link = (href: string, label: string) => (
+    <Link
+      key={href + label}
+      href={href}
+      onClick={onClose}
+      className="block rounded-field px-3 py-2 text-[15px] font-medium text-text-body hover:bg-canvas hover:text-text"
+    >
+      {label}
+    </Link>
+  );
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex flex-col bg-surface md:hidden">
+      <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-6">
+        <Link href="/" aria-label="Liminal home" onClick={onClose}>
+          <Logo size="sm" />
+        </Link>
+        <IconButton icon="x" label="Close menu" onClick={onClose} />
+      </div>
+      <div className="flex-1 overflow-y-auto px-6 py-2">
+        <AccordionSection title="Find care" defaultOpen={false}>
+          {FIND_CATEGORIES.map((c) => link(c.viewAll.href, c.label))}
+        </AccordionSection>
+        <AccordionSection title="For providers" defaultOpen={false}>
+          {PROVIDER_LINKS.map((l) => link(l.href, l.label))}
+        </AccordionSection>
+        <AccordionSection title="Company" defaultOpen={false}>
+          {COMPANY_LINKS.map((l) => link(l.href, l.label))}
+        </AccordionSection>
+        <div className="mt-6 flex flex-col gap-3">
+          <Button variant="secondary" fullWidth onClick={() => { onClose(); router.push("/sign-in"); }}>
+            My portal
+          </Button>
+          <Button fullWidth onClick={() => { onClose(); router.push("/join"); }}>
+            Join as a provider
+          </Button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 // ── nav ──────────────────────────────────────────────────────────────────────
 
 export function Nav() {
@@ -269,6 +362,7 @@ export function Nav() {
   const [caretX, setCaretX] = useState(0);
   const [panelHeight, setPanelHeight] = useState(0);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const barRef = useRef<HTMLDivElement>(null);
   const triggerRefs = useRef<Record<MenuKey, HTMLButtonElement | null>>({ find: null, providers: null, company: null });
@@ -389,18 +483,11 @@ export function Nav() {
 
           {/* right cluster */}
           <div className="ml-auto flex items-center gap-2">
-            <DropdownMenu
-              label="My portal menu"
-              trigger={
-                <span className="inline-flex h-10 items-center rounded-field border border-border bg-surface px-4 text-[15px] font-medium text-primary hover:border-primary">
-                  My portal
-                </span>
-              }
-            >
-              <MenuItem icon="person-circle" label="Patient portal" onClick={() => router.push("/sign-in")} />
-              <MenuItem icon="lock" label="Provider portal" onClick={() => router.push("/sign-in")} />
-            </DropdownMenu>
-            <Button onClick={() => router.push("/join")}>Join as a provider</Button>
+            <div className="hidden items-center gap-2 md:flex">
+              <MyPortalMenu />
+              <Button onClick={() => router.push("/join")}>Join as a provider</Button>
+            </div>
+            <IconButton icon="menu" label="Open menu" className="md:hidden" onClick={() => setMobileOpen(true)} />
           </div>
 
           {/* shared morphing panel */}
@@ -418,10 +505,18 @@ export function Nav() {
                 }`}
               />
               <div
-                className={`pointer-events-auto -mt-[7px] overflow-hidden rounded-card border border-border bg-surface shadow-menu transition-[height,opacity] duration-[250ms] ease-out ${
+                className={`pointer-events-auto -mt-[7px] overflow-hidden rounded-card border border-border shadow-menu transition-[height,opacity] duration-[250ms] ease-out ${
                   open ? "opacity-100" : "pointer-events-none opacity-0"
                 }`}
-                style={{ height: open ? panelHeight : 0 }}
+                style={{
+                  height: open ? panelHeight : 0,
+                  // Find-care two-tone: left third canvas, rest surface — painted
+                  // on the box so the rail always fills full height.
+                  background:
+                    menu === "find"
+                      ? "linear-gradient(to right, var(--color-canvas) 0 33.3333%, var(--color-surface) 33.3333%)"
+                      : "var(--color-surface)",
+                }}
               >
                 <div ref={contentRef}>
                   {menu === "find" && <FindCarePanel cat={cat} setCat={setCat} />}
@@ -435,6 +530,7 @@ export function Nav() {
       </header>
 
       <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <MobileMenu open={mobileOpen} onClose={() => setMobileOpen(false)} />
     </>
   );
 }
