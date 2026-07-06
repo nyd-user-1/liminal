@@ -108,7 +108,7 @@ export default function Home() {
       <section className="mx-auto w-full max-w-6xl px-6 py-20 sm:py-24">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <h2 className="max-w-xl text-balance font-display text-3xl font-bold tracking-tight text-text sm:text-4xl">
-            What are you working through?
+            What are you walking through?
           </h2>
           <Link
             href="/find-care"

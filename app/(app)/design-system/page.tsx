@@ -855,7 +855,7 @@ export default function DesignSystemPage() {
               <FilterChip label="Status" value={statusFilter || undefined} onClick={() => setStatusFilter("Active")} onClear={() => setStatusFilter("")} />
               <FilterChip label="Assignee" onClick={() => {}} />
             </Spec>
-            <Spec name="FileUpload" desc="Dropzone → uploaded tile." wide>
+            <Spec name="FileUpload" desc="Dropzone → uploaded tile.">
               <FileUpload
                 className="w-full"
                 constraints="PDF, PNG or JPG · max 10 MB"
