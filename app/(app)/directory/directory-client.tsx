@@ -208,6 +208,9 @@ export function DirectoryClient({
         </div>
       ) : (
         <>
+          <div className="mb-3 flex justify-end">
+            <Pagination page={page} pageCount={pageCount} onPageChange={setPage} />
+          </div>
           {tab === "providers" ? (
             <Table head={["Provider", "Profession", "County", "NPI"]}>
               {(items as DirectoryProvider[]).map((r) => (
@@ -237,7 +240,6 @@ export function DirectoryClient({
               ))}
             </Table>
           )}
-          <Pagination page={page} pageCount={pageCount} onPageChange={setPage} className="mt-4" />
         </>
       )}
 
