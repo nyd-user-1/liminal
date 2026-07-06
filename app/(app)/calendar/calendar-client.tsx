@@ -150,11 +150,6 @@ export function CalendarClient({
     setPanel({ kind: "create", draft: { practitionerId: defaultPractitioner, ...draft } });
 
   const detail = panel?.kind === "detail" ? appointments.find((a) => a.id === panel.id) ?? null : null;
-  const anchorLabel = new Date(`${anchor}T00:00:00`).toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -175,11 +170,10 @@ export function CalendarClient({
           view · practitioner. Date navigation lives in the rail DatePicker. */}
       <div className="mb-4 flex flex-wrap items-center gap-2 lg:flex-nowrap lg:gap-4">
         {/* Left column — mirrors the rail width so date + Today sit above it */}
-        <div className="flex items-center justify-between gap-2 lg:w-80 lg:shrink-0">
+        <div className="flex items-center gap-2 lg:w-80 lg:shrink-0">
           <Button variant="secondary" onClick={() => setAnchor(dateKey(new Date()))}>
             Today
           </Button>
-          <span className="text-[17px] font-semibold text-text">{anchorLabel}</span>
         </div>
         {/* Right column — flex-1 so Week + practitioners align with the grid */}
         <div className="flex flex-1 flex-wrap items-center gap-2">
