@@ -623,6 +623,68 @@ function LinkSample({
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
+const DESIGN_RULES = `Liminal design system — start here (read before you build)
+
+REUSE FIRST. ~44 UI primitives in components/ui/* and ~30 feature components. Compose what exists; if no primitive fits, compose several. Adding a genuinely new primitive requires saying so explicitly in your report. Never duplicate a feature component.
+
+COLOR TOKENS (CSS vars in app/globals.css — never invent colors):
+• Brand: primary #3F8290 (teal) · primary-hover #35707C · primary-deep #2C5C66 (deep teal for large accent type) · primary-weak #B7D8DD (chip/fill pastel) · primary-wash #DCECEC (pale-teal field — the hero/section wash) · accent #F0AE55 (amber) · accent-ink #C58A2E (amber on white, AA).
+• Chrome: sidebar-bg #1C2440 (navy) · canvas #F2F3F6 · surface #FFFFFF · border #E6E7EB.
+• Text: text #212A47 (navy ink) · text-body #4B5563 · text-muted #9CA3AF.
+• Status: success / warning / danger / info (+ blue tint for Scheduled). Use the *-tint bg with the same-hue text.
+
+TYPOGRAPHY: Inter for all UI/body. Bricolage Grotesque (font-display) for MARKETING display headings only — never in the app UI.
+
+LAYOUT: One H1 per app page, and it lives in the TopBar (route-derived via ROUTE_TITLES in components/shell/topbar.tsx). Pages never render their own page-level H1. Exceptions: entity detail headers and full-screen/marketing surfaces (which own their H1).
+
+INTERACTION / HOVER SYSTEM:
+• Teal = focus/active only.
+• White-bg menus (dropdown rows, account/portal menus) hover to a muted-teal bg (primary-wash).
+• Grey-column rails (the Find-care + Search dropdown rails) mark the selected item with white bg + shadow-sm, not teal.
+• Icons use the TWO-TONE treatment on hover/selected: navy line (text-text) + primary-wash fill (fill-primary-wash). For the lock icon only the box fills, not the shackle.
+• Text links use the link-wipe underline (underline fills in on hover); no trailing → unless intentional.
+• Dropdowns/Select menus portal to <body> (fixed) so overflow-hidden ancestors can't clip them.
+
+DATA: everything through lib/repos/* (dual-mode: hasDb ? sql : mock). Repos return dates as ISO strings (isoDateTime/isoDateOnly), never driver Date objects.
+
+VERIFY: npx tsc --noEmit clean, and exercise the change in headless Chrome (playwright-core, channel:"chrome") before claiming done.`;
+
+function DesignRules() {
+  const [open, setOpen] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(DESIGN_RULES);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {}
+  };
+  return (
+    <div className="overflow-hidden rounded-card border border-border bg-surface shadow-card">
+      <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
+        <button type="button" onClick={() => setOpen((o) => !o)} className="flex min-w-0 items-center gap-2 text-left">
+          <Icon name={open ? "chevron-down" : "chevron-right"} size={16} className="shrink-0 text-text-muted" />
+          <span className="text-[15px] font-semibold text-text">Start here — design system rules for every session</span>
+        </button>
+        <button
+          type="button"
+          onClick={copy}
+          title="Copy rules"
+          aria-label="Copy design rules"
+          className="shrink-0 text-text-muted transition-colors hover:text-text"
+        >
+          <Icon name={copied ? "check" : "copy"} size={16} className={copied ? "text-success" : ""} />
+        </button>
+      </div>
+      {open && (
+        <pre className="whitespace-pre-wrap px-5 py-4 font-sans text-sm leading-relaxed text-text-body">
+          {DESIGN_RULES}
+        </pre>
+      )}
+    </div>
+  );
+}
+
 export default function DesignSystemPage() {
   const [tab, setTab] = useState("primitives");
 
@@ -662,6 +724,7 @@ export default function DesignSystemPage() {
       {/* ── FOUNDATIONS ─────────────────────────────────────────────── */}
       {tab === "foundations" && (
         <div className="space-y-4">
+          <DesignRules />
           <Card className="space-y-6">
             <SwatchGroup title="Brand" colors={BRAND} />
             <SwatchGroup title="Chrome" colors={CHROME} />
