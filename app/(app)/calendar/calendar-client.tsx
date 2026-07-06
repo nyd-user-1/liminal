@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Icon, type IconName } from "@/components/ui/icons";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Divider } from "@/components/ui/divider";
-import { IconButton } from "@/components/ui/icon-button";
 import { KebabMenu } from "@/components/ui/kebab-menu";
 import { MenuItem } from "@/components/ui/dropdown-menu";
 import { SearchInput } from "@/components/ui/search-input";
@@ -21,7 +20,6 @@ import type { PractitionerLite } from "@/lib/repos/services";
 import { serviceColorHex } from "@/lib/service-colors";
 import {
   addDays,
-  addMonths,
   dateKey,
   daysOfMonth,
   minutesOfDay,
@@ -118,13 +116,6 @@ export function CalendarClient({
     const q = search.trim().toLowerCase();
     return q ? events.filter((e) => e.title.toLowerCase().includes(q)) : events;
   }, [events, search]);
-
-  // Prev/next chevrons step the anchor by the agenda's chosen unit.
-  const shiftAgenda = (dir: -1 | 1) => {
-    if (agendaRange === "day") setAnchor(addDays(anchor, dir));
-    else if (agendaRange === "week") setAnchor(addDays(anchor, dir * 7));
-    else setAnchor(addMonths(anchor, dir));
-  };
 
   // Rail agenda — upcoming appointments only (past ones drop off), over the
   // Day/Week/Month range around the anchor, grouped by day (empty days omitted).
@@ -304,9 +295,9 @@ export function CalendarClient({
           <Divider />
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-0.5">
-                <p className="text-[15px] font-semibold text-text">Agenda</p>
-                <KebabMenu label="Agenda range" align="left">
+              <p className="text-[15px] font-semibold text-text">Agenda</p>
+              <span className="-mr-2 shrink-0">
+                <KebabMenu label="Agenda range" align="right">
                   {(["day", "week", "month"] as const).map((r) => (
                     <MenuItem
                       key={r}
@@ -316,11 +307,7 @@ export function CalendarClient({
                     />
                   ))}
                 </KebabMenu>
-              </div>
-              <div className="-mr-1 flex items-center">
-                <IconButton icon="chevron-left" label="Previous" onClick={() => shiftAgenda(-1)} className="h-7 w-7" />
-                <IconButton icon="chevron-right" label="Next" onClick={() => shiftAgenda(1)} className="h-7 w-7" />
-              </div>
+              </span>
             </div>
             {agendaTotal === 0 ? (
               <p className="rounded-field bg-canvas px-3 py-6 text-center text-sm text-text-muted">
