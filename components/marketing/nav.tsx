@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AccordionSection } from "@/components/ui/accordion-section";
 import { Button } from "@/components/ui/button";
-import { MenuItem } from "@/components/ui/dropdown-menu";
 import { Icon, type IconName } from "@/components/ui/icons";
 import { IconButton } from "@/components/ui/icon-button";
 import { Logo } from "@/components/ui/logo";
@@ -309,8 +308,23 @@ function MyPortalMenu() {
           role="menu"
           className="absolute left-0 top-full z-50 mt-2 flex w-56 flex-col rounded-card border border-border bg-surface p-2 shadow-menu"
         >
-          <MenuItem icon="person-circle" label="Patient portal" onClick={() => go("/sign-in")} />
-          <MenuItem icon="lock" label="Provider portal" onClick={() => go("/sign-in")} />
+          {(
+            [
+              { icon: "person-circle", label: "Patient portal" },
+              { icon: "lock", label: "Provider portal" },
+            ] as const
+          ).map((it) => (
+            <button
+              key={it.label}
+              type="button"
+              role="menuitem"
+              onClick={() => go("/sign-in")}
+              className="group flex w-full items-center gap-2.5 rounded-field px-2.5 py-2 text-left text-[15px] font-medium text-text transition-colors hover:bg-canvas"
+            >
+              <Icon name={it.icon} className="text-text-body transition-colors group-hover:fill-primary" />
+              {it.label}
+            </button>
+          ))}
         </div>
       )}
     </div>
