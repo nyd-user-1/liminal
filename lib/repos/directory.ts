@@ -240,6 +240,63 @@ export async function providerFacets(): Promise<{ counties: string[]; profession
   };
 }
 
+// NYC boroughs (title-case, as stored for OMH programs) — the portal
+// Resources slice. NYC DOHMH's own directory (8nqg-ia7v) is private, so the
+// client-facing resources are OMH programs scoped to the five boroughs.
+const NYC_COUNTIES = ["New York", "Kings", "Queens", "Bronx", "Richmond"];
+
+/** Curated NYC-borough programs for the client portal Resources page. */
+export async function searchNycResources(opts: {
+  q?: string;
+  category?: string;
+  limit?: number;
+}): Promise<DirectoryProgram[]> {
+  const limit = opts.limit ?? 60;
+  const q = opts.q?.trim();
+
+  if (hasDb) {
+    const where: string[] = [`county = ANY($1)`, `source = 'omh'`];
+    const params: unknown[] = [NYC_COUNTIES];
+    let p = 2;
+    if (q) {
+      where.push(`(program_name ILIKE $${p} OR agency ILIKE $${p} OR city ILIKE $${p})`);
+      params.push(`%${q}%`);
+      p++;
+    }
+    if (opts.category) {
+      where.push(`program_type = $${p++}`);
+      params.push(opts.category);
+    }
+    const rows = (await sql.query(
+      `SELECT * FROM directory_programs WHERE ${where.join(" AND ")} ORDER BY program_name LIMIT $${p}`,
+      [...params, limit],
+    )) as ProgramRow[];
+    return rows.map(toProgram);
+  }
+
+  return filterPrograms([...mockStore().directoryPrograms.values()], {
+    q,
+    type: opts.category,
+  })
+    .filter((r) => r.county && NYC_COUNTIES.includes(r.county))
+    .slice(0, limit);
+}
+
+/** Distinct program types among NYC-borough programs (portal category chips). */
+export async function nycResourceCategories(): Promise<string[]> {
+  if (hasDb) {
+    const rows = (await sql`
+      SELECT program_type, count(*)::int AS n
+      FROM directory_programs
+      WHERE source = 'omh' AND county = ANY(${NYC_COUNTIES}) AND program_type IS NOT NULL
+      GROUP BY program_type ORDER BY n DESC LIMIT 12
+    `) as Array<{ program_type: string }>;
+    return rows.map((r) => r.program_type);
+  }
+  const list = [...mockStore().directoryPrograms.values()].filter((r) => r.county && NYC_COUNTIES.includes(r.county));
+  return unique(list.map((r) => r.programType));
+}
+
 export async function programFacets(): Promise<{ counties: string[]; types: string[] }> {
   if (hasDb) {
     const c = (await sql`SELECT DISTINCT county FROM directory_programs WHERE county IS NOT NULL ORDER BY county`) as Array<{ county: string }>;

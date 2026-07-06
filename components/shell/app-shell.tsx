@@ -21,6 +21,7 @@ const PORTAL_NAV: SidebarNavItem[] = [
   { label: "Home", href: "/portal", icon: "grid" },
   { label: "Appointments", href: "/portal/appointments", icon: "calendar-check" },
   { label: "Records", href: "/portal/records", icon: "file-text" },
+  { label: "Resources", href: "/portal/resources", icon: "globe" },
   { label: "Forms", href: "/portal/forms", icon: "clipboard" },
   { label: "Invoices", href: "/portal/invoices", icon: "credit-card" },
   { label: "Messages", href: "/portal/messages", icon: "message" },
