@@ -62,7 +62,6 @@ export function PayerPanel({
       onClose={onClose}
       title={payer ? "Edit payer" : "New payer"}
       icon="shield-plus"
-      width="max-w-md"
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>

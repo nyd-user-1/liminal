@@ -18,10 +18,12 @@ const variants: Record<Variant, string> = {
   "danger-solid": "bg-danger text-white hover:bg-[#B91C1C]",
 };
 
+// md/xl carry a shared min-width so standalone action buttons read uniform
+// (no ragged Cancel/Save pairs); sm stays compact for inline/table use.
 const sizes: Record<Size, string> = {
   sm: "h-8 px-3 text-sm",
-  md: "h-10 px-4 text-[15px]",
-  xl: "h-13 px-6 text-base",
+  md: "h-10 px-4 text-[15px] min-w-[180px]",
+  xl: "h-13 px-6 text-base min-w-[180px]",
 };
 
 export function Button({

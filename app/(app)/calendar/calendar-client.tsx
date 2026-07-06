@@ -196,9 +196,9 @@ export function CalendarClient({
           <Select
             aria-label="Practitioner filter"
             className="w-52"
-            placeholder="Some practitioners"
+            placeholder="Practitioners"
             options={[
-              { value: "all", label: "All practitioners" },
+              { value: "all", label: "Practitioners" },
               ...practitioners.map((p) => ({ value: p.id, label: p.name })),
             ]}
             value={filterValue}
