@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { Icon, type IconName } from "@/components/ui/icons";
+import type { AppointmentStatus } from "@/lib/types";
 import {
   DAY_END_MIN,
   DAY_START_MIN,
@@ -27,6 +28,7 @@ export interface CalEvent {
   color: string;
   telehealth: boolean;
   icon?: IconName; // leading session-type icon (telehealth → video, etc.)
+  status: AppointmentStatus;
   muted: boolean; // completed / no_show — render dimmed
 }
 
@@ -167,8 +169,9 @@ export function WeekGrid({
       </div>
 
       {/* Hour grid — a flex row that fills the remaining height so the columns
-          stretch to the container (no fixed height / trailing dead space). */}
-      <div className="flex min-h-0 flex-1 pr-2">
+          stretch to the container (no fixed height / trailing dead space).
+          pb-3 keeps the 8 PM label off the bottom edge. */}
+      <div className="flex min-h-0 flex-1 pb-3 pr-2">
           {/* Hour gutter */}
           <div className="relative w-14 shrink-0">
             {hours.map((m) => (

@@ -13,7 +13,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { formatCents, formatDateLong, formatTime } from "@/lib/format";
 import type { ClientLite } from "@/lib/repos/appointments";
 import type { PractitionerLite } from "@/lib/repos/services";
-import { serviceColorHex } from "@/lib/service-colors";
 import type { Appointment, AppointmentStatus, Location, Service } from "@/lib/types";
 import { toHHMM } from "./calendar-utils";
 
@@ -22,14 +21,14 @@ import { toHHMM } from "./calendar-utils";
 
 export const STATUS_META: Record<
   AppointmentStatus,
-  { label: string; variant: "neutral" | "success" | "warning" | "danger" | "info" }
+  { label: string; variant: "neutral" | "success" | "warning" | "danger" | "info" | "blue" }
 > = {
-  scheduled: { label: "Scheduled", variant: "neutral" },
-  confirmed: { label: "Confirmed", variant: "info" },
+  scheduled: { label: "Scheduled", variant: "blue" }, // blue tint + blue
+  confirmed: { label: "Confirmed", variant: "success" }, // green tint + green
   arrived: { label: "Arrived", variant: "info" },
   completed: { label: "Completed", variant: "success" },
   cancelled: { label: "Cancelled", variant: "danger" },
-  no_show: { label: "No show", variant: "warning" },
+  no_show: { label: "No show", variant: "warning" }, // amber/yellow
 };
 
 const STATUS_OPTIONS = (Object.keys(STATUS_META) as AppointmentStatus[]).map((s) => ({
@@ -136,10 +135,6 @@ export function AppointmentDetailPanel({
       <div className="divide-y divide-border rounded-card border border-border px-4 py-1">
         <DetailRow label="Service">
           <span className="inline-flex items-center gap-2">
-            <span
-              className="inline-block h-2.5 w-2.5 rounded-full"
-              style={{ background: serviceColorHex(service?.color ?? "teal") }}
-            />
             {service?.name ?? "Service"}
             <span className="text-text-muted">
               · {service ? `${service.durationMin} mins · ${formatCents(service.priceCents)}` : ""}
@@ -318,12 +313,10 @@ export function AppointmentFormPanel({
         <Select
           label="Service"
           required
-          searchable
           placeholder="Select a service…"
           options={activeServices.map((s) => ({
             value: s.id,
             label: `${s.name} · ${s.durationMin} mins · ${formatCents(s.priceCents)}`,
-            color: serviceColorHex(s.color),
           }))}
           value={serviceId}
           onValueChange={pickService}

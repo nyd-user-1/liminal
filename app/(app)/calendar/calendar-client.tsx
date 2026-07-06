@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Icon, type IconName } from "@/components/ui/icons";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -24,9 +25,14 @@ import {
   parseKey,
   startOfWeek,
 } from "./calendar-utils";
-import { AppointmentDetailPanel, AppointmentFormPanel, type CreateDraft } from "./appointment-panels";
+import { AppointmentDetailPanel, AppointmentFormPanel, STATUS_META, type CreateDraft } from "./appointment-panels";
 import { MonthGrid } from "./month-grid";
 import { WeekGrid, type CalEvent } from "./week-grid";
+
+// Chips are colored by LOCATION (modality), not service type:
+//   telehealth → pink · in-person → purple.
+const TELEHEALTH_COLOR = serviceColorHex("pink");
+const IN_PERSON_COLOR = serviceColorHex("purple");
 
 // The flagship calendar surface: Toolbar (Today · prev/next · range label ·
 // Day/Week · practitioner filter · + New) + rail (mini-month DatePicker +
@@ -83,6 +89,9 @@ export function CalendarClient({
         .filter((a) => a.status !== "cancelled" && visible.has(a.practitionerId))
         .map((a) => {
           const svc = serviceById.get(a.serviceId);
+          const loc = a.locationId ? locationById.get(a.locationId) : undefined;
+          // Modality: location wins; fall back to the service flag if unset.
+          const telehealth = loc ? loc.kind === "telehealth" : !!svc?.telehealth;
           return {
             id: a.id,
             date: dateKey(new Date(a.startsAt)),
@@ -90,17 +99,18 @@ export function CalendarClient({
             endMin: Math.max(minutesOfDay(a.startsAt) + 15, minutesOfDay(a.endsAt)),
             title: clientById.get(a.clientId)?.name ?? "Client",
             timeLabel: `${formatTime(a.startsAt)} – ${formatTime(a.endsAt)}`,
-            color: serviceColorHex(svc?.color ?? "teal"),
-            telehealth: !!svc?.telehealth,
+            color: telehealth ? TELEHEALTH_COLOR : IN_PERSON_COLOR,
+            telehealth,
             icon: sessionIcon(svc),
+            status: a.status,
             muted: a.status === "completed" || a.status === "no_show",
           };
         }),
-    [appointments, visible, serviceById, clientById],
+    [appointments, visible, serviceById, clientById, locationById],
   );
 
-  // Rail agenda — same filtering as the grid, over the Day/Week/Month range
-  // around the anchor, grouped by day (empty days omitted).
+  // Rail agenda — upcoming appointments only (past ones drop off), over the
+  // Day/Week/Month range around the anchor, grouped by day (empty days omitted).
   const agenda = useMemo(() => {
     let keys: string[];
     if (agendaRange === "day") {
@@ -112,9 +122,13 @@ export function CalendarClient({
       keys = daysOfMonth(anchor);
     }
     const inRange = new Set(keys);
+    const now = new Date();
+    const nowKey = dateKey(now);
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const isPast = (ev: CalEvent) => ev.date < nowKey || (ev.date === nowKey && ev.endMin <= nowMin);
     const byDay = new Map<string, CalEvent[]>();
     for (const ev of events) {
-      if (!inRange.has(ev.date)) continue;
+      if (!inRange.has(ev.date) || isPast(ev)) continue;
       const bucket = byDay.get(ev.date);
       if (bucket) bucket.push(ev);
       else byDay.set(ev.date, [ev]);
@@ -129,23 +143,6 @@ export function CalendarClient({
   }, [events, anchor, agendaRange]);
 
   const agendaTotal = useMemo(() => agenda.reduce((n, g) => n + g.items.length, 0), [agenda]);
-
-  // Heading above the agenda list, reflecting the chosen range.
-  const agendaHeading = useMemo(() => {
-    const d = parseKey(anchor);
-    if (agendaRange === "day") {
-      return d.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
-    }
-    if (agendaRange === "month") {
-      return d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-    }
-    const start = parseKey(startOfWeek(anchor));
-    const end = parseKey(addDays(startOfWeek(anchor), 6));
-    const sameMonth = start.getMonth() === end.getMonth();
-    return sameMonth
-      ? `${start.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${end.getDate()}`
-      : `${start.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${end.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
-  }, [anchor, agendaRange]);
 
   // ── mutations (API + local state) ───────────────────────────────────────────
 
@@ -283,7 +280,7 @@ export function CalendarClient({
           <Divider />
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <p className="min-w-0 truncate text-[13px] font-semibold text-text-muted">{agendaHeading}</p>
+              <p className="text-[15px] font-semibold text-text">Agenda</p>
               <span className="-mr-2 shrink-0">
                 <KebabMenu icon="dots-horizontal" label="Agenda range" align="right">
                   {(["day", "week", "month"] as const).map((r) => (
@@ -299,7 +296,7 @@ export function CalendarClient({
             </div>
             {agendaTotal === 0 ? (
               <p className="rounded-field bg-canvas px-3 py-6 text-center text-sm text-text-muted">
-                No appointments
+                No upcoming appointments
               </p>
             ) : (
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
@@ -314,14 +311,21 @@ export function CalendarClient({
                           key={ev.id}
                           type="button"
                           onClick={() => setPanel({ kind: "detail", id: ev.id })}
-                          className={`flex w-full items-center gap-2.5 rounded-field px-2 py-2 text-left transition-colors hover:bg-canvas ${ev.muted ? "opacity-60" : ""}`}
+                          className="flex w-full items-stretch gap-2.5 rounded-field px-2 py-2 text-left transition-colors hover:bg-canvas"
                         >
-                          <span className="h-9 w-1 shrink-0 rounded-full" style={{ background: ev.color }} />
+                          <span className="w-1 shrink-0 rounded-full" style={{ background: ev.color }} />
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-[15px] font-medium text-text">{ev.title}</span>
-                            <span className="block truncate text-[13px] text-text-muted">{ev.timeLabel}</span>
+                            <span className="flex items-center gap-2">
+                              <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-text">{ev.title}</span>
+                              <Badge variant={STATUS_META[ev.status].variant} className="shrink-0">
+                                {STATUS_META[ev.status].label}
+                              </Badge>
+                            </span>
+                            <span className="mt-0.5 flex items-center gap-1.5 text-[13px] text-text-muted">
+                              <Icon name={ev.telehealth ? "video" : "map-pin"} size={14} className="shrink-0 text-text-muted" />
+                              <span className="truncate">{ev.timeLabel}</span>
+                            </span>
                           </span>
-                          {ev.icon && <Icon name={ev.icon} size={16} className="shrink-0 text-text-muted" />}
                         </button>
                       ))}
                     </div>

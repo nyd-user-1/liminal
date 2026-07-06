@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 // `count` = solid circle (sidebar counts, bell); `dot` = bare colored circle;
 // `solid-danger` = white on red (Recording).
 
-type Variant = "neutral" | "success" | "warning" | "danger" | "info" | "solid-danger";
+type Variant = "neutral" | "success" | "warning" | "danger" | "info" | "blue" | "solid-danger";
 
 const variants: Record<Variant, string> = {
   neutral: "bg-canvas text-text-body",
@@ -12,6 +12,7 @@ const variants: Record<Variant, string> = {
   warning: "bg-warning-tint text-warning",
   danger: "bg-danger-tint text-danger",
   info: "bg-info-tint text-info", // teal tint — Lead / Submitted / Processing
+  blue: "bg-blue-100 text-blue-700", // blue tint — Scheduled
   "solid-danger": "bg-danger text-white",
 };
 
