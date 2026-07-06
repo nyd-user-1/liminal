@@ -97,14 +97,14 @@ const FIND_CATEGORIES: FindCategory[] = [
     label: "Therapists",
     icon: "users",
     sections: locationSections("therapist", "person-circle"),
-    viewAll: { label: "View all therapists", href: "/find-care?type=therapist" },
+    viewAll: { label: "View all", href: "/find-care?type=therapist" },
   },
   {
     key: "psychiatrists",
     label: "Psychiatrists",
     icon: "book-heart",
     sections: locationSections("psychiatrist", "book-heart"),
-    viewAll: { label: "View all psychiatrists", href: "/find-care?type=psychiatrist" },
+    viewAll: { label: "View all", href: "/find-care?type=psychiatrist" },
   },
   {
     key: "specialty",
@@ -172,13 +172,16 @@ const COMPANY_LINKS: Array<{ label: string; href: string; icon: IconName }> = [
 
 function PanelRow({ href, icon, label }: { href: string; icon: IconName; label: string }) {
   return (
-    <Link href={href} className="group flex items-center gap-3 rounded-field px-3 py-2 transition-colors hover:bg-canvas">
+    <Link
+      href={href}
+      className="group flex items-center gap-3 rounded-field px-3 py-2 transition-colors hover:bg-primary-wash"
+    >
       <Icon
         name={icon}
         size={20}
-        className="shrink-0 text-text-muted transition-colors group-hover:fill-primary-wash group-hover:text-text"
+        className="shrink-0 text-text-muted transition-colors group-hover:fill-primary-wash group-hover:text-primary"
       />
-      <span className="text-[15px] font-medium text-text-body group-hover:text-text">{label}</span>
+      <span className="text-[15px] font-medium text-text-body group-hover:text-primary">{label}</span>
     </Link>
   );
 }
@@ -379,7 +382,7 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
       {/* filter rail + results */}
       <div className="flex border-t border-border">
         <div className="w-1/3 bg-canvas p-2">
-          <p className="px-2.5 pb-1 pt-1 text-[13px] font-semibold text-text-muted">Filter by</p>
+          <p className="px-2.5 pb-1 pt-1 text-[13px] font-semibold text-text">Filter by</p>
           {SEARCH_FILTERS.map((f) => {
             const on = filters.includes(f.value);
             return (
@@ -398,7 +401,7 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
         </div>
 
         <div className="w-2/3 p-3">
-          <p className="px-1 pb-1 text-[13px] font-semibold text-text-muted">{active ? "Results" : "Recent results"}</p>
+          <p className="px-1 pb-1 text-[13px] font-semibold text-text">{active ? "Results" : "Recent results"}</p>
           {!active && RECENT_RESULTS.map((r) => <ResultRow key={r.name} name={r.name} line={r.line} onClick={go} />)}
           {active && loading && <p className="px-1 py-3 text-sm text-text-muted">Searching…</p>}
           {active && !loading && shown.length === 0 && (
@@ -409,12 +412,8 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
             shown.map((r) => (
               <ResultRow key={`${r.kind}-${r.id}`} name={r.name} line={resultLine(r)} onClick={go} />
             ))}
-          <button
-            type="button"
-            onClick={go}
-            className="mt-1 w-full rounded-field px-1 py-2 text-left text-sm font-semibold text-primary transition-colors hover:text-primary-hover"
-          >
-            View all results{active && q.trim() ? ` for “${q.trim()}”` : ""} →
+          <button type="button" onClick={go} className="group mt-1 flex px-1 py-2 text-[15px] font-medium text-primary">
+            <span className="link-wipe">View all results →</span>
           </button>
         </div>
       </div>
@@ -441,8 +440,7 @@ function CompanyPanel() {
         ))}
       </div>
       <div className="border-t border-border bg-canvas px-5 py-4">
-        <p className="text-[13px] font-semibold uppercase tracking-wide text-text-muted">From Liminal</p>
-        <Link href="/book/liminal" className="mt-1 inline-block text-[15px] font-medium text-primary hover:text-primary-hover">
+        <Link href="/book/liminal" className="inline-block text-[15px] font-medium text-primary hover:text-primary-hover">
           Book an appointment in minutes →
         </Link>
       </div>
@@ -502,9 +500,9 @@ function MyPortalMenu() {
               type="button"
               role="menuitem"
               onClick={() => go("/sign-in")}
-              className="group flex w-full items-center gap-2.5 rounded-field px-2.5 py-2 text-left text-[15px] font-medium text-text transition-colors hover:bg-canvas"
+              className="group flex w-full items-center gap-2.5 rounded-field px-2.5 py-2 text-left text-[15px] font-medium text-text transition-colors hover:bg-primary-wash hover:text-primary"
             >
-              <Icon name={it.icon} className="text-text-body transition-colors group-hover:fill-primary-wash group-hover:text-text" />
+              <Icon name={it.icon} className="text-text-body transition-colors group-hover:fill-primary-wash group-hover:text-primary" />
               {it.label}
             </button>
           ))}

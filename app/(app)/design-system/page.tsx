@@ -62,7 +62,9 @@ import { UserChip } from "@/components/ui/user-chip";
 const BRAND = [
   { name: "primary", hex: "#3F8290" },
   { name: "primary-hover", hex: "#35707C" },
+  { name: "primary-deep", hex: "#2C5C66" },
   { name: "primary-weak", hex: "#B7D8DD" },
+  { name: "primary-wash", hex: "#DCECEC" },
   { name: "accent", hex: "#F0AE55" },
   { name: "accent-ink", hex: "#C58A2E" },
 ];
@@ -669,9 +671,12 @@ export default function DesignSystemPage() {
 
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
-              <p className="mb-4 text-[13px] font-semibold text-text-muted">Typography — Inter</p>
+              <p className="mb-4 text-[13px] font-semibold text-text-muted">
+                Typography — Inter (UI/body) · Bricolage Grotesque (marketing display, font-display)
+              </p>
               <div className="space-y-2.5">
-                <p className="text-[28px] font-bold text-text">Display · 28 / 700</p>
+                <p className="font-display text-[30px] font-extrabold tracking-tight text-text">Display · Bricolage</p>
+                <p className="text-[28px] font-bold text-text">Heading · Inter 28 / 700</p>
                 <p className="text-[19px] font-semibold text-text">Heading · 19 / 600</p>
                 <p className="text-[15px] text-text-body">Body · 15 / 400 — the workspace default</p>
                 <p className="text-[13px] text-text-muted">Small · 13 — muted metadata</p>
