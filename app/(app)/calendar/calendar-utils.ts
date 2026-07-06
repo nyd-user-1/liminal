@@ -25,6 +25,15 @@ export function startOfWeek(key: string): string {
   return addDays(key, -parseKey(key).getDay());
 }
 
+/** Shift by whole months, clamping the day to the target month's length. */
+export function addMonths(key: string, n: number): string {
+  const d = parseKey(key);
+  const target = new Date(d.getFullYear(), d.getMonth() + n, 1);
+  const daysIn = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+  target.setDate(Math.min(d.getDate(), daysIn));
+  return dateKey(target);
+}
+
 /** The days in `key`'s calendar month (1st … last). */
 export function daysOfMonth(key: string): string[] {
   const d = parseKey(key);
