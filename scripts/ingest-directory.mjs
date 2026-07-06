@@ -6,7 +6,7 @@
 //   node --env-file=.env.local scripts/ingest-directory.mjs --source=omh
 //   node --env-file=.env.local scripts/ingest-directory.mjs            (all)
 //
-// Sources: medicaid (keti-qx5t, provider-level, NYC counties + MH professions),
+// Sources: medicaid (keti-qx5t, provider-level, ALL NY counties + MH professions),
 // omh (6nvr-tbv8, OMH mental-health programs, statewide). nyc (8nqg-ia7v) is
 // currently private (HTTP 403) and skipped — see sql/003 header.
 
@@ -22,12 +22,20 @@ const sql = neon(DATABASE_URL);
 const arg = process.argv.find((a) => a.startsWith("--source="));
 const only = arg ? arg.split("=")[1] : null;
 
-const NYC_COUNTIES = ["NEW YORK", "KINGS", "QUEENS", "BRONX", "RICHMOND"];
+// Every mental/behavioral-health service category present in the keti-qx5t
+// feed (probed statewide). The feed uses broad Medicaid categories, not license
+// granularity: "CLINICAL SOCIAL WORKER" covers LCSW/LMSW, "MENTAL HEALTH
+// COUNSELORS" = LMHC. Psychiatrists and psychiatric NPs are NOT separable here —
+// they fall under generic PHYSICIAN / NURSE PRACTITIONER — so they come from the
+// NPPES taxonomy source instead. No CASAC/substance-use or psychoanalyst
+// category exists in this feed.
 const MH_PROFESSIONS = [
   "CLINICAL SOCIAL WORKER",
   "CLINICAL PSYCHOLOGIST",
   "MENTAL HEALTH COUNSELORS",
   "MARRIAGE & FAMILY THERAPIST",
+  "LICENSED BEHAVIOR ANALYST",
+  "MENTAL HEALTH REHABILITATION", // ambiguous service category — included (not silently dropped)
 ];
 
 /** Page through a Socrata resource with an optional $where, 1000/offset. */
@@ -78,10 +86,11 @@ async function upsert(table, cols, updateCols, records) {
 }
 
 async function ingestMedicaid() {
-  console.log("• medicaid (keti-qx5t) — NYC counties, MH professions");
-  const where =
-    `profession_or_service in(${MH_PROFESSIONS.map((s) => `'${s.replace(/'/g, "''")}'`).join(",")}) ` +
-    `AND county in(${NYC_COUNTIES.map((s) => `'${s}'`).join(",")})`;
+  console.log("• medicaid (keti-qx5t) — ALL NY counties, MH professions");
+  console.log(`  inclusion list (${MH_PROFESSIONS.length}): ${MH_PROFESSIONS.join(" · ")}`);
+  // Statewide now: the NYC county clip was per the original brief; scope widened
+  // to all NY counties. Filter by MH profession only.
+  const where = `profession_or_service in(${MH_PROFESSIONS.map((s) => `'${s.replace(/'/g, "''")}'`).join(",")})`;
   const raw = await fetchAll("https://health.data.ny.gov/resource/keti-qx5t.json", where);
 
   // Dedupe to one card per provider: key by NPI when present, else mmis_id.
