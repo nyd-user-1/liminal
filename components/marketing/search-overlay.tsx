@@ -51,11 +51,12 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Search providers" icon="search" width="max-w-xl">
+    <Modal open={open} onClose={onClose} title="Search providers by name" icon="search" width="max-w-xl">
       <div className="flex flex-col gap-4">
         <SearchInput
           autoFocus
-          placeholder="Search by name, specialty, or program…"
+          className="[&_input]:h-12 [&_input]:text-base"
+          placeholder="Search therapists and psychiatrists"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && q.trim() && go()}
@@ -66,7 +67,7 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
             <p className="px-1 py-4 text-sm text-text-muted">No matches. Try a broader term.</p>
           )}
           <ul className="flex flex-col divide-y divide-border">
-            {results.slice(0, 8).map((r) => (
+            {results.slice(0, 10).map((r) => (
               <li key={`${r.kind}-${r.id}`}>
                 <button
                   type="button"

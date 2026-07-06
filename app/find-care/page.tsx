@@ -1,6 +1,6 @@
 import { FindCareSearch } from "@/components/marketing/find-care-search";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
-import { MarketingNav } from "@/components/marketing/marketing-nav";
+import { Nav } from "@/components/marketing/nav";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +17,7 @@ export default async function FindCarePage({
   const { q } = await searchParams;
   return (
     <div className="flex min-h-screen flex-col bg-surface">
-      <MarketingNav />
+      <Nav />
       <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-14">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold tracking-tight text-text">Find mental-health care</h1>

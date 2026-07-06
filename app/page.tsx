@@ -1,6 +1,6 @@
 import { CtaButton } from "@/components/marketing/cta-button";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
-import { MarketingNav } from "@/components/marketing/marketing-nav";
+import { Nav } from "@/components/marketing/nav";
 import { Icon, type IconName } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +30,7 @@ const VALUE = [
 export default function Home() {
   return (
     <div className="flex min-h-screen flex-col bg-surface">
-      <MarketingNav />
+      <Nav />
 
       {/* Hero */}
       <section className="bg-sidebar-bg">

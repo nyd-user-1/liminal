@@ -1,6 +1,6 @@
 import { JoinForm } from "@/components/marketing/join-form";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
-import { MarketingNav } from "@/components/marketing/marketing-nav";
+import { Nav } from "@/components/marketing/nav";
 import { Icon, type IconName } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +19,7 @@ const PERKS: { icon: IconName; label: string }[] = [
 export default function JoinPage() {
   return (
     <div className="flex min-h-screen flex-col bg-surface">
-      <MarketingNav />
+      <Nav />
       <main className="flex-1">
         <section className="bg-sidebar-bg">
           <div className="mx-auto grid max-w-6xl gap-10 px-6 py-16 lg:grid-cols-2 lg:items-center">
