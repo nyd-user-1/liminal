@@ -282,6 +282,18 @@ const paths: Record<string, ReactNode> = {
   ),
   play: <polygon points="5 3 19 12 5 21 5 3" fill="currentColor" stroke="none" />,
   stop: <rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor" stroke="none" />,
+  "corner-down-right": (
+    <>
+      <polyline points="15 10 20 15 15 20" />
+      <path d="M4 4v7a4 4 0 0 0 4 4h12" />
+    </>
+  ),
+  "book-heart": (
+    <>
+      <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+      <path d="M16 8.2A2.22 2.22 0 0 0 13.8 6c-.8 0-1.4.3-1.8.9-.4-.6-1-.9-1.8-.9A2.22 2.22 0 0 0 8 8.2c0 .6.3 1.2.7 1.6A226.652 226.652 0 0 0 12 13a226.652 226.652 0 0 0 3.3-3.2 2.36 2.36 0 0 0 .7-1.6Z" />
+    </>
+  ),
 };
 
 export type IconName = keyof typeof paths & string;

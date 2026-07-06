@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
-import { Icon } from "@/components/ui/icons";
+import { Icon, type IconName } from "@/components/ui/icons";
 import {
   DAY_END_MIN,
   DAY_START_MIN,
@@ -27,6 +27,7 @@ export interface CalEvent {
   timeLabel: string;
   color: string;
   telehealth: boolean;
+  icon?: IconName; // leading session-type icon (telehealth → video, etc.)
   muted: boolean; // completed / no_show — render dimmed
 }
 
@@ -263,7 +264,7 @@ export function WeekGrid({
                       title={`${ev.title} · ${ev.timeLabel}`}
                     >
                       <span className="flex items-center gap-1 text-[12px] font-semibold leading-tight">
-                        {ev.telehealth && <Icon name="video" size={12} className="shrink-0" />}
+                        {ev.icon && <Icon name={ev.icon} size={12} className="shrink-0" />}
                         <span className="truncate">{ev.title}</span>
                       </span>
                       {h >= 34 && <span className="block truncate text-[11px] font-medium opacity-90">{ev.timeLabel}</span>}

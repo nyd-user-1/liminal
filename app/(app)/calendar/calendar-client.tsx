@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import type { IconName } from "@/components/ui/icons";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Divider } from "@/components/ui/divider";
@@ -30,6 +31,17 @@ import { WeekGrid, type CalEvent } from "./week-grid";
 // practitioner checkboxes) + WeekGrid + appointment SidePanels.
 
 type Panel = { kind: "detail"; id: string } | { kind: "create"; draft: CreateDraft } | null;
+
+// Leading icon for a calendar session chip, by service type.
+function sessionIcon(svc?: Service): IconName | undefined {
+  if (svc?.telehealth) return "video";
+  const n = svc?.name.toLowerCase() ?? "";
+  if (n.includes("therapy")) return "book-heart";
+  if (n.includes("follow")) return "corner-down-right";
+  if (n.includes("initial") || n.includes("evaluation")) return "corner-down-right";
+  if (n.includes("group")) return "users";
+  return undefined;
+}
 
 export function CalendarClient({
   initialAppointments,
@@ -77,6 +89,7 @@ export function CalendarClient({
             timeLabel: `${formatTime(a.startsAt)} – ${formatTime(a.endsAt)}`,
             color: serviceColorHex(svc?.color ?? "teal"),
             telehealth: !!svc?.telehealth,
+            icon: sessionIcon(svc),
             muted: a.status === "completed" || a.status === "no_show",
           };
         }),
