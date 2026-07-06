@@ -65,12 +65,12 @@ export default function Home() {
               className="mkt-rise text-balance font-display font-extrabold tracking-[-0.03em] text-text"
               style={{ fontSize: "clamp(2.75rem, 6vw, 5.25rem)", lineHeight: 1.01 }}
             >
-              Every New Yorker deserves{" "}
-              <span className="text-primary">a way in.</span>
+              Healing belongs to{" "}
+              <span className="text-primary">everyone.</span>
             </h1>
             <p className="mkt-rise mkt-d1 mt-6 max-w-xl text-pretty text-lg text-text-body sm:text-xl">
-              Healing belongs to everyone. Search 116,000+ licensed providers and programs across New York, see who&apos;s
-              in your network, and book care that meets you where you are.
+              Search 116,000+ licensed providers and programs across New York, see who&apos;s in your network, and book
+              care that meets you where you are.
             </p>
             <div className="mkt-rise mkt-d2 mt-8 max-w-xl">
               <HeroSearch />
