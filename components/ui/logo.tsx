@@ -9,9 +9,9 @@ const sizes = {
 } as const;
 
 const archSizes = {
-  sm: "w-5",
-  md: "w-6",
-  lg: "w-9",
+  sm: "w-7",
+  md: "w-8",
+  lg: "w-12",
 } as const;
 
 export function Logo({
