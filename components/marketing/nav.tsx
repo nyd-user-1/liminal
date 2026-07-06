@@ -259,14 +259,14 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
 
 // Profession filters (left rail). `value` is the exact profession string the
 // directory search matches; `label` is the short chip/label shown in the UI.
-const SEARCH_FILTERS: Array<{ label: string; value: string }> = [
-  { label: "Social workers", value: "Clinical Social Worker" },
-  { label: "Counselors", value: "Mental Health Counselor" },
-  { label: "Psychologists", value: "Psychologist" },
-  { label: "Psychiatrists", value: "Psychiatrist" },
-  { label: "Behavior analysts", value: "Behavior Analyst" },
-  { label: "Psychiatric NPs", value: "Psychiatric Nurse Practitioner" },
-  { label: "Family therapists", value: "Marriage & Family Therapist" },
+const SEARCH_FILTERS: Array<{ label: string; value: string; icon: IconName }> = [
+  { label: "Social workers", value: "Clinical Social Worker", icon: "users" },
+  { label: "Counselors", value: "Mental Health Counselor", icon: "message" },
+  { label: "Psychologists", value: "Psychologist", icon: "book-heart" },
+  { label: "Psychiatrists", value: "Psychiatrist", icon: "clipboard" },
+  { label: "Behavior analysts", value: "Behavior Analyst", icon: "grid" },
+  { label: "Psychiatric NPs", value: "Psychiatric Nurse Practitioner", icon: "sparkle" },
+  { label: "Family therapists", value: "Marriage & Family Therapist", icon: "person-circle" },
 ];
 
 // Mocked "Recent results" shown before a query is entered.
@@ -390,11 +390,16 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
                 key={f.value}
                 type="button"
                 onClick={() => toggleFilter(f.value)}
-                className={`w-full rounded-field px-2.5 py-2 text-left text-[15px] font-medium transition-colors ${
-                  on ? "bg-surface text-text shadow-sm" : "text-text-body hover:bg-surface/60 hover:text-text"
+                className={`flex w-full items-center gap-3 rounded-field px-3 py-2.5 text-left transition-colors ${
+                  on ? "bg-surface shadow-sm" : "hover:bg-surface hover:shadow-sm"
                 }`}
               >
-                {f.label}
+                <Icon
+                  name={f.icon}
+                  size={20}
+                  className={`shrink-0 transition-colors ${on ? "fill-primary-wash text-text" : "text-text-muted"}`}
+                />
+                <span className={`text-[15px] font-medium ${on ? "text-text" : "text-text-body"}`}>{f.label}</span>
               </button>
             );
           })}
