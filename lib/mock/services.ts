@@ -18,7 +18,7 @@ const services: Array<[string, string, number, number, string, boolean]> = [
   ["00000000-0000-4000-8000-000000003001", "Initial Evaluation", 60, 25000, "teal", false],
   ["00000000-0000-4000-8000-000000003002", "Follow-up", 30, 12500, "blue", false],
   ["00000000-0000-4000-8000-000000003003", "Therapy", 45, 17500, "amber", false],
-  ["00000000-0000-4000-8000-000000003004", "Telehealth Check-in", 20, 7500, "pink", true],
+  ["00000000-0000-4000-8000-000000003004", "Telehealth Check-in", 30, 7500, "pink", true],
   ["00000000-0000-4000-8000-000000003005", "Group Session", 90, 6000, "purple", false],
 ];
 

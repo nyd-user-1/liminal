@@ -34,7 +34,7 @@ INSERT INTO services (id, name, duration_min, price_cents, color, telehealth, ac
   ('00000000-0000-4000-8000-000000003001','Initial Evaluation',60,25000,'teal',false,true),
   ('00000000-0000-4000-8000-000000003002','Follow-up',30,12500,'blue',false,true),
   ('00000000-0000-4000-8000-000000003003','Therapy',45,17500,'amber',false,true),
-  ('00000000-0000-4000-8000-000000003004','Telehealth Check-in',20,7500,'pink',true,true),
+  ('00000000-0000-4000-8000-000000003004','Telehealth Check-in',30,7500,'pink',true,true),
   ('00000000-0000-4000-8000-000000003005','Group Session',90,6000,'purple',false,true)
 ON CONFLICT (id) DO NOTHING;
 

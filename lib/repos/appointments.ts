@@ -109,6 +109,13 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
   }
   const status = input.status ?? "scheduled";
   const bookedVia = input.bookedVia ?? "staff";
+  // Enforce a 30-minute minimum duration for any appointment.
+  const MIN_MS = 30 * 60 * 1000;
+  const startsAt = input.startsAt;
+  const endsAt =
+    new Date(input.endsAt).getTime() - new Date(startsAt).getTime() < MIN_MS
+      ? new Date(new Date(startsAt).getTime() + MIN_MS).toISOString()
+      : input.endsAt;
   if (hasDb) {
     const rows = (await sql`
       INSERT INTO appointments
@@ -116,7 +123,7 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
          status, video_room, booked_via, notes_brief)
       VALUES
         (${input.clientId}, ${input.practitionerId}, ${input.serviceId}, ${input.locationId ?? null},
-         ${input.startsAt}, ${input.endsAt}, ${status}, ${videoRoom}, ${bookedVia}, ${input.notesBrief ?? null})
+         ${startsAt}, ${endsAt}, ${status}, ${videoRoom}, ${bookedVia}, ${input.notesBrief ?? null})
       RETURNING *
     `) as AppointmentRow[];
     return toAppointment(rows[0]);
@@ -128,8 +135,8 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
     practitionerId: input.practitionerId,
     serviceId: input.serviceId,
     locationId: input.locationId ?? null,
-    startsAt: input.startsAt,
-    endsAt: input.endsAt,
+    startsAt,
+    endsAt,
     status,
     videoRoom,
     bookedVia,
