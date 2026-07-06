@@ -25,15 +25,15 @@ export function Logo({
 }) {
   return (
     <span className={`inline-flex items-baseline gap-[0.28em] leading-none ${className}`}>
-      {/* amber rising-arch mark (flat bottom flush with the text baseline) */}
-      <svg viewBox="0 -0.5 28 13.5" className={`${archSizes[size]} h-auto shrink-0`} aria-hidden>
-        <path d="M2 13 A 12 12 0 0 1 26 13" fill="#FBE7C4" stroke="#F0AE55" strokeWidth="2.6" strokeLinecap="round" />
-      </svg>
       <span
         className={`font-bold lowercase tracking-tight ${sizes[size]} ${variant === "onNavy" ? "text-white" : "text-text"}`}
       >
         liminal
       </span>
+      {/* amber rising-arch mark (flat bottom flush with the text baseline) */}
+      <svg viewBox="0 -0.5 28 13.5" className={`${archSizes[size]} h-auto shrink-0`} aria-hidden>
+        <path d="M2 13 A 12 12 0 0 1 26 13" fill="#FBE7C4" stroke="#F0AE55" strokeWidth="2.6" strokeLinecap="round" />
+      </svg>
     </span>
   );
 }
