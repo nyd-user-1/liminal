@@ -44,7 +44,7 @@ export default function Home() {
       <Nav />
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-primary-wash">
+      <section className="relative overflow-hidden bg-primary-wash lg:flex lg:min-h-[calc(100svh-72px)] lg:items-center">
         {/* real product — larger, bleeding ~20% off the right edge on desktop */}
         <div
           className="pointer-events-none absolute top-1/2 z-0 hidden w-[54vw] -translate-y-1/2 lg:block"
@@ -62,7 +62,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="relative z-10 mx-auto max-w-6xl px-6 pt-16 sm:pt-20 lg:pb-28 lg:pt-24">
+        <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-16 sm:py-20 lg:py-16">
           <div className="lg:max-w-[54%]">
             <h1
               className="mkt-rise text-balance font-display font-extrabold tracking-[-0.03em] text-text"

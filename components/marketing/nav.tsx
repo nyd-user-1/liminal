@@ -9,20 +9,20 @@ import { Button } from "@/components/ui/button";
 import { Icon, type IconName } from "@/components/ui/icons";
 import { IconButton } from "@/components/ui/icon-button";
 import { Logo } from "@/components/ui/logo";
+import { SearchInput } from "@/components/ui/search-input";
 import { TextLink } from "@/components/ui/text-link";
-import { SearchOverlay } from "@/components/marketing/search-overlay";
+import type { PublicResult } from "@/app/api/directory/public-search/route";
 
 // Public marketing nav (Headway pattern, Liminal brand). One shared dropdown
-// panel whose caret + width morph under the active trigger. Search opens a
-// Modal (⌘K). "My portal" is the secondary Button + a left-aligned menu.
-// Below md, the centered links collapse into a full-screen MobileMenu.
+// panel whose caret + width morph under the active trigger — Search lives in
+// the panel too (live directory results). "My portal" is the secondary Button
+// + a left-aligned menu. Below md, the centered links collapse into a
+// full-screen MobileMenu.
 //
-// Icon hover treatment: our set has no filled variants, so rows deepen the
-// icon from text-muted → text-text and bump stroke-width on hover (the
-// "deepen + stroke-bump" approach, not fill-currentColor).
+// Icon hover treatment: navy line + hero-pastel (primary-wash) fill on hover.
 
-type MenuKey = "find" | "providers" | "company";
-const WIDTHS: Record<MenuKey, number> = { find: 636, providers: 320, company: 300 };
+type MenuKey = "search" | "find" | "providers" | "company";
+const WIDTHS: Record<MenuKey, number> = { search: 600, find: 636, providers: 320, company: 300 };
 
 // ── content data ─────────────────────────────────────────────────────────────
 
@@ -196,17 +196,22 @@ function FindLink({ href, label }: { href: string; label: string }) {
 }
 
 function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => void }) {
+  // Content on the right follows the clicked category (`cat`); the rail
+  // highlight slides to whatever's hovered (falling back to the active one).
+  const [hovered, setHovered] = useState<string | null>(null);
   const active = FIND_CATEGORIES.find((c) => c.key === cat) ?? FIND_CATEGORIES[0];
+  const highlight = hovered ?? cat;
   return (
     <div className="flex">
       {/* left third — category rail (grey comes from the panel gradient) */}
-      <div className="w-1/3 p-2">
+      <div className="w-1/3 p-2" onMouseLeave={() => setHovered(null)}>
         {FIND_CATEGORIES.map((c) => {
-          const on = c.key === cat;
+          const on = c.key === highlight;
           return (
             <button
               key={c.key}
               type="button"
+              onMouseEnter={() => setHovered(c.key)}
               onClick={() => setCat(c.key)}
               className={`flex w-full items-center gap-3 rounded-field px-3 py-2.5 text-left transition-colors ${
                 on ? "bg-surface shadow-sm" : ""
@@ -244,6 +249,91 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// Live directory search, hosted inside the morphing panel. Results are capped
+// so the panel never grows past the Find-care menu height; "View all" hands
+// off to /find-care.
+function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
+  const [q, setQ] = useState("");
+  const [results, setResults] = useState<PublicResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (timer.current) clearTimeout(timer.current);
+    if (!q.trim()) {
+      setResults([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    timer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/directory/public-search?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        setResults(data.results ?? []);
+      } finally {
+        setLoading(false);
+      }
+    }, 250);
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, [q]);
+
+  const go = () => q.trim() && onNavigate(`/find-care?q=${encodeURIComponent(q.trim())}`);
+  const shown = results.slice(0, 6);
+
+  return (
+    <div className="p-3">
+      <SearchInput
+        autoFocus
+        placeholder="Search therapists, psychiatrists, and programs"
+        aria-label="Search providers and programs"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && go()}
+      />
+      {q.trim() && (
+        <div className="mt-2">
+          {loading && <p className="px-2 py-3 text-sm text-text-muted">Searching…</p>}
+          {!loading && results.length === 0 && (
+            <p className="px-2 py-3 text-sm text-text-muted">No matches. Try a broader term.</p>
+          )}
+          {shown.map((r) => (
+            <button
+              key={`${r.kind}-${r.id}`}
+              type="button"
+              onClick={go}
+              className="group flex w-full items-center gap-3 rounded-field px-2 py-2 text-left transition-colors hover:bg-canvas"
+            >
+              <Icon
+                name={r.kind === "provider" ? "person-circle" : "globe"}
+                size={20}
+                className="shrink-0 text-text-muted transition-colors group-hover:fill-primary-wash group-hover:text-text"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[15px] font-medium text-text">{r.name}</span>
+                <span className="block truncate text-sm text-text-muted">
+                  {[r.subtitle, r.county].filter(Boolean).join(" · ")}
+                </span>
+              </span>
+            </button>
+          ))}
+          {results.length > 0 && (
+            <button
+              type="button"
+              onClick={go}
+              className="mt-1 w-full rounded-field px-2 py-2 text-left text-sm font-semibold text-primary transition-colors hover:text-primary-hover"
+            >
+              View all results for “{q.trim()}” →
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -389,11 +479,15 @@ export function Nav() {
   const [cat, setCat] = useState("therapists");
   const [caretX, setCaretX] = useState(0);
   const [panelHeight, setPanelHeight] = useState(0);
-  const [searchOpen, setSearchOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const barRef = useRef<HTMLDivElement>(null);
-  const triggerRefs = useRef<Record<MenuKey, HTMLButtonElement | null>>({ find: null, providers: null, company: null });
+  const triggerRefs = useRef<Record<MenuKey, HTMLButtonElement | null>>({
+    search: null,
+    find: null,
+    providers: null,
+    company: null,
+  });
   const contentRef = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastMenu = useRef<MenuKey>("find");
@@ -439,13 +533,13 @@ export function Nav() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setSearchOpen(true);
+        openMenu("search");
       }
       if (e.key === "Escape") setOpen(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [openMenu]);
 
   // Animate panel height to fit content on menu / category change.
   useLayoutEffect(() => {
@@ -465,6 +559,7 @@ export function Nav() {
   }, [open, menu, cat]);
 
   const triggers: Array<{ key: MenuKey; label: string }> = [
+    { key: "search", label: "Search providers" },
     { key: "find", label: "Find care" },
     { key: "providers", label: "For providers" },
     { key: "company", label: "Company" },
@@ -490,13 +585,6 @@ export function Nav() {
 
           {/* centered links */}
           <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 md:flex">
-            <button
-              type="button"
-              onClick={() => setSearchOpen(true)}
-              className="rounded-field px-3 py-2 text-[15px] font-medium text-text-body transition-colors hover:text-primary"
-            >
-              Search providers
-            </button>
             {triggers.map((t) => (
               <button
                 key={t.key}
@@ -554,6 +642,14 @@ export function Nav() {
                 }}
               >
                 <div ref={contentRef}>
+                  {menu === "search" && (
+                    <SearchPanel
+                      onNavigate={(href) => {
+                        setOpen(null);
+                        router.push(href);
+                      }}
+                    />
+                  )}
                   {menu === "find" && <FindCarePanel cat={cat} setCat={setCat} />}
                   {menu === "providers" && <ProvidersPanel />}
                   {menu === "company" && <CompanyPanel />}
@@ -564,7 +660,6 @@ export function Nav() {
         </div>
       </header>
 
-      <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
       <MobileMenu open={mobileOpen} onClose={() => setMobileOpen(false)} />
     </>
   );
