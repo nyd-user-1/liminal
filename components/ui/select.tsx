@@ -1,20 +1,25 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type SelectHTMLAttributes } from "react";
+import { Avatar } from "@/components/ui/avatar";
 import { FieldError, FieldHint, FieldLabel } from "@/components/ui/field";
 import { Icon } from "@/components/ui/icons";
+import type { AvatarHue } from "@/lib/types";
 
 // Catalog `Select` — Field-like trigger with trailing chevron opening a
 // custom portable dropdown (never the OS-native <select>), styled to match
 // DropdownMenu / KebabMenu: rounded-card menu, hover row, teal selected + check.
-// `searchable` adds a filter input; options render a leading color dot only
-// when `option.color` is set.
+// `searchable` adds a filter input; each option can carry a leading color dot
+// (`option.color`) OR an initials Avatar (`option.avatar`, e.g. a practitioner
+// picker) — color-dot and avatar are mutually exclusive per option.
 
 export interface SelectOption {
   value: string;
   label: string;
   /** Optional leading color dot (catalog `withColorDot`, keys services). */
   color?: string;
+  /** Optional leading initials Avatar (people pickers); wins over `color`. */
+  avatar?: { name: string; hue?: AvatarHue };
 }
 
 const triggerClass =
@@ -23,6 +28,13 @@ const triggerClass =
 function Dot({ color }: { color?: string }) {
   if (!color) return null;
   return <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: color }} />;
+}
+
+// Leading slot for the trigger + each row: Avatar wins over color dot.
+function OptionLead({ option }: { option?: SelectOption }) {
+  if (!option) return null;
+  if (option.avatar) return <Avatar name={option.avatar.name} hue={option.avatar.hue} size="sm" />;
+  return <Dot color={option.color} />;
 }
 
 export function Select({
@@ -99,7 +111,7 @@ export function Select({
           className={`flex items-center justify-between gap-2 ${triggerClass} ${error ? "border-danger" : ""}`}
         >
           <span className={`flex min-w-0 items-center gap-2 ${value ? "" : "text-text-muted"}`}>
-            <Dot color={selected?.color} />
+            <OptionLead option={selected} />
             <span className="truncate">{value ? (selected?.label ?? value) : (placeholder ?? "Select…")}</span>
           </span>
           <Icon name="chevron-down" size={16} className="shrink-0 text-text-muted" />
@@ -134,7 +146,7 @@ export function Select({
                     }}
                     className={`flex w-full items-center gap-2 rounded-field px-2.5 py-2 text-left text-[15px] font-medium transition-colors hover:bg-[#F3F4F6] ${isSel ? "text-primary" : "text-text"}`}
                   >
-                    <Dot color={o.color} />
+                    <OptionLead option={o} />
                     <span className="min-w-0 flex-1 truncate">{o.label}</span>
                     {isSel && <Icon name="check" size={16} className="shrink-0 text-primary" />}
                   </button>

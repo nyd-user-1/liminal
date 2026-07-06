@@ -632,6 +632,8 @@ export default function DesignSystemPage() {
   const [innerTab, setInnerTab] = useState("overview");
   const [status, setStatus] = useState("");
   const [service, setService] = useState("");
+  const [timezone, setTimezone] = useState("");
+  const [practitioner, setPractitioner] = useState("");
   const [date, setDate] = useState("2026-07-15");
   const [file, setFile] = useState<{ name: string } | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
@@ -753,10 +755,10 @@ export default function DesignSystemPage() {
             <Spec name="Textarea" desc="Multi-line Field.">
               <Textarea className="w-full" label="Session summary" name="summary" placeholder="Type a note…" />
             </Spec>
-            <Spec name="Select" desc="Native + searchable (color-dot) variants.">
+            <Spec name="Select" desc="Native · searchable · color-dot · avatar variants." wide>
               <div className="grid w-full gap-4 sm:grid-cols-2">
                 <Select
-                  label="Status"
+                  label="Status — native"
                   placeholder="Any status"
                   value={status}
                   onValueChange={setStatus}
@@ -767,7 +769,20 @@ export default function DesignSystemPage() {
                   ]}
                 />
                 <Select
-                  label="Service"
+                  label="Timezone — searchable"
+                  searchable
+                  placeholder="Pick a timezone…"
+                  value={timezone}
+                  onValueChange={setTimezone}
+                  options={[
+                    { value: "pt", label: "Pacific (PT)" },
+                    { value: "mt", label: "Mountain (MT)" },
+                    { value: "ct", label: "Central (CT)" },
+                    { value: "et", label: "Eastern (ET)" },
+                  ]}
+                />
+                <Select
+                  label="Service — searchable + color dot"
                   searchable
                   placeholder="Pick a service…"
                   value={service}
@@ -776,6 +791,18 @@ export default function DesignSystemPage() {
                     { value: "intake", label: "Intake session", color: "#3F8290" },
                     { value: "therapy", label: "Therapy — 50 min", color: "#3BA55C" },
                     { value: "followup", label: "Follow-up", color: "#E0447C" },
+                  ]}
+                />
+                <Select
+                  label="Practitioner — searchable + avatar"
+                  searchable
+                  placeholder="All practitioners"
+                  value={practitioner}
+                  onValueChange={setPractitioner}
+                  options={[
+                    { value: "brendan", label: "Brendan Stanton", avatar: { name: "Brendan Stanton", hue: "teal" } },
+                    { value: "priya", label: "Priya Raman", avatar: { name: "Priya Raman", hue: "pink" } },
+                    { value: "amara", label: "Amara Okafor", avatar: { name: "Amara Okafor", hue: "amber" } },
                   ]}
                 />
               </div>
