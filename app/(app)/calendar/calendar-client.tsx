@@ -1,10 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import type { IconName } from "@/components/ui/icons";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Icon, type IconName } from "@/components/ui/icons";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Divider } from "@/components/ui/divider";
 import { TopBarActions } from "@/components/shell/topbar-slot";
@@ -94,6 +92,23 @@ export function CalendarClient({
           };
         }),
     [appointments, visible, serviceById, clientById],
+  );
+
+  // Agenda for the selected day (rail list) — same filtering as the grid,
+  // narrowed to the anchor date and sorted by start time.
+  const dayEvents = useMemo(
+    () => events.filter((e) => e.date === anchor).sort((a, b) => a.startMin - b.startMin),
+    [events, anchor],
+  );
+
+  const dayLabel = useMemo(
+    () =>
+      new Date(`${anchor}T00:00:00`).toLocaleDateString(undefined, {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+      }),
+    [anchor],
   );
 
   // ── mutations (API + local state) ───────────────────────────────────────────
@@ -225,31 +240,36 @@ export function CalendarClient({
               own ‹ › arrows are THE calendar navigation (single source) */}
           <DatePicker key={anchor.slice(0, 7)} value={anchor} onChange={setAnchor} />
           <Divider />
-          <div>
-            <p className="mb-2 text-[13px] font-semibold text-text-muted">Practitioners</p>
-            <div className="space-y-1">
-              {practitioners.map((p) => (
-                <Checkbox
-                  key={p.id}
-                  className="w-full rounded-field px-1.5 py-1.5 hover:bg-canvas"
-                  checked={visible.has(p.id)}
-                  onChange={(e) =>
-                    setVisible((v) => {
-                      const next = new Set(v);
-                      if (e.target.checked) next.add(p.id);
-                      else next.delete(p.id);
-                      return next;
-                    })
-                  }
-                  label={
-                    <span className="inline-flex items-center gap-2">
-                      <Avatar name={p.name} hue={p.avatarHue} size="sm" />
-                      <span className="text-[15px] text-text">{p.name}</span>
-                    </span>
-                  }
-                />
-              ))}
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="mb-2 flex items-baseline justify-between">
+              <p className="text-[13px] font-semibold text-text-muted">{dayLabel}</p>
+              <span className="text-[13px] text-text-muted">
+                {dayEvents.length} {dayEvents.length === 1 ? "appt" : "appts"}
+              </span>
             </div>
+            {dayEvents.length === 0 ? (
+              <p className="rounded-field bg-canvas px-3 py-6 text-center text-sm text-text-muted">
+                No appointments
+              </p>
+            ) : (
+              <div className="space-y-0.5 overflow-y-auto">
+                {dayEvents.map((ev) => (
+                  <button
+                    key={ev.id}
+                    type="button"
+                    onClick={() => setPanel({ kind: "detail", id: ev.id })}
+                    className={`flex w-full items-center gap-2.5 rounded-field px-2 py-2 text-left transition-colors hover:bg-canvas ${ev.muted ? "opacity-60" : ""}`}
+                  >
+                    <span className="h-9 w-1 shrink-0 rounded-full" style={{ background: ev.color }} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-medium text-text">{ev.title}</span>
+                      <span className="block truncate text-[13px] text-text-muted">{ev.timeLabel}</span>
+                    </span>
+                    {ev.icon && <Icon name={ev.icon} size={16} className="shrink-0 text-text-muted" />}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </aside>
 
