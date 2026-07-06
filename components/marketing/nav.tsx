@@ -175,7 +175,7 @@ function PanelRow({ href, icon, label }: { href: string; icon: IconName; label: 
       <Icon
         name={icon}
         size={20}
-        className="shrink-0 text-text-muted transition-all group-hover:text-text group-hover:[stroke-width:2.3px]"
+        className="shrink-0 text-text-muted transition-colors group-hover:fill-primary-wash group-hover:text-text"
       />
       <span className="text-[15px] font-medium text-text-body group-hover:text-text">{label}</span>
     </Link>
@@ -207,14 +207,17 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
             <button
               key={c.key}
               type="button"
-              onMouseEnter={() => setCat(c.key)}
-              onFocus={() => setCat(c.key)}
+              onClick={() => setCat(c.key)}
               className={`flex w-full items-center gap-3 rounded-field px-3 py-2.5 text-left transition-colors ${
-                on ? "bg-teal-100" : ""
+                on ? "bg-surface shadow-sm" : ""
               }`}
             >
-              <Icon name={c.icon} size={20} className={`shrink-0 ${on ? "text-primary" : "text-text-muted"}`} />
-              <span className={`text-[15px] font-medium ${on ? "text-primary" : "text-text-body"}`}>{c.label}</span>
+              <Icon
+                name={c.icon}
+                size={20}
+                className={`shrink-0 transition-colors ${on ? "fill-primary-wash text-text" : "text-text-muted"}`}
+              />
+              <span className={`text-[15px] font-medium ${on ? "text-text" : "text-text-body"}`}>{c.label}</span>
             </button>
           );
         })}
@@ -321,7 +324,7 @@ function MyPortalMenu() {
               onClick={() => go("/sign-in")}
               className="group flex w-full items-center gap-2.5 rounded-field px-2.5 py-2 text-left text-[15px] font-medium text-text transition-colors hover:bg-canvas"
             >
-              <Icon name={it.icon} className="text-text-body transition-colors group-hover:fill-primary" />
+              <Icon name={it.icon} className="text-text-body transition-colors group-hover:fill-primary-wash group-hover:text-text" />
               {it.label}
             </button>
           ))}
@@ -471,7 +474,7 @@ export function Nav() {
     <>
       <header
         className={`sticky top-0 z-40 transition-all duration-200 ${
-          scrolled ? "bg-surface shadow-card" : "bg-canvas"
+          scrolled ? "bg-surface shadow-card" : "bg-primary-wash"
         }`}
       >
         <div

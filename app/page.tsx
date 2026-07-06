@@ -45,8 +45,11 @@ export default function Home() {
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden bg-primary-wash">
-        {/* real product — framed and bleeding off the right edge on desktop */}
-        <div className="pointer-events-none absolute right-0 top-1/2 z-0 hidden w-[46vw] max-w-[860px] -translate-y-1/2 lg:block">
+        {/* real product — larger, bleeding ~20% off the right edge on desktop */}
+        <div
+          className="pointer-events-none absolute top-1/2 z-0 hidden w-[54vw] -translate-y-1/2 lg:block"
+          style={{ right: "-11vw" }}
+        >
           <div className="overflow-hidden rounded-[16px] border border-primary/15 bg-white shadow-[0_44px_90px_-34px_rgba(28,36,64,0.30)]">
             <img
               src="/marketing/product-calendar.png"
@@ -69,8 +72,7 @@ export default function Home() {
               <span className="text-primary">everyone.</span>
             </h1>
             <p className="mkt-rise mkt-d1 mt-6 max-w-xl text-pretty text-lg text-text-body sm:text-xl">
-              Search 116,000+ licensed providers and programs across New York, see who&apos;s in your network, and book
-              care that meets you where you are.
+              We&apos;ll meet you wherever you are, whenever you&apos;re ready.
             </p>
             <div className="mkt-rise mkt-d2 mt-8 max-w-xl">
               <HeroSearch />
