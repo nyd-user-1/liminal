@@ -18,7 +18,7 @@ import { SearchOverlay } from "@/components/marketing/search-overlay";
 // "deepen + stroke-bump" approach, not fill-currentColor).
 
 type MenuKey = "find" | "providers" | "company";
-const WIDTHS: Record<MenuKey, number> = { find: 880, providers: 320, company: 300 };
+const WIDTHS: Record<MenuKey, number> = { find: 697, providers: 320, company: 300 };
 
 // ── content data ─────────────────────────────────────────────────────────────
 
@@ -29,7 +29,9 @@ const BOROUGHS: Array<[label: string, county: string]> = [
   ["Bronx", "Bronx"],
   ["Staten Island", "Richmond"],
 ];
-const METRO_COUNTIES = ["Nassau", "Suffolk", "Westchester", "Rockland", "Putnam", "Orange"];
+// Odd counts so that, once "View all" is appended, it lands in the last
+// column of the last row (not orphaned at the start of a new row).
+const METRO_COUNTIES = ["Nassau", "Suffolk", "Westchester", "Rockland", "Putnam"];
 const SPECIALTIES = [
   "ADHD",
   "Anxiety and Depression",
@@ -37,7 +39,6 @@ const SPECIALTIES = [
   "OCD",
   "Trauma and PTSD",
   "Couples",
-  "Family",
   "Grief and Loss",
   "Addiction",
   "LGBTQIA+",
@@ -164,11 +165,24 @@ function PanelRow({ href, icon, label }: { href: string; icon: IconName; label: 
   );
 }
 
+// Find-care content link — plain text, no icon (icons are for the nav panels
+// that are literal action rows, not this location/specialty index).
+function FindLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="block rounded-field px-3 py-2 text-[15px] font-medium text-text-body transition-colors hover:bg-canvas hover:text-text"
+    >
+      {label}
+    </Link>
+  );
+}
+
 function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => void }) {
   const active = FIND_CATEGORIES.find((c) => c.key === cat) ?? FIND_CATEGORIES[0];
   return (
     <div className="flex">
-      {/* left third — category rail */}
+      {/* left third — category rail (active = white card, neutral ink) */}
       <div className="w-1/3 bg-canvas p-2">
         {FIND_CATEGORIES.map((c) => {
           const on = c.key === cat;
@@ -178,43 +192,40 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
               type="button"
               onMouseEnter={() => setCat(c.key)}
               onFocus={() => setCat(c.key)}
-              className={`group flex w-full items-center gap-3 rounded-field px-3 py-2.5 text-left transition-colors ${
-                on ? "bg-surface shadow-card" : "hover:bg-surface/60"
+              className={`flex w-full items-center gap-3 rounded-field px-3 py-2.5 text-left transition-colors ${
+                on ? "bg-surface shadow-card" : ""
               }`}
             >
-              <Icon
-                name={c.icon}
-                size={20}
-                className={`shrink-0 transition-all ${on ? "text-primary [stroke-width:2.3px]" : "text-text-muted"}`}
-              />
+              <Icon name={c.icon} size={20} className={`shrink-0 ${on ? "text-text" : "text-text-muted"}`} />
               <span className={`text-[15px] font-medium ${on ? "text-text" : "text-text-body"}`}>{c.label}</span>
             </button>
           );
         })}
       </div>
 
-      {/* right two-thirds — content */}
+      {/* right two-thirds — content; View all is the last grid cell */}
       <div className="w-2/3 p-4">
-        {active.sections.map((s, i) => (
-          <div key={i} className="mb-3 last:mb-0">
-            {s.header && (
-              <p className="px-3 pb-1 text-[13px] font-semibold uppercase tracking-wide text-text-muted">{s.header}</p>
-            )}
-            <div className="grid grid-cols-2 gap-x-4">
-              {s.links.map((l) => (
-                <PanelRow key={l.href + l.label} {...l} />
-              ))}
+        {active.sections.map((s, i) => {
+          const isLast = i === active.sections.length - 1;
+          return (
+            <div key={i} className="mb-4 last:mb-0">
+              {s.header && <p className="px-3 pb-1 text-[13px] font-semibold text-text">{s.header}</p>}
+              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+                {s.links.map((l) => (
+                  <FindLink key={l.href + l.label} href={l.href} label={l.label} />
+                ))}
+                {isLast && (
+                  <Link
+                    href={active.viewAll.href}
+                    className="block px-3 py-2 text-[15px] font-medium text-text underline underline-offset-2 hover:text-primary"
+                  >
+                    {active.viewAll.label}
+                  </Link>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
-        <div className="mt-1 border-t border-border pt-2">
-          <Link
-            href={active.viewAll.href}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[15px] font-semibold text-primary hover:text-primary-hover"
-          >
-            {active.viewAll.label} →
-          </Link>
-        </div>
+          );
+        })}
       </div>
     </div>
   );
