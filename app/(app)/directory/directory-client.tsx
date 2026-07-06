@@ -153,10 +153,7 @@ export function DirectoryClient({
         ]}
       />
 
-      <Toolbar
-        className="mb-4"
-        actions={<Pagination page={page} pageCount={pageCount} onPageChange={setPage} />}
-      >
+      <Toolbar className="mb-4">
         <SearchInput
           value={q}
           onChange={(e) => {
@@ -240,6 +237,7 @@ export function DirectoryClient({
               ))}
             </Table>
           )}
+          <Pagination page={page} pageCount={pageCount} onPageChange={setPage} className="mt-4" />
         </>
       )}
 
