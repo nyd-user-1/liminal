@@ -10,6 +10,7 @@ import { FilterChip } from "@/components/ui/filter-chip";
 import { KebabMenu } from "@/components/ui/kebab-menu";
 import { MenuItem } from "@/components/ui/dropdown-menu";
 import { TopBarActions } from "@/components/shell/topbar-slot";
+import { Tabs } from "@/components/ui/tabs";
 import { Pagination } from "@/components/ui/pagination";
 import { SearchInput } from "@/components/ui/search-input";
 import { Table, Td, Tr } from "@/components/ui/table";
@@ -152,6 +153,18 @@ export function ClientsIndex({
           New client
         </Button>
       </TopBarActions>
+
+      <Tabs
+        className="mb-4"
+        active="clients"
+        items={[
+          { key: "clients", label: "Clients" },
+          { key: "new", label: "New" },
+        ]}
+        onChange={(k) => {
+          if (k === "new") setPanelOpen(true);
+        }}
+      />
 
       <Toolbar className="mb-4">
         <SearchInput
