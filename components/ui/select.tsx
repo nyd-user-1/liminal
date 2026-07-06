@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type SelectHTMLAttributes } from "react";
+import { createPortal } from "react-dom";
 import { Avatar } from "@/components/ui/avatar";
 import { FieldError, FieldHint, FieldLabel } from "@/components/ui/field";
 import { Icon } from "@/components/ui/icons";
@@ -64,23 +65,39 @@ export function Select({
   const inputId = id ?? rest.name;
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const wrapRef = useRef<HTMLDivElement>(null);
+  // Menu is portaled to <body> and fixed off the trigger rect so no
+  // `overflow-hidden`/scroll-container ancestor can clip it (matches DropdownMenu).
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
-    };
+    const close = () => setOpen(false);
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
-    window.addEventListener("mousedown", onDown);
+    window.addEventListener("click", close);
     window.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", close, true);
     return () => {
-      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("click", close);
       window.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", close, true);
     };
   }, [open]);
+
+  const toggle = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    const r = btnRef.current?.getBoundingClientRect();
+    if (r) setPos({ top: r.bottom + 4, left: r.left, width: r.width });
+    setQuery("");
+    setOpen(true);
+  };
 
   const filtered = useMemo(
     () => (searchable && query ? options.filter((o) => o.label.toLowerCase().includes(query.toLowerCase())) : options),
@@ -96,18 +113,16 @@ export function Select({
           {label}
         </FieldLabel>
       )}
-      <div ref={wrapRef} className="relative">
+      <div className="relative">
         <button
+          ref={btnRef}
           type="button"
           id={inputId}
           disabled={rest.disabled}
           aria-label={rest["aria-label"]}
           aria-haspopup="listbox"
           aria-expanded={open}
-          onClick={() => {
-            setOpen((o) => !o);
-            setQuery("");
-          }}
+          onClick={toggle}
           className={`flex items-center justify-between gap-2 ${triggerClass} ${error ? "border-danger" : ""}`}
         >
           <span className={`flex min-w-0 items-center gap-2 ${value ? "" : "text-text-muted"}`}>
@@ -117,8 +132,13 @@ export function Select({
           <Icon name="chevron-down" size={16} className="shrink-0 text-text-muted" />
         </button>
 
-        {open && (
-          <div className="absolute left-0 right-0 top-full z-50 mt-1 rounded-card border border-border bg-surface p-2 shadow-menu">
+        {open && pos && typeof document !== "undefined" &&
+          createPortal(
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ top: pos.top, left: pos.left, width: pos.width }}
+              className="fixed z-50 rounded-card border border-border bg-surface p-2 shadow-menu"
+            >
             {searchable && (
               <div className="mb-1 flex items-center gap-2 rounded-field border border-field-border px-2.5">
                 <Icon name="search" size={16} className="text-text-muted" />
@@ -154,8 +174,9 @@ export function Select({
               })}
               {filtered.length === 0 && <p className="px-2.5 py-2 text-sm text-text-muted">No matches</p>}
             </div>
-          </div>
-        )}
+            </div>,
+            document.body,
+          )}
       </div>
 
       {/* Carry the value for native form posts (uncontrolled name= usage). */}
