@@ -5,6 +5,7 @@ import { getUser } from "@/lib/auth";
 import { logEvent } from "@/lib/audit";
 import { listAppointments } from "@/lib/repos/appointments";
 import { getClient, listPractitioners } from "@/lib/repos/clients";
+import { listReferrals } from "@/lib/repos/directory";
 import { listFiles } from "@/lib/repos/files";
 import { listInvoices } from "@/lib/repos/invoices";
 import { listPayers, listPolicies } from "@/lib/repos/policies";
@@ -34,13 +35,14 @@ export default async function ClientDetailPage({
   if (!client) notFound();
 
   const user = await getUser();
-  const [practitioners, policies, payers, files, appointments, invoices] = await Promise.all([
+  const [practitioners, policies, payers, files, appointments, invoices, referrals] = await Promise.all([
     listPractitioners(),
     listPolicies(id),
     listPayers(),
     listFiles(id),
     listAppointments({ clientId: id }),
     listInvoices({ clientId: id }),
+    listReferrals({ clientId: id }),
   ]);
   await logEvent({ actorId: user?.id ?? null, action: "client.view", entity: "client", entityId: id });
 
@@ -60,6 +62,7 @@ export default async function ClientDetailPage({
                 client={client}
                 appointments={appointments}
                 invoices={invoices}
+                referrals={referrals}
                 practitionerName={practitionerName}
               />
             ),

@@ -1,9 +1,17 @@
+import { Badge } from "@/components/ui/badge";
 import { SettingsCard } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icons";
 import { Tag } from "@/components/ui/tag";
 import { formatCents, formatDate, formatTime } from "@/lib/format";
-import type { Appointment, Client, Invoice } from "@/lib/types";
+import type { Appointment, Client, Invoice, Referral, ReferralStatus } from "@/lib/types";
 import { ApptStatusBadge, FieldDisplay, InvoiceStatusBadge, formatDob, tagHue } from "../ui";
+
+const REFERRAL_BADGE: Record<ReferralStatus, "neutral" | "info" | "success" | "danger"> = {
+  draft: "neutral",
+  sent: "info",
+  accepted: "success",
+  declined: "danger",
+};
 
 // Overview tab — 2:1 grid: upcoming appointments + billing summary (left)
 // beside a contact FieldDisplay card (right). Server component; appointment
@@ -13,11 +21,13 @@ export function OverviewTab({
   client,
   appointments,
   invoices,
+  referrals,
   practitionerName,
 }: {
   client: Client;
   appointments: Appointment[];
   invoices: Invoice[];
+  referrals: Referral[];
   practitionerName: string | null;
 }) {
   const now = Date.now();
@@ -96,6 +106,31 @@ export function OverviewTab({
                   </span>
                   <span className="text-[15px] font-semibold text-text">{formatCents(i.totalCents)}</span>
                   <InvoiceStatusBadge status={i.status} />
+                </div>
+              ))}
+            </div>
+          )}
+        </SettingsCard>
+
+        <SettingsCard icon="globe" title="Referrals">
+          {referrals.length === 0 ? (
+            <p className="text-[15px] text-text-muted">No referrals yet.</p>
+          ) : (
+            <div className="divide-y divide-border">
+              {referrals.map((r) => (
+                <div key={r.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-field bg-teal-100 text-primary">
+                    <Icon name={r.targetKind === "provider" ? "person-circle" : "globe"} size={18} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-semibold text-text">
+                      {r.targetName ?? "Referral"}
+                    </span>
+                    <span className="block text-sm text-text-muted">{formatDate(r.createdAt)}</span>
+                  </span>
+                  <Badge variant={REFERRAL_BADGE[r.status]}>
+                    {r.status[0].toUpperCase() + r.status.slice(1)}
+                  </Badge>
                 </div>
               ))}
             </div>

@@ -11,6 +11,7 @@ const WORKSPACE_NAV: SidebarNavItem[] = [
   { label: "Calendar", href: "/calendar", icon: "calendar" },
   { label: "Inbox", href: "/inbox", icon: "inbox" },
   { label: "Clients", href: "/clients", icon: "users" },
+  { label: "Directory", href: "/directory", icon: "globe" },
   { label: "Billing", href: "/billing", icon: "dollar" },
   { label: "Templates", href: "/templates", icon: "clipboard" },
   { label: "Settings", href: "/settings", icon: "gear" },
