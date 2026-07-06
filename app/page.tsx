@@ -44,19 +44,10 @@ export default function Home() {
       <Nav />
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden text-white" style={{ backgroundColor: INK }}>
-        {/* one warm glow, lower-left — not a full gradient field */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -left-40 bottom-[-6rem] h-[36rem] w-[36rem] rounded-full opacity-[0.14] blur-3xl"
-          style={{ background: "radial-gradient(circle, #f0ae55 0%, transparent 70%)" }}
-        />
-        {/* real product — bleeds off the right edge on desktop; sits below the copy on mobile */}
-        <div className="pointer-events-none absolute right-0 top-1/2 z-0 hidden w-[47vw] max-w-[840px] -translate-y-1/2 lg:block">
-          <div className="absolute left-6 -top-3 z-10 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/80 ring-1 ring-white/15 backdrop-blur">
-            Provider view — live calendar
-          </div>
-          <div className="overflow-hidden rounded-[14px] border border-white/10 shadow-[0_44px_90px_-32px_rgba(0,0,0,0.75)] ring-1 ring-black/20">
+      <section className="relative overflow-hidden bg-primary-wash">
+        {/* real product — framed and bleeding off the right edge on desktop */}
+        <div className="pointer-events-none absolute right-0 top-1/2 z-0 hidden w-[46vw] max-w-[860px] -translate-y-1/2 lg:block">
+          <div className="overflow-hidden rounded-[16px] border border-primary/15 bg-white shadow-[0_44px_90px_-34px_rgba(28,36,64,0.30)]">
             <img
               src="/marketing/product-calendar.png"
               alt="A practitioner's weekly calendar in Liminal — colour-coded telehealth and in-person sessions, with the day's agenda alongside."
@@ -68,40 +59,38 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="relative z-10 mx-auto max-w-6xl px-6 pt-14 sm:pt-20 lg:pb-28 lg:pt-28">
+        <div className="relative z-10 mx-auto max-w-6xl px-6 pt-16 sm:pt-20 lg:pb-28 lg:pt-24">
           <div className="lg:max-w-[54%]">
             <h1
-              className="mkt-rise text-balance font-display font-extrabold tracking-[-0.03em] text-white"
-              style={{ fontSize: "clamp(2.75rem, 6vw, 5rem)", lineHeight: 1.02 }}
+              className="mkt-rise text-balance font-display font-extrabold tracking-[-0.03em] text-text"
+              style={{ fontSize: "clamp(2.75rem, 6vw, 5.25rem)", lineHeight: 1.01 }}
             >
-              Every therapist in New&nbsp;York.{" "}
-              <span style={{ color: "#F0AE55" }}>One search.</span>
+              Every New Yorker deserves{" "}
+              <span className="text-primary">a way in.</span>
             </h1>
-            <p className="mkt-rise mkt-d1 mt-6 max-w-xl text-pretty text-lg text-white/75 sm:text-xl">
-              Search 8,500+ licensed providers across the five boroughs, filter to who takes your insurance, and book in
-              a week. Liminal is also the platform practices use to run all of it.
+            <p className="mkt-rise mkt-d1 mt-6 max-w-xl text-pretty text-lg text-text-body sm:text-xl">
+              Healing belongs to everyone. Search 116,000+ licensed providers and programs across New York, see who&apos;s
+              in your network, and book care that meets you where you are.
             </p>
             <div className="mkt-rise mkt-d2 mt-8 max-w-xl">
               <HeroSearch />
             </div>
-            <div className="mkt-rise mkt-d3 mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-white/55">
-              <span>8,500+ licensed providers</span>
-              <span aria-hidden className="text-white/25">
-                /
+            <div className="mkt-rise mkt-d3 mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-text-muted">
+              <span>116,000+ providers</span>
+              <span aria-hidden className="text-primary/40">
+                •
               </span>
-              <span>All five boroughs</span>
-              <span aria-hidden className="text-white/25">
-                /
+              <span>6,400+ programs</span>
+              <span aria-hidden className="text-primary/40">
+                •
               </span>
-              <Link href="/join" className="font-semibold text-white underline-offset-4 hover:underline">
-                Join as a provider →
-              </Link>
+              <span>All 62 counties</span>
             </div>
           </div>
 
           {/* mobile product shot */}
           <div className="mkt-fade mt-10 lg:hidden">
-            <div className="overflow-hidden rounded-[12px] border border-white/10 shadow-[0_30px_60px_-30px_rgba(0,0,0,0.7)]">
+            <div className="overflow-hidden rounded-[14px] border border-primary/15 bg-white shadow-[0_30px_60px_-30px_rgba(28,36,64,0.25)]">
               <img
                 src="/marketing/product-calendar.png"
                 alt="A practitioner's weekly calendar in Liminal."

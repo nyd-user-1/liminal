@@ -13,6 +13,8 @@
   --color-primary-weak: #b7d8dd; /* teal-200 */
   --color-accent: #f0ae55; /* amber-500 — links on navy, highlights, logo arc */
   --color-accent-ink: #c58a2e; /* amber-700 — accent on white surfaces (AA) */
+  --color-primary-wash: #dcecec; /* teal-50 — pale hero/section field (Headway-style pastel) */
+  --color-primary-deep: #2c5c66; /* teal-800 — deep teal for large accent type on the wash */
 
   /* Chrome */
   --color-sidebar-bg: #1c2440; /* navy-900 */

@@ -3,61 +3,41 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { SearchInput } from "@/components/ui/search-input";
-import { Select } from "@/components/ui/select";
+import { Icon } from "@/components/ui/icons";
 
-// Inline "find care" search used in the hero + the closing CTA. Routes to the
-// real /find-care directory with q + county params. White card so it reads on
-// the navy hero and on light bands alike.
-
-const BOROUGHS = [
-  { value: "", label: "All boroughs" },
-  { value: "New York", label: "Manhattan" },
-  { value: "Kings", label: "Brooklyn" },
-  { value: "Queens", label: "Queens" },
-  { value: "Bronx", label: "Bronx" },
-  { value: "Richmond", label: "Staten Island" },
-];
+// The hero / closing "find care" bar. A single field wired to the real
+// directory search (116k+ providers + programs statewide) — routes to
+// /find-care?q=, the same anonymous search the nav overlay uses.
 
 export function HeroSearch() {
   const router = useRouter();
   const [q, setQ] = useState("");
-  const [county, setCounty] = useState("");
 
-  const go = () => {
-    const p = new URLSearchParams();
-    if (q.trim()) p.set("q", q.trim());
-    if (county) p.set("county", county);
-    router.push(`/find-care${p.toString() ? `?${p.toString()}` : ""}`);
+  const go = (e: React.FormEvent) => {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    if (q.trim()) params.set("q", q.trim());
+    router.push(`/find-care${params.toString() ? `?${params.toString()}` : ""}`);
   };
 
   return (
-    <div className="rounded-card border border-border bg-surface p-2 shadow-card sm:flex sm:items-center sm:gap-2">
-      <div className="p-1 sm:flex-1 sm:p-0">
-        <SearchInput
-          className="w-full"
-          placeholder="Specialty, name, or program"
-          aria-label="Search care"
+    <form
+      onSubmit={go}
+      className="rounded-card border border-border bg-surface p-2 shadow-card sm:flex sm:items-center sm:gap-2"
+    >
+      <div className="flex flex-1 items-center gap-2.5 px-3">
+        <Icon name="search" size={20} className="shrink-0 text-text-muted" />
+        <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && go()}
+          aria-label="Search providers and programs"
+          placeholder="Search therapists, psychiatrists, and programs"
+          className="h-11 w-full min-w-0 bg-transparent text-[15px] text-text outline-none placeholder:text-text-muted sm:h-12"
         />
       </div>
-      <div className="p-1 sm:w-44 sm:p-0">
-        <Select
-          className="w-full"
-          aria-label="Borough"
-          placeholder="All boroughs"
-          options={BOROUGHS}
-          value={county}
-          onValueChange={setCounty}
-        />
-      </div>
-      <div className="p-1 sm:p-0">
-        <Button className="w-full sm:w-auto" leftIcon="search" onClick={go}>
-          Find care
-        </Button>
-      </div>
-    </div>
+      <Button type="submit" size="xl" className="mt-2 w-full sm:mt-0 sm:w-auto">
+        Find care
+      </Button>
+    </form>
   );
 }
