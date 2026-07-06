@@ -10,6 +10,7 @@ import { Icon, type IconName } from "@/components/ui/icons";
 import { IconButton } from "@/components/ui/icon-button";
 import { Logo } from "@/components/ui/logo";
 import { SearchInput } from "@/components/ui/search-input";
+import { Tag } from "@/components/ui/tag";
 import { TextLink } from "@/components/ui/text-link";
 import type { PublicResult } from "@/app/api/directory/public-search/route";
 
@@ -22,7 +23,7 @@ import type { PublicResult } from "@/app/api/directory/public-search/route";
 // Icon hover treatment: navy line + hero-pastel (primary-wash) fill on hover.
 
 type MenuKey = "search" | "find" | "providers" | "company";
-const WIDTHS: Record<MenuKey, number> = { search: 600, find: 636, providers: 320, company: 300 };
+const WIDTHS: Record<MenuKey, number> = { search: 636, find: 636, providers: 320, company: 300 };
 
 // ── content data ─────────────────────────────────────────────────────────────
 
@@ -253,18 +254,71 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
   );
 }
 
-// Live directory search, hosted inside the morphing panel. Results are capped
-// so the panel never grows past the Find-care menu height; "View all" hands
-// off to /find-care.
+// Profession filters (left rail). `value` is the exact profession string the
+// directory search matches; `label` is the short chip/label shown in the UI.
+const SEARCH_FILTERS: Array<{ label: string; value: string }> = [
+  { label: "Social workers", value: "Clinical Social Worker" },
+  { label: "Counselors", value: "Mental Health Counselor" },
+  { label: "Psychologists", value: "Psychologist" },
+  { label: "Psychiatrists", value: "Psychiatrist" },
+  { label: "Behavior analysts", value: "Behavior Analyst" },
+  { label: "Psychiatric NPs", value: "Psychiatric Nurse Practitioner" },
+  { label: "Family therapists", value: "Marriage & Family Therapist" },
+];
+
+// Mocked "Recent results" shown before a query is entered.
+const RECENT_RESULTS: Array<{ name: string; line: string }> = [
+  { name: "MAYA PATEL, MD", line: "151 E 80th St, New York 10075 · (212) 737-2055" },
+  { name: "DEVON WRIGHT, LCSW", line: "62 Whitman Dr, Brooklyn 11234 · (917) 704-8148" },
+  { name: "ADELANTE COUNSELING PLLC", line: "39 E 78th St Ste 501, New York 10021 · (212) 362-2820" },
+  { name: "SANDRA LEONG, PsyD", line: "1200 Waters Pl, Bronx 10461 · (718) 918-5000" },
+  { name: "RIVERSIDE MENTAL HEALTH", line: "410 Amsterdam Ave, New York 10024 · (212) 555-0142" },
+];
+
+const titleCaseStr = (s: string) => s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+const fmtPhone = (p: string | null) => {
+  const d = (p ?? "").replace(/\D/g, "");
+  return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : (p ?? "");
+};
+const resultLine = (r: PublicResult) => {
+  const addr = [r.address && titleCaseStr(r.address), r.city && titleCaseStr(r.city), r.zip?.slice(0, 5)]
+    .filter(Boolean)
+    .join(", ");
+  return [addr, fmtPhone(r.phone)].filter(Boolean).join(" · ") || r.county || "New York";
+};
+
+// A single result / recent-result row: two-tone person icon + name + address·phone.
+function ResultRow({ name, line, onClick }: { name: string; line: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-start gap-3 rounded-field px-2 py-2 text-left transition-colors hover:bg-canvas"
+    >
+      <Icon name="person-circle" size={20} className="mt-0.5 shrink-0 fill-primary-wash text-text" />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[15px] font-medium text-text">{name}</span>
+        <span className="block truncate text-sm text-text-muted">{line}</span>
+      </span>
+    </button>
+  );
+}
+
+// Live directory search in the morphing panel: search bar + filter rail (adds
+// chips) on the left, results / "Recent results" on the right. Results are
+// capped so the panel stays within the Find-care menu height.
 function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
   const [q, setQ] = useState("");
+  const [filters, setFilters] = useState<string[]>([]);
   const [results, setResults] = useState<PublicResult[]>([]);
   const [loading, setLoading] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const active = q.trim().length > 0 || filters.length > 0;
+
   useEffect(() => {
     if (timer.current) clearTimeout(timer.current);
-    if (!q.trim()) {
+    if (!active) {
       setResults([]);
       setLoading(false);
       return;
@@ -272,9 +326,13 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
     setLoading(true);
     timer.current = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/directory/public-search?q=${encodeURIComponent(q)}`);
+        const params = new URLSearchParams();
+        if (q.trim()) params.set("q", q.trim());
+        const res = await fetch(`/api/directory/public-search?${params.toString()}`);
         const data = await res.json();
-        setResults(data.results ?? []);
+        let items: PublicResult[] = data.results ?? [];
+        if (filters.length) items = items.filter((r) => r.subtitle && filters.includes(r.subtitle));
+        setResults(items);
       } finally {
         setLoading(false);
       }
@@ -282,58 +340,84 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [q]);
+  }, [q, filters, active]);
 
-  const go = () => q.trim() && onNavigate(`/find-care?q=${encodeURIComponent(q.trim())}`);
+  const toggleFilter = (v: string) => setFilters((fs) => (fs.includes(v) ? fs.filter((x) => x !== v) : [...fs, v]));
+  const go = () => {
+    const p = new URLSearchParams();
+    if (q.trim()) p.set("q", q.trim());
+    if (filters[0]) p.set("need", filters[0]);
+    onNavigate(`/find-care${p.toString() ? `?${p.toString()}` : ""}`);
+  };
+
   const shown = results.slice(0, 6);
 
   return (
-    <div className="p-3">
-      <SearchInput
-        autoFocus
-        placeholder="Search therapists, psychiatrists, and programs"
-        aria-label="Search providers and programs"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && go()}
-      />
-      {q.trim() && (
-        <div className="mt-2">
-          {loading && <p className="px-2 py-3 text-sm text-text-muted">Searching…</p>}
-          {!loading && results.length === 0 && (
-            <p className="px-2 py-3 text-sm text-text-muted">No matches. Try a broader term.</p>
-          )}
-          {shown.map((r) => (
-            <button
-              key={`${r.kind}-${r.id}`}
-              type="button"
-              onClick={go}
-              className="group flex w-full items-center gap-3 rounded-field px-2 py-2 text-left transition-colors hover:bg-canvas"
-            >
-              <Icon
-                name={r.kind === "provider" ? "person-circle" : "globe"}
-                size={20}
-                className="shrink-0 text-text-muted transition-colors group-hover:fill-primary-wash group-hover:text-text"
-              />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[15px] font-medium text-text">{r.name}</span>
-                <span className="block truncate text-sm text-text-muted">
-                  {[r.subtitle, r.county].filter(Boolean).join(" · ")}
-                </span>
-              </span>
-            </button>
-          ))}
-          {results.length > 0 && (
-            <button
-              type="button"
-              onClick={go}
-              className="mt-1 w-full rounded-field px-2 py-2 text-left text-sm font-semibold text-primary transition-colors hover:text-primary-hover"
-            >
-              View all results for “{q.trim()}” →
-            </button>
-          )}
+    <div>
+      {/* search bar + active filter chips */}
+      <div className="p-3">
+        <SearchInput
+          autoFocus
+          className="[&_svg]:fill-primary-wash [&_svg]:text-text"
+          placeholder="Search therapists, psychiatrists, and programs"
+          aria-label="Search providers and programs"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && go()}
+        />
+        {filters.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {filters.map((v) => (
+              <Tag key={v} hue="teal" onDismiss={() => toggleFilter(v)}>
+                {SEARCH_FILTERS.find((f) => f.value === v)?.label ?? v}
+              </Tag>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* filter rail + results */}
+      <div className="flex border-t border-border">
+        <div className="w-1/3 bg-canvas p-2">
+          <p className="px-2.5 pb-1 pt-1 text-[13px] font-semibold text-text-muted">Filter by</p>
+          {SEARCH_FILTERS.map((f) => {
+            const on = filters.includes(f.value);
+            return (
+              <button
+                key={f.value}
+                type="button"
+                onClick={() => toggleFilter(f.value)}
+                className={`w-full rounded-field px-2.5 py-2 text-left text-[15px] font-medium transition-colors ${
+                  on ? "bg-surface text-text shadow-sm" : "text-text-body hover:bg-surface/60 hover:text-text"
+                }`}
+              >
+                {f.label}
+              </button>
+            );
+          })}
         </div>
-      )}
+
+        <div className="w-2/3 p-3">
+          <p className="px-1 pb-1 text-[13px] font-semibold text-text-muted">{active ? "Results" : "Recent results"}</p>
+          {!active && RECENT_RESULTS.map((r) => <ResultRow key={r.name} name={r.name} line={r.line} onClick={go} />)}
+          {active && loading && <p className="px-1 py-3 text-sm text-text-muted">Searching…</p>}
+          {active && !loading && shown.length === 0 && (
+            <p className="px-1 py-3 text-sm text-text-muted">No matches. Try a broader term.</p>
+          )}
+          {active &&
+            !loading &&
+            shown.map((r) => (
+              <ResultRow key={`${r.kind}-${r.id}`} name={r.name} line={resultLine(r)} onClick={go} />
+            ))}
+          <button
+            type="button"
+            onClick={go}
+            className="mt-1 w-full rounded-field px-1 py-2 text-left text-sm font-semibold text-primary transition-colors hover:text-primary-hover"
+          >
+            View all results{active && q.trim() ? ` for “${q.trim()}”` : ""} →
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

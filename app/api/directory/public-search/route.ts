@@ -17,6 +17,7 @@ export type PublicResult = {
   agency: string | null;
   county: string | null;
   phone: string | null;
+  address: string | null;
   // provider enrichment (null for programs)
   subspecialty?: string | null;
   credential?: string | null;
@@ -51,6 +52,7 @@ export async function GET(req: NextRequest) {
         agency: null,
         county: r.county,
         phone: r.phone,
+        address: r.address,
         subspecialty: r.subspecialty ?? null,
         credential: r.credential ?? null,
         gender: r.gender ?? null,
@@ -71,6 +73,7 @@ export async function GET(req: NextRequest) {
         agency: r.agency,
         county: r.county,
         phone: r.phone,
+        address: r.address,
       });
     }
   }
