@@ -622,7 +622,7 @@ function LinkSample({
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DesignSystemPage() {
-  const [tab, setTab] = useState("foundations");
+  const [tab, setTab] = useState("primitives");
 
   // Interactive-primitive state
   const [cadence, setCadence] = useState("Biweekly");
@@ -649,8 +649,8 @@ export default function DesignSystemPage() {
         active={tab}
         onChange={setTab}
         items={[
-          { key: "foundations", label: "Foundations" },
           { key: "primitives", label: "Primitives", count: 44 },
+          { key: "foundations", label: "Foundations" },
           { key: "components", label: "Components", count: featureTotal },
         ]}
       />

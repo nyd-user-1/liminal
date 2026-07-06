@@ -15,6 +15,7 @@ const WORKSPACE_NAV: SidebarNavItem[] = [
   { label: "Billing", href: "/billing", icon: "dollar" },
   { label: "Templates", href: "/templates", icon: "clipboard" },
   { label: "Settings", href: "/settings", icon: "gear" },
+  { label: "Design system", href: "/design-system", icon: "paint-roller" },
 ];
 
 const PORTAL_NAV: SidebarNavItem[] = [
