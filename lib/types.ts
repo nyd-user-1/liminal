@@ -301,3 +301,72 @@ export interface Session {
   userId: string;
   expiresAt: string;
 }
+
+// ── External provider directory (NY open data) ─────────────────────────────────
+
+export type DirectorySource = "medicaid" | "omh" | "nyc_dohmh";
+
+export interface DirectoryProvider {
+  id: string;
+  npi: string | null;
+  name: string;
+  profession: string | null;
+  licenseNo: string | null;
+  taxonomy: string | null;
+  address: string | null;
+  city: string | null;
+  county: string | null;
+  zip: string | null;
+  phone: string | null;
+  source: DirectorySource;
+  sourceId: string;
+  updatedAt: string;
+}
+
+export interface DirectoryProgram {
+  id: string;
+  agency: string | null;
+  facility: string | null;
+  programName: string;
+  programType: string | null;
+  populations: string | null;
+  address: string | null;
+  city: string | null;
+  county: string | null;
+  zip: string | null;
+  phone: string | null;
+  source: DirectorySource;
+  sourceId: string;
+  updatedAt: string;
+}
+
+export type ReferralStatus = "draft" | "sent" | "accepted" | "declined";
+
+export interface Referral {
+  id: string;
+  clientId: string;
+  providerId: string | null;
+  programId: string | null;
+  reason: string | null;
+  status: ReferralStatus;
+  createdBy: string | null;
+  createdAt: string;
+  // Joined for display:
+  targetName?: string;
+  targetKind?: "provider" | "program";
+}
+
+export type ProviderApplicationStatus = "new" | "reviewing" | "contacted" | "closed";
+
+export interface ProviderApplication {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  licenseType: string | null;
+  state: string | null;
+  npi: string | null;
+  message: string | null;
+  status: ProviderApplicationStatus;
+  createdAt: string;
+}

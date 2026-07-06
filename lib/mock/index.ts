@@ -4,6 +4,8 @@ import type {
   AuditEvent,
   Availability,
   Client,
+  DirectoryProgram,
+  DirectoryProvider,
   FileRecord,
   Form,
   FormResponse,
@@ -16,6 +18,8 @@ import type {
   NoteTemplate,
   Payer,
   Payment,
+  ProviderApplication,
+  Referral,
   Service,
   Session,
   Thread,
@@ -58,6 +62,10 @@ export interface MockStore {
   files: Map<string, FileRecord>;
   auditEvents: AuditEvent[]; // append-only
   sessions: Map<string, Session>;
+  directoryProviders: Map<string, DirectoryProvider>;
+  directoryPrograms: Map<string, DirectoryProgram>;
+  referrals: Map<string, Referral>;
+  providerApplications: Map<string, ProviderApplication>;
 }
 
 const now = new Date().toISOString();
@@ -89,6 +97,10 @@ function createStore(): MockStore {
     files: new Map(),
     auditEvents: [],
     sessions: new Map(),
+    directoryProviders: new Map(),
+    directoryPrograms: new Map(),
+    referrals: new Map(),
+    providerApplications: new Map(),
   };
 
   const users: User[] = [
