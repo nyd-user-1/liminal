@@ -477,7 +477,13 @@ function MyPortalMenu() {
 
   return (
     <div ref={ref} className="relative">
-      <Button variant="secondary" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-haspopup="menu">
+      <Button
+        variant="secondary"
+        className="!border-primary"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+      >
         Log in
       </Button>
       {open && (
