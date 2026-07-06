@@ -5,6 +5,7 @@
    (e.g. bg-primary, text-text-muted, border-border, rounded-field). */
 @theme {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif; /* marketing display face */
 
   /* Brand */
   --color-primary: #3f8290; /* teal-600 — buttons, active tab, focus ring */
@@ -85,4 +86,26 @@ body {
 .group:hover .link-wipe,
 .link-wipe:hover {
   background-size: 100% 1.5px;
+}
+
+/* ── Marketing landing motion (additive; safe to remove with the redesign) ──
+   Entrance choreography for the home hero + sections. Elements are visible by
+   default and only animate as an enhancement, so headless/prefers-reduced
+   renders still ship the content. */
+@keyframes mkt-rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes mkt-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.mkt-rise { animation: mkt-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.mkt-fade { animation: mkt-fade 0.9s ease both; }
+.mkt-d1 { animation-delay: 0.06s; }
+.mkt-d2 { animation-delay: 0.14s; }
+.mkt-d3 { animation-delay: 0.22s; }
+.mkt-d4 { animation-delay: 0.32s; }
+@media (prefers-reduced-motion: reduce) {
+  .mkt-rise, .mkt-fade { animation: none; opacity: 1; transform: none; }
 }

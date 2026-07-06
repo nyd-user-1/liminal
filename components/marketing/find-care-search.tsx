@@ -28,10 +28,10 @@ const NEEDS = [
   { label: "Therapist", value: "MARRIAGE & FAMILY THERAPIST" },
 ];
 
-export function FindCareSearch({ initialQ = "" }: { initialQ?: string }) {
+export function FindCareSearch({ initialQ = "", initialCounty = "" }: { initialQ?: string; initialCounty?: string }) {
   const router = useRouter();
   const [q, setQ] = useState(initialQ);
-  const [county, setCounty] = useState("");
+  const [county, setCounty] = useState(initialCounty);
   const [need, setNeed] = useState("");
   const [results, setResults] = useState<PublicResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -56,7 +56,7 @@ export function FindCareSearch({ initialQ = "" }: { initialQ?: string }) {
   // Auto-run on first load if an initial query came in, and whenever a
   // filter chip / county changes.
   useEffect(() => {
-    if (initialQ) run();
+    if (initialQ || initialCounty) run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {

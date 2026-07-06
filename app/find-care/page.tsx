@@ -12,9 +12,9 @@ export const metadata = {
 export default async function FindCarePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; county?: string }>;
 }) {
-  const { q } = await searchParams;
+  const { q, county } = await searchParams;
   return (
     <div className="flex min-h-screen flex-col bg-surface">
       <Nav />
@@ -25,7 +25,7 @@ export default async function FindCarePage({
             Licensed providers and programs across all five New York City boroughs.
           </p>
         </div>
-        <FindCareSearch initialQ={q ?? ""} />
+        <FindCareSearch initialQ={q ?? ""} initialCounty={county ?? ""} />
       </main>
       <MarketingFooter />
     </div>
