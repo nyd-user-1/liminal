@@ -154,7 +154,6 @@ export function DirectoryClient({
       />
 
       <Toolbar className="mb-4">
-        <span className="text-sm text-text-muted">{total.toLocaleString()} results</span>
         <SearchInput
           value={q}
           onChange={(e) => {
