@@ -153,7 +153,10 @@ export function DirectoryClient({
         ]}
       />
 
-      <Toolbar className="mb-4">
+      <Toolbar
+        className="mb-4"
+        actions={<Pagination page={page} pageCount={pageCount} onPageChange={setPage} />}
+      >
         <SearchInput
           value={q}
           onChange={(e) => {
@@ -208,9 +211,6 @@ export function DirectoryClient({
         </div>
       ) : (
         <>
-          <div className="mb-3 flex justify-end">
-            <Pagination page={page} pageCount={pageCount} onPageChange={setPage} />
-          </div>
           {tab === "providers" ? (
             <Table head={["Provider", "Profession", "County", "NPI"]}>
               {(items as DirectoryProvider[]).map((r) => (
