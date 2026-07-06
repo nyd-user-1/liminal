@@ -756,7 +756,7 @@ export default function DesignSystemPage() {
             <Spec name="Textarea" desc="Multi-line Field.">
               <Textarea className="w-full" label="Session summary" name="summary" placeholder="Type a note…" />
             </Spec>
-            <Spec name="Select" desc="Native · searchable · color-dot · avatar variants." wide>
+            <Spec name="Select" desc="Native · searchable · color-dot · avatar variants.">
               <div className="grid w-full gap-4 sm:grid-cols-2">
                 <Select
                   label="Status — native"
