@@ -217,6 +217,13 @@ const paths: Record<string, ReactNode> = {
       <circle cx="12" cy="19" r="0.8" fill="currentColor" />
     </>
   ),
+  "dots-horizontal": (
+    <>
+      <circle cx="5" cy="12" r="0.8" fill="currentColor" />
+      <circle cx="12" cy="12" r="0.8" fill="currentColor" />
+      <circle cx="19" cy="12" r="0.8" fill="currentColor" />
+    </>
+  ),
   upload: (
     <>
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />

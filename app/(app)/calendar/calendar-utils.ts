@@ -25,6 +25,25 @@ export function startOfWeek(key: string): string {
   return addDays(key, -parseKey(key).getDay());
 }
 
+/** The days in `key`'s calendar month (1st … last). */
+export function daysOfMonth(key: string): string[] {
+  const d = parseKey(key);
+  const n = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  return Array.from({ length: n }, (_, i) => dateKey(new Date(d.getFullYear(), d.getMonth(), i + 1)));
+}
+
+/** Full 6-week (42-day) Sunday-start grid covering `key`'s month. */
+export function monthMatrix(key: string): string[] {
+  const d = parseKey(key);
+  const first = dateKey(new Date(d.getFullYear(), d.getMonth(), 1));
+  const gridStart = startOfWeek(first);
+  return Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
+}
+
+export function monthOf(key: string): number {
+  return parseKey(key).getMonth();
+}
+
 export function minutesOfDay(iso: string): number {
   const d = new Date(iso);
   return d.getHours() * 60 + d.getMinutes();

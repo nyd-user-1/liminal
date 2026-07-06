@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Icon, type IconName } from "@/components/ui/icons";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Divider } from "@/components/ui/divider";
+import { KebabMenu } from "@/components/ui/kebab-menu";
+import { MenuItem } from "@/components/ui/dropdown-menu";
 import { TopBarActions } from "@/components/shell/topbar-slot";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
@@ -17,10 +19,13 @@ import { serviceColorHex } from "@/lib/service-colors";
 import {
   addDays,
   dateKey,
+  daysOfMonth,
   minutesOfDay,
+  parseKey,
   startOfWeek,
 } from "./calendar-utils";
 import { AppointmentDetailPanel, AppointmentFormPanel, type CreateDraft } from "./appointment-panels";
+import { MonthGrid } from "./month-grid";
 import { WeekGrid, type CalEvent } from "./week-grid";
 
 // The flagship calendar surface: Toolbar (Today · prev/next · range label ·
@@ -55,7 +60,8 @@ export function CalendarClient({
 }) {
   const toast = useToast();
   const [appointments, setAppointments] = useState(initialAppointments);
-  const [view, setView] = useState<"day" | "week">("week");
+  const [view, setView] = useState<"day" | "week" | "month">("week");
+  const [agendaRange, setAgendaRange] = useState<"day" | "week" | "month">("day");
   const [anchor, setAnchor] = useState(() => dateKey(new Date()));
   const [visible, setVisible] = useState<Set<string>>(() => new Set(practitioners.map((p) => p.id)));
   const [panel, setPanel] = useState<Panel>(null);
@@ -93,22 +99,53 @@ export function CalendarClient({
     [appointments, visible, serviceById, clientById],
   );
 
-  // Agenda for the selected day (rail list) — same filtering as the grid,
-  // narrowed to the anchor date and sorted by start time.
-  const dayEvents = useMemo(
-    () => events.filter((e) => e.date === anchor).sort((a, b) => a.startMin - b.startMin),
-    [events, anchor],
-  );
+  // Rail agenda — same filtering as the grid, over the Day/Week/Month range
+  // around the anchor, grouped by day (empty days omitted).
+  const agenda = useMemo(() => {
+    let keys: string[];
+    if (agendaRange === "day") {
+      keys = [anchor];
+    } else if (agendaRange === "week") {
+      const start = startOfWeek(anchor);
+      keys = Array.from({ length: 7 }, (_, i) => addDays(start, i));
+    } else {
+      keys = daysOfMonth(anchor);
+    }
+    const inRange = new Set(keys);
+    const byDay = new Map<string, CalEvent[]>();
+    for (const ev of events) {
+      if (!inRange.has(ev.date)) continue;
+      const bucket = byDay.get(ev.date);
+      if (bucket) bucket.push(ev);
+      else byDay.set(ev.date, [ev]);
+    }
+    return keys
+      .filter((k) => byDay.has(k))
+      .map((k) => ({
+        key: k,
+        label: parseKey(k).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }),
+        items: byDay.get(k)!.sort((a, b) => a.startMin - b.startMin),
+      }));
+  }, [events, anchor, agendaRange]);
 
-  const dayLabel = useMemo(
-    () =>
-      new Date(`${anchor}T00:00:00`).toLocaleDateString(undefined, {
-        weekday: "long",
-        month: "short",
-        day: "numeric",
-      }),
-    [anchor],
-  );
+  const agendaTotal = useMemo(() => agenda.reduce((n, g) => n + g.items.length, 0), [agenda]);
+
+  // Heading above the agenda list, reflecting the chosen range.
+  const agendaHeading = useMemo(() => {
+    const d = parseKey(anchor);
+    if (agendaRange === "day") {
+      return d.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
+    }
+    if (agendaRange === "month") {
+      return d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+    }
+    const start = parseKey(startOfWeek(anchor));
+    const end = parseKey(addDays(startOfWeek(anchor), 6));
+    const sameMonth = start.getMonth() === end.getMonth();
+    return sameMonth
+      ? `${start.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${end.getDate()}`
+      : `${start.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${end.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+  }, [anchor, agendaRange]);
 
   // ── mutations (API + local state) ───────────────────────────────────────────
 
@@ -210,9 +247,10 @@ export function CalendarClient({
             options={[
               { value: "day", label: "Day" },
               { value: "week", label: "Week" },
+              { value: "month", label: "Month" },
             ]}
             value={view}
-            onValueChange={(v) => setView(v as "day" | "week")}
+            onValueChange={(v) => setView(v as "day" | "week" | "month")}
           />
           <Select
             aria-label="Practitioner filter"
@@ -244,48 +282,82 @@ export function CalendarClient({
           <DatePicker key={anchor.slice(0, 7)} value={anchor} onChange={setAnchor} />
           <Divider />
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="mb-2 flex items-baseline justify-between">
-              <p className="text-[13px] font-semibold text-text-muted">{dayLabel}</p>
-              <span className="text-[13px] text-text-muted">
-                {dayEvents.length} {dayEvents.length === 1 ? "appt" : "appts"}
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="min-w-0 truncate text-[13px] font-semibold text-text-muted">{agendaHeading}</p>
+              <span className="-mr-2 shrink-0">
+                <KebabMenu icon="dots-horizontal" label="Agenda range" align="right">
+                  {(["day", "week", "month"] as const).map((r) => (
+                    <MenuItem
+                      key={r}
+                      label={r[0].toUpperCase() + r.slice(1)}
+                      selected={agendaRange === r}
+                      onClick={() => setAgendaRange(r)}
+                    />
+                  ))}
+                </KebabMenu>
               </span>
             </div>
-            {dayEvents.length === 0 ? (
+            {agendaTotal === 0 ? (
               <p className="rounded-field bg-canvas px-3 py-6 text-center text-sm text-text-muted">
                 No appointments
               </p>
             ) : (
-              <div className="space-y-0.5 overflow-y-auto">
-                {dayEvents.map((ev) => (
-                  <button
-                    key={ev.id}
-                    type="button"
-                    onClick={() => setPanel({ kind: "detail", id: ev.id })}
-                    className={`flex w-full items-center gap-2.5 rounded-field px-2 py-2 text-left transition-colors hover:bg-canvas ${ev.muted ? "opacity-60" : ""}`}
-                  >
-                    <span className="h-9 w-1 shrink-0 rounded-full" style={{ background: ev.color }} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[15px] font-medium text-text">{ev.title}</span>
-                      <span className="block truncate text-[13px] text-text-muted">{ev.timeLabel}</span>
-                    </span>
-                    {ev.icon && <Icon name={ev.icon} size={16} className="shrink-0 text-text-muted" />}
-                  </button>
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
+                {agenda.map((group) => (
+                  <div key={group.key}>
+                    {agendaRange !== "day" && (
+                      <p className="mb-1 text-[13px] font-semibold text-text-muted">{group.label}</p>
+                    )}
+                    <div className="space-y-0.5">
+                      {group.items.map((ev) => (
+                        <button
+                          key={ev.id}
+                          type="button"
+                          onClick={() => setPanel({ kind: "detail", id: ev.id })}
+                          className={`flex w-full items-center gap-2.5 rounded-field px-2 py-2 text-left transition-colors hover:bg-canvas ${ev.muted ? "opacity-60" : ""}`}
+                        >
+                          <span className="h-9 w-1 shrink-0 rounded-full" style={{ background: ev.color }} />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[15px] font-medium text-text">{ev.title}</span>
+                            <span className="block truncate text-[13px] text-text-muted">{ev.timeLabel}</span>
+                          </span>
+                          {ev.icon && <Icon name={ev.icon} size={16} className="shrink-0 text-text-muted" />}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
+          </div>
+          {/* Dynamic sum of the range, pinned to the bottom of the panel */}
+          <div className="border-t border-border pt-3 text-[13px] font-medium text-text-muted">
+            {agendaTotal} {agendaTotal === 1 ? "appointment" : "appointments"}
           </div>
         </aside>
 
         {/* Grid */}
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-card border border-border bg-surface shadow-card">
-          <WeekGrid
-            days={days}
-            events={events}
-            onChipClick={(id) => setPanel({ kind: "detail", id })}
-            onSlotClick={(date, startMin) => openCreate({ date, startMin })}
-            onDragCreate={(date, startMin, endMin) => openCreate({ date, startMin, endMin })}
-            onMove={moveAppointment}
-          />
+          {view === "month" ? (
+            <MonthGrid
+              anchor={anchor}
+              events={events}
+              onChipClick={(id) => setPanel({ kind: "detail", id })}
+              onDayClick={(date) => {
+                setAnchor(date);
+                setView("day");
+              }}
+            />
+          ) : (
+            <WeekGrid
+              days={days}
+              events={events}
+              onChipClick={(id) => setPanel({ kind: "detail", id })}
+              onSlotClick={(date, startMin) => openCreate({ date, startMin })}
+              onDragCreate={(date, startMin, endMin) => openCreate({ date, startMin, endMin })}
+              onMove={moveAppointment}
+            />
+          )}
         </div>
       </div>
 

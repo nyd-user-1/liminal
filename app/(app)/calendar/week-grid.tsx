@@ -5,7 +5,6 @@ import { Icon, type IconName } from "@/components/ui/icons";
 import {
   DAY_END_MIN,
   DAY_START_MIN,
-  PX_PER_MIN,
   clampMin,
   dateKey,
   parseKey,
@@ -31,8 +30,11 @@ export interface CalEvent {
   muted: boolean; // completed / no_show — render dimmed
 }
 
-const GRID_H = (DAY_END_MIN - DAY_START_MIN) * PX_PER_MIN;
-const top = (min: number) => (min - DAY_START_MIN) * PX_PER_MIN;
+// Vertical positions are percentages of the day span so the grid stretches
+// to fill its container (no fixed pixel height / trailing dead space).
+const TOTAL_MIN = DAY_END_MIN - DAY_START_MIN;
+const pct = (min: number) => `${((min - DAY_START_MIN) / TOTAL_MIN) * 100}%`;
+const span = (a: number, b: number) => `${((b - a) / TOTAL_MIN) * 100}%`;
 
 /** Greedy lane layout so overlapping chips sit side by side. */
 function layoutDay(events: CalEvent[]): Array<{ ev: CalEvent; lane: number; lanes: number }> {
@@ -82,7 +84,7 @@ export function WeekGrid({
   const [nowTick, setNowTick] = useState(() => new Date());
   const [sel, setSel] = useState<{ date: string; a: number; b: number } | null>(null);
   const [dropHint, setDropHint] = useState<{ date: string; min: number } | null>(null);
-  const dragSel = useRef<{ date: string; start: number; rectTop: number; moved: boolean } | null>(null);
+  const dragSel = useRef<{ date: string; start: number; rectTop: number; rectHeight: number; moved: boolean } | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => setNowTick(new Date()), 60_000);
@@ -95,23 +97,27 @@ export function WeekGrid({
   const tzLabel = `GMT${tzOffset >= 0 ? "+" : ""}${tzOffset}`;
 
   const hours: number[] = [];
-  for (let m = DAY_START_MIN; m < DAY_END_MIN; m += 60) hours.push(m);
+  for (let m = DAY_START_MIN; m <= DAY_END_MIN; m += 60) hours.push(m);
 
-  const minFromY = (clientY: number, rectTop: number) =>
-    clampMin(snap(DAY_START_MIN + (clientY - rectTop) / PX_PER_MIN));
+  const minFromY = (clientY: number, rectTop: number, rectHeight: number) =>
+    clampMin(snap(DAY_START_MIN + ((clientY - rectTop) / rectHeight) * TOTAL_MIN));
 
   // ── drag-on-empty-grid to create (mouse events) ─────────────────────────────
   const startSelect = (e: ReactMouseEvent<HTMLDivElement>, date: string) => {
     if (e.button !== 0) return;
-    const rectTop = e.currentTarget.getBoundingClientRect().top;
-    const start = clampMin(Math.floor((DAY_START_MIN + (e.clientY - rectTop) / PX_PER_MIN) / 15) * 15);
-    dragSel.current = { date, start, rectTop, moved: false };
+    const rect = e.currentTarget.getBoundingClientRect();
+    const rectTop = rect.top;
+    const rectHeight = rect.height;
+    const start = clampMin(
+      Math.floor((DAY_START_MIN + ((e.clientY - rectTop) / rectHeight) * TOTAL_MIN) / 15) * 15,
+    );
+    dragSel.current = { date, start, rectTop, rectHeight, moved: false };
     setSel({ date, a: start, b: start + 15 });
 
     const onMouseMove = (ev: MouseEvent) => {
       const d = dragSel.current;
       if (!d) return;
-      const m = minFromY(ev.clientY, d.rectTop);
+      const m = minFromY(ev.clientY, d.rectTop, d.rectHeight);
       if (Math.abs(m - d.start) >= 15) d.moved = true;
       setSel({ date: d.date, a: Math.min(d.start, m), b: Math.max(d.start + 15, m) });
     };
@@ -125,7 +131,7 @@ export function WeekGrid({
       if (!d.moved) {
         onSlotClick(d.date, d.start);
       } else {
-        const m = minFromY(ev.clientY, d.rectTop);
+        const m = minFromY(ev.clientY, d.rectTop, d.rectHeight);
         onDragCreate(d.date, Math.min(d.start, m), Math.max(d.start + 15, m));
       }
     };
@@ -160,16 +166,16 @@ export function WeekGrid({
         })}
       </div>
 
-      {/* Scrollable hour grid */}
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="flex pr-2" style={{ height: GRID_H }}>
+      {/* Hour grid — a flex row that fills the remaining height so the columns
+          stretch to the container (no fixed height / trailing dead space). */}
+      <div className="flex min-h-0 flex-1 pr-2">
           {/* Hour gutter */}
           <div className="relative w-14 shrink-0">
             {hours.map((m) => (
               <span
                 key={m}
                 className="absolute right-2 -translate-y-1/2 text-[11px] text-text-muted"
-                style={{ top: top(m) }}
+                style={{ top: pct(m) }}
               >
                 {m === DAY_START_MIN
                   ? ""
@@ -190,29 +196,29 @@ export function WeekGrid({
                   if (!e.dataTransfer.types.includes("text/appointment")) return;
                   e.preventDefault();
                   e.dataTransfer.dropEffect = "move";
-                  const rectTop = e.currentTarget.getBoundingClientRect().top;
-                  setDropHint({ date: day, min: minFromY(e.clientY, rectTop) });
+                  const r = e.currentTarget.getBoundingClientRect();
+                  setDropHint({ date: day, min: minFromY(e.clientY, r.top, r.height) });
                 }}
                 onDragLeave={() => setDropHint((h) => (h?.date === day ? null : h))}
                 onDrop={(e) => {
                   const id = e.dataTransfer.getData("text/appointment");
                   if (!id) return;
                   e.preventDefault();
-                  const rectTop = e.currentTarget.getBoundingClientRect().top;
+                  const r = e.currentTarget.getBoundingClientRect();
                   setDropHint(null);
-                  onMove(id, day, minFromY(e.clientY, rectTop));
+                  onMove(id, day, minFromY(e.clientY, r.top, r.height));
                 }}
               >
                 {/* hairline hour rules */}
                 {hours.slice(1).map((m) => (
-                  <div key={m} className="absolute inset-x-0 border-t border-border" style={{ top: top(m) }} />
+                  <div key={m} className="absolute inset-x-0 border-t border-border" style={{ top: pct(m) }} />
                 ))}
 
                 {/* drag-create ghost */}
                 {sel?.date === day && (
                   <div
                     className="pointer-events-none absolute inset-x-1 z-10 rounded-[6px] border border-primary bg-teal-100/80"
-                    style={{ top: top(sel.a), height: (sel.b - sel.a) * PX_PER_MIN }}
+                    style={{ top: pct(sel.a), height: span(sel.a, sel.b) }}
                   >
                     <span className="px-1.5 text-[11px] font-medium text-primary">
                       {toHHMM(sel.a)} – {toHHMM(sel.b)}
@@ -224,13 +230,13 @@ export function WeekGrid({
                 {dropHint?.date === day && (
                   <div
                     className="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-primary"
-                    style={{ top: top(dropHint.min) }}
+                    style={{ top: pct(dropHint.min) }}
                   />
                 )}
 
                 {/* current-time teal rule */}
                 {isToday && nowMin >= DAY_START_MIN && nowMin <= DAY_END_MIN && (
-                  <div className="pointer-events-none absolute inset-x-0 z-20" style={{ top: top(nowMin) }}>
+                  <div className="pointer-events-none absolute inset-x-0 z-20" style={{ top: pct(nowMin) }}>
                     <div className="relative border-t-2 border-primary">
                       <span className="absolute -left-1 -top-[5px] h-2 w-2 rounded-full bg-primary" />
                     </div>
@@ -239,7 +245,6 @@ export function WeekGrid({
 
                 {/* event chips */}
                 {laid.map(({ ev, lane, lanes }) => {
-                  const h = Math.max((ev.endMin - ev.startMin) * PX_PER_MIN, 15);
                   const wPct = 100 / lanes;
                   return (
                     <button
@@ -252,10 +257,11 @@ export function WeekGrid({
                         e.dataTransfer.effectAllowed = "move";
                       }}
                       onClick={() => onChipClick(ev.id)}
-                      className="absolute z-10 overflow-hidden rounded-[6px] px-1.5 py-0.5 text-left text-white shadow-card transition-opacity hover:opacity-90"
+                      className="absolute z-10 flex min-h-0 flex-col overflow-hidden rounded-[6px] px-1.5 py-0.5 text-left text-white shadow-card transition-opacity hover:opacity-90"
                       style={{
-                        top: top(ev.startMin),
-                        height: h,
+                        top: pct(ev.startMin),
+                        height: span(ev.startMin, ev.endMin),
+                        minHeight: "1.05rem",
                         left: `calc(${lane * wPct}% + 3px)`,
                         width: `calc(${wPct}% - 6px)`,
                         background: ev.color,
@@ -267,14 +273,15 @@ export function WeekGrid({
                         {ev.icon && <Icon name={ev.icon} size={12} className="shrink-0" />}
                         <span className="truncate">{ev.title}</span>
                       </span>
-                      {h >= 34 && <span className="block truncate text-[11px] font-medium opacity-90">{ev.timeLabel}</span>}
+                      {ev.endMin - ev.startMin >= 45 && (
+                        <span className="block truncate text-[11px] font-medium opacity-90">{ev.timeLabel}</span>
+                      )}
                     </button>
                   );
                 })}
               </div>
             );
           })}
-        </div>
       </div>
     </div>
   );
