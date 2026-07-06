@@ -1,5 +1,5 @@
 import { hasDb, sql } from "@/lib/db";
-import { isoDateTime } from "@/lib/format";
+import { isoDateOnly, isoDateTime } from "@/lib/format";
 import { mockId, mockStore } from "@/lib/mock";
 import "@/lib/mock/directory";
 import type {
@@ -41,6 +41,18 @@ type ProviderRow = {
   source: DirectoryProvider["source"];
   source_id: string;
   updated_at: string | Date;
+  // NPPES enrichment (null on Medicaid rows).
+  primary_taxonomy?: string | null;
+  subspecialty?: string | null;
+  taxonomies?: string[] | null;
+  credential?: string | null;
+  gender?: string | null;
+  license_state?: string | null;
+  entity_type?: string | null;
+  is_sole_proprietor?: boolean | null;
+  parent_org?: string | null;
+  enumeration_date?: string | Date | null;
+  deactivated_at?: string | Date | null;
 };
 
 function toProvider(r: ProviderRow): DirectoryProvider {
@@ -59,8 +71,33 @@ function toProvider(r: ProviderRow): DirectoryProvider {
     source: r.source,
     sourceId: r.source_id,
     updatedAt: isoDateTime(r.updated_at),
+    primaryTaxonomy: r.primary_taxonomy ?? null,
+    subspecialty: r.subspecialty ?? null,
+    taxonomies: r.taxonomies ?? null,
+    credential: r.credential ?? null,
+    gender: r.gender ?? null,
+    licenseState: r.license_state ?? null,
+    entityType: r.entity_type ?? null,
+    isSoleProprietor: r.is_sole_proprietor ?? null,
+    parentOrg: r.parent_org ?? null,
+    enumerationDate: r.enumeration_date ? isoDateOnly(r.enumeration_date) : null,
+    deactivatedAt: r.deactivated_at ? isoDateOnly(r.deactivated_at) : null,
   };
 }
+
+// Canonical discipline vocabulary (NPPES labels). Medicaid's raw uppercase
+// categories are normalized to these (sql/007 + the ingest map). Grouped for
+// the nav's therapist/psychiatrist split and the "prescriber" pathway.
+const PRESCRIBER_PROFS = ["Psychiatrist", "Psychiatric Nurse Practitioner"];
+const THERAPIST_PROFS = [
+  "Clinical Social Worker",
+  "Mental Health Counselor",
+  "Marriage & Family Therapist",
+  "Psychologist",
+  "Clinical Neuropsychologist",
+  "Psychoanalyst",
+  "Behavior Analyst",
+];
 
 type ProgramRow = {
   id: string;
@@ -102,23 +139,37 @@ function toProgram(r: ProgramRow): DirectoryProgram {
 
 export async function searchProviders(opts: {
   q?: string;
+  zip?: string;
   county?: string;
   profession?: string;
+  subspecialty?: string;
+  gender?: string;
+  providerType?: string; // "therapist" | "psychiatrist" | "prescriber"
+  prescribersOnly?: boolean;
+  includeInactive?: boolean; // default false → deactivated NPIs hidden
   page?: number;
   pageSize?: number;
 }): Promise<Page<DirectoryProvider>> {
   const page = Math.max(1, opts.page ?? 1);
   const pageSize = opts.pageSize ?? PAGE_SIZE;
   const q = opts.q?.trim();
+  const zip5 = opts.zip?.replace(/[^0-9]/g, "").slice(0, 5) || undefined;
+  const prescribers = opts.prescribersOnly || opts.providerType === "psychiatrist" || opts.providerType === "prescriber";
+  const therapists = opts.providerType === "therapist";
 
   if (hasDb) {
     const where: string[] = [];
     const params: unknown[] = [];
     let p = 1;
+    if (!opts.includeInactive) where.push(`deactivated_at IS NULL`); // hide dead NPIs
     if (q) {
       where.push(`(name ILIKE $${p} OR city ILIKE $${p} OR profession ILIKE $${p})`);
       params.push(`%${q}%`);
       p++;
+    }
+    if (zip5) {
+      where.push(`left(regexp_replace(zip,'[^0-9]','','g'),5) = $${p++}`);
+      params.push(zip5);
     }
     if (opts.county) {
       where.push(`county = $${p++}`);
@@ -127,6 +178,21 @@ export async function searchProviders(opts: {
     if (opts.profession) {
       where.push(`profession = $${p++}`);
       params.push(opts.profession);
+    }
+    if (opts.subspecialty) {
+      where.push(`subspecialty = $${p++}`);
+      params.push(opts.subspecialty);
+    }
+    if (opts.gender) {
+      where.push(`gender = $${p++}`);
+      params.push(opts.gender);
+    }
+    if (prescribers) {
+      where.push(`profession = ANY($${p++})`);
+      params.push(PRESCRIBER_PROFS);
+    } else if (therapists) {
+      where.push(`profession = ANY($${p++})`);
+      params.push(THERAPIST_PROFS);
     }
     const clause = where.length ? `WHERE ${where.join(" AND ")}` : "";
     // A provider can exist as both a medicaid and an nppes row (same NPI).
@@ -160,12 +226,34 @@ export async function getProvider(id: string): Promise<DirectoryProvider | null>
   return mockStore().directoryProviders.get(id) ?? null;
 }
 
-function filterProviders(list: DirectoryProvider[], opts: { q?: string; county?: string; profession?: string }): DirectoryProvider[] {
+function filterProviders(
+  list: DirectoryProvider[],
+  opts: {
+    q?: string;
+    zip?: string;
+    county?: string;
+    profession?: string;
+    subspecialty?: string;
+    gender?: string;
+    providerType?: string;
+    prescribersOnly?: boolean;
+    includeInactive?: boolean;
+  },
+): DirectoryProvider[] {
   const q = opts.q?.trim().toLowerCase();
+  const zip5 = opts.zip?.replace(/[^0-9]/g, "").slice(0, 5) || undefined;
+  const prescribers = opts.prescribersOnly || opts.providerType === "psychiatrist" || opts.providerType === "prescriber";
+  const therapists = opts.providerType === "therapist";
   const matched = list.filter((r) => {
+    if (!opts.includeInactive && r.deactivatedAt) return false;
     if (q && !`${r.name} ${r.city ?? ""} ${r.profession ?? ""}`.toLowerCase().includes(q)) return false;
+    if (zip5 && (r.zip ?? "").replace(/[^0-9]/g, "").slice(0, 5) !== zip5) return false;
     if (opts.county && r.county !== opts.county) return false;
     if (opts.profession && r.profession !== opts.profession) return false;
+    if (opts.subspecialty && r.subspecialty !== opts.subspecialty) return false;
+    if (opts.gender && r.gender !== opts.gender) return false;
+    if (prescribers && !PRESCRIBER_PROFS.includes(r.profession ?? "")) return false;
+    if (therapists && !THERAPIST_PROFS.includes(r.profession ?? "")) return false;
     return true;
   });
   // Dedupe to one row per NPI, preferring medicaid; null-NPI rows pass through.
@@ -243,17 +331,19 @@ function filterPrograms(list: DirectoryProgram[], opts: { q?: string; county?: s
     .sort((a, b) => a.programName.localeCompare(b.programName));
 }
 
-/** Distinct filter facet values (counties, professions/types) for filter chips. */
-export async function providerFacets(): Promise<{ counties: string[]; professions: string[] }> {
+/** Distinct filter facet values (counties, professions, subspecialties) for filter chips. */
+export async function providerFacets(): Promise<{ counties: string[]; professions: string[]; subspecialties: string[] }> {
   if (hasDb) {
-    const c = (await sql`SELECT DISTINCT county FROM directory_providers WHERE county IS NOT NULL ORDER BY county`) as Array<{ county: string }>;
-    const pr = (await sql`SELECT DISTINCT profession FROM directory_providers WHERE profession IS NOT NULL ORDER BY profession`) as Array<{ profession: string }>;
-    return { counties: c.map((r) => r.county), professions: pr.map((r) => r.profession) };
+    const c = (await sql`SELECT DISTINCT county FROM directory_providers WHERE county IS NOT NULL AND deactivated_at IS NULL ORDER BY county`) as Array<{ county: string }>;
+    const pr = (await sql`SELECT DISTINCT profession FROM directory_providers WHERE profession IS NOT NULL AND deactivated_at IS NULL ORDER BY profession`) as Array<{ profession: string }>;
+    const ss = (await sql`SELECT subspecialty, count(*)::int n FROM directory_providers WHERE subspecialty IS NOT NULL AND deactivated_at IS NULL GROUP BY subspecialty ORDER BY n DESC`) as Array<{ subspecialty: string }>;
+    return { counties: c.map((r) => r.county), professions: pr.map((r) => r.profession), subspecialties: ss.map((r) => r.subspecialty) };
   }
   const list = [...mockStore().directoryProviders.values()];
   return {
     counties: unique(list.map((r) => r.county)),
     professions: unique(list.map((r) => r.profession)),
+    subspecialties: unique(list.map((r) => r.subspecialty ?? null)),
   };
 }
 

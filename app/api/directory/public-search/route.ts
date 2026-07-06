@@ -17,19 +17,31 @@ export type PublicResult = {
   agency: string | null;
   county: string | null;
   phone: string | null;
+  // provider enrichment (null for programs)
+  subspecialty?: string | null;
+  credential?: string | null;
+  gender?: string | null;
+  city?: string | null;
+  zip?: string | null;
 };
 
 export async function GET(req: NextRequest) {
   const p = req.nextUrl.searchParams;
   const q = p.get("q") ?? undefined;
+  const zip = p.get("zip") ?? undefined; // preferred locality filter
   const county = p.get("county") ?? undefined;
   const need = p.get("need") ?? undefined; // profession (providers) / type (programs)
+  const subspecialty = p.get("subspecialty") ?? undefined;
+  const gender = p.get("gender") ?? undefined;
+  const type = p.get("type") ?? undefined; // therapist | psychiatrist | prescriber
   const kind = p.get("kind") ?? "all"; // all | providers | programs
 
   const results: PublicResult[] = [];
 
   if (kind !== "programs") {
-    const providers = await searchProviders({ q, county, profession: need, page: 1, pageSize: CAP });
+    const providers = await searchProviders({
+      q, zip, county, profession: need, subspecialty, gender, providerType: type, page: 1, pageSize: CAP,
+    });
     for (const r of providers.items) {
       results.push({
         id: r.id,
@@ -39,6 +51,11 @@ export async function GET(req: NextRequest) {
         agency: null,
         county: r.county,
         phone: r.phone,
+        subspecialty: r.subspecialty ?? null,
+        credential: r.credential ?? null,
+        gender: r.gender ?? null,
+        city: r.city,
+        zip: r.zip,
       });
     }
   }

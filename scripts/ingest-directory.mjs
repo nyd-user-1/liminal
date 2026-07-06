@@ -42,6 +42,16 @@ const MH_PROFESSIONS = [
   "LICENSED BEHAVIOR ANALYST",
   "MENTAL HEALTH REHABILITATION", // ambiguous service category — included (not silently dropped)
 ];
+// Normalize Medicaid's raw uppercase categories to the canonical NPPES discipline
+// vocabulary so the profession facet isn't split across sources.
+const PROFESSION_CANON = {
+  "CLINICAL SOCIAL WORKER": "Clinical Social Worker",
+  "CLINICAL PSYCHOLOGIST": "Psychologist",
+  "MENTAL HEALTH COUNSELORS": "Mental Health Counselor",
+  "MARRIAGE & FAMILY THERAPIST": "Marriage & Family Therapist",
+  "LICENSED BEHAVIOR ANALYST": "Behavior Analyst",
+  "MENTAL HEALTH REHABILITATION": "Mental Health Rehabilitation",
+};
 
 /** Page through a Socrata resource with an optional $where, 1000/offset. */
 async function fetchAll(base, where) {
@@ -108,7 +118,7 @@ async function ingestMedicaid() {
       source_id: key,
       npi: r.npi ?? null,
       name: r.mmis_name ?? "Unknown provider",
-      profession: r.profession_or_service ?? null,
+      profession: PROFESSION_CANON[r.profession_or_service] ?? r.profession_or_service ?? null,
       license_no: null,
       taxonomy: null,
       address: r.service_address ?? null,

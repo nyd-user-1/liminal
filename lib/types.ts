@@ -321,6 +321,18 @@ export interface DirectoryProvider {
   source: DirectorySource;
   sourceId: string;
   updatedAt: string;
+  // NPPES enrichment (optional — Medicaid rows leave these null/undefined).
+  primaryTaxonomy?: string | null;
+  subspecialty?: string | null;
+  taxonomies?: string[] | null;
+  credential?: string | null;
+  gender?: string | null;
+  licenseState?: string | null;
+  entityType?: string | null;
+  isSoleProprietor?: boolean | null;
+  parentOrg?: string | null;
+  enumerationDate?: string | null;
+  deactivatedAt?: string | null;
 }
 
 export interface DirectoryProgram {
