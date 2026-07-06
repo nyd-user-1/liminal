@@ -24,9 +24,9 @@ type Tab = "providers" | "programs";
 type ClientOption = { id: string; name: string };
 type Facets = { cities?: string[]; counties: string[]; professions?: string[]; subspecialties?: string[]; types?: string[] };
 
-// Care-type filter → the searchProviders providerType grouping.
-const CARE_TYPES = ["Prescribers", "Therapists"] as const;
-const CARE_TYPE_PARAM: Record<string, string> = { Prescribers: "prescriber", Therapists: "therapist" };
+// Prescribing is an attribute of a specialty, not a category of its own — these
+// specialties can prescribe medication (shown as an "Rx" marker in the dropdown).
+const PRESCRIBER_SPECIALTIES = new Set(["Psychiatrist", "Psychiatric Nurse Practitioner"]);
 
 // FilterChip + attached popover — same pattern as the Clients index toolbar.
 function ChipMenu({
@@ -35,12 +35,14 @@ function ChipMenu({
   options,
   onSelect,
   onClear,
+  annotate,
 }: {
   label: string;
   value?: string;
   options: string[];
   onSelect: (v: string) => void;
   onClear: () => void;
+  annotate?: (option: string) => React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState("");
@@ -56,8 +58,8 @@ function ChipMenu({
   useEffect(() => {
     if (!open) setTerm("");
   }, [open]);
-  // Long lists (county, city) get a search field — reuses the SearchInput primitive.
-  const searchable = options.length > 15;
+  // Every non-trivial list is a searchable dropdown — reuses the SearchInput primitive.
+  const searchable = options.length > 6;
   const shown = searchable && term ? options.filter((o) => o.toLowerCase().includes(term.toLowerCase())) : options;
   return (
     <span ref={ref} className="relative">
@@ -81,11 +83,12 @@ function ChipMenu({
                   onSelect(o);
                   setOpen(false);
                 }}
-                className={`block w-full rounded-field px-2.5 py-2 text-left text-[15px] transition-colors hover:bg-[#F3F4F6] ${
+                className={`flex w-full items-center gap-2 rounded-field px-2.5 py-2 text-left text-[15px] transition-colors hover:bg-[#F3F4F6] ${
                   o === value ? "font-semibold text-primary" : "text-text"
                 }`}
               >
-                {titleCase(o)}
+                <span className="flex-1">{titleCase(o)}</span>
+                {annotate?.(o)}
               </button>
             ))}
           </div>
@@ -107,11 +110,9 @@ export function DirectoryClient({
   const toast = useToast();
   const [tab, setTab] = useState<Tab>("providers");
   const [q, setQ] = useState("");
-  const [city, setCity] = useState<string | undefined>();
   const [county, setCounty] = useState<string | undefined>();
   const [need, setNeed] = useState<string | undefined>(); // profession | program type
   const [subspecialty, setSubspecialty] = useState<string | undefined>();
-  const [careType, setCareType] = useState<string | undefined>(); // Prescribers | Therapists
   const [page, setPage] = useState(1);
 
   const [items, setItems] = useState<Array<DirectoryProvider | DirectoryProgram>>([]);
@@ -131,9 +132,7 @@ export function DirectoryClient({
     const term = q.trim();
     if (term) params.set(/^\d{3,5}$/.test(term) ? "zip" : "q", term);
     if (tab === "providers") {
-      if (city) params.set("city", city);
       if (subspecialty) params.set("subspecialty", subspecialty);
-      if (careType) params.set("type", CARE_TYPE_PARAM[careType]);
       if (need) params.set("profession", need);
     } else {
       if (county) params.set("county", county);
@@ -149,7 +148,7 @@ export function DirectoryClient({
     } finally {
       setLoading(false);
     }
-  }, [tab, q, city, county, need, subspecialty, careType, page]);
+  }, [tab, q, county, need, subspecialty, page]);
 
   useEffect(() => {
     load();
@@ -157,11 +156,9 @@ export function DirectoryClient({
 
   function switchTab(next: Tab) {
     setTab(next);
-    setCity(undefined);
     setCounty(undefined);
     setNeed(undefined);
     setSubspecialty(undefined);
-    setCareType(undefined);
     setQ("");
     setPage(1);
     setSelected(null);
@@ -169,16 +166,14 @@ export function DirectoryClient({
 
   function resetFilters() {
     setQ("");
-    setCity(undefined);
     setCounty(undefined);
     setNeed(undefined);
     setSubspecialty(undefined);
-    setCareType(undefined);
     setPage(1);
   }
 
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  const hasFilters = !!(q || city || county || need || subspecialty || careType);
+  const hasFilters = !!(q || county || need || subspecialty);
 
   return (
     <>
@@ -206,22 +201,10 @@ export function DirectoryClient({
         {tab === "providers" ? (
           <>
             <ChipMenu
-              label="Type"
-              value={careType}
-              options={[...CARE_TYPES]}
-              onSelect={(v) => {
-                setCareType(v);
-                setPage(1);
-              }}
-              onClear={() => {
-                setCareType(undefined);
-                setPage(1);
-              }}
-            />
-            <ChipMenu
               label="Specialty"
               value={need ? titleCase(need) : undefined}
               options={needOptions}
+              annotate={(o) => (PRESCRIBER_SPECIALTIES.has(o) ? <Badge variant="info">Rx</Badge> : null)}
               onSelect={(v) => {
                 setNeed(v);
                 setPage(1);
@@ -246,19 +229,6 @@ export function DirectoryClient({
                 }}
               />
             )}
-            <ChipMenu
-              label="City"
-              value={city}
-              options={facets.cities ?? []}
-              onSelect={(v) => {
-                setCity(v);
-                setPage(1);
-              }}
-              onClear={() => {
-                setCity(undefined);
-                setPage(1);
-              }}
-            />
           </>
         ) : (
           <>
@@ -309,19 +279,18 @@ export function DirectoryClient({
       ) : (
         <>
           {tab === "providers" ? (
-            <Table head={["Provider", "Specialty", "Sub-specialty", "County"]}>
+            <Table head={["Provider", "Specialty", "Sub-specialty", "Address", "City", "Zip"]}>
               {(items as DirectoryProvider[]).map((r) => (
                 <Tr key={r.id} onClick={() => setSelected(r)}>
                   <Td>
-                    <span className="font-medium text-text">
-                      {titleCase(r.name)}
-                      {r.credential && <span className="ml-1.5 text-sm font-normal text-text-muted">{r.credential}</span>}
-                    </span>
-                    {r.city && <span className="block text-sm text-text-muted">{titleCase(r.city)}</span>}
+                    <span className="font-medium text-text">{titleCase(r.name)}</span>
+                    {r.credential && <span className="ml-1.5 text-sm font-normal text-text-muted">{r.credential}</span>}
                   </Td>
                   <Td>{r.profession ? titleCase(r.profession) : "–"}</Td>
                   <Td>{r.subspecialty ?? "–"}</Td>
-                  <Td>{r.county ?? "–"}</Td>
+                  <Td>{r.address ? titleCase(r.address) : "–"}</Td>
+                  <Td>{r.city ? titleCase(r.city) : "–"}</Td>
+                  <Td className="tabular-nums">{(r.zip ?? "").replace(/[^0-9]/g, "").slice(0, 5) || "–"}</Td>
                 </Tr>
               ))}
             </Table>
