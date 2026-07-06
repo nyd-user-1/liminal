@@ -100,6 +100,13 @@ const programs: DirectoryProgram[] = [
 ];
 
 registerFixtures("directory", (store) => {
+  // Self-heal: the mock store singleton persists on globalThis across dev HMR,
+  // so a store created before these maps were added would lack them. Lazily
+  // initialize (no-op on a fresh createStore, which already has them).
+  store.directoryProviders ??= new Map();
+  store.directoryPrograms ??= new Map();
+  store.referrals ??= new Map();
+  store.providerApplications ??= new Map();
   for (const p of providers) store.directoryProviders.set(p.id, p);
   for (const p of programs) store.directoryPrograms.set(p.id, p);
 });
