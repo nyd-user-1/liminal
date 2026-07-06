@@ -390,16 +390,24 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
                 key={f.value}
                 type="button"
                 onClick={() => toggleFilter(f.value)}
-                className={`flex w-full items-center gap-3 rounded-field px-3 py-2.5 text-left transition-colors ${
+                className={`group flex w-full items-center gap-3 rounded-field px-3 py-2.5 text-left transition-colors ${
                   on ? "bg-surface shadow-sm" : "hover:bg-surface hover:shadow-sm"
                 }`}
               >
                 <Icon
                   name={f.icon}
                   size={20}
-                  className={`shrink-0 transition-colors ${on ? "fill-primary-wash text-text" : "text-text-muted"}`}
+                  className={`shrink-0 transition-colors ${
+                    on
+                      ? "fill-primary-wash text-text"
+                      : "text-text-muted group-hover:fill-primary-wash group-hover:text-text"
+                  }`}
                 />
-                <span className={`text-[15px] font-medium ${on ? "text-text" : "text-text-body"}`}>{f.label}</span>
+                <span
+                  className={`text-[15px] font-medium ${on ? "text-text" : "text-text-body group-hover:text-text"}`}
+                >
+                  {f.label}
+                </span>
               </button>
             );
           })}
