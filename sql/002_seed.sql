@@ -6,10 +6,12 @@
 -- brief ($2a$12$LQv3c1yq...) is valid bcrypt format but does NOT verify against
 -- "demo", so the hash below was generated fresh (bcryptjs, cost 12) and verified.
 
--- ── users (01): 1 admin-practitioner, 1 practitioner, 1 portal client ─────────
+-- ── users (01): 1 admin-practitioner, 3 practitioners, 1 portal client ────────
 INSERT INTO users (id, role, name, email, password_hash, avatar_hue, phone, timezone) VALUES
   ('00000000-0000-4000-8000-000000001001','admin','Brendan Stanton','brendan@liminal.demo','$2b$12$u6VE5SYM19B.rkbXiFOR2.nuQR8hx3JTov74mALdnh9p0Y0JAYLl.','teal','+1 212 555 0140','America/New_York'),
   ('00000000-0000-4000-8000-000000001002','practitioner','Priya Raman','priya@liminal.demo','$2b$12$u6VE5SYM19B.rkbXiFOR2.nuQR8hx3JTov74mALdnh9p0Y0JAYLl.','amber','+1 212 555 0141','America/New_York'),
+  ('00000000-0000-4000-8000-000000001004','practitioner','Lena Whitfield','lena@liminal.demo','$2b$12$u6VE5SYM19B.rkbXiFOR2.nuQR8hx3JTov74mALdnh9p0Y0JAYLl.','pink','+1 212 555 0143','America/New_York'),
+  ('00000000-0000-4000-8000-000000001005','practitioner','Marcus Bell','marcus@liminal.demo','$2b$12$u6VE5SYM19B.rkbXiFOR2.nuQR8hx3JTov74mALdnh9p0Y0JAYLl.','blue','+1 212 555 0142','America/New_York'),
   ('00000000-0000-4000-8000-000000001003','client','Casey Morgan','casey@liminal.demo','$2b$12$u6VE5SYM19B.rkbXiFOR2.nuQR8hx3JTov74mALdnh9p0Y0JAYLl.','pink','+1 917 555 0182','America/New_York')
 ON CONFLICT (id) DO NOTHING;
 

@@ -221,7 +221,11 @@ export function CalendarClient({
             placeholder="Some practitioners"
             options={[
               { value: "all", label: "All practitioners" },
-              ...practitioners.map((p) => ({ value: p.id, label: p.name })),
+              ...practitioners.map((p) => ({
+                value: p.id,
+                label: p.name,
+                avatar: { name: p.name, hue: p.avatarHue },
+              })),
             ]}
             value={filterValue}
             onValueChange={(v) =>
