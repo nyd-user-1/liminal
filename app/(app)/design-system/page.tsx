@@ -808,6 +808,22 @@ export default function DesignSystemPage() {
                 </div>
               </div>
 
+              {/* Stock / placeholder photo — follows the image conventions below:
+                  card-framed, native <img>, intrinsic dims, alt, lazy. */}
+              <div>
+                <p className="mb-2 text-[13px] font-semibold text-text-muted">Stock / placeholder photo</p>
+                <div className="w-40 overflow-hidden rounded-card border border-border shadow-card">
+                  <img
+                    src="/liminal-1.webp"
+                    alt="Liminal stock placeholder photograph"
+                    width={640}
+                    height={640}
+                    className="block w-full"
+                    loading="lazy"
+                  />
+                </div>
+              </div>
+
               <ul className="space-y-2 text-[15px] text-text-body">
                 <li>
                   <b className="text-text">Avatars are initials, never photos</b> — a stable per-user hue circle
@@ -832,6 +848,11 @@ export default function DesignSystemPage() {
                   <b className="text-text">Payer logos</b> ship as transparent{" "}
                   <code className="rounded bg-canvas px-1 py-0.5">.webp</code> in <code className="rounded bg-canvas px-1 py-0.5">/public</code>{" "}
                   (Aetna, BCBS, Cigna, Optum, Anthem, Carelon, Horizon).
+                </li>
+                <li>
+                  <b className="text-text">Stock / placeholder photography</b> is compressed WebP (640px, ~68 KB) in{" "}
+                  <code className="rounded bg-canvas px-1 py-0.5">/public</code> — e.g.{" "}
+                  <code className="rounded bg-canvas px-1 py-0.5">liminal-1.webp</code>, card-framed like all imagery.
                 </li>
                 <li>
                   <b className="text-text">Formats:</b> vector marks → inline SVG · screenshots → PNG @2× · logos → WebP.
