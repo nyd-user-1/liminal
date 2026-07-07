@@ -8,7 +8,6 @@ import { AccordionSection } from "@/components/ui/accordion-section";
 import { Button } from "@/components/ui/button";
 import { Icon, type IconName } from "@/components/ui/icons";
 import { IconButton } from "@/components/ui/icon-button";
-import { Logo } from "@/components/ui/logo";
 import { SearchInput } from "@/components/ui/search-input";
 import { Tag } from "@/components/ui/tag";
 import { TextLink } from "@/components/ui/text-link";
@@ -543,7 +542,11 @@ function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
     <div className="fixed inset-0 z-50 flex flex-col bg-surface md:hidden">
       <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-6">
         <Link href="/" aria-label="Liminal home" onClick={onClose}>
-          <Logo size="sm" />
+          <img
+            src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-dark.png"
+            alt="Liminal"
+            className="h-7 w-auto"
+          />
         </Link>
         <IconButton icon="x" label="Close menu" onClick={onClose} />
       </div>
@@ -681,7 +684,11 @@ export function Nav() {
           onMouseLeave={scheduleClose}
         >
           <Link href="/" aria-label="Liminal home" className="shrink-0">
-            <Logo size="sm" />
+            <img
+            src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-dark.png"
+            alt="Liminal"
+            className="h-7 w-auto"
+          />
           </Link>
 
           {/* nav links — centered in the bar */}

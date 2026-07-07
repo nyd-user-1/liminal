@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Icon, type IconName } from "@/components/ui/icons";
-import { Logo } from "@/components/ui/logo";
 
 // Public marketing footer — navy brand block: link columns, a crisis-support
 // note (a mental-health site should always surface these), practice contact,
@@ -53,7 +52,11 @@ export function MarketingFooter() {
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-[1.4fr_repeat(3,1fr)]">
           <div>
             <Link href="/" aria-label="Liminal home" className="inline-block">
-              <Logo variant="onNavy" size="md" />
+              <img
+                src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-light.png"
+                alt="Liminal"
+                className="h-8 w-auto"
+              />
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-sidebar-text/80">
               Find licensed mental-health care across New York — and the all-in-one platform practices use to deliver it.
