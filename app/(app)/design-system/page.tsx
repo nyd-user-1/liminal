@@ -592,6 +592,88 @@ function SectionHead({ title }: { title: string }) {
   );
 }
 
+const ASSET_BLOB = "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com";
+const ASSET_GROUPS: Array<{ label: string; tile: "light" | "navy"; items: string[] }> = [
+  {
+    label: "Watercolour illustrations",
+    tile: "light",
+    items: [
+      "illustrations/liminal_e0mhvxe0mhvxe0mh-mint.avif",
+      "illustrations/liminal_e0mhvxe0mhvxe0mh.avif",
+      "illustrations/liminal_4ji9244ji9244ji9.avif",
+      "illustrations/liminal_5ziunj5ziunj5ziu.avif",
+      "illustrations/liminal_7h6ra17h6ra17h6r.avif",
+      "illustrations/liminal_99yp1z99yp1z99yp.avif",
+      "illustrations/liminal_a2t92la2t92la2t9.avif",
+      "illustrations/liminal_n1y3w0n1y3w0n1y3.avif",
+      "illustrations/liminal_nielb8nielb8niel.avif",
+      "illustrations/liminal_w5kx7ww5kx7ww5kx.avif",
+      "illustrations/liminal_xj1aw5xj1aw5xj1a.avif",
+      "illustrations/liminal-3.avif",
+      "illustrations/liminal-8.avif",
+      "illustrations/liminal-9.avif",
+      "illustrations/liminal-13.avif",
+      "illustrations/liminal-landscape_b69909b69909b699.avif",
+      "illustrations/liminal-landscape_rhjb16rhjb16rhjb.avif",
+      "illustrations/liminal-landscape_w68hevw68hevw68h.avif",
+      "illustrations/Liminal-life_law6m9law6m9law6.avif",
+    ],
+  },
+  {
+    label: "New illustrations (latest batch)",
+    tile: "light",
+    items: [
+      "illustrations/Gemini_Generated_Image_aq9ajaaq9ajaaq9a.avif",
+      "illustrations/Gemini_Generated_Image_au7vf1au7vf1au7v.avif",
+      "illustrations/Gemini_Generated_Image_ev0snqev0snqev0s.avif",
+      "illustrations/Gemini_Generated_Image_gandqagandqagand.avif",
+      "illustrations/Gemini_Generated_Image_m17ugum17ugum17u.avif",
+      "illustrations/Gemini_Generated_Image_q35ecjq35ecjq35e.avif",
+      "illustrations/Liminal-dusk-landscape-5-July-07-2026-12_33AM.avif",
+      "illustrations/dusk-7.avif",
+      "illustrations/liminal-dusk-landscape_4ijehh4ijehh4ije.avif",
+      "illustrations/liminal-dusk-landscape_vu9yc6vu9yc6vu9y.avif",
+      "illustrations/maya-1.avif",
+      "illustrations/maya-2.avif",
+      "illustrations/maya-4.avif",
+      "illustrations/maya6.avif",
+    ],
+  },
+  { label: "Brand logo", tile: "light", items: ["logos/brand/liminal-beige.avif", "logos/brand/liminal-dark.png"] },
+  { label: "Brand logo — reversed", tile: "navy", items: ["logos/brand/liminal-light.png"] },
+  {
+    label: "Insurance — colour",
+    tile: "light",
+    items: ["aetna", "anthem", "bcbs", "carelon", "cigna", "horizon", "optum-oscar", "optum-unitedhealth", "united"].map((s) => `logos/insurance/${s}.avif`),
+  },
+  {
+    label: "Insurance — white",
+    tile: "navy",
+    items: ["aetna", "anthem", "bcbs", "carelon", "cigna", "horizon", "optum-oscar", "optum-unitedhealth", "united"].map((s) => `logos/insurance-white/${s}.avif`),
+  },
+  { label: "Product screenshots", tile: "light", items: ["marketing/product-calendar.avif", "marketing/product-booking.avif", "marketing/product-billing.avif"] },
+];
+
+function AssetGrid({ label, items, tile }: { label: string; items: string[]; tile: "light" | "navy" }) {
+  return (
+    <div>
+      <p className="mb-2 text-[13px] font-semibold text-text-muted">
+        {label} <span className="text-text-muted/60">· {items.length}</span>
+      </p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        {items.map((p) => (
+          <div
+            key={p}
+            className={`flex min-h-[92px] items-center justify-center overflow-hidden rounded-card border border-border p-2 ${tile === "navy" ? "bg-sidebar-bg" : "bg-canvas"}`}
+          >
+            <img src={`${ASSET_BLOB}/${p}`} alt={p.split("/").pop() ?? p} className="max-h-32 w-full object-contain" loading="lazy" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Group({ title, cols = 2, children }: { title: string; cols?: 2 | 3; children: ReactNode }) {
   return (
     <section className="space-y-4">
@@ -966,6 +1048,18 @@ export default function DesignSystemPage() {
               <div className="-mx-5 -mb-5 overflow-hidden rounded-b-card">
                 <TrustBand />
               </div>
+            </Card>
+          </section>
+
+          <section className="space-y-4">
+            <SectionHead title="All assets — quick index" />
+            <Card className="space-y-6">
+              <p className="text-[13px] text-text-muted">
+                Everything currently in the public blob store this session. White/reversed marks are shown on navy tiles.
+              </p>
+              {ASSET_GROUPS.map((g) => (
+                <AssetGrid key={g.label} label={g.label} items={g.items} tile={g.tile} />
+              ))}
             </Card>
           </section>
         </div>
