@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
+import { put } from "@vercel/blob";
 import { NextResponse, type NextRequest } from "next/server";
 import { AuthError, requireRole } from "@/lib/auth";
 import { logEvent } from "@/lib/audit";
@@ -7,8 +8,8 @@ import { listFiles, saveFile } from "@/lib/repos/files";
 import type { FileKind } from "@/lib/types";
 
 // Client file uploads. Multipart POST (fields: file, clientId, kind?) →
-// bytes land in ./uploads locally (no blob store in v1; adapted from the
-// tariffs portal/entry pattern) + a files metadata row.
+// bytes go to Vercel Blob when BLOB_READ_WRITE_TOKEN is set (survives on
+// serverless), else fall back to ./uploads for local dev + a files row.
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,13 +62,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "That file is too large (10 MB max)." }, { status: 400 });
     }
 
-    // Store bytes under ./uploads with a random prefix so names can't collide
-    // (or traverse — the original name is sanitized to a safe charset).
+    // Sanitize the name to a safe charset (no traversal); a random suffix on
+    // the stored path keeps names from colliding and URLs from being guessable.
     const safeName = (file.name || "upload").replace(/[^a-zA-Z0-9._-]/g, "_");
-    const storedName = `${crypto.randomUUID().slice(0, 8)}-${safeName}`;
-    const dir = path.join(process.cwd(), "uploads");
-    await mkdir(dir, { recursive: true });
-    await writeFile(path.join(dir, storedName), Buffer.from(await file.arrayBuffer()));
+    const bytes = Buffer.from(await file.arrayBuffer());
+
+    let url: string;
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      // Vercel Blob — persists on serverless; addRandomSuffix makes the
+      // public URL unguessable (these are client files).
+      const blob = await put(`clients/${clientId}/${safeName}`, bytes, {
+        access: "public",
+        addRandomSuffix: true,
+        contentType: file.type || "application/octet-stream",
+      });
+      url = blob.url;
+    } else {
+      // Local-dev fallback: bytes under ./uploads with a random prefix.
+      const storedName = `${crypto.randomUUID().slice(0, 8)}-${safeName}`;
+      const dir = path.join(process.cwd(), "uploads");
+      await mkdir(dir, { recursive: true });
+      await writeFile(path.join(dir, storedName), bytes);
+      url = `/uploads/${storedName}`;
+    }
 
     const record = await saveFile({
       clientId,
@@ -75,7 +92,7 @@ export async function POST(req: NextRequest) {
       name: file.name || safeName,
       mime: file.type || "application/octet-stream",
       sizeBytes: file.size,
-      url: `/uploads/${storedName}`,
+      url,
       kind,
     });
     await logEvent({
