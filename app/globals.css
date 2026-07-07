@@ -22,6 +22,8 @@
   --color-sidebar-text: #93a0bd;
   --color-canvas: #f2f3f6;
   --color-surface: #ffffff;
+  --color-paper: #f7f6f1; /* warm watercolour-paper ground — the marketing page's sheet, matched so paintings dissolve into it */
+  --color-paper-edge: #ecebe3; /* hairline to seal a band without a colour block */
   --color-border: #e6e7eb;
   --color-field-border: #d1d5db;
   --color-field-border-focus: #3f8290;
@@ -118,4 +120,36 @@ body {
 .mkt-d4 { animation-delay: 0.32s; }
 @media (prefers-reduced-motion: reduce) {
   .mkt-rise, .mkt-fade, .mkt-develop { animation: none; opacity: 1; transform: none; }
+}
+
+/* ── Watercolour paintings float on the paper ground ────────────────────────
+   Every source painting is a scene on its own sheet of (slightly inconsistent)
+   cream paper. On any flat ground that paper edge reads as a hard rectangle —
+   a box. Feathering the outer paper margin to transparent lets the scene
+   dissolve into the section instead, on any ground, without cropping the
+   figure (the fade only eats the empty margin). This is the single rule that
+   makes the page read as one continuous painting. */
+.mkt-paint {
+  -webkit-mask-image:
+    linear-gradient(to right, transparent 0, #000 4.5%, #000 95.5%, transparent 100%),
+    linear-gradient(to bottom, transparent 0, #000 6%, #000 94%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent 0, #000 4.5%, #000 95.5%, transparent 100%),
+    linear-gradient(to bottom, transparent 0, #000 6%, #000 94%, transparent 100%);
+  mask-composite: intersect;
+}
+
+/* Stronger feather for the two paintings that have no background-removed cutout
+   yet (nightstand, morning-path): eats more of the reprinted paper margin so no
+   residual rectangle survives. Retire once their cutouts exist. */
+.mkt-paint-strong {
+  -webkit-mask-image:
+    linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%),
+    linear-gradient(to bottom, transparent 0, #000 10%, #000 90%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%),
+    linear-gradient(to bottom, transparent 0, #000 10%, #000 90%, transparent 100%);
+  mask-composite: intersect;
 }
