@@ -543,7 +543,7 @@ function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
       <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-6">
         <Link href="/" aria-label="Liminal home" onClick={onClose}>
           <img
-            src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-dark.png"
+            src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-beige.avif"
             alt="Liminal"
             className="h-7 w-auto"
           />
@@ -685,7 +685,7 @@ export function Nav() {
         >
           <Link href="/" aria-label="Liminal home" className="shrink-0">
             <img
-            src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-dark.png"
+            src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-beige.avif"
             alt="Liminal"
             className="h-7 w-auto"
           />
