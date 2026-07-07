@@ -102,12 +102,20 @@ body {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+/* Illustration "develops" in — a slower rise+settle with a hair of scale, so
+   the hero art joins the text cascade as one intentional entrance (not a lone
+   fade against rising copy). */
+@keyframes mkt-develop {
+  from { opacity: 0; transform: translateY(12px) scale(1.015); }
+  to   { opacity: 1; transform: none; }
+}
 .mkt-rise { animation: mkt-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; }
 .mkt-fade { animation: mkt-fade 0.9s ease both; }
+.mkt-develop { animation: mkt-develop 1s cubic-bezier(0.16, 1, 0.3, 1) both; }
 .mkt-d1 { animation-delay: 0.06s; }
 .mkt-d2 { animation-delay: 0.14s; }
 .mkt-d3 { animation-delay: 0.22s; }
 .mkt-d4 { animation-delay: 0.32s; }
 @media (prefers-reduced-motion: reduce) {
-  .mkt-rise, .mkt-fade { animation: none; opacity: 1; transform: none; }
+  .mkt-rise, .mkt-fade, .mkt-develop { animation: none; opacity: 1; transform: none; }
 }

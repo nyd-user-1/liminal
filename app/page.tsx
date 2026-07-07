@@ -4,6 +4,7 @@ import { CtaButton } from "@/components/marketing/cta-button";
 import { HeroSearch } from "@/components/marketing/hero-search";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Nav } from "@/components/marketing/nav";
+import { TrustBand } from "@/components/marketing/trust-band";
 
 export const dynamic = "force-dynamic";
 
@@ -44,22 +45,18 @@ export default function Home() {
       <Nav />
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-primary-wash lg:flex lg:min-h-[calc(100svh-72px)] lg:items-center">
-        {/* real product — larger, bleeding ~20% off the right edge on desktop */}
-        <div
-          className="pointer-events-none absolute top-1/2 z-0 hidden w-[54vw] -translate-y-1/2 lg:block"
-          style={{ right: "-11vw" }}
-        >
-          <div className="overflow-hidden rounded-[16px] border border-primary/15 bg-white shadow-[0_44px_90px_-34px_rgba(28,36,64,0.30)]">
-            <img
-              src="/marketing/product-calendar.png"
-              alt="A practitioner's weekly calendar in Liminal — colour-coded telehealth and in-person sessions, with the day's agenda alongside."
-              width={2880}
-              height={1800}
-              className="block w-full"
-              loading="eager"
-            />
-          </div>
+      <section className="relative bg-primary-wash lg:flex lg:min-h-[calc(100svh-72px)] lg:items-center">
+        {/* hero illustration — full scene on the mint wash; the cream paper is
+            multiplied into the background so image and page read as one surface */}
+        <div className="pointer-events-none absolute top-[47%] right-0 z-0 hidden w-[54vw] -translate-y-1/2 lg:block">
+          <img
+            src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/liminal_e0mhvxe0mhvxe0mh-mint.avif"
+            alt="A watercolour illustration — a person wrapped in a knit blanket sits on a bench by a still lake at dawn, holding a warm mug."
+            width={2816}
+            height={1536}
+            className="mkt-develop mkt-d2 block w-full"
+            loading="eager"
+          />
         </div>
 
         <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-16 sm:py-20 lg:py-16">
@@ -75,28 +72,29 @@ export default function Home() {
               We meet you where you are.
             </p>
             <div className="mkt-rise mkt-d2 mt-8 max-w-xl">
-              <HeroSearch />
+              <HeroSearch autoFocus />
             </div>
-            <p className="mkt-rise mkt-d3 mt-5 max-w-xl text-sm text-text-muted">
+            <p className="mkt-rise mkt-d3 mt-5 max-w-xl text-sm text-text-body">
               *Search more than 116,000+ mental health providers instantly. No sign up required.
             </p>
           </div>
 
-          {/* mobile product shot */}
-          <div className="mkt-fade mt-10 lg:hidden">
-            <div className="overflow-hidden rounded-[14px] border border-primary/15 bg-white shadow-[0_30px_60px_-30px_rgba(28,36,64,0.25)]">
-              <img
-                src="/marketing/product-calendar.png"
-                alt="A practitioner's weekly calendar in Liminal."
-                width={2880}
-                height={1800}
-                className="block w-full"
-                loading="eager"
-              />
-            </div>
+          {/* mobile illustration — directly on the wash, cream paper multiplied out */}
+          <div className="mt-10 lg:hidden">
+            <img
+              src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/liminal_e0mhvxe0mhvxe0mh-mint.avif"
+              alt="A watercolour illustration — a person wrapped in a knit blanket sits on a bench by a still lake at dawn, holding a warm mug."
+              width={2816}
+              height={1536}
+              className="mkt-develop block w-full"
+              loading="eager"
+            />
           </div>
         </div>
       </section>
+
+      {/* ── Trust band ───────────────────────────────────────────────────── */}
+      <TrustBand />
 
       {/* ── Directory index ──────────────────────────────────────────────── */}
       <section className="mx-auto w-full max-w-6xl px-6 py-20 sm:py-24">
@@ -162,7 +160,7 @@ export default function Home() {
             </div>
             <div className="overflow-hidden rounded-[12px] border border-border shadow-[0_28px_60px_-28px_rgba(16,21,40,0.4)] lg:-mr-10">
               <img
-                src="/marketing/product-booking.png"
+                src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/marketing/product-booking.avif"
                 alt="Liminal's online booking — a client choosing a visit type before self-booking a slot."
                 width={2880}
                 height={1440}
@@ -176,7 +174,7 @@ export default function Home() {
           <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
             <div className="overflow-hidden rounded-[12px] border border-border shadow-[0_28px_60px_-28px_rgba(16,21,40,0.4)] lg:order-1 lg:-ml-10">
               <img
-                src="/marketing/product-billing.png"
+                src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/marketing/product-billing.avif"
                 alt="Liminal's billing dashboard — outstanding balance, paid this month, and an invoice list."
                 width={2880}
                 height={1800}

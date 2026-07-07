@@ -33,6 +33,14 @@ function toFile(r: FileRow): FileRecord {
   };
 }
 
+export async function getFile(id: string): Promise<FileRecord | null> {
+  if (hasDb) {
+    const rows = (await sql`SELECT * FROM files WHERE id = ${id}`) as FileRow[];
+    return rows[0] ? toFile(rows[0]) : null;
+  }
+  return mockStore().files.get(id) ?? null;
+}
+
 export async function listFiles(clientId: string): Promise<FileRecord[]> {
   if (hasDb) {
     const rows = (await sql`

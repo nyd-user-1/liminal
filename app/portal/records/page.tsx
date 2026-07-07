@@ -39,7 +39,6 @@ export default async function PortalRecordsPage() {
         files={files.map((f) => ({
           id: f.id,
           name: f.name,
-          url: f.url,
           sizeBytes: f.sizeBytes,
           createdAt: f.createdAt,
         }))}

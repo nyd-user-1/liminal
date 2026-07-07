@@ -22,7 +22,6 @@ interface NoteItem {
 interface FileItem {
   id: string;
   name: string;
-  url: string;
   sizeBytes: number;
   createdAt: string;
 }
@@ -111,7 +110,7 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
                 title={f.name}
                 meta={`${formatSize(f.sizeBytes)} · ${formatDate(f.createdAt)}`}
                 trailing={
-                  <TextLink href={f.url} icon="download" download>
+                  <TextLink href={`/api/files/download?id=${f.id}`} icon="download" download>
                     Download
                   </TextLink>
                 }

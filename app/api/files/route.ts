@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
-import { put } from "@vercel/blob";
 import { NextResponse, type NextRequest } from "next/server";
+import { blobPut } from "@/lib/blob";
 import { AuthError, requireRole } from "@/lib/auth";
 import { logEvent } from "@/lib/audit";
 import { listFiles, saveFile } from "@/lib/repos/files";
@@ -69,14 +69,16 @@ export async function POST(req: NextRequest) {
 
     let url: string;
     if (process.env.BLOB_READ_WRITE_TOKEN) {
-      // Vercel Blob — persists on serverless; addRandomSuffix makes the
-      // public URL unguessable (these are client files).
-      const blob = await put(`clients/${clientId}/${safeName}`, bytes, {
-        access: "public",
+      // Vercel Blob (private store) — persists on serverless. These are client
+      // files (PHI), so the store requires a token to read; we persist the
+      // blob *pathname* and serve bytes back only through the authenticated
+      // proxy at GET /api/files/download. addRandomSuffix avoids collisions.
+      const blob = await blobPut(`clients/${clientId}/${safeName}`, bytes, {
+        access: "private",
         addRandomSuffix: true,
         contentType: file.type || "application/octet-stream",
       });
-      url = blob.url;
+      url = blob.pathname;
     } else {
       // Local-dev fallback: bytes under ./uploads with a random prefix.
       const storedName = `${crypto.randomUUID().slice(0, 8)}-${safeName}`;

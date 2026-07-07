@@ -8,7 +8,7 @@ import { SearchInput } from "@/components/ui/search-input";
 // Enter routes to the real directory (/find-care?q=), the same anonymous
 // search the nav overlay uses. No button.
 
-export function HeroSearch() {
+export function HeroSearch({ autoFocus = false }: { autoFocus?: boolean }) {
   const router = useRouter();
   const [q, setQ] = useState("");
 
@@ -20,6 +20,7 @@ export function HeroSearch() {
 
   return (
     <SearchInput
+      autoFocus={autoFocus}
       className="[&_input]:h-14 [&_input]:text-base [&_input]:shadow-card [&_svg]:fill-primary-wash [&_svg]:text-text"
       placeholder="Search therapists, psychiatrists, and programs"
       aria-label="Search providers and programs"

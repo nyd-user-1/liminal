@@ -45,6 +45,7 @@ import { Toggle } from "@/components/ui/toggle";
 import { Toolbar } from "@/components/ui/toolbar";
 import { Tooltip } from "@/components/ui/tooltip";
 import { UserChip } from "@/components/ui/user-chip";
+import { TrustBand } from "@/components/marketing/trust-band";
 
 // Design System — Liminal foundations + the full shared UI kit, plus a
 // reference index of the feature components.
@@ -727,6 +728,7 @@ export default function DesignSystemPage() {
         items={[
           { key: "primitives", label: "Primitives", count: 44 },
           { key: "foundations", label: "Foundations" },
+          { key: "assets", label: "Assets" },
           { key: "components", label: "Components", count: featureTotal },
         ]}
       />
@@ -814,10 +816,10 @@ export default function DesignSystemPage() {
                 <p className="mb-2 text-[13px] font-semibold text-text-muted">Stock / placeholder photo</p>
                 <div className="w-40 overflow-hidden rounded-card border border-border shadow-card">
                   <img
-                    src="/liminal-1.webp"
-                    alt="Liminal stock placeholder photograph"
-                    width={640}
-                    height={640}
+                    src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/liminal_w5kx7ww5kx7ww5kx.avif"
+                    alt="Liminal watercolour illustration — a still life of a lamp, book, and reading glasses on a side table."
+                    width={1407}
+                    height={768}
                     className="block w-full"
                     loading="lazy"
                   />
@@ -850,9 +852,9 @@ export default function DesignSystemPage() {
                   (Aetna, BCBS, Cigna, Optum, Anthem, Carelon, Horizon).
                 </li>
                 <li>
-                  <b className="text-text">Stock / placeholder photography</b> is compressed WebP (640px, ~68 KB) in{" "}
-                  <code className="rounded bg-canvas px-1 py-0.5">/public</code> — e.g.{" "}
-                  <code className="rounded bg-canvas px-1 py-0.5">liminal-1.webp</code>, card-framed like all imagery.
+                  <b className="text-text">Watercolour illustrations</b> are AVIF in the public blob store
+                  (<code className="rounded bg-canvas px-1 py-0.5">illustrations/*.avif</code>), card-framed like all
+                  imagery.
                 </li>
                 <li>
                   <b className="text-text">Formats:</b> vector marks → inline SVG · screenshots → PNG @2× · logos → WebP.
@@ -863,6 +865,107 @@ export default function DesignSystemPage() {
                   <b>Gap:</b> no favicon or OpenGraph image is configured in app metadata yet.
                 </li>
               </ul>
+            </Card>
+          </section>
+        </div>
+      )}
+
+      {/* ── ASSETS ──────────────────────────────────────────────────── */}
+      {tab === "assets" && (
+        <div className="space-y-8">
+          <section className="space-y-4">
+            <SectionHead title="Watercolour illustrations" />
+            <Card className="space-y-5">
+              <p className="text-[15px] text-text-body">
+                Hero and section art is a single set of watercolour line-and-wash illustrations, stored as AVIF in the
+                public blob store (<code className="rounded bg-canvas px-1 py-0.5">illustrations/*.avif</code>). They are
+                painted on parchment, so to sit seamlessly on a coloured field we{" "}
+                <b className="text-text">white-balance the paper to match the background</b> (multiply each channel by
+                background ÷ paper). No blend mode, no card.
+              </p>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                {[
+                  { u: "illustrations/liminal_e0mhvxe0mhvxe0mh-mint.avif", a: "Bench by a lake" },
+                  { u: "illustrations/liminal_nielb8nielb8niel.avif", a: "Cooking by a window" },
+                  { u: "illustrations/liminal_n1y3w0n1y3w0n1y3.avif", a: "Man on a porch" },
+                  { u: "illustrations/liminal_w5kx7ww5kx7ww5kx.avif", a: "Still life" },
+                ].map((i) => (
+                  <div key={i.u} className="overflow-hidden rounded-card" style={{ backgroundColor: "#dcecec" }}>
+                    <img
+                      src={`https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/${i.u}`}
+                      alt={i.a}
+                      className="block w-full"
+                      loading="lazy"
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="text-[13px] text-text-muted">
+                The recolour only works on <b className="text-text">light</b> surfaces (white · grey ·{" "}
+                <span className="rounded px-1" style={{ backgroundColor: "#dcecec" }}>mint</span> ·{" "}
+                <span className="rounded px-1" style={{ backgroundColor: "#fbeed9" }}>amber-100</span>). On navy or
+                saturated amber the multiply crushes the scene — those surfaces need transparent-background art.
+              </p>
+            </Card>
+          </section>
+
+          <section className="space-y-4">
+            <SectionHead title="Left-edge scrim (reusable)" />
+            <Card className="space-y-5">
+              <p className="text-[15px] text-text-body">
+                When a hero headline sits over busy art, guarantee contrast with a{" "}
+                <b className="text-text">background-to-transparent gradient</b> over the copy side — not a blanket dark
+                overlay. It reads as depth, not a filter. Below: the same illustration without and with the scrim.
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {[false, true].map((withScrim) => (
+                  <div key={String(withScrim)}>
+                    <p className="mb-2 text-[13px] font-semibold text-text-muted">{withScrim ? "With scrim" : "Raw"}</p>
+                    <div
+                      className="relative flex h-44 items-center overflow-hidden rounded-card"
+                      style={{ backgroundColor: "#dcecec" }}
+                    >
+                      <img
+                        src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/liminal_xj1aw5xj1aw5xj1a.avif"
+                        alt="Three friends at a table"
+                        className="absolute right-0 top-1/2 w-3/4 -translate-y-1/2"
+                        loading="lazy"
+                      />
+                      {withScrim && (
+                        <div
+                          className="absolute inset-y-0 left-0 w-2/3"
+                          style={{ background: "linear-gradient(to right, #dcecec 30%, transparent)" }}
+                        />
+                      )}
+                      <div className="relative max-w-[55%] pl-5">
+                        <p className="font-display text-xl font-extrabold leading-tight text-text">Healing belongs to everyone.</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <pre className="overflow-x-auto rounded-field bg-canvas p-3 text-[12px] leading-relaxed text-text-body">{`<div class="relative">
+  <img class="absolute right-0 …" src="…" />
+  {/* scrim: section-bg → transparent over the copy side */}
+  <div class="absolute inset-y-0 left-0 w-2/3"
+       style="background: linear-gradient(to right, var(--section-bg) 30%, transparent)" />
+  <h1 class="relative …">Healing belongs to everyone.</h1>
+</div>`}</pre>
+            </Card>
+          </section>
+
+          <section className="space-y-4">
+            <SectionHead title="Insurance logos" />
+            <Card className="space-y-5">
+              <p className="text-[15px] text-text-body">
+                Payer marks are normalized to a uniform box and stored in two variants:{" "}
+                <code className="rounded bg-canvas px-1 py-0.5">logos/insurance/*</code> (colour, for light fields) and{" "}
+                <code className="rounded bg-canvas px-1 py-0.5">logos/insurance-white/*</code> (monochrome, for the navy
+                trust band). The live band:
+              </p>
+              <div className="-mx-5 -mb-5 overflow-hidden rounded-b-card">
+                <TrustBand />
+              </div>
             </Card>
           </section>
         </div>
