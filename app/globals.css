@@ -140,6 +140,15 @@ body {
   mask-composite: intersect;
 }
 
+/* Paper section — the section background IS the illustration's cream paper
+   (#f3efe4) plus a barely-there fractal-noise grain, so a paper-bearing
+   illustration blends in with no visible edge: it reads as painted directly
+   onto the page. Scoped to the two sections that ask for it, not the whole page. */
+.paper-section {
+  background-color: #f3efe4;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23paper)' opacity='0.05'/%3E%3C/svg%3E");
+}
+
 /* Stronger feather for the two paintings that have no background-removed cutout
    yet (nightstand, morning-path): eats more of the reprinted paper margin so no
    residual rectangle survives. Retire once their cutouts exist. */

@@ -150,11 +150,11 @@ export default function Home() {
       </section>
 
       {/* ── A · Browse — what are you walking through? (patient) ──────────── */}
-      <section>
+      <section className="paper-section">
         <div className="mx-auto w-full max-w-6xl px-6 py-24 sm:py-32">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <h2 className="max-w-xl text-balance font-display text-4xl font-bold tracking-tight text-text sm:text-5xl">
-              What are you walking through?
+              Healing starts in the little moments.
             </h2>
             <Link href="/find-care" className="group shrink-0 text-[15px] font-semibold text-primary">
               <span className="link-wipe">Browse the full directory</span>
@@ -204,8 +204,8 @@ export default function Home() {
       </section>
 
       {/* ── B · Continuity — your story stays with you (patient) ─────────── */}
-      <section>
-        <div className="mx-auto grid w-full max-w-6xl items-center gap-8 px-6 pb-24 sm:pb-32 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-16">
+      <section className="paper-section">
+        <div className="mx-auto grid w-full max-w-6xl items-center gap-8 px-6 py-24 sm:py-32 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-16">
           <div className="max-w-md lg:pl-2">
             <h2 className="text-balance font-display text-3xl font-bold tracking-tight text-text sm:text-[40px]">
               Your story stays with you.
@@ -226,11 +226,11 @@ export default function Home() {
           </div>
           <Reveal className="lg:order-last">
             <img
-              src={`${ILLO}/nightstand-morning.avif`}
-              alt="A watercolour illustration — a bedside nightstand at dawn: a lamp, a glass of water, folded glasses, a small plant, and a phone showing a 9:00 AM appointment reminder."
-              width={1407}
-              height={768}
-              className="mkt-paint-strong block w-full"
+              src={`${CUT}/objects6.avif`}
+              alt="A watercolour illustration — an entryway shelf by the door: a dish of keys, a folded plaid blanket, a potted succulent, and a pinned handwritten note."
+              width={1600}
+              height={873}
+              className="mkt-paint block w-full"
               loading="lazy"
             />
           </Reveal>
