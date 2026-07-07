@@ -6,9 +6,9 @@
 const WHITE_BASE = "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/insurance-white";
 
 const PAYERS = [
+  { slug: "united", name: "UnitedHealthcare" },
   { slug: "aetna", name: "Aetna" },
   { slug: "anthem", name: "Anthem" },
-  { slug: "bcbs", name: "Blue Cross Blue Shield" },
   { slug: "cigna", name: "Cigna" },
   { slug: "carelon", name: "Carelon" },
   { slug: "optum-oscar", name: "Optum" },
@@ -18,7 +18,7 @@ export function TrustBand() {
   return (
     <section className="bg-sidebar-bg">
       <div className="mx-auto w-full max-w-6xl px-6 py-11">
-        <p className="text-center text-[13px] font-semibold uppercase tracking-[0.14em] text-sidebar-text">
+        <p className="text-center text-[14px] font-medium text-white">
           In-network with the plans you already have
         </p>
         <div className="mt-7 flex flex-wrap items-center justify-center gap-x-12 gap-y-7">
