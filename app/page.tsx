@@ -136,38 +136,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── Threshold band (full-bleed) ──────────────────────────────────── */}
-      <section className="relative w-full overflow-hidden">
-        <img
-          src="https://peudpngwdxsymrzx.public.blob.vercel-storage.com/assets/liminal-1a.avif"
-          alt="An open wooden door standing alone in a sunlit, mist-softened meadow, a footpath leading through it."
-          width={1312}
-          height={816}
-          className="h-[clamp(360px,52vh,560px)] w-full object-cover"
-          loading="lazy"
-        />
-        {/* legibility scrim over the image's built-in left text gutter */}
-        <div className="absolute inset-0 bg-gradient-to-r from-white/75 via-white/15 to-transparent" />
-        <div className="absolute inset-0">
-          <div className="mx-auto flex h-full max-w-6xl items-center px-6">
-            <div className="max-w-md">
-              <h2 className="text-balance font-display text-3xl font-bold tracking-tight text-text sm:text-[40px]">
-                The door is already open.
-              </h2>
-              <p className="mt-3 text-pretty text-lg text-text-body">
-                Whatever you&apos;re walking through, you don&apos;t have to do it alone.
-              </p>
-              <Link
-                href="/find-care"
-                className="mt-6 inline-flex items-center gap-1.5 text-[15px] font-semibold text-primary underline-offset-4 hover:underline"
-              >
-                Find your provider →
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* ── Product showcase (real screenshots) ──────────────────────────── */}
       <section id="for-providers" className="scroll-mt-20 bg-canvas">
         <div className="mx-auto max-w-6xl space-y-20 px-6 py-20 sm:space-y-28 sm:py-28">
