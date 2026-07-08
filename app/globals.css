@@ -23,14 +23,12 @@
   --color-sidebar-text: #93a0bd;
   --color-canvas: #f2f3f6;
   --color-surface: #ffffff;
-  --color-paper: #f7f6f1; /* legacy warm watercolour-paper ground (retained for any surface still baking onto cream) */
-  --color-paper-edge: #ecebe3; /* hairline to seal a band without a colour block */
 
   /* "First Light" marketing ground — the home redesign. A warm paper cream: the
      watercolour washes (lakeside, one-thing) dissolve into it, and the beige
      logo plate melts into the nav. Distinctiveness carries on the type + layout
      + the dusk Threshold band rather than a cool body. */
-  --color-page: #F7F3E8; /* body/section ground — warm paper cream */
+  --color-page: #F7F3E8; /* "warm paper" — the public-site ground (home + marketing) */
   --color-page-edge: #eae3d1; /* hairline separator, warm to match the ground */
   --color-dawn: #fbf1df; /* barely-there amber lift, for the hero first-light glow only */
   --color-dusk: #163038; /* deep dusk-teal — the "Threshold" band (alternate hero direction) */

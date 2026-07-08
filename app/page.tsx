@@ -15,9 +15,9 @@ export const dynamic = "force-dynamic";
 // version commits to three things:
 //   1. Patient-first. The find-care job is the loudest thing on the page; the
 //      provider pitch is one concentrated band (#for-providers), never a braid.
-//   2. A luminous near-white ground (--color-page), not cream. Warmth is carried
-//      by the amber accent and the paintings' own light. The register calls the
-//      warm-neutral body the saturated default; we step off it deliberately.
+//   2. A warm paper ground (--color-page, #f7f3e8) the watercolours dissolve
+//      into. Warmth is carried by the paper, the amber accent, and the paintings'
+//      own light; distinctiveness rides the type, layout, and the dusk band.
 //   3. Headings in the Bricolage grotesque (font-display, extrabold/bold);
 //      body in Inter. One assured display voice, no serif.
 // A dusk-teal CTA closes the page and continues into the footer as one dark
