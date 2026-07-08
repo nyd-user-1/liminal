@@ -191,17 +191,20 @@ function FindLink({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="block rounded-field px-3 py-2 text-[15px] font-medium text-text-body transition-colors hover:bg-canvas hover:text-text"
+      className="group flex items-center gap-1.5 rounded-field px-3 py-2 text-[15px] font-medium text-text-body transition-colors hover:bg-canvas hover:text-text"
     >
       {label}
+      <span aria-hidden className="text-primary opacity-0 transition-opacity group-hover:opacity-100">
+        ↗
+      </span>
     </Link>
   );
 }
 
 function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => void }) {
   // Both the rail highlight and the right-hand content follow whatever's hovered
-  // (falling back to `cat` when nothing is hovered). Each rail item also links
-  // out to its page.
+  // (falling back to `cat` when nothing is hovered). Clicking a rail item pins it;
+  // the links out (with a teal ↗ on hover) live on the content options.
   const [hovered, setHovered] = useState<string | null>(null);
   const highlight = hovered ?? cat;
   const active = FIND_CATEGORIES.find((c) => c.key === highlight) ?? FIND_CATEGORIES[0];
@@ -212,12 +215,12 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
         {FIND_CATEGORIES.map((c) => {
           const on = c.key === highlight;
           return (
-            <Link
+            <button
               key={c.key}
-              href={c.key === "therapists" ? "/therapists" : c.viewAll.href}
+              type="button"
               onMouseEnter={() => setHovered(c.key)}
               onClick={() => setCat(c.key)}
-              className={`group flex w-full items-center gap-3 rounded-field px-3 py-2.5 text-left transition-colors ${
+              className={`flex w-full items-center gap-3 rounded-field px-3 py-2.5 text-left transition-colors ${
                 on ? "bg-surface shadow-sm" : ""
               }`}
             >
@@ -226,14 +229,8 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
                 size={20}
                 className={`shrink-0 transition-colors ${on ? "fill-primary-wash text-text" : "text-text-muted"}`}
               />
-              <span className={`flex-1 text-[15px] font-medium ${on ? "text-text" : "text-text-body"}`}>{c.label}</span>
-              <span
-                aria-hidden
-                className={`shrink-0 text-sm transition-transform group-hover:translate-x-0.5 ${on ? "text-primary" : "text-text-muted"}`}
-              >
-                ↗
-              </span>
-            </Link>
+              <span className={`text-[15px] font-medium ${on ? "text-text" : "text-text-body"}`}>{c.label}</span>
+            </button>
           );
         })}
       </div>
