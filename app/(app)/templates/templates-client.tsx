@@ -1,30 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { FormsTemplates } from "@/components/forms/forms-templates";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, type ReactNode } from "react";
 import { NoteSheet } from "@/components/notes/note-sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { MenuItem } from "@/components/ui/dropdown-menu";
-import { EmptyState } from "@/components/ui/empty-state";
 import { Field } from "@/components/ui/field";
-import { IconSquare } from "@/components/ui/icons";
+import { FilterChip } from "@/components/ui/filter-chip";
 import { KebabMenu } from "@/components/ui/kebab-menu";
+import { LibraryCard } from "@/components/ui/library-card";
 import { Modal } from "@/components/ui/modal";
-import { TopBarActions } from "@/components/shell/topbar-slot";
+import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
-import { SidePanel } from "@/components/ui/side-panel";
-import { Skeleton } from "@/components/ui/spinner";
 import { Tabs } from "@/components/ui/tabs";
 import { Tag, type TagHue } from "@/components/ui/tag";
 import { Textarea } from "@/components/ui/textarea";
+import { Toolbar } from "@/components/ui/toolbar";
 import { useToast } from "@/components/ui/toast";
-import type { NoteTemplate, NoteTemplateKind } from "@/lib/types";
+import { formatDate } from "@/lib/format";
+import type { Form, NoteTemplate, NoteTemplateKind } from "@/lib/types";
 
-// Templates gallery (Carepatron Admin UI) — Notes tab: note-template Cards
-// with "Use template" (client picker → drafts a note → NoteSheet) and a
-// create/edit SidePanel. Forms tab: sibling contract <FormsTemplates/>.
+// Library gallery — A–Z section tabs over a shared LibraryCard grid, a persistent
+// search/filter toolbar, and a per-section header (title + "+ New" left, teal count
+// right). Notes/Forms are real data (note templates + forms CRUD); the rest are
+// scaffold placeholders padded to a 12-card minimum. "Use template" drafts a note.
 
 const KIND_TAG: Record<NoteTemplateKind, { label: string; hue: TagHue }> = {
   soap: { label: "SOAP", hue: "teal" },
@@ -38,6 +38,53 @@ const KIND_OPTIONS = (Object.keys(KIND_TAG) as NoteTemplateKind[]).map((k) => ({
   value: k,
   label: KIND_TAG[k].label,
 }));
+
+// Rotating placeholder dates (no Date.now() in this module's render path).
+const PLACEHOLDER_DATES = ["Jan 2026", "Feb 2026", "Mar 2026", "Apr 2026", "May 2026", "Jun 2026"];
+
+// Lorem-ipsum placeholder cards for the collections we have no data for yet.
+const LOREM_CARDS: Array<{ name: string; meta: string }> = [
+  { name: "Lorem ipsum dolor sit", meta: "Consectetur adipiscing elit, sed do eiusmod tempor incididunt." },
+  { name: "Ut enim ad minim veniam", meta: "Quis nostrud exercitation ullamco laboris nisi ut aliquip." },
+  { name: "Duis aute irure dolor", meta: "In reprehenderit in voluptate velit esse cillum dolore eu." },
+  { name: "Excepteur sint occaecat", meta: "Cupidatat non proident, sunt in culpa qui officia deserunt." },
+  { name: "Sed ut perspiciatis unde", meta: "Omnis iste natus error sit voluptatem accusantium doloremque." },
+  { name: "Nemo enim ipsam voluptatem", meta: "Quia voluptas sit aspernatur aut odit aut fugit consequuntur." },
+  { name: "Neque porro quisquam est", meta: "Qui dolorem ipsum quia dolor sit amet consectetur." },
+  { name: "Adipisci velit sed quia", meta: "Non numquam eius modi tempora incidunt ut labore." },
+  { name: "Quis autem vel eum", meta: "Iure reprehenderit qui in ea voluptate velit esse." },
+  { name: "At vero eos et accusamus", meta: "Iusto odio dignissimos ducimus qui blanditiis praesentium." },
+  { name: "Et harum quidem rerum", meta: "Facilis est et expedita distinctio nam libero tempore." },
+  { name: "Temporibus autem quibusdam", meta: "Et aut officiis debitis aut rerum necessitatibus saepe." },
+];
+
+// Scaffold placeholders (no data model yet) — fill the Community carousels.
+const SCAFFOLD_PROMPTS: Array<{ name: string; meta: string }> = [
+  { name: "Initial Psychiatric Evaluation", meta: "History · Mental status · Assessment · Plan" },
+  { name: "Treatment Plan Review", meta: "Goals · Progress · Barriers · Next steps" },
+  { name: "Medication Management", meta: "Current meds · Adherence · Side effects · Plan" },
+  { name: "Crisis Assessment", meta: "Risk · Safety plan · Disposition" },
+  { name: "Discharge Summary", meta: "Course · Outcomes · Aftercare" },
+  { name: "Group Therapy Note", meta: "Theme · Participation · Response · Plan" },
+  { name: "Family Session", meta: "Attendees · Dynamics · Interventions · Plan" },
+  { name: "Telehealth Check-in", meta: "Presenting concern · Status · Plan" },
+  { name: "Relapse Prevention Plan", meta: "Triggers · Coping skills · Supports" },
+];
+
+const SCAFFOLD_ASSESSMENTS: Array<{ name: string; meta: string }> = [
+  { name: "GAD-7 Anxiety", meta: "7 items · Auto-scored 0–21" },
+  { name: "PHQ-9 Depression", meta: "9 items · Auto-scored 0–27" },
+  { name: "PCL-5 (PTSD)", meta: "20 items · Auto-scored" },
+  { name: "AUDIT (Alcohol Use)", meta: "10 items · Auto-scored" },
+  { name: "Adult ADHD Self-Report", meta: "18 items · Auto-scored" },
+  { name: "Columbia Suicide Severity", meta: "Risk screen · Auto-scored" },
+  { name: "Edinburgh Postnatal", meta: "10 items · Auto-scored" },
+  { name: "MDQ (Bipolar Screen)", meta: "13 items · Auto-scored" },
+  { name: "DASS-21", meta: "21 items · Depression / Anxiety / Stress" },
+  { name: "Y-BOCS (OCD)", meta: "10 items · Auto-scored" },
+  { name: "PSC-17 (Pediatric)", meta: "17 items · Auto-scored" },
+  { name: "WHODAS 2.0", meta: "12 items · Auto-scored" },
+];
 
 /** "## Subjective\n…## Plan" → "Subjective · Objective · … " section preview. */
 function sectionPreview(bodyMd: string): string {
@@ -59,8 +106,11 @@ interface EditorState {
 
 export function TemplatesIndex() {
   const toast = useToast();
-  const [tab, setTab] = useState("notes");
+  const router = useRouter();
+  const [tab, setTab] = useState("all");
+  const [search, setSearch] = useState("");
   const [templates, setTemplates] = useState<NoteTemplate[] | null>(null);
+  const [forms, setForms] = useState<Array<Form & { responseCount: number }> | null>(null);
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [saving, setSaving] = useState(false);
@@ -82,6 +132,33 @@ export function TemplatesIndex() {
         setTemplates([]);
       });
   }, [toast]);
+
+  useEffect(() => {
+    fetch("/api/forms")
+      .then((r) => (r.ok ? r.json() : { forms: [] }))
+      .then((d) => setForms(d.forms ?? []))
+      .catch(() => setForms([]));
+  }, []);
+
+  // ← / → move between the content tabs (A–Z sections). Ignored while typing in
+  // a field or when a modal/dialog is open.
+  useEffect(() => {
+    const order = ["all", "assessments", "forms", "guidelines", "notes", "plans", "prompts", "worksheets"];
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      if (document.querySelector('[role="dialog"]')) return;
+      setTab((cur) => {
+        const i = order.indexOf(cur);
+        if (i === -1) return cur;
+        const next = e.key === "ArrowRight" ? Math.min(order.length - 1, i + 1) : Math.max(0, i - 1);
+        return order[next];
+      });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   async function saveEditor() {
     if (!editor || !editor.name.trim()) return;
@@ -138,116 +215,205 @@ export function TemplatesIndex() {
     }
   }
 
+  // ── form actions (create / duplicate / delete) ──────────────────────────────
+  const createForm = async () => {
+    const res = await fetch("/api/forms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "Untitled form", schema: [] }),
+    });
+    if (!res.ok) return toast("Could not create the form.", "danger");
+    const form = await res.json();
+    router.push(`/templates/forms/${form.id}`);
+  };
+  const duplicateForm = async (f: Form) => {
+    const res = await fetch("/api/forms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: `Copy of ${f.title}`, description: f.description, schema: f.schema }),
+    });
+    if (!res.ok) return toast("Could not duplicate the form.", "danger");
+    toast(`Duplicated "${f.title}".`, "success");
+    const d = await fetch("/api/forms").then((r) => r.json()).catch(() => null);
+    if (d) setForms(d.forms ?? []);
+  };
+  const deleteForm = async (f: Form) => {
+    if (!window.confirm(`Delete "${f.title}"? This also removes its responses and can't be undone.`)) return;
+    const res = await fetch(`/api/forms/${f.id}`, { method: "DELETE" });
+    if (!res.ok) return toast("Could not delete the form.", "danger");
+    toast(`Deleted "${f.title}".`, "success");
+    setForms((fs) => (fs ?? []).filter((x) => x.id !== f.id));
+  };
+
+  const cardGrid = (children: ReactNode) => (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">{children}</div>
+  );
+
+  const comingSoon = () => toast("Coming soon.", "info");
+
+  // Kebab shared by every card. Rename shows only on cards you created (duplicate
+  // a built-in, then rename the copy — the Figma "duplicate to rename" scheme).
+  const cardMenu = (
+    label: string,
+    o: { canRename?: boolean; onDuplicate?: () => void; onRename?: () => void; onDelete?: () => void },
+  ) => (
+    <KebabMenu label={label}>
+      <MenuItem icon="heart" label="Favorite" onClick={comingSoon} />
+      <MenuItem icon="copy" label="Duplicate" onClick={o.onDuplicate ?? comingSoon} />
+      {o.canRename && <MenuItem icon="edit" label="Rename" onClick={o.onRename ?? comingSoon} />}
+      <MenuItem icon="send" label="Share" onClick={comingSoon} />
+      <MenuItem icon="trash" label="Delete" danger onClick={o.onDelete ?? comingSoon} />
+    </KebabMenu>
+  );
+
+  type LibItem = { id: string; title: string; description: string; date: string; tags: ReactNode; onOpen: () => void; menu: ReactNode };
+
+  const noteItem = (t: NoteTemplate): LibItem => {
+    const kind = KIND_TAG[t.template];
+    return {
+      id: t.id,
+      title: t.name,
+      description: sectionPreview(t.bodyMd),
+      date: formatDate(t.updatedAt),
+      tags: (
+        <>
+          <Tag hue={kind.hue}>{kind.label}</Tag>
+          {t.isBuiltin && <Badge variant="neutral">Built-in</Badge>}
+        </>
+      ),
+      onOpen: () => {
+        setUseClient(clients[0]?.id ?? "");
+        setUseTarget(t);
+      },
+      menu: cardMenu(`Actions for ${t.name}`, {
+        canRename: !t.isBuiltin,
+        onDuplicate: () => setEditor({ id: null, name: `${t.name} (copy)`, template: t.template, bodyMd: t.bodyMd, isBuiltin: false }),
+        onRename: () => setEditor({ id: t.id, name: t.name, template: t.template, bodyMd: t.bodyMd, isBuiltin: t.isBuiltin }),
+      }),
+    };
+  };
+
+  const formItem = (f: Form & { responseCount: number }): LibItem => ({
+    id: f.id,
+    title: f.title,
+    description:
+      f.description ??
+      `${f.schema.length} question${f.schema.length === 1 ? "" : "s"} · ${f.responseCount} response${f.responseCount === 1 ? "" : "s"}`,
+    date: formatDate(f.updatedAt),
+    tags: <Badge variant={f.status === "published" ? "success" : "warning"}>{f.status === "published" ? "Published" : "Draft"}</Badge>,
+    onOpen: () => router.push(`/templates/forms/${f.id}`),
+    menu: cardMenu(`Actions for ${f.title}`, {
+      canRename: true,
+      onDuplicate: () => duplicateForm(f),
+      onRename: () => router.push(`/templates/forms/${f.id}`),
+      onDelete: () => deleteForm(f),
+    }),
+  });
+
+  const scaffoldItem = (name: string, meta: string, badge: string, date: string): LibItem => ({
+    id: name,
+    title: name,
+    description: meta,
+    date,
+    tags: <Badge variant="neutral">{badge}</Badge>,
+    onOpen: comingSoon,
+    menu: cardMenu(`Actions for ${name}`, { canRename: true, onDuplicate: comingSoon, onRename: comingSoon, onDelete: comingSoon }),
+  });
+
+  const dateFor = (i: number) => PLACEHOLDER_DATES[i % PLACEHOLDER_DATES.length];
+  const loremItems = (badge: string) => LOREM_CARDS.map((l, i) => scaffoldItem(l.name, l.meta, badge, dateFor(i)));
+  // Pad a real section up to a minimum of 12 cards with lorem placeholders.
+  const padTo12 = (items: LibItem[], badge: string): LibItem[] => {
+    const out = [...items];
+    for (let i = 0; out.length < 12; i++) {
+      const l = LOREM_CARDS[i % LOREM_CARDS.length];
+      out.push(scaffoldItem(`${l.name} · ${badge} ${i + 1}`, l.meta, "Placeholder", dateFor(i)));
+    }
+    return out;
+  };
+
+  const newNote = () => setEditor({ id: null, name: "", template: "progress", bodyMd: "", isBuiltin: false });
+  const noteItems = (templates ?? []).map(noteItem);
+  const formItems = (forms ?? []).map(formItem);
+
+  // A–Z sorted sections. Each header: title + "+ New" grouped left, count (teal) right.
+  const SECTIONS: Array<{ key: string; title: string; onNew: () => void; items: LibItem[] }> = [
+    { key: "assessments", title: "Assessments", onNew: comingSoon, items: SCAFFOLD_ASSESSMENTS.map((a, i) => scaffoldItem(a.name, a.meta, "Auto-scored", dateFor(i))) },
+    { key: "forms", title: "Forms", onNew: createForm, items: padTo12(formItems, "Form") },
+    { key: "guidelines", title: "Guidelines", onNew: comingSoon, items: loremItems("Guideline") },
+    { key: "notes", title: "Notes", onNew: newNote, items: padTo12(noteItems, "Note") },
+    { key: "plans", title: "Plans & reports", onNew: comingSoon, items: loremItems("Plan") },
+    { key: "prompts", title: "Prompts", onNew: newNote, items: padTo12([...noteItems, ...SCAFFOLD_PROMPTS.map((p, i) => scaffoldItem(p.name, p.meta, "Community", dateFor(i)))], "Prompt") },
+    { key: "worksheets", title: "Worksheets & handouts", onNew: comingSoon, items: loremItems("Worksheet") },
+  ].sort((a, b) => a.title.localeCompare(b.title));
+
+  const q = search.trim().toLowerCase();
+  const matches = (it: LibItem) => (q ? it.title.toLowerCase().includes(q) : true);
+  const card = (it: LibItem) => (
+    <LibraryCard key={it.id} title={it.title} description={it.description} date={it.date} tags={it.tags} menu={it.menu} onOpen={it.onOpen} />
+  );
+
+  // `full` (a section tab) shows every card; the All view shows two rows + "View more".
+  const renderSection = (s: (typeof SECTIONS)[number], full: boolean) => {
+    const items = s.items.filter(matches);
+    const shown = full ? items : items.slice(0, 6);
+    return (
+      <section key={s.key}>
+        <div className="mb-3 flex items-center gap-3">
+          <h2 className="text-[19px] font-bold text-text">{s.title}</h2>
+          <Button leftIcon="plus" size="sm" onClick={s.onNew}>
+            New
+          </Button>
+          <span className="ml-auto text-[15px] font-semibold text-primary">{items.length}</span>
+        </div>
+        {cardGrid(shown.map(card))}
+        {!full && items.length > 6 && (
+          <div className="mt-4">
+            <Button variant="ghost" size="sm" onClick={() => setTab(s.key)}>
+              View more
+            </Button>
+          </div>
+        )}
+      </section>
+    );
+  };
+
+  const activeSection = SECTIONS.find((s) => s.key === tab);
+
   return (
     <>
-      {tab === "notes" && (
-        <TopBarActions>
-          <Button
-            leftIcon="plus"
-            onClick={() =>
-              setEditor({ id: null, name: "", template: "progress", bodyMd: "", isBuiltin: false })
-            }
-          >
-            New template
-          </Button>
-        </TopBarActions>
-      )}
       <Tabs
-        className="mb-6"
+        className="mb-4"
         active={tab}
         onChange={setTab}
-        items={[
-          { key: "notes", label: "Notes", count: templates?.length },
-          { key: "forms", label: "Forms" },
-        ]}
+        items={[{ key: "all", label: "All" }, ...SECTIONS.map((s) => ({ key: s.key, label: s.title }))]}
       />
 
-      {tab === "forms" && <FormsTemplates />}
-
-      {tab === "notes" && templates === null && (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <Skeleton className="h-44" />
-          <Skeleton className="h-44" />
-          <Skeleton className="h-44" />
-        </div>
-      )}
-
-      {tab === "notes" && templates !== null && templates.length === 0 && (
-        <EmptyState
-          icon="note"
-          title="No note templates"
-          subtext="Create a template to standardise your clinical documentation."
+      {/* Persistent search + filters across every tab view */}
+      <Toolbar className="mb-6 flex-wrap">
+        <SearchInput
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search the library…"
+          className="max-w-md flex-1"
         />
-      )}
+        <FilterChip label="Status" onClick={() => toast("Status filter coming soon.", "info")} />
+        <FilterChip label="Tags" onClick={() => toast("Tag filter coming soon.", "info")} />
+      </Toolbar>
 
-      {tab === "notes" && templates !== null && templates.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {templates.map((t) => {
-            const kind = KIND_TAG[t.template];
-            return (
-              <Card key={t.id} className="flex flex-col gap-3">
-                <div className="flex items-start gap-3">
-                  <IconSquare name="note" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[16px] font-semibold text-text">{t.name}</p>
-                    <div className="mt-1 flex items-center gap-1.5">
-                      <Tag hue={kind.hue}>{kind.label}</Tag>
-                      {t.isBuiltin && <Badge variant="neutral">Built-in</Badge>}
-                    </div>
-                  </div>
-                  <KebabMenu>
-                    <MenuItem
-                      icon="edit"
-                      label="Edit template"
-                      onClick={() =>
-                        setEditor({
-                          id: t.id,
-                          name: t.name,
-                          template: t.template,
-                          bodyMd: t.bodyMd,
-                          isBuiltin: t.isBuiltin,
-                        })
-                      }
-                    />
-                    <MenuItem
-                      icon="copy"
-                      label="Duplicate"
-                      onClick={() =>
-                        setEditor({
-                          id: null,
-                          name: `${t.name} (copy)`,
-                          template: t.template,
-                          bodyMd: t.bodyMd,
-                          isBuiltin: false,
-                        })
-                      }
-                    />
-                  </KebabMenu>
-                </div>
-                <p className="line-clamp-2 min-h-10 text-sm text-text-muted">{sectionPreview(t.bodyMd)}</p>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="self-start"
-                  onClick={() => {
-                    setUseClient(clients[0]?.id ?? "");
-                    setUseTarget(t);
-                  }}
-                >
-                  Use template
-                </Button>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+      {tab === "all" ? (
+        <div className="space-y-16">{SECTIONS.map((s) => renderSection(s, false))}</div>
+      ) : activeSection ? (
+        renderSection(activeSection, true)
+      ) : null}
 
-      {/* create / edit template */}
-      <SidePanel
+      {/* create / edit template — centered Modal (scrim overlay) suits this form better than a slide-over */}
+      <Modal
         open={editor !== null}
         onClose={() => setEditor(null)}
         title={editor?.id ? "Edit template" : "New template"}
         icon="note"
+        width="max-w-2xl"
         footer={
           <>
             <Button variant="secondary" onClick={() => setEditor(null)}>
@@ -292,7 +458,7 @@ export function TemplatesIndex() {
             />
           </div>
         )}
-      </SidePanel>
+      </Modal>
 
       {/* use template → pick client → draft note */}
       {useTarget && (

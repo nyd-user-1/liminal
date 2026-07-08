@@ -153,6 +153,7 @@ export type FormBlockType =
   | "date"
   | "signature"
   | "scale"
+  | "yesno"
   | "info";
 
 export interface FormBlock {

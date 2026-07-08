@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Icon, IconSquare } from "@/components/ui/icons";
@@ -73,8 +72,7 @@ export function LocationsSettings({ initialLocations }: { initialLocations: Loca
   };
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <Breadcrumb items={[{ label: "Settings", href: "/settings" }, { label: "Locations" }]} className="mb-2" />
+    <div>
       <TopBarActions>
         <Button leftIcon="plus" onClick={() => open({ mode: "create" })}>
           New location

@@ -1,7 +1,5 @@
 import { notFound } from "next/navigation";
 import { FormBuilder } from "@/components/forms/form-builder";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
-import { PageHeader } from "@/components/ui/page-header";
 import { getForm } from "@/lib/repos/forms";
 import { threadClients } from "@/lib/repos/threads";
 
@@ -15,13 +13,8 @@ export default async function FormBuilderPage({ params }: { params: Promise<{ id
   if (!form) notFound();
 
   return (
-    <>
-      <Breadcrumb
-        items={[{ label: "Templates", href: "/templates" }, { label: "Forms", href: "/templates/forms" }, { label: form.title }]}
-        className="mb-3"
-      />
-      <PageHeader icon="clipboard" title={form.title} className="mb-6" />
+    <div className="flex h-full min-h-0 flex-col">
       <FormBuilder form={form} clients={clients} />
-    </>
+    </div>
   );
 }

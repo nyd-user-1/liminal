@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { SendFormModal } from "@/components/forms/send-form-modal";
 import { Badge } from "@/components/ui/badge";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel, Input } from "@/components/ui/field";
+import { Icon } from "@/components/ui/icons";
 import { IconButton } from "@/components/ui/icon-button";
-import { Textarea } from "@/components/ui/textarea";
 import { Toggle } from "@/components/ui/toggle";
 import { useToast } from "@/components/ui/toast";
 import type { Form, FormBlock, FormBlockType } from "@/lib/types";
@@ -52,6 +53,12 @@ const GLYPHS: Record<string, React.ReactNode> = {
       <line x1="20" y1="8" x2="20" y2="16" />
     </>
   ),
+  yesno: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 3 a 9 9 0 0 0 0 18 Z" fill="currentColor" stroke="none" />
+    </>
+  ),
   info: (
     <>
       <circle cx="12" cy="12" r="9" />
@@ -86,17 +93,37 @@ const PALETTE: Array<{ type: FormBlockType; title: string; subtitle: string }> =
   { type: "select", title: "Dropdown", subtitle: "Choose from a list" },
   { type: "radio", title: "Single choice", subtitle: "Pick one option" },
   { type: "checkbox", title: "Checkbox", subtitle: "Consent or multi-select" },
+  { type: "yesno", title: "Yes / No", subtitle: "A simple yes or no" },
   { type: "date", title: "Date", subtitle: "Calendar picker" },
   { type: "scale", title: "Linear scale", subtitle: "0–3 rating (PHQ-9 style)" },
   { type: "signature", title: "Signature", subtitle: "Type-to-sign + consent" },
   { type: "info", title: "Section / info", subtitle: "Title text; starts a wizard step" },
 ];
 
+// Palette blocks are colour-coded by input family: text (teal) · choice (blue) ·
+// rating (violet) · date (green) · signature (amber) · section (neutral).
+const BLOCK_HUE: Record<FormBlockType, string> = {
+  text: "bg-teal-100 text-teal-700",
+  textarea: "bg-teal-100 text-teal-700",
+  select: "bg-[#DBEAFE] text-[#1E40AF]",
+  radio: "bg-[#DBEAFE] text-[#1E40AF]",
+  checkbox: "bg-[#DBEAFE] text-[#1E40AF]",
+  yesno: "bg-[#DBEAFE] text-[#1E40AF]",
+  scale: "bg-[#EDE9FE] text-[#5B21B6]",
+  date: "bg-[#DCFCE7] text-[#166534]",
+  signature: "bg-[#FFEDD5] text-[#9A3412]",
+  info: "bg-canvas text-text-body",
+};
+
 const OPTION_TYPES: FormBlockType[] = ["select", "radio", "checkbox", "scale"];
+
+// Native HTML5 drag payload for palette → canvas (same approach as the hq DnD).
+const DND_BLOCK = "application/x-liminal-block";
 
 function newBlock(type: FormBlockType): FormBlock {
   const id = `b_${Math.random().toString(36).slice(2, 9)}`;
   const base: FormBlock = { id, type, label: type === "info" ? "Section title" : "Untitled question", required: false };
+  if (type === "yesno") return { ...base, options: ["Yes", "No"] };
   if (type === "scale") return { ...base, options: ["0", "1", "2", "3"] };
   if (OPTION_TYPES.includes(type)) return { ...base, options: ["Option 1", "Option 2"] };
   return base;
@@ -126,13 +153,14 @@ function BlockPreview({ block }: { block: FormBlock }) {
           ))}
         </div>
       );
+    case "yesno":
     case "radio":
     case "checkbox":
       return (
         <div className="space-y-1.5">
           {(block.options ?? ["Yes"]).map((o) => (
             <div key={o} className="flex items-center gap-2 text-sm text-text-body">
-              <span className={`h-4 w-4 border-[1.5px] border-field-border ${block.type === "radio" ? "rounded-full" : "rounded-[4px]"}`} />
+              <span className={`h-4 w-4 border-[1.5px] border-field-border ${block.type === "checkbox" ? "rounded-[4px]" : "rounded-full"}`} />
               {o}
             </div>
           ))}
@@ -152,7 +180,8 @@ export function FormBuilder({
 }) {
   const toast = useToast();
   const [title, setTitle] = useState(form.title);
-  const [description, setDescription] = useState(form.description ?? "");
+  // Description is preserved on save but no longer edited from the builder UI.
+  const [description] = useState(form.description ?? "");
   const [blocks, setBlocks] = useState<FormBlock[]>(form.schema);
   const [status, setStatus] = useState(form.status);
   const [selected, setSelected] = useState<string | null>(null);
@@ -160,9 +189,40 @@ export function FormBuilder({
   const [busy, setBusy] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
 
+  // Palette → canvas drag-and-drop (native HTML5, hq pattern).
+  const [dropActive, setDropActive] = useState(false);
+  const dragDepth = useRef(0);
+  const canvasRef = useRef<HTMLDivElement>(null);
+
   const mutate = (next: FormBlock[]) => {
     setBlocks(next);
     setDirty(true);
+  };
+
+  const hasBlockPayload = (e: React.DragEvent) => e.dataTransfer.types.includes(DND_BLOCK);
+
+  // Insertion index from the pointer's Y against each committed card's midpoint.
+  const dropIndexAt = (clientY: number): number => {
+    const cards = canvasRef.current?.querySelectorAll<HTMLElement>("[data-block-card]");
+    if (!cards || cards.length === 0) return blocks.length;
+    for (let i = 0; i < cards.length; i++) {
+      const r = cards[i].getBoundingClientRect();
+      if (clientY < r.top + r.height / 2) return i;
+    }
+    return cards.length;
+  };
+
+  const onCanvasDrop = (e: React.DragEvent) => {
+    if (!hasBlockPayload(e)) return;
+    e.preventDefault();
+    dragDepth.current = 0;
+    setDropActive(false);
+    const type = e.dataTransfer.getData(DND_BLOCK) as FormBlockType;
+    if (!type) return;
+    const b = newBlock(type);
+    const at = blocks.length === 0 ? 0 : dropIndexAt(e.clientY);
+    mutate([...blocks.slice(0, at), b, ...blocks.slice(at)]);
+    setSelected(b.id);
   };
 
   const patchBlock = (id: string, patch: Partial<FormBlock>) =>
@@ -199,22 +259,65 @@ export function FormBuilder({
   };
 
   return (
-    <div className="flex items-start gap-5">
-      {/* BlockPalette */}
-      <aside className="w-60 shrink-0 rounded-card border border-border bg-surface p-3 shadow-card">
-        <h2 className="px-1.5 pb-2 text-sm font-semibold text-text">Add a block</h2>
-        <div className="space-y-0.5">
+    <>
+      {/* Entity header — form title + live status tag; breadcrumb beneath it */}
+      <div className="mb-1 flex items-center gap-3">
+        <Icon name="clipboard" size={26} className="text-text-body" />
+        <h1 className="text-[28px] font-bold text-text">{title}</h1>
+        <Badge variant={status === "published" ? "success" : "warning"}>
+          {status === "published" ? "Published" : "Draft"}
+        </Badge>
+      </div>
+      <Breadcrumb
+        items={[{ label: "Library", href: "/templates" }, { label: "Forms", href: "/templates/forms" }, { label: form.title }]}
+        className="mb-6"
+      />
+
+      <div className="flex min-h-0 flex-1 gap-5">
+      {/* Left rail — Form settings (fixed, top) + Add-a-block palette (scrolls),
+          mirroring the /calendar rail (mini-month on top, agenda list beneath). */}
+      <aside className="flex min-h-0 w-80 shrink-0 flex-col rounded-card border border-border bg-surface shadow-card">
+        {/* Settings — fixed */}
+        <div className="space-y-4 p-4">
+          <Field label="Title" value={title} onChange={(e) => { setTitle(e.target.value); setDirty(true); }} />
+          <div className="flex gap-2">
+            <Button className="flex-1" onClick={() => save()} loading={busy}>
+              {busy ? "Saving" : dirty ? "Save changes" : "Saved"}
+            </Button>
+            {status === "draft" ? (
+              <Button className="flex-1" variant="secondary" onClick={() => save("published")} disabled={busy}>
+                Publish
+              </Button>
+            ) : (
+              <Button className="flex-1" variant="secondary" leftIcon="send" onClick={() => setSendOpen(true)} disabled={busy || dirty}>
+                Email
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <div className="border-t border-border" />
+
+        {/* Add a block — scrolls */}
+        <div className="flex min-h-0 flex-1 flex-col p-3">
+          <h2 className="px-1.5 pb-2 text-sm font-semibold text-text">Add a block</h2>
+          <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto">
           {PALETTE.map((p) => (
             <button
               key={p.type}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData(DND_BLOCK, p.type);
+                e.dataTransfer.effectAllowed = "copy";
+              }}
               onClick={() => {
                 const b = newBlock(p.type);
                 mutate([...blocks, b]);
                 setSelected(b.id);
               }}
-              className="flex w-full items-center gap-2.5 rounded-field px-1.5 py-2 text-left transition-colors hover:bg-canvas"
+              className="flex w-full cursor-grab items-center gap-2.5 rounded-field px-1.5 py-2 text-left transition-colors hover:bg-canvas active:cursor-grabbing"
             >
-              <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-field bg-teal-100 text-primary">
+              <span className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-field ${BLOCK_HUE[p.type]}`}>
                 <Glyph type={p.type} />
               </span>
               <span className="min-w-0">
@@ -223,22 +326,32 @@ export function FormBuilder({
               </span>
             </button>
           ))}
+          </div>
         </div>
       </aside>
 
-      {/* Canvas */}
-      <div className="min-w-0 flex-1 space-y-3">
-        {blocks.length === 0 && (
-          <div className="rounded-card border border-dashed border-field-border bg-surface px-6 py-16 text-center text-[15px] text-text-muted">
-            Start by adding blocks from the palette on the left.
+      {/* Canvas — fills height; scrolls when populated; palette blocks drop here */}
+      <div
+        ref={canvasRef}
+        onDragEnter={(e) => { if (!hasBlockPayload(e)) return; e.preventDefault(); dragDepth.current += 1; setDropActive(true); }}
+        onDragOver={(e) => { if (!hasBlockPayload(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = "copy"; }}
+        onDragLeave={(e) => { if (!hasBlockPayload(e)) return; dragDepth.current -= 1; if (dragDepth.current <= 0) { dragDepth.current = 0; setDropActive(false); } }}
+        onDrop={onCanvasDrop}
+        className="flex min-h-0 min-w-0 flex-1 flex-col"
+      >
+        {blocks.length === 0 ? (
+          <div className={`flex flex-1 items-center justify-center rounded-card border border-dashed px-6 text-center text-[15px] transition-colors ${dropActive ? "border-primary bg-teal-100/40 text-primary" : "border-field-border bg-surface text-text-muted"}`}>
+            {dropActive ? "Drop to add this block" : "Start by adding blocks — click or drag one in from the palette."}
           </div>
-        )}
+        ) : (
+          <div className={`min-h-0 flex-1 space-y-3 overflow-y-auto rounded-card pr-1 transition-[outline] ${dropActive ? "outline-dashed outline-2 outline-offset-2 outline-primary/50" : ""}`}>
         {blocks.map((block, i) => {
           const isSelected = selected === block.id;
           const isSection = block.type === "info";
           return (
             <div
               key={block.id}
+              data-block-card
               onClick={() => setSelected(block.id)}
               className={`relative cursor-pointer overflow-hidden rounded-card border bg-surface shadow-card transition-colors ${
                 isSelected ? "border-primary" : "border-border hover:border-primary-weak"
@@ -250,7 +363,7 @@ export function FormBuilder({
                 {isSelected ? (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-field bg-teal-100 text-primary">
+                      <span className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-field ${BLOCK_HUE[block.type]}`}>
                         <Glyph type={block.type} />
                       </span>
                       <span className="text-[13px] font-medium uppercase tracking-wide text-text-muted">
@@ -328,43 +441,9 @@ export function FormBuilder({
             </div>
           );
         })}
+          </div>
+        )}
       </div>
-
-      {/* Settings panel */}
-      <aside className="w-72 shrink-0 space-y-4 rounded-card border border-border bg-surface p-4 shadow-card">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold text-text">Form settings</h2>
-          <Badge variant={status === "published" ? "success" : "warning"} className="ml-auto">
-            {status === "published" ? "Published" : "Draft"}
-          </Badge>
-        </div>
-        <Field label="Title" value={title} onChange={(e) => { setTitle(e.target.value); setDirty(true); }} />
-        <Textarea
-          label="Description"
-          rows={3}
-          value={description}
-          onChange={(e) => { setDescription(e.target.value); setDirty(true); }}
-          placeholder="Shown to the client above the form"
-        />
-        <p className="text-[13px] text-text-muted">
-          {blocks.length} block{blocks.length === 1 ? "" : "s"}. "Section / info" blocks start a new step in the
-          client wizard.
-        </p>
-        <div className="space-y-2">
-          <Button fullWidth onClick={() => save()} loading={busy}>
-            {dirty ? "Save changes" : "Saved"}
-          </Button>
-          {status === "draft" ? (
-            <Button fullWidth variant="secondary" onClick={() => save("published")} disabled={busy}>
-              Publish
-            </Button>
-          ) : (
-            <Button fullWidth variant="secondary" leftIcon="send" onClick={() => setSendOpen(true)} disabled={busy || dirty}>
-              Send to client
-            </Button>
-          )}
-        </div>
-      </aside>
 
       <SendFormModal
         open={sendOpen}
@@ -373,6 +452,7 @@ export function FormBuilder({
         formTitle={title}
         clients={clients}
       />
-    </div>
+      </div>
+    </>
   );
 }

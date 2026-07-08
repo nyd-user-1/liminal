@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { ColorSwatch } from "@/components/ui/color-swatch";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -99,8 +98,7 @@ export function ServicesSettings({ initialServices }: { initialServices: Service
   };
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <Breadcrumb items={[{ label: "Settings", href: "/settings" }, { label: "Services" }]} className="mb-2" />
+    <div>
       <TopBarActions>
         <Button leftIcon="plus" onClick={() => open({ mode: "create" })}>
           New service

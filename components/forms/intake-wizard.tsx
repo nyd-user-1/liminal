@@ -89,6 +89,7 @@ function BlockControl({
           className="max-w-72"
         />
       );
+    case "yesno":
     case "radio":
       return (
         <div className="space-y-2.5">

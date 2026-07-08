@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default function FormsIndexPage() {
   return (
     <>
-      <Breadcrumb items={[{ label: "Templates", href: "/templates" }, { label: "Forms" }]} className="mb-3" />
+      <Breadcrumb items={[{ label: "Library", href: "/templates" }, { label: "Forms" }]} className="mb-3" />
       <FormsTemplates />
     </>
   );

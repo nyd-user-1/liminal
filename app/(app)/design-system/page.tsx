@@ -21,6 +21,7 @@ import { FilterChip } from "@/components/ui/filter-chip";
 import { IconButton } from "@/components/ui/icon-button";
 import { Icon, IconSquare, type IconName } from "@/components/ui/icons";
 import { KebabMenu } from "@/components/ui/kebab-menu";
+import { LibraryCard } from "@/components/ui/library-card";
 import { ListRow } from "@/components/ui/list-row";
 import { Logo } from "@/components/ui/logo";
 import { Modal } from "@/components/ui/modal";
@@ -387,6 +388,7 @@ const KIT_IMPORTS: Record<string, string> = {
   EmptyState: 'import { EmptyState } from "@/components/ui/empty-state";',
   AccordionSection: 'import { AccordionSection } from "@/components/ui/accordion-section";',
   Card: 'import { Card, SettingsCard } from "@/components/ui/card";',
+  LibraryCard: 'import { LibraryCard } from "@/components/ui/library-card";',
   Divider: 'import { Divider } from "@/components/ui/divider";',
   PageHeader: 'import { PageHeader } from "@/components/ui/page-header";',
   Logo: 'import { Logo } from "@/components/ui/logo";',
@@ -1472,6 +1474,40 @@ export default function DesignSystemPage() {
                 <SettingsCard icon="gear" title="Preferences" action={<TextLink>Edit</TextLink>}>
                   <p className="text-sm text-text-body">Header row + optional far-right action.</p>
                 </SettingsCard>
+              </div>
+            </Spec>
+            <Spec name="LibraryCard" desc="Uniform template/resource card — fixed height, kebab, 1–2 tags opposite a date." wide>
+              <div className="grid w-full gap-3 sm:grid-cols-2">
+                <LibraryCard
+                  title="DAP Note"
+                  description="Data · Assessment · Plan — a concise structured progress note used across the Library."
+                  date="Apr 2026"
+                  onOpen={() => {}}
+                  tags={
+                    <>
+                      <Tag hue="blue">DAP</Tag>
+                      <Badge variant="neutral">Built-in</Badge>
+                    </>
+                  }
+                  menu={
+                    <KebabMenu label="Actions">
+                      <MenuItem icon="edit" label="Edit" onClick={() => {}} />
+                      <MenuItem icon="copy" label="Duplicate" onClick={() => {}} />
+                    </KebabMenu>
+                  }
+                />
+                <LibraryCard
+                  title="New Client Intake"
+                  description="Demographics, history, and consent — please complete before your first visit."
+                  date="Mar 2026"
+                  onOpen={() => {}}
+                  tags={<Badge variant="success">Published</Badge>}
+                  menu={
+                    <KebabMenu label="Actions">
+                      <MenuItem icon="send" label="Send to client" onClick={() => {}} />
+                    </KebabMenu>
+                  }
+                />
               </div>
             </Spec>
             <Spec name="Divider" desc="Hairline; labeled 'or' variant." wide>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireRole } from "@/lib/auth";
-import { getForm, saveForm } from "@/lib/repos/forms";
+import { deleteForm, getForm, saveForm } from "@/lib/repos/forms";
 import type { FormBlock, FormStatus } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -44,6 +44,20 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       status: status === "published" || status === "draft" ? status : existing.status,
     });
     return NextResponse.json(form);
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** Delete a form template (and its responses). */
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    await requireRole("practitioner");
+    const { id } = await params;
+    const existing = await getForm(id);
+    if (!existing) return NextResponse.json({ error: "Not found." }, { status: 404 });
+    await deleteForm(id);
+    return NextResponse.json({ ok: true });
   } catch (e) {
     return fail(e);
   }

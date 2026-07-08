@@ -5,12 +5,13 @@ import { useEffect, useState } from "react";
 import { SendFormModal } from "@/components/forms/send-form-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { KebabMenu } from "@/components/ui/kebab-menu";
+import { LibraryCard } from "@/components/ui/library-card";
 import { MenuItem } from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/components/ui/toast";
+import { formatDate } from "@/lib/format";
 import type { Form } from "@/lib/types";
 
 // Contract export: `FormsTemplates` — the Forms tab of the Templates page
@@ -21,7 +22,7 @@ import type { Form } from "@/lib/types";
 
 type FormCard = Form & { responseCount: number };
 
-export function FormsTemplates() {
+export function FormsTemplates({ preview = false, onViewMore }: { preview?: boolean; onViewMore?: () => void } = {}) {
   const router = useRouter();
   const toast = useToast();
   const [forms, setForms] = useState<FormCard[] | null>(null);
@@ -78,6 +79,50 @@ export function FormsTemplates() {
     load();
   };
 
+  const remove = async (form: FormCard) => {
+    if (!window.confirm(`Delete "${form.title}"? This also removes its responses and can't be undone.`)) return;
+    const res = await fetch(`/api/forms/${form.id}`, { method: "DELETE" });
+    if (!res.ok) {
+      toast("Could not delete the form.", "danger");
+      return;
+    }
+    toast(`Deleted "${form.title}".`, "success");
+    setForms((fs) => (fs ?? []).filter((f) => f.id !== form.id));
+  };
+
+  const formCard = (f: FormCard) => (
+    <LibraryCard
+      key={f.id}
+      title={f.title}
+      description={
+        f.description ??
+        `${f.schema.length} question${f.schema.length === 1 ? "" : "s"} · ${f.responseCount} response${f.responseCount === 1 ? "" : "s"}`
+      }
+      date={formatDate(f.updatedAt)}
+      onOpen={() => router.push(`/templates/forms/${f.id}`)}
+      tags={
+        <Badge variant={f.status === "published" ? "success" : "warning"}>
+          {f.status === "published" ? "Published" : "Draft"}
+        </Badge>
+      }
+      menu={
+        <KebabMenu label={`Actions for ${f.title}`}>
+          <MenuItem icon="edit" label="Edit" onClick={() => router.push(`/templates/forms/${f.id}`)} />
+          <MenuItem
+            icon="send"
+            label="Send to client"
+            onClick={() => {
+              if (f.status !== "published") toast("Publish the form before sending it.", "warning");
+              else setSendTarget(f);
+            }}
+          />
+          <MenuItem icon="copy" label="Duplicate" onClick={() => duplicate(f)} />
+          <MenuItem icon="trash" label="Delete" danger onClick={() => remove(f)} />
+        </KebabMenu>
+      }
+    />
+  );
+
   if (forms === null) {
     return (
       <div className="flex justify-center py-16">
@@ -88,11 +133,9 @@ export function FormsTemplates() {
 
   return (
     <>
-      <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm text-text-muted">
-          {forms.length} form{forms.length === 1 ? "" : "s"}
-        </p>
-        <Button leftIcon="plus" size="sm" onClick={createForm} loading={busy}>
+      <div className="mb-3 flex items-center gap-2">
+        {preview && <h2 className="text-[19px] font-bold text-text">Forms</h2>}
+        <Button leftIcon="plus" size="sm" className="ml-auto" onClick={createForm} loading={busy}>
           New form
         </Button>
       </div>
@@ -102,45 +145,21 @@ export function FormsTemplates() {
           icon="clipboard"
           title="No forms yet"
           subtext="Build intake forms and assessments, then send them to clients from here."
-          actions={<Button onClick={createForm}>Create your first form</Button>}
+          actions={<Button onClick={createForm} loading={busy}>Create your first form</Button>}
         />
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {forms.map((f) => (
-            <Card key={f.id} className="flex flex-col gap-3 !p-5">
-              <div className="flex items-start gap-2">
-                <button
-                  onClick={() => router.push(`/templates/forms/${f.id}`)}
-                  className="min-w-0 flex-1 text-left text-[17px] font-semibold text-text transition-colors hover:text-primary"
-                >
-                  {f.title}
-                </button>
-                <KebabMenu label={`Actions for ${f.title}`}>
-                  <MenuItem icon="edit" label="Edit" onClick={() => router.push(`/templates/forms/${f.id}`)} />
-                  <MenuItem
-                    icon="send"
-                    label="Send to client"
-                    onClick={() => {
-                      if (f.status !== "published") toast("Publish the form before sending it.", "warning");
-                      else setSendTarget(f);
-                    }}
-                  />
-                  <MenuItem icon="copy" label="Duplicate" onClick={() => duplicate(f)} />
-                </KebabMenu>
-              </div>
-              {f.description && <p className="line-clamp-2 text-sm text-text-body">{f.description}</p>}
-              <div className="mt-auto flex items-center gap-2">
-                <Badge variant={f.status === "published" ? "success" : "warning"}>
-                  {f.status === "published" ? "Published" : "Draft"}
-                </Badge>
-                <span className="text-[13px] text-text-muted">
-                  {f.schema.length} question{f.schema.length === 1 ? "" : "s"} · {f.responseCount} response
-                  {f.responseCount === 1 ? "" : "s"}
-                </span>
-              </div>
-            </Card>
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {(preview ? forms.slice(0, 6) : forms).map(formCard)}
+          </div>
+          {preview && forms.length > 6 && (
+            <div className="mt-4 flex justify-end">
+              <Button variant="ghost" size="sm" onClick={onViewMore}>
+                View more
+              </Button>
+            </div>
+          )}
+        </>
       )}
 
       {sendTarget && (

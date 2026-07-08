@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { TopBarActions } from "@/components/shell/topbar-slot";
@@ -78,8 +77,7 @@ export function AvailabilitySettings({
   };
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <Breadcrumb items={[{ label: "Settings", href: "/settings" }, { label: "Availability" }]} className="mb-2" />
+    <div>
       <TopBarActions>
         <Button loading={busy} disabled={invalid} onClick={save}>
           Save availability

@@ -134,6 +134,23 @@ export async function saveForm(input: SaveFormInput): Promise<Form> {
   return form;
 }
 
+/** Delete a form template and any responses to it. Returns false if missing. */
+export async function deleteForm(id: string): Promise<boolean> {
+  if (hasDb) {
+    // Remove responses first in case the FK isn't ON DELETE CASCADE.
+    await sql`DELETE FROM form_responses WHERE form_id = ${id}`;
+    const rows = (await sql`DELETE FROM forms WHERE id = ${id} RETURNING id`) as Array<{ id: string }>;
+    return rows.length > 0;
+  }
+  const store = mockStore();
+  if (!store.forms.has(id)) return false;
+  store.forms.delete(id);
+  for (const [rid, r] of store.formResponses) {
+    if (r.formId === id) store.formResponses.delete(rid);
+  }
+  return true;
+}
+
 // ── responses ─────────────────────────────────────────────────────────────────
 
 export interface ResponseSummary extends FormResponse {
