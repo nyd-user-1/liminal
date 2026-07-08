@@ -1,11 +1,16 @@
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { Icon, type IconName } from "@/components/ui/icons";
+import { SearchInput } from "@/components/ui/search-input";
+import { CareCarousel } from "@/components/marketing/care-carousel";
 import { HeroSearch } from "@/components/marketing/hero-search";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Nav } from "@/components/marketing/nav";
+import { ProviderCta } from "@/components/marketing/provider-cta";
 import { Reveal } from "@/components/marketing/reveal";
 import { ReviewsCarousel, type Review } from "@/components/marketing/reviews-carousel";
 import { ScrollCue } from "@/components/marketing/scroll-cue";
+import { TherapistSearchCta } from "@/components/marketing/therapist-search-cta";
 import { WatercolorHover } from "@/components/marketing/watercolor-hover";
 
 export const dynamic = "force-dynamic";
@@ -130,6 +135,32 @@ const REVIEWS: Review[] = [
   },
 ];
 
+// Section 6 — NY-focused insurance plans (colours approximate each brand).
+const INSURERS: Array<{ name: string; color: string }> = [
+  { name: "Aetna", color: "text-[#7d3f98]" },
+  { name: "Cigna", color: "text-[#00799e]" },
+  { name: "UnitedHealthcare", color: "text-[#0067b9]" },
+  { name: "Empire BCBS", color: "text-[#0079c1]" },
+  { name: "Fidelis Care", color: "text-[#00843d]" },
+  { name: "Healthfirst", color: "text-[#003a70]" },
+];
+
+// Section 7 — the getting-started steps.
+const HOW_IT_WORKS: Array<{ title: string; body: string }> = [
+  {
+    title: "Find the right fit",
+    body: "Share your preferences and we'll filter through 116,000+ therapists and psychiatrists to find your matches.",
+  },
+  {
+    title: "Get the in-network price",
+    body: "Add your insurance details so we can estimate your cost — before you book.",
+  },
+  {
+    title: "Book your session",
+    body: "Book right on Liminal — we'll handle everything from there. You'll only be billed after your session.",
+  },
+];
+
 export default function Home() {
   return (
     <div className="flex min-h-screen flex-col bg-page">
@@ -238,6 +269,180 @@ export default function Home() {
 
         <Reveal className="pt-10 pb-12 sm:pb-14">
           <ReviewsCarousel reviews={REVIEWS} />
+        </Reveal>
+      </section>
+
+      {/* ══ Sections 3–9 (Headway-pattern) — inserted above the existing content;
+          to be reconciled with the sections below. ═══════════════════════════ */}
+
+      {/* ── 3 · Find care carousel ────────────────────────────────────────── */}
+      <section className="bg-page py-16 sm:py-20">
+        <Reveal>
+          <CareCarousel />
+        </Reveal>
+      </section>
+
+      {/* ── 4 · Reach, inverted — stats left, image right, cards bleed left ─── */}
+      <section className="relative overflow-hidden bg-page">
+        <div className="mx-auto w-full max-w-6xl px-6 pt-10 sm:pt-12">
+          <Reveal className="text-center">
+            <p className="font-display text-[13px] font-semibold uppercase tracking-[0.16em] text-primary-deep">
+              Through Liminal
+            </p>
+            <h2 className="mt-3 text-balance font-display text-4xl font-bold tracking-tight text-text sm:text-5xl">
+              Millions have found support
+            </h2>
+          </Reveal>
+
+          <div className="mt-8 grid items-center gap-6 lg:grid-cols-[1fr_1.4fr] lg:gap-10">
+            <Reveal delay={220}>
+              <dl className="flex flex-col justify-center">
+                {STATS.map((s, i) => (
+                  <div key={s.n} className={`py-5 ${i > 0 ? "border-t border-page-edge" : ""}`}>
+                    <dt className="font-display text-[44px] font-extrabold leading-none tracking-tight text-text sm:text-[50px]">
+                      {s.n}
+                    </dt>
+                    <p className="mt-2 font-display text-base font-semibold text-text">{s.label}</p>
+                    <dd className="mt-2 max-w-md text-pretty leading-relaxed text-text-body">{s.body}</dd>
+                  </div>
+                ))}
+              </dl>
+            </Reveal>
+            <Reveal className="lg:-mr-10 xl:-mr-20" delay={80}>
+              <WatercolorHover className="mx-auto block w-full max-w-xl lg:max-w-none">
+                <img
+                  src={`${ILLO}/dusk11.avif`}
+                  alt="A watercolour illustration — a person sits in a meadow at dusk, facing a warm band of light on the horizon."
+                  width={2077}
+                  height={1251}
+                  className="mkt-soft block w-full"
+                  loading="lazy"
+                />
+              </WatercolorHover>
+            </Reveal>
+          </div>
+        </div>
+
+        <Reveal className="pt-10 pb-12 sm:pb-14">
+          <ReviewsCarousel reviews={REVIEWS} bleed="left" />
+        </Reveal>
+      </section>
+
+      {/* ── 5 · Use your insurance ────────────────────────────────────────── */}
+      <section className="bg-page py-16 sm:py-20">
+        <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-6 lg:grid-cols-2 lg:gap-16">
+          <Reveal>
+            <WatercolorHover className="mx-auto block w-full max-w-lg">
+              <img
+                src={`${CUT}/grounding.avif`}
+                alt="A watercolour illustration — a person kneels with their hands resting on the earth in soft light."
+                width={1200}
+                height={1200}
+                className="block w-full"
+                loading="lazy"
+              />
+            </WatercolorHover>
+          </Reveal>
+          <Reveal delay={100} className="max-w-md">
+            <p className="font-display text-[13px] font-semibold uppercase tracking-[0.16em] text-primary-deep">
+              Use your insurance
+            </p>
+            <h2 className="mt-3 text-balance font-display text-4xl font-bold tracking-tight text-text sm:text-[42px] sm:leading-[1.1]">
+              See how much you save on sessions
+            </h2>
+            <p className="mt-5 text-pretty text-lg leading-relaxed text-text-body">
+              Our clients save an average of 60% on sessions through Liminal. We&apos;ll work with your insurance so you
+              can focus on your care, without worrying about cost.
+            </p>
+            <Link
+              href="/find-care"
+              className="mt-8 inline-flex h-11 items-center justify-center rounded-field border border-border bg-surface px-6 text-[15px] font-medium text-text transition-colors hover:border-primary hover:text-primary"
+            >
+              Find your price
+            </Link>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ── 6 · Covered by insurance ──────────────────────────────────────── */}
+      <section className="bg-page py-16 sm:py-20">
+        <div className="mx-auto max-w-4xl px-6 text-center">
+          <Reveal>
+            <p className="font-display text-[13px] font-semibold uppercase tracking-[0.16em] text-primary-deep">
+              Statewide access
+            </p>
+            <h2 className="mt-3 text-balance font-display text-4xl font-bold tracking-tight text-text sm:text-5xl">
+              Get mental health care, covered by insurance
+            </h2>
+            <p className="mx-auto mt-5 max-w-2xl text-pretty leading-relaxed text-text-body">
+              We partner with 100+ of New York&apos;s top insurance plans so you can get the affordable care you need.
+              Our network offers both in-person and virtual care across 40+ languages.
+            </p>
+          </Reveal>
+          <Reveal delay={120} className="mt-14 grid grid-cols-2 items-center gap-x-8 gap-y-12 sm:grid-cols-3">
+            {INSURERS.map((ins) => (
+              <span key={ins.name} className={`font-display text-2xl font-semibold sm:text-[28px] ${ins.color}`}>
+                {ins.name}
+              </span>
+            ))}
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ── 7 · How it works ──────────────────────────────────────────────── */}
+      <section className="bg-page py-16 sm:py-20">
+        <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-6 lg:grid-cols-2 lg:gap-16">
+          <Reveal>
+            <WatercolorHover className="mx-auto block w-full max-w-lg">
+              <img
+                src={`${CUT}/tending-seedling.avif`}
+                alt="A watercolour illustration — a person kneels in a garden bed, planting a seedling."
+                width={1600}
+                height={1120}
+                className="block w-full"
+                loading="lazy"
+              />
+            </WatercolorHover>
+          </Reveal>
+          <Reveal delay={100} className="max-w-lg">
+            <p className="font-display text-[13px] font-semibold uppercase tracking-[0.16em] text-primary-deep">
+              Getting started
+            </p>
+            <h2 className="mt-3 font-display text-4xl font-bold tracking-tight text-text sm:text-5xl">How it works</h2>
+            <ol className="mt-8 space-y-6">
+              {HOW_IT_WORKS.map((s, i) => (
+                <li key={s.title} className="flex gap-4">
+                  <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-wash font-display text-sm font-bold text-primary-deep">
+                    {i + 1}
+                  </span>
+                  <div>
+                    <h3 className="font-display text-lg font-semibold text-text">{s.title}</h3>
+                    <p className="mt-1 text-pretty leading-relaxed text-text-body">{s.body}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+            <form action="/find-care" className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <SearchInput name="q" placeholder="Enter your ZIP code" className="flex-1" />
+              <Button type="submit" className="h-10 shrink-0">
+                Find your provider
+              </Button>
+            </form>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ── 8 · Provider CTA band (reusable → design system) ──────────────── */}
+      <section className="bg-page py-16 sm:py-20">
+        <Reveal>
+          <ProviderCta />
+        </Reveal>
+      </section>
+
+      {/* ── 9 · Find a therapist CTA (reusable → design system) ───────────── */}
+      <section className="bg-page py-16 sm:py-20">
+        <Reveal>
+          <TherapistSearchCta />
         </Reveal>
       </section>
 
