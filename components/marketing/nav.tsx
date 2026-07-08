@@ -380,7 +380,7 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
 
       {/* filter rail + results */}
       <div className="flex border-t border-border">
-        <div className="w-1/3 bg-canvas p-2">
+        <div className="w-1/3 bg-page p-2">
           <p className="px-2.5 pb-1 pt-1 text-[13px] font-semibold text-text">Filter by</p>
           {SEARCH_FILTERS.map((f) => {
             const on = filters.includes(f.value);
@@ -686,11 +686,13 @@ export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
           }`}
           onMouseLeave={scheduleClose}
         >
-          <Link href="/" aria-label="Liminal home" className="shrink-0">
+          <Link href="/" aria-label="Liminal home" className="group shrink-0">
+            {/* Sunrise motion: on hover the whole watercolor mark nudges up and its
+                pigment warms — a literal dawn on the dawn/threshold brand. */}
             <img
               src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-dark.png"
               alt="Liminal"
-              className="block h-11 w-auto"
+              className="block h-11 w-auto transition duration-[400ms] ease-out group-hover:-translate-y-0.5 group-hover:brightness-105 group-hover:saturate-[1.25]"
             />
           </Link>
 
