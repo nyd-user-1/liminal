@@ -197,17 +197,17 @@ export default function Home() {
       {/* ── Reach — stats + social proof (Headway "found support" layout) ──── */}
       <section id="reach" className="relative scroll-mt-24 overflow-hidden bg-page">
         <div className="mx-auto w-full max-w-6xl px-6 pt-10 sm:pt-12">
-          <div className="text-center">
+          <Reveal className="text-center">
             <p className="font-display text-[13px] font-semibold uppercase tracking-[0.16em] text-primary-deep">
               Through Liminal
             </p>
             <h2 className="mt-3 text-balance font-display text-4xl font-bold tracking-tight text-text sm:text-5xl">
               Millions have found support
             </h2>
-          </div>
+          </Reveal>
 
           <div className="mt-8 grid items-center gap-6 lg:grid-cols-[1.4fr_1fr] lg:gap-10">
-            <Reveal className="order-last lg:order-first lg:-ml-10 xl:-ml-20">
+            <Reveal className="order-last lg:order-first lg:-ml-10 xl:-ml-20" delay={80}>
               <WatercolorHover className="mx-auto block w-full max-w-xl lg:max-w-none">
                 <img
                   src={`${ILLO}/maya10.avif`}
@@ -220,23 +220,25 @@ export default function Home() {
               </WatercolorHover>
             </Reveal>
 
-            <dl className="flex flex-col justify-center">
-              {STATS.map((s, i) => (
-                <div key={s.n} className={`py-5 ${i > 0 ? "border-t border-page-edge" : ""}`}>
-                  <dt className="font-display text-[44px] font-extrabold leading-none tracking-tight text-text sm:text-[50px]">
-                    {s.n}
-                  </dt>
-                  <p className="mt-2 font-display text-base font-semibold text-text">{s.label}</p>
-                  <dd className="mt-2 max-w-md text-pretty leading-relaxed text-text-body">{s.body}</dd>
-                </div>
-              ))}
-            </dl>
+            <Reveal delay={220}>
+              <dl className="flex flex-col justify-center">
+                {STATS.map((s, i) => (
+                  <div key={s.n} className={`py-5 ${i > 0 ? "border-t border-page-edge" : ""}`}>
+                    <dt className="font-display text-[44px] font-extrabold leading-none tracking-tight text-text sm:text-[50px]">
+                      {s.n}
+                    </dt>
+                    <p className="mt-2 font-display text-base font-semibold text-text">{s.label}</p>
+                    <dd className="mt-2 max-w-md text-pretty leading-relaxed text-text-body">{s.body}</dd>
+                  </div>
+                ))}
+              </dl>
+            </Reveal>
           </div>
         </div>
 
-        <div className="pt-10 pb-12 sm:pb-14">
+        <Reveal className="pt-10 pb-12 sm:pb-14">
           <ReviewsCarousel reviews={REVIEWS} />
-        </div>
+        </Reveal>
       </section>
 
       {/* ── Find care — the conversion spine: browse by what you're facing ─── */}
