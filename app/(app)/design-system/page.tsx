@@ -46,6 +46,8 @@ import { Toggle } from "@/components/ui/toggle";
 import { Toolbar } from "@/components/ui/toolbar";
 import { Tooltip } from "@/components/ui/tooltip";
 import { UserChip } from "@/components/ui/user-chip";
+import { ProviderCta } from "@/components/marketing/provider-cta";
+import { TherapistSearchCta } from "@/components/marketing/therapist-search-cta";
 import { TrustBand } from "@/components/marketing/trust-band";
 
 // Design System — Liminal foundations + the full shared UI kit, plus a
@@ -814,8 +816,42 @@ export default function DesignSystemPage() {
           { key: "foundations", label: "Foundations" },
           { key: "assets", label: "Assets" },
           { key: "components", label: "Components", count: featureTotal },
+          { key: "sections", label: "Sections" },
         ]}
       />
+
+      {/* ── SECTIONS (reusable marketing bands) ─────────────────────── */}
+      {tab === "sections" && (
+        <div className="space-y-10">
+          <p className="text-[13px] text-text-muted">
+            Reusable full-width marketing sections. Drop them onto public pages; content is prop-overridable.
+          </p>
+
+          <section className="space-y-3">
+            <SectionHead title="Provider CTA band" />
+            <p className="text-[13px] text-text-muted">
+              <code className="rounded bg-canvas px-1 py-0.5">
+                {'import { ProviderCta } from "@/components/marketing/provider-cta";'}
+              </code>
+            </p>
+            <div className="overflow-hidden rounded-card border border-border bg-page py-10">
+              <ProviderCta />
+            </div>
+          </section>
+
+          <section className="space-y-3">
+            <SectionHead title="Find-a-therapist search CTA" />
+            <p className="text-[13px] text-text-muted">
+              <code className="rounded bg-canvas px-1 py-0.5">
+                {'import { TherapistSearchCta } from "@/components/marketing/therapist-search-cta";'}
+              </code>
+            </p>
+            <div className="overflow-hidden rounded-card border border-border bg-page py-10">
+              <TherapistSearchCta />
+            </div>
+          </section>
+        </div>
+      )}
 
       {/* ── FOUNDATIONS ─────────────────────────────────────────────── */}
       {tab === "foundations" && (
