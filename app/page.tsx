@@ -1,56 +1,35 @@
 import Link from "next/link";
-import { Icon } from "@/components/ui/icons";
+import { Icon, type IconName } from "@/components/ui/icons";
 import { HeroSearch } from "@/components/marketing/hero-search";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Nav } from "@/components/marketing/nav";
 import { Reveal } from "@/components/marketing/reveal";
+import { WatercolorHover } from "@/components/marketing/watercolor-hover";
 
 export const dynamic = "force-dynamic";
 
-// Home. The whole page is one sheet of watercolour paper: every painting is
-// feathered (.mkt-paint) so its own paper edge dissolves into the `--color-paper`
-// ground instead of reading as a boxed rectangle, and scenes are scaled up and
-// alternated left/right rather than stamped into identical 50/50 rows. Warmth is
-// carried by the imagery; type stays disciplined (Bricolage display / Inter body);
-// the one dark note is the dusk painting bleeding into the navy footer. Hero is LOCKED.
+// Home — "First Light" redesign.
+// ────────────────────────────────────────────────────────────────────────────
+// The old page floated the watercolours on a cream "paper" ground (the 2026 AI
+// default) and braided patient→provider→patient down a very long scroll. This
+// version commits to three things:
+//   1. Patient-first. The find-care job is the loudest thing on the page; the
+//      provider pitch is one concentrated band (#for-providers), never a braid.
+//   2. A luminous near-white ground (--color-page), not cream. Warmth is carried
+//      by the amber accent and the paintings' own light. The register calls the
+//      warm-neutral body the saturated default; we step off it deliberately.
+//   3. Headings in the Bricolage grotesque (font-display, extrabold/bold);
+//      body in Inter. One assured display voice, no serif.
+// A dusk-teal CTA closes the page and continues into the footer as one dark
+// block (MarketingFooter's bg is overridden to the same dusk).
 
-// Paintings are served from /public after being reprinted onto the paper ground
-// (see scripts note): each source AVIF is transformed pixel×ground÷paper so its
-// own paper dissolves into `--color-paper`, then feathered (.mkt-paint) to erase
-// any residual edge. Logos + product screenshots stay on the blob CDN.
-const ILLO = "/illustrations";
-// Background-removed (transparent) paintings — these float on the paper ground
-// with no box, no bake, no feather. nightstand + morning-path have no cutout yet,
-// so they stay on the reprinted /illustrations versions.
+// Background-removed watercolour scenes (transparent, soft deckled edges). They
+// dissolve into the light ground with no box; the dark-sky dusk scenes sit on
+// the Threshold band instead.
 const CUT = "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/cut";
-const LOGO = "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/insurance";
-const SHOT = "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/marketing";
 
-// The full set of watercolour moments, shown as a floating collage.
-const GALLERY: Array<{ slug: string; alt: string }> = [
-  { slug: "lakeside", alt: "a person wrapped in a shawl sits on a bench by a still lake at dawn, holding a mug" },
-  { slug: "walking-together", alt: "two people walk a small dog along a stream at golden hour" },
-  { slug: "one-thing", alt: "a mug, an open journal reading “one thing at a time”, and a laptop in morning light" },
-  { slug: "video-visit", alt: "a man at his kitchen table on a video visit with his provider" },
-  { slug: "resting-meadow", alt: "a person lies back in tall grass, hands behind their head, at ease" },
-  { slug: "gathering", alt: "three friends laughing around a table over a board game" },
-  { slug: "hillside-dusk", alt: "a small figure sits in a meadow looking out over hills at dusk" },
-  { slug: "telehealth", alt: "a person settled in an armchair on a video visit, a plant beside them" },
-  { slug: "proud-of-you", alt: "a steaming mug, a handwritten “proud of you” card, and a sprig in a small vase" },
-  { slug: "grounding", alt: "a person kneels with their hands resting on the earth" },
-  { slug: "dusk-lake", alt: "a person sits by a lake beneath a bare tree at dusk" },
-  { slug: "tending-seedling", alt: "a person kneels in a garden bed, planting a seedling" },
-];
-
-const INSURERS = [
-  { slug: "united", name: "UnitedHealthcare" },
-  { slug: "aetna", name: "Aetna" },
-  { slug: "anthem", name: "Anthem" },
-  { slug: "cigna", name: "Cigna" },
-  { slug: "carelon", name: "Carelon" },
-  { slug: "optum-oscar", name: "Optum" },
-];
-
+// The find-care entry points. Each row is a real directory query; the whole
+// section is the page's conversion spine, so it leads (not the mood).
 const SPECIALTIES: Array<{ name: string; note: string; q: string }> = [
   { name: "Anxiety & depression", note: "The most-searched reason to reach out", q: "Anxiety and Depression" },
   { name: "Trauma & PTSD", note: "EMDR, CPT, trauma-informed clinicians", q: "Trauma and PTSD" },
@@ -58,45 +37,92 @@ const SPECIALTIES: Array<{ name: string; note: string; q: string }> = [
   { name: "Couples & family", note: "Relationships and family dynamics", q: "Couples" },
   { name: "Grief & loss", note: "Bereavement and major life change", q: "Grief and Loss" },
   { name: "LGBTQIA+ affirming", note: "Care that centers who you are", q: "LGBTQIA+" },
-  { name: "Bipolar disorder", note: "Diagnosis and ongoing management", q: "Bipolar Disorder" },
-  { name: "OCD", note: "ERP and specialist clinicians", q: "OCD" },
 ];
 
-const PLANS = [
-  "Aetna",
-  "Cigna",
-  "UnitedHealthcare",
-  "Oxford",
-  "Empire BlueCross",
-  "Fidelis Care",
-  "Healthfirst",
-  "EmblemHealth",
-  "MetroPlus",
-  "Oscar",
+// The find-care flow, as an honest ordered sequence (numbers earn their place).
+const STEPS: Array<{ n: string; title: string; body: string; icon: IconName }> = [
+  {
+    n: "01",
+    title: "Search & filter",
+    body: "Search 116,000+ providers by specialty, borough, and your exact insurance plan. No account needed.",
+    icon: "search",
+  },
+  {
+    n: "02",
+    title: "See your cost up front",
+    body: "Know what a visit costs before you book. In-network means no surprise bill after the session.",
+    icon: "check",
+  },
+  {
+    n: "03",
+    title: "Book the same week",
+    body: "Pick a real open slot and confirm online — many providers can see you within the week.",
+    icon: "calendar-check",
+  },
+];
+
+// Reach stats (Headway "found support" layout, Liminal content). Provider count
+// held at 116,000+ to match the hero rather than Headway's 70K+.
+const STATS: Array<{ n: string; label: string; body: string }> = [
+  {
+    n: "30M+",
+    label: "sessions held",
+    body: "Millions of meaningful care moments — connecting people to the personalized support they need.",
+  },
+  {
+    n: "116,000+",
+    label: "licensed providers",
+    body: "No matter what you’re facing, Liminal helps you find a therapist or psychiatrist who’s ready to help.",
+  },
+  {
+    n: "100+",
+    label: "insurance plans",
+    body: "Covered by New York’s top insurance plans, expanding access to affordable mental health care.",
+  },
+];
+
+const QUOTES: Array<{ name: string; text: string }> = [
+  {
+    name: "Rachel Bouton",
+    text: "If you’re looking for a good therapist, Liminal is awesome. You plug in your insurance info and it gives you a list of therapists who take your insurance. They also process all the payment and billing without you or your provider having to worry about it.",
+  },
+  {
+    name: "Caiti Donovan",
+    text: "I found my therapist through Liminal and love her! I found trying to search via my insurance’s website to be v clunky and overall not great. Liminal accepts insurance but they take out the hassle of search & payment so you focus on finding a good fit!",
+  },
+  {
+    name: "tikh",
+    text: "Woah, def recommend this for folks looking for therapists: Liminal",
+  },
 ];
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen flex-col bg-paper">
-      <Nav />
+    <div className="flex min-h-screen flex-col bg-page">
+      <Nav ground="bg-page" />
 
-      {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="relative bg-primary-wash lg:flex lg:min-h-[calc(100svh-72px)] lg:items-center">
-        {/* hero illustration — full scene on the mint wash; the cream paper is
-            multiplied into the background so image and page read as one surface */}
-        <div className="pointer-events-none absolute top-[47%] right-0 z-0 hidden w-[54vw] -translate-y-1/2 lg:block">
-          <img
-            src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/liminal_e0mhvxe0mhvxe0mh-mint.avif"
-            alt="A watercolour illustration — a person wrapped in a knit blanket sits on a bench by a still lake at dawn, holding a warm mug."
-            width={2816}
-            height={1536}
-            className="mkt-develop mkt-d2 block w-full"
-            loading="eager"
-          />
+      {/* ── Hero — the promise + the search, on first light ────────────────── */}
+      <section className="relative overflow-hidden bg-page lg:flex lg:min-h-[calc(100svh-72px)] lg:items-center">
+        {/* first-light wash — soft teal bloom on the right, feathered edges */}
+        <div aria-hidden className="mkt-firstlight pointer-events-none absolute inset-0" />
+
+        {/* large hero painting, bleeding off the right (desktop) — pointer events
+            enabled so the watercolour bloom can track the cursor over it */}
+        <div className="absolute top-1/2 right-0 z-0 hidden w-[54vw] max-w-[920px] -translate-y-1/2 lg:block">
+          <WatercolorHover>
+            <img
+              src={`${CUT}/lakeside.avif`}
+              alt="A watercolour illustration — a person wrapped in a shawl sits on a bench by a still lake at dawn, holding a warm mug."
+              width={1600}
+              height={1200}
+              className="mkt-develop mkt-d1 block w-full"
+              loading="eager"
+            />
+          </WatercolorHover>
         </div>
 
-        <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-16 sm:py-20 lg:py-16">
-          <div className="lg:max-w-[54%]">
+        <div className="pointer-events-none relative z-10 mx-auto w-full max-w-6xl px-6 py-16 sm:py-20 lg:py-16">
+          <div className="pointer-events-auto lg:max-w-[54%]">
             <h1
               className="mkt-rise text-balance font-display font-extrabold tracking-[-0.03em] text-text"
               style={{ fontSize: "clamp(2.75rem, 6vw, 5.25rem)", lineHeight: 1.01 }}
@@ -104,97 +130,136 @@ export default function Home() {
               Healing belongs to{" "}
               <span className="text-primary">everyone.</span>
             </h1>
-            <p className="mkt-rise mkt-d1 mt-6 max-w-xl text-pretty text-lg text-text-body sm:text-xl">
-              We meet you where you are.
+            <p className="mkt-rise mkt-d1 mt-6 max-w-lg text-pretty text-lg leading-relaxed text-text-body sm:text-xl">
+              Search 116,000+ licensed therapists and psychiatrists across New York — filter by your insurance, see your
+              cost before you book, and start as soon as this week.
             </p>
-            <div className="mkt-rise mkt-d2 mt-8 max-w-xl">
+            <div className="mkt-rise mkt-d2 mt-8 max-w-[577px]">
               <HeroSearch autoFocus />
             </div>
-            <p className="mkt-rise mkt-d3 mt-5 max-w-xl text-sm text-text-body">
-              *Search more than 116,000+ mental health providers instantly. No sign up required.
+            <p className="mkt-rise mkt-d3 mt-4 flex items-center gap-2 text-sm text-text-body">
+              <Icon name="lock" size={15} className="shrink-0 text-primary" />
+              Free to search — no sign-up required.
             </p>
           </div>
 
-          {/* mobile illustration — directly on the wash, cream paper multiplied out */}
-          <div className="mt-10 lg:hidden">
+          {/* mobile painting */}
+          <div className="mkt-develop mt-10 lg:hidden">
             <img
-              src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/liminal_e0mhvxe0mhvxe0mh-mint.avif"
-              alt="A watercolour illustration — a person wrapped in a knit blanket sits on a bench by a still lake at dawn, holding a warm mug."
-              width={2816}
-              height={1536}
-              className="mkt-develop block w-full"
+              src={`${CUT}/lakeside.avif`}
+              alt="A watercolour illustration — a person wrapped in a shawl sits on a bench by a still lake at dawn, holding a warm mug."
+              width={1600}
+              height={1200}
+              className="block w-full"
               loading="eager"
             />
           </div>
         </div>
       </section>
 
-      {/* ── Trust — in-network proof, quiet on the paper ─────────────────── */}
-      <section>
-        <div className="mx-auto w-full max-w-6xl px-6 py-12">
-          <p className="text-center text-sm text-text-muted">
-            In-network with the plans New Yorkers already carry.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-x-12 gap-y-6">
-            {INSURERS.map((p) => (
-              <img
-                key={p.slug}
-                src={`${LOGO}/${p.slug}.avif`}
-                alt={`${p.name} — accepted insurance`}
-                className="h-6 w-auto opacity-70 grayscale transition hover:opacity-100 hover:grayscale-0 sm:h-7"
-                loading="lazy"
-              />
+      {/* ── Reach — stats + social proof (Headway "found support" layout) ──── */}
+      <section className="bg-page">
+        <div className="mx-auto w-full max-w-6xl px-6 py-24 sm:py-28">
+          <div className="text-center">
+            <p className="font-display text-[13px] font-semibold uppercase tracking-[0.16em] text-primary-deep">
+              Through Liminal
+            </p>
+            <h2 className="mt-3 text-balance font-display text-4xl font-bold tracking-tight text-text sm:text-5xl">
+              Millions have found support
+            </h2>
+          </div>
+
+          <div className="mt-16 grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
+            <Reveal className="order-last lg:order-first">
+              <WatercolorHover className="mx-auto block max-w-md">
+                <img
+                  src={`${CUT}/grounding.avif`}
+                  alt="A watercolour illustration — a person kneels with their hands resting on the earth in soft morning light."
+                  width={1200}
+                  height={1200}
+                  className="block w-full"
+                  loading="lazy"
+                />
+              </WatercolorHover>
+            </Reveal>
+
+            <dl className="flex flex-col">
+              {STATS.map((s, i) => (
+                <div
+                  key={s.n}
+                  className={`grid grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-x-8 py-8 ${
+                    i > 0 ? "border-t border-page-edge" : ""
+                  }`}
+                >
+                  <div>
+                    <dt className="font-display text-[42px] font-extrabold leading-none tracking-tight text-text">
+                      {s.n}
+                    </dt>
+                    <p className="mt-2 font-display text-[15px] font-semibold text-text-body">{s.label}</p>
+                  </div>
+                  <dd className="self-center text-pretty leading-relaxed text-text-body">{s.body}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+
+          <div className="mt-16 grid gap-6 sm:grid-cols-3">
+            {QUOTES.map((q) => (
+              <figure key={q.name} className="flex flex-col rounded-card border border-page-edge bg-surface p-6">
+                <blockquote className="flex-1 text-pretty leading-relaxed text-text-body">“{q.text}”</blockquote>
+                <figcaption className="mt-5 flex items-center gap-3">
+                  <span
+                    aria-hidden
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-wash font-display text-sm font-semibold text-primary-deep"
+                  >
+                    {q.name[0]}
+                  </span>
+                  <span className="text-[15px] font-medium text-text">{q.name}</span>
+                </figcaption>
+              </figure>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── A · Browse — what are you walking through? (patient) ──────────── */}
-      <section className="paper-section">
-        <div className="mx-auto w-full max-w-6xl px-6 py-24 sm:py-32">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <h2 className="max-w-xl text-balance font-display text-4xl font-bold tracking-tight text-text sm:text-5xl">
-              Healing starts in the little moments.
-            </h2>
-            <Link href="/find-care" className="group shrink-0 text-[15px] font-semibold text-primary">
-              <span className="link-wipe">Browse the full directory</span>
-              <span aria-hidden className="ml-1 inline-block transition-transform group-hover:translate-x-0.5">
-                →
-              </span>
-            </Link>
-          </div>
+      {/* ── Find care — the conversion spine: browse by what you're facing ─── */}
+      <section className="bg-page">
+        <div className="mx-auto w-full max-w-6xl px-6 py-24 sm:py-28">
+          <div className="grid gap-10 lg:grid-cols-3 lg:gap-12">
+            {/* Col 1 — heading stacked on the image */}
+            <div>
+              <h2 className="text-balance font-display text-4xl font-bold tracking-tight text-text sm:text-[40px] sm:leading-[1.08]">
+                Find care for whatever&apos;s on your mind.
+              </h2>
+              <Reveal className="mt-8">
+                <WatercolorHover>
+                  <img
+                    src={`${CUT}/one-thing.avif`}
+                    alt="A watercolour illustration — a mug, an open journal reading “one thing at a time”, and a laptop in soft morning light."
+                    width={1600}
+                    height={1120}
+                    className="block w-full"
+                    loading="lazy"
+                  />
+                </WatercolorHover>
+              </Reveal>
+              <Link href="/find-care" className="group mt-6 inline-flex items-center text-[15px] font-semibold text-primary">
+                <span className="link-wipe">Browse the full directory</span>
+              </Link>
+            </div>
 
-          <div className="mt-14 grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:items-center lg:gap-16">
-            <Reveal>
-              <img
-                src={`${CUT}/walking-together.avif`}
-                alt="A watercolour illustration — two people walk a small dog along a stream at golden hour, mid-conversation."
-                width={1600}
-                height={873}
-                className="block w-full"
-                loading="lazy"
-              />
-            </Reveal>
-
-            <ul className="grid grid-cols-1 gap-x-10 sm:grid-cols-2 lg:grid-cols-1">
+            {/* Cols 2–3 — care categories split across two columns */}
+            <ul className="grid gap-x-10 self-start sm:grid-cols-2 lg:col-span-2">
               {SPECIALTIES.map((s) => (
                 <li key={s.name}>
                   <Link
                     href={`/find-care?q=${encodeURIComponent(s.q)}`}
-                    className="group flex items-baseline justify-between gap-5 border-b border-paper-edge py-4"
+                    className="group block border-b border-page-edge py-4"
                   >
-                    <span className="min-w-0">
-                      <span className="font-display text-lg font-semibold text-text transition-colors group-hover:text-primary">
-                        {s.name}
-                      </span>
-                      <span className="mt-0.5 block truncate text-sm text-text-muted">{s.note}</span>
+                    <span className="font-display text-lg font-semibold text-text transition-colors group-hover:text-primary">
+                      {s.name}
                     </span>
-                    <span
-                      aria-hidden
-                      className="shrink-0 text-text-muted transition-all group-hover:translate-x-1 group-hover:text-primary"
-                    >
-                      →
-                    </span>
+                    <span className="mt-0.5 block text-sm text-text-body/80">{s.note}</span>
                   </Link>
                 </li>
               ))}
@@ -203,292 +268,172 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── B · Continuity — your story stays with you (patient) ─────────── */}
-      <section className="paper-section">
-        <div className="mx-auto grid w-full max-w-6xl items-center gap-8 px-6 py-24 sm:py-32 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-16">
-          <div className="max-w-md lg:pl-2">
-            <h2 className="text-balance font-display text-3xl font-bold tracking-tight text-text sm:text-[40px]">
-              Your story stays with you.
-            </h2>
-            <p className="mt-5 text-pretty text-lg leading-relaxed text-text-body">
-              The people who care for you already know it. Every visit picks up where the last one left off — no
-              starting over, no repeating the hard parts.
-            </p>
-            <Link
-              href="/find-care"
-              className="group mt-7 inline-flex items-center gap-1 text-[15px] font-semibold text-primary"
-            >
-              <span className="link-wipe">Find care that remembers</span>
-              <span aria-hidden className="inline-block transition-transform group-hover:translate-x-0.5">
-                →
-              </span>
-            </Link>
-          </div>
-          <Reveal className="lg:order-last">
-            <img
-              src={`${CUT}/objects6.avif`}
-              alt="A watercolour illustration — an entryway shelf by the door: a dish of keys, a folded plaid blanket, a potted succulent, and a pinned handwritten note."
-              width={1600}
-              height={873}
-              className="mkt-paint block w-full"
-              loading="lazy"
-            />
-          </Reveal>
+      {/* ── How it works — three honest steps (fixes "will this actually work?") */}
+      <section className="bg-page">
+        <div className="mx-auto w-full max-w-6xl px-6 py-24 sm:py-28">
+          <h2 className="max-w-xl text-balance font-display text-4xl font-bold tracking-tight text-text sm:text-5xl">
+            Getting care shouldn&apos;t be the hard part.
+          </h2>
+          <p className="mt-4 max-w-lg text-pretty text-lg leading-relaxed text-text-body">
+            No phone tag, no waitlists, no guessing what it&apos;ll cost. Three steps, and you&apos;re booked.
+          </p>
+
+          <ol className="mt-16 grid gap-x-12 gap-y-12 sm:grid-cols-3">
+            {STEPS.map((s) => (
+              <li key={s.n}>
+                <div className="flex items-center gap-3">
+                  <span className="font-display text-3xl font-semibold text-primary/40">{s.n}</span>
+                  <span className="h-px flex-1 bg-page-edge" />
+                  <Icon name={s.icon} size={20} className="shrink-0 text-primary" />
+                </div>
+                <h3 className="mt-5 font-display text-xl font-semibold text-text">{s.title}</h3>
+                <p className="mt-2 text-pretty leading-relaxed text-text-body">{s.body}</p>
+              </li>
+            ))}
+          </ol>
         </div>
       </section>
 
-      {/* ── C · Testimonial — Dana R. (patient) ──────────────────────────── */}
-      <section>
-        <div className="mx-auto grid w-full max-w-6xl items-center gap-8 px-6 py-24 sm:py-32 lg:grid-cols-2 lg:gap-16">
+      {/* ── Human proof — one quote, in the serif voice ────────────────────── */}
+      <section className="bg-page">
+        <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-6 py-24 sm:py-28 lg:grid-cols-2 lg:gap-16">
           <Reveal>
-            <img
-              src={`${CUT}/proud-of-you.avif`}
-              alt="A watercolour illustration — a still life in morning light: a steaming mug, a handwritten “proud of you” card, and a sprig in a small vase."
-              width={1600}
-              height={873}
-              className="block w-full"
-              loading="lazy"
-            />
+            <WatercolorHover>
+              <img
+                src={`${CUT}/resting-meadow.avif`}
+                alt="A watercolour illustration — a person lies back in tall grass, hands behind their head, eyes closed, at ease."
+                width={1600}
+                height={1120}
+                className="block w-full"
+                loading="lazy"
+              />
+            </WatercolorHover>
           </Reveal>
           <figure className="lg:pr-6">
-            <blockquote className="text-balance font-display text-[28px] font-semibold leading-[1.25] tracking-tight text-text sm:text-[36px]">
-              I filtered to Brooklyn, teletherapy, and my insurance — and booked a first session for the same week. No
-              phone tag, no waitlist.
+            <blockquote className="text-balance font-display text-[26px] font-semibold leading-[1.3] tracking-tight text-text sm:text-[32px]">
+              “I filtered to Brooklyn, teletherapy, and my insurance — and booked a first session for the same week. No
+              phone tag, no waitlist.”
             </blockquote>
-            <figcaption className="mt-6 text-[15px] text-text-muted">Dana R. — client in Brooklyn</figcaption>
+            <figcaption className="mt-6 font-display text-[15px] font-medium text-text-body">
+              Dana R. <span className="text-text-body/60">— client in Brooklyn</span>
+            </figcaption>
           </figure>
         </div>
       </section>
 
-      {/* ── Gallery — the ordinary moments of a life (patient) ───────────── */}
-      <section>
-        <div className="mx-auto w-full max-w-6xl px-6 py-24 sm:py-32">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-balance font-display text-4xl font-bold tracking-tight text-text sm:text-5xl">
-              Care meets you in the ordinary moments.
-            </h2>
-            <p className="mx-auto mt-5 max-w-xl text-pretty text-lg leading-relaxed text-text-body">
-              Not the milestones — the small, unremarkable hours where you slowly start to feel like yourself again.
+      {/* ── Provider band — the single provider moment, on the mint wash ───── */}
+      <section id="for-providers" className="scroll-mt-20 bg-primary-wash">
+        <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-6 py-24 sm:py-28 lg:grid-cols-2 lg:gap-16">
+          <div className="max-w-md">
+            <p className="font-display text-[13px] font-semibold uppercase tracking-[0.14em] text-primary-deep">
+              For providers
             </p>
-          </div>
-          <div className="mt-16 gap-x-8 sm:columns-2 lg:columns-3">
-            {GALLERY.map((g) => (
-              <div key={g.slug} className="mb-8 break-inside-avoid">
-                <img
-                  src={`${CUT}/${g.slug}.avif`}
-                  alt={`A watercolour illustration — ${g.alt}.`}
-                  className="block w-full"
-                  loading="lazy"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── D · Provider band (provider — software language allowed here) ──── */}
-      <section id="for-providers" className="scroll-mt-20">
-        <div className="mx-auto w-full max-w-6xl px-6 py-24 sm:py-32">
-          {/* bridge — a full-width breath that signals the audience switch */}
-          <div className="mx-auto max-w-2xl text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">For providers</p>
-            <h2 className="mt-4 text-balance font-display text-4xl font-bold tracking-tight text-text sm:text-5xl">
-              Be present with your patient — not your paperwork.
-            </h2>
-            <p className="mx-auto mt-5 max-w-xl text-pretty text-lg leading-relaxed text-text-body">
-              Scheduling, telehealth, notes, and billing run quietly in the background — so the practice behind the care
-              can go home on time.
-            </p>
-          </div>
-          <Reveal className="mx-auto mt-12 max-w-3xl">
-            <img
-              src={`${CUT}/resting-meadow.avif`}
-              alt="A watercolour illustration — a person lies back in tall grass, hands behind their head, eyes closed, at ease."
-              width={1024}
-              height={559}
-              className="block w-full"
-              loading="lazy"
-            />
-          </Reveal>
-
-          {/* calendar */}
-          <div className="mt-24 grid items-center gap-10 sm:mt-28 lg:grid-cols-2 lg:gap-16">
-            <div>
-              <h3 className="text-balance font-display text-2xl font-bold tracking-tight text-text sm:text-3xl">
-                A calendar that fills itself.
-              </h3>
-              <p className="mt-4 max-w-md text-pretty text-[17px] leading-relaxed text-text-body">
-                Clients self-book the slots you open. Reminders go out on their own. Telehealth visits launch in a click,
-                with an AI scribe drafting the note before the hour ends.
-              </p>
-              <ul className="mt-6 space-y-2.5 text-[15px] text-text-body">
-                {["Shared, colour-coded practice calendar", "Same-week online booking", "Secure video + AI progress notes"].map(
-                  (f) => (
-                    <li key={f} className="flex items-start gap-2.5">
-                      <Icon name="check" size={18} className="mt-0.5 shrink-0 text-primary" />
-                      {f}
-                    </li>
-                  ),
-                )}
-              </ul>
-            </div>
-            <Reveal className="overflow-hidden rounded-card border border-border bg-surface">
-              <img
-                src={`${SHOT}/product-booking.avif`}
-                alt="Liminal's online booking — a client choosing a visit type before self-booking a slot."
-                width={2880}
-                height={1440}
-                className="block w-full"
-                loading="lazy"
-              />
-            </Reveal>
-          </div>
-
-          {/* billing */}
-          <div className="mt-16 grid items-center gap-10 sm:mt-24 lg:grid-cols-2 lg:gap-16">
-            <Reveal className="overflow-hidden rounded-card border border-border bg-surface lg:order-1">
-              <img
-                src={`${SHOT}/product-billing.avif`}
-                alt="Liminal's billing dashboard — outstanding balance, paid this month, and an invoice list."
-                width={2880}
-                height={1800}
-                className="block w-full"
-                loading="lazy"
-              />
-            </Reveal>
-            <div className="lg:order-2">
-              <h3 className="text-balance font-display text-2xl font-bold tracking-tight text-text sm:text-3xl">
-                Billing without the busywork.
-              </h3>
-              <p className="mt-4 max-w-md text-pretty text-[17px] leading-relaxed text-text-body">
-                Superbills, insurance claims, and card payments live in one place. You see what&apos;s outstanding, paid,
-                and overdue at a glance — statements go out without the paperwork pile.
-              </p>
-              <ul className="mt-6 space-y-2.5 text-[15px] text-text-body">
-                {["Claims and superbills in a click", "Card payments and payer management", "Outstanding vs. paid at a glance"].map(
-                  (f) => (
-                    <li key={f} className="flex items-start gap-2.5">
-                      <Icon name="check" size={18} className="mt-0.5 shrink-0 text-primary" />
-                      {f}
-                    </li>
-                  ),
-                )}
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── E · Provider CTA — grow your practice (provider) ──────────────── */}
-      <section>
-        <div className="mx-auto grid w-full max-w-6xl items-center gap-8 px-6 py-24 sm:py-32 lg:grid-cols-2 lg:gap-16">
-          <div className="max-w-md lg:pl-2">
-            <h2 className="text-balance font-display text-3xl font-bold tracking-tight text-text sm:text-[40px]">
+            <h2 className="mt-3 text-balance font-display text-3xl font-bold tracking-tight text-text sm:text-[40px] sm:leading-[1.08]">
               Run your New York practice on Liminal.
             </h2>
             <p className="mt-5 text-pretty text-lg leading-relaxed text-text-body">
-              Scheduling, telehealth, AI notes, and billing on one platform — and a directory that sends you clients.
+              Scheduling, telehealth, AI progress notes, and billing on one platform — plus a directory that sends you
+              clients. The practice behind the care can go home on time.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/join"
-                className="inline-flex h-12 items-center justify-center rounded-field bg-primary px-6 text-[15px] font-semibold text-white transition-colors hover:bg-primary-hover"
-              >
-                Join as a provider
-              </Link>
-              <Link
-                href="/#for-providers"
-                className="inline-flex h-12 items-center justify-center rounded-field border border-field-border px-6 text-[15px] font-semibold text-text transition-colors hover:bg-surface"
-              >
-                See the tools
+            <div className="mt-8">
+              <Link href="/join" className="group inline-flex items-center text-[15px] font-semibold text-primary-deep">
+                <span className="link-wipe">Join as a provider</span>
               </Link>
             </div>
           </div>
           <Reveal className="lg:order-last">
-            <img
-              src={`${CUT}/tending-seedling.avif`}
-              alt="A watercolour illustration — a person kneels in a garden bed, planting a seedling, a watering can beside them."
-              width={1600}
-              height={873}
-              className="block w-full"
-              loading="lazy"
-            />
+            <WatercolorHover>
+              <img
+                src={`${CUT}/tending-seedling.avif`}
+                alt="A watercolour illustration — a person kneels in a garden bed, planting a seedling, a watering can beside them."
+                width={1600}
+                height={1120}
+                className="block w-full"
+                loading="lazy"
+              />
+            </WatercolorHover>
           </Reveal>
         </div>
       </section>
 
-      {/* ── F · Insurance — functional breath (patient) ──────────────────── */}
-      <section>
-        <div className="mx-auto grid w-full max-w-6xl gap-10 px-6 py-20 md:grid-cols-[1fr_1.15fr] md:gap-16">
-          <div className="max-w-sm">
-            <h2 className="text-balance font-display text-3xl font-bold tracking-tight text-text sm:text-4xl">
-              Covered by New York&apos;s major plans.
+      {/* ── Closing patient CTA — two-col: painting, then the invitation ───── */}
+      <section className="bg-page">
+        <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-6 py-24 sm:py-28 lg:grid-cols-2 lg:gap-16">
+          <Reveal>
+            <WatercolorHover>
+              <img
+                src={`${CUT}/walking-together.avif`}
+                alt="A watercolour illustration — two people walk a small dog along a stream toward soft morning light."
+                width={1600}
+                height={1000}
+                className="block w-full"
+                loading="lazy"
+              />
+            </WatercolorHover>
+          </Reveal>
+          <div className="max-w-md lg:pr-6">
+            <h2 className="text-balance font-display text-4xl font-bold tracking-tight text-text sm:text-5xl">
+              Find care without the guesswork.
             </h2>
-            <p className="mt-4 text-pretty text-text-body">
-              Filter to who&apos;s in-network before you book — you&apos;ll see your cost up front, with no surprise bill
-              after the session.
+            <p className="mt-5 text-pretty text-lg leading-relaxed text-text-body">
+              Search by specialty, borough, and coverage — and take the first step this week.
             </p>
+            <div className="mt-8">
+              <Link
+                href="/find-care"
+                className="group inline-flex h-12 items-center justify-center gap-1.5 rounded-field bg-primary px-7 text-[15px] font-semibold text-white transition-colors hover:bg-primary-hover"
+              >
+                Find your provider
+              </Link>
+            </div>
           </div>
-          <ul className="grid grid-cols-2 gap-x-10 self-center">
-            {PLANS.map((p) => (
-              <li key={p} className="border-b border-paper-edge py-3 font-display text-[15px] font-medium text-text">
-                {p}
-              </li>
-            ))}
-          </ul>
         </div>
       </section>
 
-      {/* ── G · Closing patient CTA — begin (patient) ────────────────────── */}
-      <section>
-        <div className="mx-auto max-w-3xl px-6 pt-24 text-center sm:pt-32">
-          <h2 className="text-balance font-display text-4xl font-bold tracking-tight text-text sm:text-5xl">
-            Find care without the guesswork.
-          </h2>
-          <p className="mx-auto mt-4 max-w-lg text-pretty text-lg text-text-body">
-            Search by specialty, borough, and coverage — and take the first step this week.
-          </p>
-        </div>
-        <Reveal className="mx-auto mt-8 max-w-5xl px-6">
-          <img
-            src={`${ILLO}/morning-path.avif`}
-            alt="A watercolour illustration — a small figure walks a path through a wildflower meadow toward soft morning light."
-            width={2560}
-            height={1396}
-            className="mkt-paint-strong block w-full"
-            loading="lazy"
-          />
-        </Reveal>
-        <div className="px-6 pb-24 text-center sm:pb-28">
-          <Link
-            href="/find-care"
-            className="group inline-flex h-12 items-center justify-center gap-1.5 rounded-field bg-primary px-7 text-[15px] font-semibold text-white transition-colors hover:bg-primary-hover"
-          >
-            Find your provider
-            <span aria-hidden className="inline-block transition-transform group-hover:translate-x-0.5">
-              →
-            </span>
-          </Link>
-        </div>
-      </section>
+      {/* ── Closing dusk CTA — the last invitation; the dark teal continues
+          into the footer as one block (footer bg is overridden to match). ──── */}
+      <section
+        className="relative overflow-hidden"
+        style={{
+          background:
+            "radial-gradient(120% 90% at 80% 12%, color-mix(in oklab, var(--color-accent) 20%, transparent) 0%, transparent 45%), linear-gradient(to bottom, var(--color-dusk) 0%, var(--color-dusk-deep) 100%)",
+        }}
+      >
+        <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-6 py-24 sm:py-28 lg:grid-cols-2 lg:gap-16">
+          <div className="max-w-md">
+            <h2
+              className="text-balance font-display font-extrabold tracking-[-0.03em] text-[#f4efe6]"
+              style={{ fontSize: "clamp(2.25rem, 4.8vw, 3.75rem)", lineHeight: 1.06 }}
+            >
+              Whenever you&apos;re ready, we&apos;re here.
+            </h2>
+            <p className="mt-5 max-w-md text-pretty text-lg leading-relaxed text-[#c9d6d4]">
+              You don&apos;t have to have it all figured out. Search when you&apos;re ready — the first step is smaller than
+              it looks.
+            </p>
+            <div className="mt-8">
+              <Link
+                href="/find-care"
+                className="group inline-flex h-12 items-center justify-center gap-1.5 rounded-field bg-accent px-7 text-[15px] font-semibold text-[#12292f] transition-colors hover:bg-[#e7a244]"
+              >
+                Find your provider
+              </Link>
+            </div>
+          </div>
 
-      {/* ── H · Quiet band — the last breath before the footer ───────────── */}
-      <section>
-        <div className="mx-auto max-w-2xl px-6 pt-20 text-center sm:pt-24">
-          <p className="text-balance font-display text-2xl font-medium tracking-tight text-text sm:text-[28px]">
-            You&apos;re not alone in this.
-          </p>
+          <div className="relative lg:order-last lg:-mr-6">
+            <WatercolorHover>
+              <img
+                src={`${CUT}/dusk-lake.avif`}
+                alt="A watercolour illustration — a person sits by a lake beneath a bare tree at dusk, a warm band of light along the horizon."
+                width={1600}
+                height={900}
+                className="mkt-soft block w-full"
+                loading="lazy"
+              />
+            </WatercolorHover>
+          </div>
         </div>
-        <Reveal className="mx-auto mt-10 max-w-6xl px-6">
-          <img
-            src={`${ILLO}/dusk-7.avif`}
-            alt="A watercolour illustration — a small figure sits low in a wide meadow beneath a deep dusk sky, a warm band of light along the horizon."
-            width={2176}
-            height={1207}
-            className="mkt-paint block w-full"
-            loading="lazy"
-          />
-        </Reveal>
       </section>
 
       <MarketingFooter />

@@ -5,7 +5,8 @@
    (e.g. bg-primary, text-text-muted, border-border, rounded-field). */
 @theme {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif; /* marketing display face */
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif; /* marketing display + headings */
+  --font-serif: ui-serif, Georgia, "Times New Roman", serif; /* system serif (intake wizard); marketing headings use --font-display */
 
   /* Brand */
   --color-primary: #3f8290; /* teal-600 — buttons, active tab, focus ring */
@@ -22,8 +23,18 @@
   --color-sidebar-text: #93a0bd;
   --color-canvas: #f2f3f6;
   --color-surface: #ffffff;
-  --color-paper: #f7f6f1; /* warm watercolour-paper ground — the marketing page's sheet, matched so paintings dissolve into it */
+  --color-paper: #f7f6f1; /* legacy warm watercolour-paper ground (retained for any surface still baking onto cream) */
   --color-paper-edge: #ecebe3; /* hairline to seal a band without a colour block */
+
+  /* "First Light" marketing ground — the home redesign. A warm paper cream: the
+     watercolour washes (lakeside, one-thing) dissolve into it, and the beige
+     logo plate melts into the nav. Distinctiveness carries on the type + layout
+     + the dusk Threshold band rather than a cool body. */
+  --color-page: #F7F3E8; /* body/section ground — warm paper cream */
+  --color-page-edge: #eae3d1; /* hairline separator, warm to match the ground */
+  --color-dawn: #fbf1df; /* barely-there amber lift, for the hero first-light glow only */
+  --color-dusk: #163038; /* deep dusk-teal — the "Threshold" band (alternate hero direction) */
+  --color-dusk-deep: #0f2329; /* darkest dusk, bleeds toward the navy footer */
   --color-border: #e6e7eb;
   --color-field-border: #d1d5db;
   --color-field-border-focus: #3f8290;
@@ -140,13 +151,84 @@ body {
   mask-composite: intersect;
 }
 
-/* Paper section — the section background IS the illustration's cream paper
-   (#f3efe4) plus a barely-there fractal-noise grain, so a paper-bearing
-   illustration blends in with no visible edge: it reads as painted directly
-   onto the page. Scoped to the two sections that ask for it, not the whole page. */
+/* Legacy cream section — repointed to the new First Light ground so any
+   remaining usage inherits the redesign rather than the retired cream. */
 .paper-section {
-  background-color: #f3efe4;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23paper)' opacity='0.05'/%3E%3C/svg%3E");
+  background-color: var(--color-page);
+}
+
+/* Gentle universal feather for the cutout watercolour scenes (dusk-lake,
+   hillside-dusk, etc.). Their deckled edge is soft already; this eats only the
+   last few percent so no residual painted rectangle survives on any ground —
+   lighter than .mkt-paint, tuned for the transparent cutouts rather than the
+   cream-baked sheets. */
+.mkt-soft {
+  -webkit-mask-image:
+    linear-gradient(to right, transparent 0, #000 3%, #000 97%, transparent 100%),
+    linear-gradient(to bottom, transparent 0, #000 4%, #000 96%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent 0, #000 3%, #000 97%, transparent 100%),
+    linear-gradient(to bottom, transparent 0, #000 4%, #000 96%, transparent 100%);
+  mask-composite: intersect;
+}
+
+/* Watercolour pigment bloom on hover — a cursor-tracked radial that softens in
+   via blur and darkens through multiply, so it reads as pigment sinking into the
+   paper rather than a UI overlay. Wrap an illustration in .watercolor-hover
+   (see components/marketing/watercolor-hover). */
+.watercolor-hover {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.watercolor-hover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background: radial-gradient(
+    circle at var(--mx, 50%) var(--my, 50%),
+    rgba(30, 58, 74, 0.35),
+    rgba(94, 140, 130, 0.25) 35%,
+    rgba(200, 140, 80, 0.15) 55%,
+    transparent 70%
+  );
+  filter: blur(20px);
+  mix-blend-mode: multiply;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 0.7s ease, transform 1.3s ease;
+}
+.watercolor-hover:hover::after {
+  opacity: 1;
+  transform: scale(1.2);
+}
+@media (prefers-reduced-motion: reduce) {
+  .watercolor-hover::after {
+    transition: opacity 0.2s ease;
+    transform: none;
+  }
+  .watercolor-hover:hover::after {
+    transform: none;
+  }
+}
+
+/* First-light hero glow — a single soft teal bloom on the RIGHT of the hero.
+   The edge-feather mask fades the layer near all four sides so the wash never
+   reveals the sharp edge of its rectangular container. */
+.mkt-firstlight {
+  background:
+    radial-gradient(58% 72% at 84% 74%, color-mix(in oklab, var(--color-primary-wash) 62%, transparent) 0%, transparent 62%);
+  -webkit-mask-image:
+    linear-gradient(to right, transparent 0, #000 12%, #000 88%, transparent 100%),
+    linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent 0, #000 12%, #000 88%, transparent 100%),
+    linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
+  mask-composite: intersect;
 }
 
 /* Stronger feather for the two paintings that have no background-removed cutout

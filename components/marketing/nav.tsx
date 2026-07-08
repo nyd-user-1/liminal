@@ -543,9 +543,9 @@ function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
       <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-6">
         <Link href="/" aria-label="Liminal home" onClick={onClose}>
           <img
-            src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-beige.avif"
+            src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-dark.png"
             alt="Liminal"
-            className="h-7 w-auto"
+            className="h-11 w-auto"
           />
         </Link>
         <IconButton icon="x" label="Close menu" onClick={onClose} />
@@ -576,7 +576,10 @@ function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
 
 // ── nav ──────────────────────────────────────────────────────────────────────
 
-export function Nav() {
+// `ground` is the non-scrolled bar background (Tailwind classes). Defaults to the
+// mint hero wash used on /join and /find-care; the redesigned home passes the
+// First Light page ground so the bar melts into the hero.
+export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
   const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState<MenuKey | null>(null);
@@ -673,22 +676,22 @@ export function Nav() {
     <>
       <header
         className={`sticky top-0 z-40 transition-all duration-200 ${
-          scrolled ? "bg-surface shadow-card" : "bg-primary-wash"
+          scrolled ? "bg-surface shadow-card" : ground
         }`}
       >
         <div
           ref={barRef}
           className={`relative mx-auto flex max-w-6xl items-center gap-6 px-6 transition-all duration-200 ${
-            scrolled ? "h-14" : "h-[72px]"
+            scrolled ? "h-[70px]" : "h-[72px]"
           }`}
           onMouseLeave={scheduleClose}
         >
           <Link href="/" aria-label="Liminal home" className="shrink-0">
             <img
-            src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-beige.avif"
-            alt="Liminal"
-            className="h-7 w-auto"
-          />
+              src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-dark.png"
+              alt="Liminal"
+              className="block h-11 w-auto"
+            />
           </Link>
 
           {/* nav links — centered in the bar */}

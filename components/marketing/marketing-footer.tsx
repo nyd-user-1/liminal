@@ -47,7 +47,7 @@ function CrisisLine({ icon, label, detail }: { icon: IconName; label: string; de
 
 export function MarketingFooter() {
   return (
-    <footer className="bg-sidebar-bg text-sidebar-text">
+    <footer className="bg-dusk-deep text-sidebar-text">
       <div className="mx-auto max-w-6xl px-6 py-14">
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-[1.4fr_repeat(3,1fr)]">
           <div>
