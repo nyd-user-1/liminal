@@ -380,7 +380,7 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
 
       {/* filter rail + results */}
       <div className="flex border-t border-border">
-        <div className="w-1/3 bg-page p-2">
+        <div className="w-1/3 bg-canvas p-2">
           <p className="px-2.5 pb-1 pt-1 text-[13px] font-semibold text-text">Filter by</p>
           {SEARCH_FILTERS.map((f) => {
             const on = filters.includes(f.value);
@@ -393,20 +393,8 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
                   on ? "bg-surface shadow-sm" : "hover:bg-surface hover:shadow-sm"
                 }`}
               >
-                <Icon
-                  name={f.icon}
-                  size={20}
-                  className={`shrink-0 transition-colors ${
-                    on
-                      ? "fill-primary-wash text-text"
-                      : "text-text-muted group-hover:fill-primary-wash group-hover:text-text"
-                  }`}
-                />
-                <span
-                  className={`text-[15px] font-medium ${on ? "text-text" : "text-text-body group-hover:text-text"}`}
-                >
-                  {f.label}
-                </span>
+                <Icon name={f.icon} size={20} className="shrink-0 fill-primary-wash text-text" />
+                <span className="text-[15px] font-medium text-text">{f.label}</span>
               </button>
             );
           })}
@@ -692,7 +680,7 @@ export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
             <img
               src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-dark.png"
               alt="Liminal"
-              className="block h-11 w-auto transition duration-[400ms] ease-out group-hover:-translate-y-0.5 group-hover:brightness-105 group-hover:saturate-[1.25]"
+              className="block h-11 w-auto transition duration-[400ms] ease-out group-hover:-translate-y-0.5 group-hover:brightness-110 group-hover:saturate-[1.25]"
             />
           </Link>
 
