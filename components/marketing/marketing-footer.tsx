@@ -9,7 +9,7 @@ const COLUMNS: Array<{ heading: string; links: Array<{ label: string; href: stri
   {
     heading: "Find care",
     links: [
-      { label: "Therapists", href: "https://care.headway.co/therapists" },
+      { label: "Therapists", href: "/therapists" },
       { label: "Psychiatrists", href: "/find-care?type=psychiatrist" },
       { label: "Virtual therapy", href: "/find-care?type=virtual" },
       { label: "Book with Liminal", href: "/book/liminal" },

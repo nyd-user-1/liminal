@@ -107,7 +107,7 @@ const FIND_CATEGORIES: FindCategory[] = [
   },
   {
     key: "specialty",
-    label: "By specialty",
+    label: "Specialty",
     icon: "grid",
     sections: [
       {
@@ -123,7 +123,7 @@ const FIND_CATEGORIES: FindCategory[] = [
   },
   {
     key: "virtual",
-    label: "Virtual therapy",
+    label: "Virtual",
     icon: "video",
     sections: [
       {
@@ -138,7 +138,7 @@ const FIND_CATEGORIES: FindCategory[] = [
   },
   {
     key: "resources",
-    label: "Therapy resources",
+    label: "Therapy",
     icon: "file-text",
     sections: [
       {
@@ -199,11 +199,12 @@ function FindLink({ href, label }: { href: string; label: string }) {
 }
 
 function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => void }) {
-  // Content on the right follows the clicked category (`cat`); the rail
-  // highlight slides to whatever's hovered (falling back to the active one).
+  // Both the rail highlight and the right-hand content follow whatever's hovered
+  // (falling back to `cat` when nothing is hovered). Each rail item also links
+  // out to its page.
   const [hovered, setHovered] = useState<string | null>(null);
-  const active = FIND_CATEGORIES.find((c) => c.key === cat) ?? FIND_CATEGORIES[0];
   const highlight = hovered ?? cat;
+  const active = FIND_CATEGORIES.find((c) => c.key === highlight) ?? FIND_CATEGORIES[0];
   return (
     <div className="flex">
       {/* left third — category rail (grey comes from the panel gradient) */}
@@ -211,12 +212,12 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
         {FIND_CATEGORIES.map((c) => {
           const on = c.key === highlight;
           return (
-            <button
+            <Link
               key={c.key}
-              type="button"
+              href={c.key === "therapists" ? "/therapists" : c.viewAll.href}
               onMouseEnter={() => setHovered(c.key)}
               onClick={() => setCat(c.key)}
-              className={`flex w-full items-center gap-3 rounded-field px-3 py-2.5 text-left transition-colors ${
+              className={`group flex w-full items-center gap-3 rounded-field px-3 py-2.5 text-left transition-colors ${
                 on ? "bg-surface shadow-sm" : ""
               }`}
             >
@@ -225,8 +226,14 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
                 size={20}
                 className={`shrink-0 transition-colors ${on ? "fill-primary-wash text-text" : "text-text-muted"}`}
               />
-              <span className={`text-[15px] font-medium ${on ? "text-text" : "text-text-body"}`}>{c.label}</span>
-            </button>
+              <span className={`flex-1 text-[15px] font-medium ${on ? "text-text" : "text-text-body"}`}>{c.label}</span>
+              <span
+                aria-hidden
+                className={`shrink-0 text-sm transition-transform group-hover:translate-x-0.5 ${on ? "text-primary" : "text-text-muted"}`}
+              >
+                ↗
+              </span>
+            </Link>
           );
         })}
       </div>
