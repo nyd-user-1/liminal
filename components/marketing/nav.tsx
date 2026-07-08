@@ -10,7 +10,6 @@ import { Icon, type IconName } from "@/components/ui/icons";
 import { IconButton } from "@/components/ui/icon-button";
 import { SearchInput } from "@/components/ui/search-input";
 import { Tag } from "@/components/ui/tag";
-import { TextLink } from "@/components/ui/text-link";
 import type { PublicResult } from "@/app/api/directory/public-search/route";
 
 // Public marketing nav (Headway pattern, Liminal brand). One shared dropdown
@@ -250,9 +249,9 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
                   <FindLink key={l.href + l.label} href={l.href} label={l.label} />
                 ))}
                 {isLast && (
-                  <TextLink href={active.viewAll.href} variant="underline" className="px-3 py-2">
-                    {active.viewAll.label}
-                  </TextLink>
+                  <Link href={active.viewAll.href} className="group px-3 py-2 text-[15px] font-medium text-primary">
+                    <span className="link-wipe">Browse 116,185 providers</span>
+                  </Link>
                 )}
               </div>
             </div>
@@ -266,13 +265,10 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
 // Profession filters (left rail). `value` is the exact profession string the
 // directory search matches; `label` is the short chip/label shown in the UI.
 const SEARCH_FILTERS: Array<{ label: string; value: string; icon: IconName }> = [
-  { label: "Social workers", value: "Clinical Social Worker", icon: "users" },
-  { label: "Counselors", value: "Mental Health Counselor", icon: "message" },
-  { label: "Psychologists", value: "Psychologist", icon: "book-heart" },
-  { label: "Psychiatrists", value: "Psychiatrist", icon: "clipboard" },
-  { label: "Behavior analysts", value: "Behavior Analyst", icon: "grid" },
-  { label: "Psychiatric NPs", value: "Psychiatric Nurse Practitioner", icon: "sparkle" },
-  { label: "Family therapists", value: "Marriage & Family Therapist", icon: "person-circle" },
+  { label: "Psychiatric NP", value: "Psychiatric Nurse Practitioner", icon: "sparkle" },
+  { label: "Psychiatrist", value: "Psychiatrist", icon: "clipboard" },
+  { label: "Psychologist", value: "Psychologist", icon: "book-heart" },
+  { label: "Therapist", value: "Marriage & Family Therapist", icon: "person-circle" },
 ];
 
 // Mocked "Recent results" shown before a query is entered.
@@ -417,10 +413,18 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
               </button>
             );
           })}
+          <button
+            type="button"
+            onClick={go}
+            className="flex w-full items-center gap-3 rounded-field px-3 py-2.5 text-left text-primary transition-colors hover:bg-surface hover:shadow-sm"
+          >
+            <Icon name="grid" size={20} className="shrink-0 text-primary" />
+            <span className="text-[15px] font-medium">View all</span>
+          </button>
         </div>
 
         <div className="w-2/3 p-3">
-          <p className="px-1 pb-1 text-[13px] font-semibold text-text">{active ? "Results" : "Recent results"}</p>
+          <p className="px-1 pb-1 text-[13px] font-semibold text-primary">{active ? "Results" : "Recent searches"}</p>
           {!active && RECENT_RESULTS.map((r) => <ResultRow key={r.name} name={r.name} line={r.line} onClick={go} />)}
           {active && loading && <p className="px-1 py-3 text-sm text-text-muted">Searching…</p>}
           {active && !loading && shown.length === 0 && (
@@ -432,7 +436,7 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
               <ResultRow key={`${r.kind}-${r.id}`} name={r.name} line={resultLine(r)} onClick={go} />
             ))}
           <button type="button" onClick={go} className="group mt-1 flex px-1 py-2 text-[15px] font-medium text-primary">
-            <span className="link-wipe">View all results →</span>
+            <span className="link-wipe">Browse 116,185 providers</span>
           </button>
         </div>
       </div>
