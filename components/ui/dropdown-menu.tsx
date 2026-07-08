@@ -40,11 +40,23 @@ export function MenuItem({
         onClick();
         close();
       }}
-      className={`flex w-full items-center gap-2.5 rounded-field px-2.5 py-2 text-left text-[15px] font-medium transition-colors hover:bg-[#F3F4F6] ${
+      className={`group flex w-full items-center gap-2.5 rounded-field px-2.5 py-2 text-left text-[15px] font-medium transition-colors hover:bg-[#F3F4F6] ${
         danger ? "text-danger" : "text-text"
       }`}
     >
-      {icon && (iconSquare ? <IconSquare name={icon} /> : <Icon name={icon} className={danger ? "" : "text-text-body"} />)}
+      {icon &&
+        (iconSquare ? (
+          <IconSquare name={icon} />
+        ) : (
+          <Icon
+            name={icon}
+            className={
+              danger
+                ? "text-danger transition-colors group-hover:fill-danger-tint"
+                : "text-text-body transition-colors group-hover:fill-primary-wash group-hover:text-primary"
+            }
+          />
+        ))}
       <span className="min-w-0 flex-1">
         {label}
         {subtitle && <span className="block truncate text-sm font-normal text-text-muted">{subtitle}</span>}

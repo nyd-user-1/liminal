@@ -258,7 +258,7 @@ export function TemplatesIndex() {
     o: { canRename?: boolean; onDuplicate?: () => void; onRename?: () => void; onDelete?: () => void },
   ) => (
     <KebabMenu label={label}>
-      <MenuItem icon="heart" label="Favorite" onClick={comingSoon} />
+      <MenuItem icon="star" label="Favorite" onClick={comingSoon} />
       <MenuItem icon="copy" label="Duplicate" onClick={o.onDuplicate ?? comingSoon} />
       {o.canRename && <MenuItem icon="edit" label="Rename" onClick={o.onRename ?? comingSoon} />}
       <MenuItem icon="send" label="Share" onClick={comingSoon} />
@@ -266,21 +266,29 @@ export function TemplatesIndex() {
     </KebabMenu>
   );
 
-  type LibItem = { id: string; title: string; description: string; date: string; tags: ReactNode; onOpen: () => void; menu: ReactNode };
+  // Per-category tag hue — the category tag is the first tag on every card.
+  const CAT_HUE: Record<string, TagHue> = {
+    Assessments: "orange",
+    Forms: "yellow",
+    Guidelines: "cyan",
+    Notes: "pink",
+    "Plans & reports": "green",
+    Prompts: "violet",
+    "Worksheets & handouts": "teal",
+  };
 
-  const noteItem = (t: NoteTemplate): LibItem => {
+  // Each card: a category tag (first) + one secondary tag, bottom-left.
+  type LibItem = { id: string; title: string; description: string; date: string; category: string; tag: ReactNode; onOpen: () => void; menu: ReactNode };
+
+  const noteItem = (t: NoteTemplate, category: string): LibItem => {
     const kind = KIND_TAG[t.template];
     return {
       id: t.id,
       title: t.name,
       description: sectionPreview(t.bodyMd),
       date: formatDate(t.updatedAt),
-      tags: (
-        <>
-          <Tag hue={kind.hue}>{kind.label}</Tag>
-          {t.isBuiltin && <Badge variant="neutral">Built-in</Badge>}
-        </>
-      ),
+      category,
+      tag: <Tag hue={kind.hue}>{kind.label}</Tag>,
       onOpen: () => {
         setUseClient(clients[0]?.id ?? "");
         setUseTarget(t);
@@ -293,14 +301,15 @@ export function TemplatesIndex() {
     };
   };
 
-  const formItem = (f: Form & { responseCount: number }): LibItem => ({
+  const formItem = (f: Form & { responseCount: number }, category: string): LibItem => ({
     id: f.id,
     title: f.title,
     description:
       f.description ??
       `${f.schema.length} question${f.schema.length === 1 ? "" : "s"} · ${f.responseCount} response${f.responseCount === 1 ? "" : "s"}`,
     date: formatDate(f.updatedAt),
-    tags: <Badge variant={f.status === "published" ? "success" : "warning"}>{f.status === "published" ? "Published" : "Draft"}</Badge>,
+    category,
+    tag: <Badge variant={f.status === "published" ? "success" : "warning"}>{f.status === "published" ? "Published" : "Draft"}</Badge>,
     onOpen: () => router.push(`/templates/forms/${f.id}`),
     menu: cardMenu(`Actions for ${f.title}`, {
       canRename: true,
@@ -310,62 +319,79 @@ export function TemplatesIndex() {
     }),
   });
 
-  const scaffoldItem = (name: string, meta: string, badge: string, date: string): LibItem => ({
-    id: name,
-    title: name,
+  const scaffoldItem = (id: string, title: string, meta: string, badge: string, date: string, category: string): LibItem => ({
+    id,
+    title,
     description: meta,
     date,
-    tags: <Badge variant="neutral">{badge}</Badge>,
+    category,
+    tag: <Badge variant="neutral">{badge}</Badge>,
     onOpen: comingSoon,
-    menu: cardMenu(`Actions for ${name}`, { canRename: true, onDuplicate: comingSoon, onRename: comingSoon, onDelete: comingSoon }),
+    menu: cardMenu(`Actions for ${title}`, { canRename: true, onDuplicate: comingSoon, onRename: comingSoon, onDelete: comingSoon }),
   });
 
   const dateFor = (i: number) => PLACEHOLDER_DATES[i % PLACEHOLDER_DATES.length];
-  const loremItems = (badge: string) => LOREM_CARDS.map((l, i) => scaffoldItem(l.name, l.meta, badge, dateFor(i)));
+  const loremItems = (category: string) =>
+    LOREM_CARDS.map((l, i) => scaffoldItem(l.name, l.name, l.meta, "Placeholder", dateFor(i), category));
   // Pad a real section up to a minimum of 12 cards with lorem placeholders.
-  const padTo12 = (items: LibItem[], badge: string): LibItem[] => {
+  const padTo12 = (items: LibItem[], category: string): LibItem[] => {
     const out = [...items];
     for (let i = 0; out.length < 12; i++) {
       const l = LOREM_CARDS[i % LOREM_CARDS.length];
-      out.push(scaffoldItem(`${l.name} · ${badge} ${i + 1}`, l.meta, "Placeholder", dateFor(i)));
+      const name = `${l.name} · ${category} ${i + 1}`;
+      out.push(scaffoldItem(name, name, l.meta, "Placeholder", dateFor(i), category));
     }
     return out;
   };
 
+  const sortAZ = (items: LibItem[]) => [...items].sort((a, b) => a.title.localeCompare(b.title));
   const newNote = () => setEditor({ id: null, name: "", template: "progress", bodyMd: "", isBuiltin: false });
-  const noteItems = (templates ?? []).map(noteItem);
-  const formItems = (forms ?? []).map(formItem);
+  const notes = templates ?? [];
+  const formList = forms ?? [];
 
-  // A–Z sorted sections. Each header: title + "+ New" grouped left, count (teal) right.
+  // A–Z sorted sections; cards within each section are also sorted A–Z.
   const SECTIONS: Array<{ key: string; title: string; onNew: () => void; items: LibItem[] }> = [
-    { key: "assessments", title: "Assessments", onNew: comingSoon, items: SCAFFOLD_ASSESSMENTS.map((a, i) => scaffoldItem(a.name, a.meta, "Auto-scored", dateFor(i))) },
-    { key: "forms", title: "Forms", onNew: createForm, items: padTo12(formItems, "Form") },
-    { key: "guidelines", title: "Guidelines", onNew: comingSoon, items: loremItems("Guideline") },
-    { key: "notes", title: "Notes", onNew: newNote, items: padTo12(noteItems, "Note") },
-    { key: "plans", title: "Plans & reports", onNew: comingSoon, items: loremItems("Plan") },
-    { key: "prompts", title: "Prompts", onNew: newNote, items: padTo12([...noteItems, ...SCAFFOLD_PROMPTS.map((p, i) => scaffoldItem(p.name, p.meta, "Community", dateFor(i)))], "Prompt") },
-    { key: "worksheets", title: "Worksheets & handouts", onNew: comingSoon, items: loremItems("Worksheet") },
+    { key: "assessments", title: "Assessments", onNew: comingSoon, items: sortAZ(SCAFFOLD_ASSESSMENTS.map((a, i) => scaffoldItem(a.name, a.name, a.meta, "Auto-scored", dateFor(i), "Assessments"))) },
+    { key: "forms", title: "Forms", onNew: createForm, items: sortAZ(padTo12(formList.map((f) => formItem(f, "Forms")), "Forms")) },
+    { key: "guidelines", title: "Guidelines", onNew: comingSoon, items: sortAZ(loremItems("Guidelines")) },
+    { key: "notes", title: "Notes", onNew: newNote, items: sortAZ(padTo12(notes.map((t) => noteItem(t, "Notes")), "Notes")) },
+    { key: "plans", title: "Plans & reports", onNew: comingSoon, items: sortAZ(loremItems("Plans & reports")) },
+    { key: "prompts", title: "Prompts", onNew: newNote, items: sortAZ(padTo12([...notes.map((t) => noteItem(t, "Prompts")), ...SCAFFOLD_PROMPTS.map((p, i) => scaffoldItem(p.name, p.name, p.meta, "Community", dateFor(i), "Prompts"))], "Prompts")) },
+    { key: "worksheets", title: "Worksheets & handouts", onNew: comingSoon, items: sortAZ(loremItems("Worksheets & handouts")) },
   ].sort((a, b) => a.title.localeCompare(b.title));
 
   const q = search.trim().toLowerCase();
   const matches = (it: LibItem) => (q ? it.title.toLowerCase().includes(q) : true);
   const card = (it: LibItem) => (
-    <LibraryCard key={it.id} title={it.title} description={it.description} date={it.date} tags={it.tags} menu={it.menu} onOpen={it.onOpen} />
+    <LibraryCard
+      key={it.id}
+      title={it.title}
+      description={it.description}
+      date={it.date}
+      tags={
+        <>
+          <Tag hue={CAT_HUE[it.category] ?? "grey"}>{it.category}</Tag>
+          {it.tag}
+        </>
+      }
+      menu={it.menu}
+      onOpen={it.onOpen}
+    />
   );
 
-  // `full` (a section tab) shows every card; the All view shows two rows + "View more".
+  // On the All view each section shows a heading + two rows + "View more". On a
+  // section tab the heading is dropped (redundant with the tab) and all cards show.
   const renderSection = (s: (typeof SECTIONS)[number], full: boolean) => {
     const items = s.items.filter(matches);
     const shown = full ? items : items.slice(0, 6);
     return (
       <section key={s.key}>
-        <div className="mb-3 flex items-center gap-3">
-          <h2 className="text-[19px] font-bold text-text">{s.title}</h2>
-          <Button leftIcon="plus" size="sm" onClick={s.onNew}>
-            New
-          </Button>
-          <span className="ml-auto text-[15px] font-semibold text-primary">{items.length}</span>
-        </div>
+        {!full && (
+          <div className="mb-3 flex items-center gap-3">
+            <h2 className="text-[19px] font-bold text-text">{s.title}</h2>
+            <span className="ml-auto text-[15px] font-semibold text-text-body">{items.length}</span>
+          </div>
+        )}
         {cardGrid(shown.map(card))}
         {!full && items.length > 6 && (
           <div className="mt-4">
@@ -379,6 +405,7 @@ export function TemplatesIndex() {
   };
 
   const activeSection = SECTIONS.find((s) => s.key === tab);
+  const newAction = activeSection ? activeSection.onNew : newNote;
 
   return (
     <>
@@ -389,8 +416,11 @@ export function TemplatesIndex() {
         items={[{ key: "all", label: "All" }, ...SECTIONS.map((s) => ({ key: s.key, label: s.title }))]}
       />
 
-      {/* Persistent search + filters across every tab view */}
+      {/* Persistent "New" + search + filters across every tab view */}
       <Toolbar className="mb-6 flex-wrap">
+        <Button leftIcon="plus" size="sm" onClick={newAction}>
+          New
+        </Button>
         <SearchInput
           value={search}
           onChange={(e) => setSearch(e.target.value)}
