@@ -244,7 +244,7 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
           const isLast = i === active.sections.length - 1;
           return (
             <div key={i} className="mb-4 last:mb-0">
-              {s.header && <p className="px-3 pb-1 text-[13px] font-semibold text-text">{s.header}</p>}
+              {s.header && <p className="px-3 pb-1 text-[13px] font-semibold text-primary">{s.header}</p>}
               <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
                 {s.links.map((l) => (
                   <FindLink key={l.href + l.label} href={l.href} label={l.label} />
