@@ -191,7 +191,7 @@ function FindLink({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="group flex items-center gap-1.5 rounded-field px-3 py-2 text-[15px] font-medium text-text-body transition-colors hover:bg-canvas hover:text-text"
+      className="group flex items-center justify-between rounded-field px-3 py-2 text-[15px] font-medium text-text-body transition-colors hover:bg-canvas hover:text-text"
     >
       {label}
       <span aria-hidden className="text-primary opacity-0 transition-opacity group-hover:opacity-100">
@@ -218,7 +218,10 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
             <button
               key={c.key}
               type="button"
-              onMouseEnter={() => setHovered(c.key)}
+              onMouseEnter={() => {
+                setHovered(c.key);
+                setCat(c.key);
+              }}
               onClick={() => setCat(c.key)}
               className={`flex w-full items-center gap-3 rounded-field px-3 py-2.5 text-left transition-colors ${
                 on ? "bg-surface shadow-sm" : ""

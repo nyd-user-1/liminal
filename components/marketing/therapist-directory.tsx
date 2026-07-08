@@ -6,12 +6,6 @@ import { Tabs } from "@/components/ui/tabs";
 // /therapists directory index — four browse-by tabs. Lists are static for now
 // (not yet wired to per-location / per-specialty pages).
 
-// 5 NYC boroughs + the 5 surrounding downstate NY-metro counties.
-const NYC_METRO = [
-  "Brooklyn", "Bronx", "Queens", "Staten Island", "Manhattan",
-  "Westchester", "Rockland", "Putnam", "Nassau", "Suffolk",
-];
-
 // All 62 New York counties.
 const COUNTIES = [
   "Albany", "Allegany", "Bronx", "Broome", "Cattaraugus", "Cayuga", "Chautauqua", "Chemung",
@@ -52,15 +46,14 @@ const SPECIALTIES = [
 ];
 
 const TAB_DATA: Record<string, string[]> = {
-  "nyc-metro": NYC_METRO,
   counties: COUNTIES,
   cities: CITIES,
   specialties: SPECIALTIES,
 };
 
 export function TherapistDirectory() {
-  const [tab, setTab] = useState("nyc-metro");
-  const items = TAB_DATA[tab];
+  const [tab, setTab] = useState("counties");
+  const items = [...TAB_DATA[tab]].sort((a, b) => a.localeCompare(b));
 
   return (
     <div>
@@ -68,15 +61,15 @@ export function TherapistDirectory() {
         active={tab}
         onChange={setTab}
         items={[
-          { key: "nyc-metro", label: "NYC-Metro" },
           { key: "counties", label: "Counties" },
-          { key: "cities", label: "Top Cities" },
+          { key: "cities", label: "Cities" },
           { key: "specialties", label: "Specialties" },
         ]}
       />
-      <ul className="mt-8 grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-3 lg:grid-cols-4">
+      {/* column-major fill: each column reads a→z top-to-bottom before the next */}
+      <ul className="mt-8 columns-2 gap-8 sm:columns-3 lg:columns-4">
         {items.map((x) => (
-          <li key={x}>
+          <li key={x} className="mb-4 break-inside-avoid">
             <span className="text-[15px] text-text-body transition-colors hover:text-primary">{x}</span>
           </li>
         ))}

@@ -69,8 +69,14 @@ export function MarketingFooter() {
               <ul className="mt-3 flex flex-col gap-2 text-sm">
                 {col.links.map((l) => (
                   <li key={l.href + l.label}>
-                    <Link href={l.href} className="text-sidebar-text/80 transition-colors hover:text-white">
+                    <Link
+                      href={l.href}
+                      className="group flex items-center justify-between text-sidebar-text/80 transition-colors hover:text-white"
+                    >
                       {l.label}
+                      <span aria-hidden className="text-white opacity-0 transition-opacity group-hover:opacity-100">
+                        ↗
+                      </span>
                     </Link>
                   </li>
                 ))}

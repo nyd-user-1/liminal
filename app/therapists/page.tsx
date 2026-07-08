@@ -13,8 +13,15 @@ export default function TherapistsPage() {
       <Nav ground="bg-page" />
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-12 sm:py-16">
-        <div className="overflow-hidden rounded-card bg-primary-wash px-8 py-20 sm:px-14">
-          <h1 className="font-display text-4xl font-extrabold tracking-tight text-primary-deep sm:text-6xl">
+        <div className="relative overflow-hidden rounded-card">
+          <img
+            src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/landscape20.avif"
+            alt=""
+            className="h-64 w-full object-cover sm:h-80"
+            loading="eager"
+          />
+          <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent" />
+          <h1 className="absolute bottom-6 left-8 font-display text-4xl font-extrabold tracking-tight text-white sm:left-12 sm:text-6xl">
             Find a therapist
           </h1>
         </div>
