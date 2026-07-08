@@ -393,8 +393,20 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
                   on ? "bg-surface shadow-sm" : "hover:bg-surface hover:shadow-sm"
                 }`}
               >
-                <Icon name={f.icon} size={20} className="shrink-0 fill-primary-wash text-text" />
-                <span className="text-[15px] font-medium text-text">{f.label}</span>
+                <Icon
+                  name={f.icon}
+                  size={20}
+                  className={`shrink-0 transition-colors ${
+                    on
+                      ? "fill-primary-wash text-text"
+                      : "text-text-muted group-hover:fill-primary-wash group-hover:text-text"
+                  }`}
+                />
+                <span
+                  className={`text-[15px] font-medium ${on ? "text-text" : "text-text-body group-hover:text-text"}`}
+                >
+                  {f.label}
+                </span>
               </button>
             );
           })}
@@ -674,13 +686,21 @@ export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
           }`}
           onMouseLeave={scheduleClose}
         >
-          <Link href="/" aria-label="Liminal home" className="group shrink-0">
-            {/* Sunrise motion: on hover the whole watercolor mark nudges up and its
-                pigment warms — a literal dawn on the dawn/threshold brand. */}
+          <Link href="/" aria-label="Liminal home" className="group relative shrink-0">
+            {/* Sunrise wipe: a brightened copy of the mark is stacked on top and
+                revealed bottom→top via an animating clip-path, so the "dawn"
+                (brighter/warmer pigment) rises up through the watercolor on hover.
+                No motion — the base mark stays put. */}
             <img
               src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-dark.png"
               alt="Liminal"
-              className="block h-11 w-auto transition duration-[400ms] ease-out group-hover:-translate-y-0.5 group-hover:brightness-110 group-hover:saturate-[1.25]"
+              className="block h-11 w-auto"
+            />
+            <img
+              src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-dark.png"
+              alt=""
+              aria-hidden
+              className="pointer-events-none absolute left-0 top-0 block h-11 w-auto brightness-110 saturate-[1.25] [clip-path:inset(100%_0_0_0)] transition-[clip-path] duration-[600ms] ease-out group-hover:[clip-path:inset(0_0_0_0)]"
             />
           </Link>
 
