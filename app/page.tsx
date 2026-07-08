@@ -12,6 +12,7 @@ import { ReviewsCarousel, type Review } from "@/components/marketing/reviews-car
 import { ScrollCue } from "@/components/marketing/scroll-cue";
 import { TherapistSearchCta } from "@/components/marketing/therapist-search-cta";
 import { WatercolorHover } from "@/components/marketing/watercolor-hover";
+import { WatercolorPlayground } from "@/components/marketing/watercolor-playground";
 
 export const dynamic = "force-dynamic";
 
@@ -661,6 +662,9 @@ export default function Home() {
       </section>
 
       <MarketingFooter />
+
+      {/* Live watercolor tuner — visitors can explore the illustration bloom. */}
+      <WatercolorPlayground />
     </div>
   );
 }
