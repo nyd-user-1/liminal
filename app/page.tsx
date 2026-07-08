@@ -4,6 +4,8 @@ import { HeroSearch } from "@/components/marketing/hero-search";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Nav } from "@/components/marketing/nav";
 import { Reveal } from "@/components/marketing/reveal";
+import { ReviewsCarousel, type Review } from "@/components/marketing/reviews-carousel";
+import { ScrollCue } from "@/components/marketing/scroll-cue";
 import { WatercolorHover } from "@/components/marketing/watercolor-hover";
 
 export const dynamic = "force-dynamic";
@@ -23,10 +25,11 @@ export const dynamic = "force-dynamic";
 // A dusk-teal CTA closes the page and continues into the footer as one dark
 // block (MarketingFooter's bg is overridden to the same dusk).
 
-// Background-removed watercolour scenes (transparent, soft deckled edges). They
-// dissolve into the light ground with no box; the dark-sky dusk scenes sit on
-// the Threshold band instead.
-const CUT = "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/cut";
+// Blob illustration hosts. CUT = background-removed watercolour scenes
+// (transparent, soft deckled edges) that dissolve into the warm paper with no
+// box; ILLO = framed scenes (e.g. the dusk landscapes) that carry their own edge.
+const ILLO = "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations";
+const CUT = `${ILLO}/cut`;
 
 // The find-care entry points. Each row is a real directory query; the whole
 // section is the page's conversion spine, so it leads (not the mood).
@@ -74,25 +77,56 @@ const STATS: Array<{ n: string; label: string; body: string }> = [
     label: "licensed providers",
     body: "No matter what you’re facing, Liminal helps you find a therapist or psychiatrist who’s ready to help.",
   },
-  {
-    n: "100+",
-    label: "insurance plans",
-    body: "Covered by New York’s top insurance plans, expanding access to affordable mental health care.",
-  },
 ];
 
-const QUOTES: Array<{ name: string; text: string }> = [
+// Review rail — first three are the original social quotes; the rest are
+// placeholder testimonials in the same voice (swap for real ones). Each gets a
+// short title in the teal display style.
+const REVIEWS: Review[] = [
   {
     name: "Rachel Bouton",
-    text: "If you’re looking for a good therapist, Liminal is awesome. You plug in your insurance info and it gives you a list of therapists who take your insurance. They also process all the payment and billing without you or your provider having to worry about it.",
+    title: "It just works",
+    text: "You plug in your insurance and Liminal lists therapists who take it — then handles all the payment and billing for you.",
   },
   {
     name: "Caiti Donovan",
-    text: "I found my therapist through Liminal and love her! I found trying to search via my insurance’s website to be v clunky and overall not great. Liminal accepts insurance but they take out the hassle of search & payment so you focus on finding a good fit!",
+    title: "Found the right fit",
+    text: "I found my therapist through Liminal and love her. It takes the hassle out of insurance and payment so you focus on fit.",
   },
   {
     name: "tikh",
-    text: "Woah, def recommend this for folks looking for therapists: Liminal",
+    title: "Highly recommend",
+    text: "Woah, def recommend this for anyone looking for a therapist — Liminal made the whole thing painless.",
+  },
+  {
+    name: "Marcus Lee",
+    title: "Booked the same week",
+    text: "I picked a real open time and booked online — my first session was that same week. No waitlist, no phone tag.",
+  },
+  {
+    name: "Priya N.",
+    title: "No surprise bills",
+    text: "I filtered by my plan and saw the cost before booking. In-network meant exactly that — no surprise bill later.",
+  },
+  {
+    name: "Deja W.",
+    title: "Care that gets me",
+    text: "Finding someone who understood my background mattered. I filtered for it and clicked on the first try.",
+  },
+  {
+    name: "Sam Rivera",
+    title: "Ten minutes, done",
+    text: "The whole thing took about ten minutes. I fully expected to give up halfway through like every other time.",
+  },
+  {
+    name: "Hannah K.",
+    title: "No more phone tag",
+    text: "My old routine was calling ten offices to ask if they took my plan. Liminal just showed me the ones that did.",
+  },
+  {
+    name: "Andre T.",
+    title: "I told my friends",
+    text: "I’ve already sent it to three friends. It’s the first time getting care felt easy instead of exhausting.",
   },
 ];
 
@@ -155,11 +189,14 @@ export default function Home() {
             />
           </div>
         </div>
+
+        {/* scroll cue — fades/rises in after load, out on first scroll (client) */}
+        <ScrollCue />
       </section>
 
       {/* ── Reach — stats + social proof (Headway "found support" layout) ──── */}
-      <section className="bg-page">
-        <div className="mx-auto w-full max-w-6xl px-6 py-24 sm:py-28">
+      <section id="reach" className="relative scroll-mt-24 overflow-hidden bg-page">
+        <div className="mx-auto w-full max-w-6xl px-6 pt-10 sm:pt-12">
           <div className="text-center">
             <p className="font-display text-[13px] font-semibold uppercase tracking-[0.16em] text-primary-deep">
               Through Liminal
@@ -169,56 +206,36 @@ export default function Home() {
             </h2>
           </div>
 
-          <div className="mt-16 grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
-            <Reveal className="order-last lg:order-first">
-              <WatercolorHover className="mx-auto block max-w-md">
+          <div className="mt-8 grid items-center gap-6 lg:grid-cols-[1.4fr_1fr] lg:gap-10">
+            <Reveal className="order-last lg:order-first lg:-ml-10 xl:-ml-20">
+              <WatercolorHover className="mx-auto block w-full max-w-xl lg:max-w-none">
                 <img
-                  src={`${CUT}/grounding.avif`}
-                  alt="A watercolour illustration — a person kneels with their hands resting on the earth in soft morning light."
-                  width={1200}
-                  height={1200}
-                  className="block w-full"
+                  src={`${ILLO}/maya10.avif`}
+                  alt="A watercolour illustration — two people walk a small dog along a path through a meadow at dawn, soft light on the horizon."
+                  width={2030}
+                  height={1211}
+                  className="mkt-soft block w-full"
                   loading="lazy"
                 />
               </WatercolorHover>
             </Reveal>
 
-            <dl className="flex flex-col">
+            <dl className="flex flex-col justify-center">
               {STATS.map((s, i) => (
-                <div
-                  key={s.n}
-                  className={`grid grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-x-8 py-8 ${
-                    i > 0 ? "border-t border-page-edge" : ""
-                  }`}
-                >
-                  <div>
-                    <dt className="font-display text-[42px] font-extrabold leading-none tracking-tight text-text">
-                      {s.n}
-                    </dt>
-                    <p className="mt-2 font-display text-[15px] font-semibold text-text-body">{s.label}</p>
-                  </div>
-                  <dd className="self-center text-pretty leading-relaxed text-text-body">{s.body}</dd>
+                <div key={s.n} className={`py-5 ${i > 0 ? "border-t border-page-edge" : ""}`}>
+                  <dt className="font-display text-[44px] font-extrabold leading-none tracking-tight text-text sm:text-[50px]">
+                    {s.n}
+                  </dt>
+                  <p className="mt-2 font-display text-base font-semibold text-text">{s.label}</p>
+                  <dd className="mt-2 max-w-md text-pretty leading-relaxed text-text-body">{s.body}</dd>
                 </div>
               ))}
             </dl>
           </div>
+        </div>
 
-          <div className="mt-16 grid gap-6 sm:grid-cols-3">
-            {QUOTES.map((q) => (
-              <figure key={q.name} className="flex flex-col rounded-card border border-page-edge bg-surface p-6">
-                <blockquote className="flex-1 text-pretty leading-relaxed text-text-body">“{q.text}”</blockquote>
-                <figcaption className="mt-5 flex items-center gap-3">
-                  <span
-                    aria-hidden
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-wash font-display text-sm font-semibold text-primary-deep"
-                  >
-                    {q.name[0]}
-                  </span>
-                  <span className="text-[15px] font-medium text-text">{q.name}</span>
-                </figcaption>
-              </figure>
-            ))}
-          </div>
+        <div className="pt-10 pb-12 sm:pb-14">
+          <ReviewsCarousel reviews={REVIEWS} />
         </div>
       </section>
 

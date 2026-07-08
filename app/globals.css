@@ -83,6 +83,15 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Hide the scrollbar on horizontal card rows (still scrollable via wheel/trackpad). */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Link "wipe" underline — no line at rest (just text); on hover the underline
    fills in left→right like a progress bar. Uses currentColor so it matches the
    link text. Put on a <span> around the text, with `group` on the link so the
@@ -173,17 +182,18 @@ body {
 
 /* Watercolour pigment bloom on hover — a cursor-tracked radial that softens in
    via blur and darkens through multiply, so it reads as pigment sinking into the
-   paper rather than a UI overlay. Wrap an illustration in .watercolor-hover
+   paper. Two offset radial masks feather the overlay's own edges into an organic
+   blob (never a hard-clipped rectangle). Wrap an illustration in .watercolor-hover
    (see components/marketing/watercolor-hover). */
 .watercolor-hover {
   position: relative;
-  overflow: hidden;
-  isolation: isolate;
+  /* the pointer becomes a little paintbrush over the illustrations */
+  cursor: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'26'%20height%3D'30'%20viewBox%3D'0%200%2026%2030'%3E%3Crect%20x%3D'9'%20y%3D'1'%20width%3D'7'%20height%3D'15'%20rx%3D'3.5'%20fill%3D'%23c58a2e'%2F%3E%3Crect%20x%3D'8'%20y%3D'15'%20width%3D'9'%20height%3D'4'%20rx%3D'1'%20fill%3D'%239aa3b8'%2F%3E%3Cpath%20d%3D'M8.5%2018.5H16.5L12.5%2029Z'%20fill%3D'%232c5c66'%2F%3E%3C%2Fsvg%3E") 12 29, auto;
 }
 .watercolor-hover::after {
   content: "";
   position: absolute;
-  inset: 0;
+  inset: -8%;
   pointer-events: none;
   z-index: 2;
   background: radial-gradient(
@@ -193,7 +203,15 @@ body {
     rgba(200, 140, 80, 0.15) 55%,
     transparent 70%
   );
-  filter: blur(20px);
+  -webkit-mask-image:
+    radial-gradient(ellipse 64% 66% at 46% 42%, #000 40%, transparent 90%),
+    radial-gradient(ellipse 58% 62% at 58% 62%, #000 36%, transparent 88%);
+  mask-image:
+    radial-gradient(ellipse 64% 66% at 46% 42%, #000 40%, transparent 90%),
+    radial-gradient(ellipse 58% 62% at 58% 62%, #000 36%, transparent 88%);
+  -webkit-mask-composite: source-over;
+  mask-composite: add;
+  filter: blur(24px);
   mix-blend-mode: multiply;
   opacity: 0;
   transform: scale(0.6);
@@ -241,4 +259,32 @@ body {
     linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%),
     linear-gradient(to bottom, transparent 0, #000 10%, #000 90%, transparent 100%);
   mask-composite: intersect;
+}
+
+/* Hero scroll cue — a slow vertical bob on the circular down-arrow that invites
+   the scroll from the hero into the reach section. Static for reduced-motion. */
+@keyframes mkt-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(6px);
+  }
+}
+.mkt-bob {
+  animation: mkt-bob 2.4s ease-in-out infinite;
+}
+
+/* Smooth in-page anchor scrolling (e.g. the hero scroll cue → #reach), only for
+   users who haven't asked to reduce motion. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mkt-bob {
+    animation: none;
+  }
 }
