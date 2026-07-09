@@ -9,13 +9,9 @@ import { NearbyAreas } from "@/components/providers/nearby-areas";
 import { BookingRail } from "@/components/providers/booking-rail";
 import { RatingAvailability } from "@/components/providers/rating-availability";
 import { RevealFx } from "@/components/providers/reveal-fx";
+import { directoryRatingFor, directoryYearsFor } from "@/lib/directory-rating";
 import { getProgram, nearbyCities } from "@/lib/repos/directory";
-import {
-  directoryRatingFor,
-  directoryYearsFor,
-  listBookableProfiles,
-  matchBookablePractitioner,
-} from "@/lib/repos/provider-profiles";
+import { listBookableProfiles, matchBookablePractitioner } from "@/lib/repos/provider-profiles";
 
 // Public program/facility page — the "View program page" target for the
 // ~116k OMH/NPPES program rows in find-care results. Mirrors the directory

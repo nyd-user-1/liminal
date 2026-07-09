@@ -294,32 +294,31 @@ function BookPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
         })}
       </div>
 
-      {/* right two-thirds — pick a day, then a real open time */}
-      <div className="w-2/3 p-4">
-        <DatePicker value={day} onChange={setDay} className="mb-4 max-w-64" />
-        {day && (
-          <>
-            <p className="px-1 pb-1 text-[13px] font-semibold text-primary">Availability</p>
-            {loading && <p className="px-1 py-2 text-sm text-text-muted">Finding open times…</p>}
-            {!loading && slots && slots.length === 0 && (
-              <p className="px-1 py-2 text-sm text-text-muted">No open times that day — try another.</p>
-            )}
-            {!loading && slots && slots.length > 0 && (
-              <div className="grid grid-cols-3 gap-2">
-                {slots.map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => provider && onNavigate(`/book/${provider}?service=${serviceId}&date=${day}&time=${t}`)}
-                    className="rounded-field border border-border px-2 py-1.5 text-[13px] font-medium text-text-body transition-colors hover:border-primary hover:bg-primary-wash hover:text-primary"
-                  >
-                    {fmtSlot(t)}
-                  </button>
-                ))}
-              </div>
-            )}
-          </>
-        )}
+      {/* right two-thirds — calendar left, that day's open times beside it */}
+      <div className="flex w-2/3 gap-6 p-4">
+        <DatePicker value={day} onChange={setDay} className="w-64 shrink-0" />
+        <div className="min-w-0 flex-1 border-l border-border pl-6">
+          <p className="pb-1.5 text-[13px] font-semibold text-primary">Availability</p>
+          {!day && <p className="py-2 text-sm text-text-muted">Pick a day to see open times.</p>}
+          {day && loading && <p className="py-2 text-sm text-text-muted">Finding open times…</p>}
+          {day && !loading && slots && slots.length === 0 && (
+            <p className="py-2 text-sm text-text-muted">No open times that day — try another.</p>
+          )}
+          {day && !loading && slots && slots.length > 0 && (
+            <div className="grid grid-cols-2 gap-2">
+              {slots.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => provider && onNavigate(`/book/${provider}?service=${serviceId}&date=${day}&time=${t}`)}
+                  className="rounded-field border border-border px-2 py-1.5 text-[13px] font-medium text-text-body transition-colors hover:border-primary hover:bg-primary-wash hover:text-primary"
+                >
+                  {fmtSlot(t)}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

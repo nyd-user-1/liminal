@@ -4,7 +4,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { ProviderIllustration } from "@/components/providers/provider-illustration";
 import { RatingAvailability } from "@/components/providers/rating-availability";
 import type { PublicResult } from "@/app/api/directory/public-search/route";
-import { directoryRatingFor, directoryYearsFor } from "@/lib/repos/provider-profiles";
+import { directoryRatingFor, directoryYearsFor } from "@/lib/directory-rating";
 import type { AvatarHue } from "@/lib/types";
 
 // Homepage "meet a few providers" card — the old testimonial rail's

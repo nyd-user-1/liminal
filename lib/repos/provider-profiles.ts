@@ -167,26 +167,9 @@ export function spotlightRatingFor(slug: string | null | undefined): { rating: n
   return slug ? (SPOTLIGHT_RATING[slug] ?? null) : null;
 }
 
-// The ~116k directory rows (NPPES/OMH bulk) can't be authored one-by-one, so
-// their placeholder rating/tenure is seeded from the row id — same convention
-// as SPOTLIGHT_RATING above (display-only until review data exists), just
-// deterministic instead of hand-picked so a result keeps its numbers across
-// searches and page loads.
-function idHash(id: string): number {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return h;
-}
-
-export function directoryRatingFor(id: string): { rating: number; reviewCount: number } {
-  const h = idHash(id);
-  return { rating: 4.6 + (h % 5) / 10, reviewCount: 12 + (h % 149) };
-}
-
-/** Seeded years-in-service for programs/facilities ("Serving X for N years"). */
-export function directoryYearsFor(id: string): number {
-  return 4 + (idHash(`y:${id}`) % 22);
-}
+// Seeded directory-row rating/tenure lives in lib/directory-rating.ts (same
+// placeholder convention as SPOTLIGHT_RATING, but client-safe — the find-care
+// result card imports it, and repos pull in lib/db).
 
 /**
  * Directory providers (NPI-sourced, unclaimed) aren't bookable yet — this
