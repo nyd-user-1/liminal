@@ -21,8 +21,8 @@ import type { PublicResult } from "@/app/api/directory/public-search/route";
 //
 // Icon hover treatment: navy line + hero-pastel (primary-wash) fill on hover.
 
-type MenuKey = "search" | "find" | "providers" | "company";
-const WIDTHS: Record<MenuKey, number> = { search: 636, find: 636, providers: 320, company: 300 };
+type MenuKey = "book" | "search" | "find" | "providers" | "company";
+const WIDTHS: Record<MenuKey, number> = { book: 700, search: 636, find: 636, providers: 320, company: 300 };
 
 // ── content data ─────────────────────────────────────────────────────────────
 
@@ -92,15 +92,6 @@ function locationSections(type: string, icon: IconName) {
 }
 
 const FIND_CATEGORIES: FindCategory[] = [
-  {
-    // Book now renders a bespoke booking panel (calendar + time slots), not the
-    // location/specialty grid — see BookingContent.
-    key: "book",
-    label: "Book now",
-    icon: "calendar-check",
-    sections: [],
-    viewAll: { label: "", href: "/book/liminal" },
-  },
   {
     key: "therapists",
     label: "Therapists",
@@ -227,42 +218,110 @@ function FindLink({ href, label }: { href: string; label: string }) {
   );
 }
 
-// Book now content — a bespoke booking panel: a month calendar (By Day) over a
-// grid of time slots (By Time). Visual only for now; not wired to scheduling.
-const BOOKING_TIMES = [
-  "9:00 AM", "9:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
-  "1:00 PM", "1:30 PM", "2:00 PM", "2:30 PM", "3:00 PM", "3:30 PM",
-];
+// Book panel — the dedicated booking dropdown. Left rail = the practice's real
+// practitioners (GET /api/book/providers, includes Dr. Shelley Padgett); right =
+// pick a day then a real open slot (GET /api/book, availability minus booked).
+// Choosing a slot hands off to /book/[practitioner] with the day + time so the
+// standalone page finishes the details + confirm.
+type BookProvider = { id: string; name: string };
 
-function BookingContent() {
+const fmtSlot = (t: string) => {
+  const [h, m] = t.split(":").map(Number);
+  return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
+};
+
+function BookPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
+  const [providers, setProviders] = useState<BookProvider[]>([]);
+  const [serviceId, setServiceId] = useState("");
+  const [provider, setProvider] = useState<string | null>(null);
   const [day, setDay] = useState<string>();
-  const [time, setTime] = useState<string | null>(null);
+  const [slots, setSlots] = useState<string[] | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/book/providers")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!alive) return;
+        setProviders(d.practitioners ?? []);
+        setServiceId(d.services?.[0]?.id ?? "");
+        setProvider(d.practitioners?.[0]?.id ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!provider || !day || !serviceId) {
+      setSlots(null);
+      return;
+    }
+    let alive = true;
+    setLoading(true);
+    fetch(`/api/book?practitionerId=${encodeURIComponent(provider)}&serviceId=${encodeURIComponent(serviceId)}&date=${day}`)
+      .then((r) => r.json())
+      .then((d) => alive && setSlots(d.slots ?? []))
+      .catch(() => alive && setSlots([]))
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [provider, day, serviceId]);
+
   return (
-    <div>
-      <p className="px-1 pb-1 text-[13px] font-semibold text-primary">By Day</p>
-      <DatePicker value={day} onChange={(d) => { setDay(d); setTime(null); }} className="mb-4" />
-      {/* Time slots appear only once a day is chosen. */}
-      {day && (
-        <>
-          <p className="px-1 pb-1 text-[13px] font-semibold text-primary">By Time</p>
-          <div className="grid grid-cols-3 gap-2">
-            {BOOKING_TIMES.map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setTime(t)}
-                className={`rounded-field border px-2 py-1.5 text-[13px] font-medium transition-colors ${
-                  time === t
-                    ? "border-primary bg-primary-wash text-primary"
-                    : "border-border text-text-body hover:bg-canvas"
-                }`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+    <div className="flex">
+      {/* left third — providers rail */}
+      <div className="w-1/3 p-2">
+        <p className="px-3 pb-1 pt-1 text-[13px] font-semibold text-primary">Providers</p>
+        {providers.length === 0 && <p className="px-3 py-2 text-sm text-text-muted">Loading…</p>}
+        {providers.map((p) => {
+          const on = p.id === provider;
+          return (
+            <button
+              key={p.id}
+              type="button"
+              onMouseEnter={() => setProvider(p.id)}
+              onClick={() => setProvider(p.id)}
+              className={`flex w-full items-center gap-3 rounded-field px-3 py-2.5 text-left transition-colors ${on ? "bg-surface shadow-sm" : ""}`}
+            >
+              <Icon name="person-circle" size={20} className={`shrink-0 ${on ? "fill-primary-wash text-text" : "text-text-muted"}`} />
+              <span className={`text-[15px] font-medium ${on ? "text-text" : "text-text-body"}`}>{p.name}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* right two-thirds — pick a day, then a real open time */}
+      <div className="w-2/3 p-4">
+        <p className="px-1 pb-1 text-[13px] font-semibold text-primary">By Day</p>
+        <DatePicker value={day} onChange={setDay} className="mb-4" />
+        {day && (
+          <>
+            <p className="px-1 pb-1 text-[13px] font-semibold text-primary">By Time</p>
+            {loading && <p className="px-1 py-2 text-sm text-text-muted">Finding open times…</p>}
+            {!loading && slots && slots.length === 0 && (
+              <p className="px-1 py-2 text-sm text-text-muted">No open times that day — try another.</p>
+            )}
+            {!loading && slots && slots.length > 0 && (
+              <div className="grid grid-cols-3 gap-2">
+                {slots.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => provider && onNavigate(`/book/${provider}?service=${serviceId}&date=${day}&time=${t}`)}
+                    className="rounded-field border border-border px-2 py-1.5 text-[13px] font-medium text-text-body transition-colors hover:border-primary hover:bg-primary-wash hover:text-primary"
+                  >
+                    {fmtSlot(t)}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -305,12 +364,9 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
         })}
       </div>
 
-      {/* right two-thirds — content. Book now gets the bespoke booking panel. */}
+      {/* right two-thirds — content; View all is the last grid cell */}
       <div className="w-2/3 p-4">
-        {active.key === "book" ? (
-          <BookingContent />
-        ) : (
-          active.sections.map((s, i) => {
+        {active.sections.map((s, i) => {
           const isLast = i === active.sections.length - 1;
           return (
             <div key={i} className="mb-4 last:mb-0">
@@ -330,7 +386,7 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
               </div>
             </div>
           );
-        }))}
+        })}
       </div>
     </div>
   );
@@ -756,6 +812,7 @@ export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
   }, [open, menu, cat]);
 
   const triggers: Array<{ key: MenuKey; label: string }> = [
+    { key: "book", label: "Book" },
     { key: "search", label: "Search" },
     { key: "find", label: "Care" },
     { key: "providers", label: "Providers" },
@@ -847,7 +904,7 @@ export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
                   // Find-care two-tone: left third canvas, rest surface — painted
                   // on the box so the rail always fills full height.
                   background:
-                    menu === "find"
+                    menu === "find" || menu === "book"
                       ? "linear-gradient(to right, var(--color-canvas) 0 33.3333%, var(--color-surface) 33.3333%)"
                       : "var(--color-surface)",
                 }}
@@ -862,6 +919,14 @@ export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
                     />
                   )}
                   {menu === "find" && <FindCarePanel cat={cat} setCat={setCat} />}
+                  {menu === "book" && (
+                    <BookPanel
+                      onNavigate={(href) => {
+                        setOpen(null);
+                        router.push(href);
+                      }}
+                    />
+                  )}
                   {menu === "providers" && <ProvidersPanel />}
                   {menu === "company" && <CompanyPanel />}
                 </div>

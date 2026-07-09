@@ -6,8 +6,15 @@ import { BookClient } from "./book-client";
 // booking link) or anything else ("liminal") → the demo practice, where the
 // client picks a practitioner.
 
-export default async function BookPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function BookPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ service?: string; date?: string; time?: string }>;
+}) {
   const { slug } = await params;
+  const sp = await searchParams;
   const [services, practitioners] = await Promise.all([listServices(), listPractitioners()]);
   const locked = practitioners.find((p) => p.id === slug) ?? null;
 
@@ -31,6 +38,7 @@ export default async function BookPage({ params }: { params: Promise<{ slug: str
           services={services.filter((s) => s.active)}
           practitioners={practitioners}
           lockedPractitionerId={locked?.id ?? null}
+          prefill={{ serviceId: sp.service, date: sp.date, time: sp.time }}
         />
       </main>
 

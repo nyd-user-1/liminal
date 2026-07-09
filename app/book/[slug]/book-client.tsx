@@ -37,16 +37,21 @@ export function BookClient({
   services,
   practitioners,
   lockedPractitionerId,
+  prefill,
 }: {
   services: Service[];
   practitioners: PractitionerLite[];
   lockedPractitionerId: string | null;
+  // Handoff from the nav Book dropdown: a day + time (+ service) already chosen,
+  // so jump straight to the details step.
+  prefill?: { serviceId?: string; date?: string; time?: string };
 }) {
-  const [step, setStep] = useState<Step>("service");
-  const [serviceId, setServiceId] = useState("");
+  const jumped = Boolean(prefill?.date && prefill?.time);
+  const [step, setStep] = useState<Step>(jumped ? "details" : "service");
+  const [serviceId, setServiceId] = useState(jumped ? prefill?.serviceId || services[0]?.id || "" : "");
   const [practitionerId, setPractitionerId] = useState(lockedPractitionerId ?? practitioners[0]?.id ?? "");
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
+  const [date, setDate] = useState(prefill?.date ?? "");
+  const [time, setTime] = useState(prefill?.time ?? "");
   const [slots, setSlots] = useState<string[] | null>(null);
   const [first, setFirst] = useState("");
   const [last, setLast] = useState("");
