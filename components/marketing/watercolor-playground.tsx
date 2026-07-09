@@ -2,11 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 
-// Dev-only floating panel to dial in the .watercolor-hover pigment bloom on the
-// live page. Every control writes a --wc-* custom property on :root, which the
-// parametrized rule in globals.css reads (with the original values as
-// fallbacks). "Copy CSS" emits a :root{} block to paste back into globals.css
-// once a look is locked in. Nothing here ships to production (gated at mount).
+// Floating panel that lets a visitor play with the .watercolor-hover pigment
+// bloom live. Every control writes a --wc-* custom property on :root, which the
+// parametrized rule in globals.css reads (originals as fallbacks). Presets are
+// one-click starting points; "Surprise me" rolls a random tasteful look.
 
 type Blend = "multiply" | "normal" | "screen" | "overlay" | "soft-light" | "darken";
 
@@ -33,7 +32,46 @@ const DEFAULTS: State = {
   blend: "multiply", mask: true,
 };
 
-const BLENDS: Blend[] = ["multiply", "normal", "screen", "overlay", "soft-light", "darken"];
+const BLENDS: Blend[] = ["multiply", "normal", "screen", "overlay"];
+
+// One-click starting points so a visitor sees the range without learning the
+// sliders. On-brand (no off-palette hues) — each is a full State.
+const PRESETS: Record<string, State> = {
+  Default: DEFAULTS,
+  Dusk: {
+    ...DEFAULTS,
+    coreColor: "#33415e", coreAlpha: 0.4,
+    midColor: "#7b6d92", midAlpha: 0.26,
+    edgeColor: "#e0a06a", edgeAlpha: 0.16,
+    blur: 28, endStop: 74, hoverScale: 1.25,
+  },
+  Dawn: {
+    ...DEFAULTS,
+    coreColor: "#f0ae55", coreAlpha: 0.32,
+    midColor: "#f2c98a", midAlpha: 0.22,
+    edgeColor: "#e8b57a", edgeAlpha: 0.1,
+    blur: 30, endStop: 76, hoverScale: 1.25,
+  },
+};
+
+// "Surprise me" — a random but tasteful look. Colours come from an on-brand set;
+// numeric params stay within ranges that read as watercolour, not noise.
+const HUES = ["#1e3a4a", "#3f8290", "#c88c50", "#33415e", "#6b8f7a", "#b5657a", "#7b6d92", "#d99a6c", "#2c4a52", "#8fb0b0"];
+const pick = <T,>(a: T[]): T => a[Math.floor(Math.random() * a.length)];
+const rnd = (min: number, max: number, step = 0.01) => Math.round((min + Math.random() * (max - min)) / step) * step;
+function randomize(): State {
+  return {
+    coreColor: pick(HUES), coreAlpha: rnd(0.3, 0.55),
+    midColor: pick(HUES), midAlpha: rnd(0.15, 0.32),
+    edgeColor: pick(HUES), edgeAlpha: rnd(0.08, 0.2),
+    midStop: rnd(25, 45, 1), edgeStop: rnd(45, 65, 1), endStop: rnd(60, 92, 1),
+    inset: rnd(4, 16, 1), blur: rnd(8, 44, 1),
+    restScale: rnd(0.4, 0.8, 0.05), hoverScale: rnd(1.05, 1.6, 0.05), opacity: 1,
+    fade: rnd(0.4, 1.2, 0.05), grow: rnd(0.8, 2, 0.05),
+    blend: pick<Blend>(["multiply", "multiply", "normal", "screen", "overlay"]),
+    mask: Math.random() > 0.3,
+  };
+}
 
 function rgba(hex: string, a: number) {
   const h = hex.replace("#", "");
@@ -65,7 +103,6 @@ function vars(s: State): Array<[string, string]> {
 export function WatercolorPlayground() {
   const [open, setOpen] = useState(false);
   const [s, setS] = useState<State>(DEFAULTS);
-  const [copied, setCopied] = useState(false);
 
   // draggable via the header. `pos` is the top-left corner in px; null = the
   // default bottom-right dock. Persists across open/close (component stays mounted).
@@ -106,16 +143,6 @@ export function WatercolorPlayground() {
 
   const set = <K extends keyof State>(k: K, v: State[K]) => setS((p) => ({ ...p, [k]: v }));
 
-  const copy = () => {
-    const body = vars(s)
-      .concat(s.mask ? [] : [["--wc-mask", "none"]])
-      .map(([k, v]) => `  ${k}: ${v};`)
-      .join("\n");
-    navigator.clipboard.writeText(`:root {\n${body}\n}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1400);
-  };
-
   if (!open) {
     return (
       <button
@@ -155,6 +182,26 @@ export function WatercolorPlayground() {
 
       {/* scrollable controls */}
       <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4">
+        <Section label="Presets">
+          <div className="flex flex-wrap gap-1.5">
+            {Object.entries(PRESETS).map(([name, preset]) => {
+              const active = JSON.stringify(s) === JSON.stringify(preset);
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => setS(preset)}
+                  className={`rounded-field border px-3 py-1 text-xs font-medium transition-colors ${
+                    active ? "border-primary bg-primary-wash text-primary" : "border-border text-text-body hover:bg-canvas"
+                  }`}
+                >
+                  {name}
+                </button>
+              );
+            })}
+          </div>
+        </Section>
+
         <Section label="Blend mode">
           <div className="flex flex-wrap gap-1.5">
             {BLENDS.map((b) => (
@@ -191,7 +238,7 @@ export function WatercolorPlayground() {
           <Slider label="Overflow" value={s.inset} min={0} max={25} step={1} unit="%" onChange={(v) => set("inset", v)} />
           <Slider label="Blur" value={s.blur} min={0} max={60} step={1} unit="px" onChange={(v) => set("blur", v)} />
           <label className="flex items-center justify-between py-1 text-[13px] text-text-body">
-            <span>Organic blob mask</span>
+            <span>Painterly edges</span>
             <input type="checkbox" checked={s.mask} onChange={(e) => set("mask", e.target.checked)} className="h-4 w-4 accent-primary" />
           </label>
         </Section>
@@ -209,10 +256,10 @@ export function WatercolorPlayground() {
       <div className="shrink-0 border-t border-border p-3">
         <button
           type="button"
-          onClick={copy}
+          onClick={() => setS(randomize())}
           className="w-full rounded-field bg-primary py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
         >
-          {copied ? "Copied :root block ✓" : "Copy CSS"}
+          ✨ Surprise me
         </button>
       </div>
     </div>
@@ -263,7 +310,7 @@ function ColorRow({
         type="color"
         value={color}
         onChange={(e) => onColor(e.target.value)}
-        className="h-7 w-7 shrink-0 cursor-pointer rounded-field border border-border bg-transparent"
+        className="h-7 w-7 shrink-0 cursor-pointer appearance-none rounded-full border border-border bg-transparent p-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-0 [&::-moz-color-swatch]:rounded-full [&::-moz-color-swatch]:border-0"
         aria-label={`${name} color`}
       />
       <span className="w-10 shrink-0 text-[13px] text-text-body">{name}</span>
