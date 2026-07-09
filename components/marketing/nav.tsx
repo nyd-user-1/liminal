@@ -296,7 +296,7 @@ function BookPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
 
       {/* right two-thirds — pick a day, then a real open time */}
       <div className="w-2/3 p-4">
-        <DatePicker value={day} onChange={setDay} className="mb-4" />
+        <DatePicker value={day} onChange={setDay} className="mb-4 max-w-64" />
         {day && (
           <>
             <p className="px-1 pb-1 text-[13px] font-semibold text-primary">Availability</p>
