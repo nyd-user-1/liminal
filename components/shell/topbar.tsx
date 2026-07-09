@@ -46,11 +46,14 @@ export function TopBar({
   title,
   user,
   actions,
+  leading,
 }: {
   /** Optional override; defaults to the route-derived title. */
   title?: string;
   user: SessionUser;
   actions?: ReactNode;
+  /** Slot before the title — the mobile hamburger. */
+  leading?: ReactNode;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -63,13 +66,28 @@ export function TopBar({
   };
 
   return (
-    <header className="flex h-16 shrink-0 items-center gap-3 border-b border-border bg-surface px-6">
-      <PageHeader title={title ?? derived.title} />
-      <div className="ml-auto flex items-center gap-2">
+    <header className="flex h-[calc(4rem_+_env(safe-area-inset-top))] shrink-0 items-center gap-2 border-b border-border bg-surface px-3 pt-[env(safe-area-inset-top)] md:gap-3 md:px-6">
+      {leading}
+      <div className="min-w-0 flex-1">
+        <PageHeader title={title ?? derived.title} />
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
         <div id={TOPBAR_ACTIONS_ID} className="flex items-center gap-2" />
         {actions}
-        <IconButton icon="bell" label="Notifications" />
-        <DropdownMenu label="Avatar menu" trigger={<UserChip name={user.name} hue={user.avatarHue} />}>
+        <IconButton icon="bell" label="Notifications" className="max-sm:hidden" />
+        <DropdownMenu
+          label="Avatar menu"
+          trigger={
+            <>
+              <span className="sm:hidden">
+                <UserChip name={user.name} hue={user.avatarHue} collapsed />
+              </span>
+              <span className="max-sm:hidden">
+                <UserChip name={user.name} hue={user.avatarHue} />
+              </span>
+            </>
+          }
+        >
           <div className="flex items-center gap-3 px-2.5 py-2">
             <Avatar name={user.name} hue={user.avatarHue} size="md" />
             <span className="min-w-0">

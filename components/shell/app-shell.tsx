@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { MobileNav } from "@/components/shell/mobile-nav";
 import { Sidebar, type SidebarNavItem } from "@/components/shell/sidebar";
 import { TopBar } from "@/components/shell/topbar";
 import type { SessionUser } from "@/lib/auth";
@@ -48,12 +49,20 @@ export function AppShell({
   const nav = (variant === "workspace" ? WORKSPACE_NAV : PORTAL_NAV).map((item) =>
     counts?.[item.href] !== undefined ? { ...item, count: counts[item.href] } : item,
   );
+  const homeHref = variant === "portal" ? "/portal" : "/calendar";
   return (
-    <div className="flex h-screen overflow-hidden bg-canvas">
-      <Sidebar items={nav} user={user} homeHref={variant === "portal" ? "/portal" : "/calendar"} />
+    <div className="flex h-dvh overflow-hidden bg-canvas">
+      <Sidebar className="max-md:hidden" items={nav} user={user} homeHref={homeHref} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar title={title} user={user} actions={topBarActions} />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <TopBar
+          title={title}
+          user={user}
+          actions={topBarActions}
+          leading={<MobileNav items={nav} user={user} homeHref={homeHref} />}
+        />
+        <main className="flex-1 overflow-y-auto p-4 pb-[calc(1rem_+_env(safe-area-inset-bottom))] md:p-6 md:pb-6">
+          {children}
+        </main>
       </div>
     </div>
   );

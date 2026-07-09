@@ -16,9 +16,9 @@ export function PageHeader({
   className?: string;
 }) {
   return (
-    <div className={`flex items-center gap-3 ${className}`}>
-      {icon && <Icon name={icon} size={26} className="text-text-body" />}
-      <h1 className="text-[28px] font-bold text-text">{title}</h1>
+    <div className={`flex min-w-0 items-center gap-3 ${className}`}>
+      {icon && <Icon name={icon} size={26} className="shrink-0 text-text-body" />}
+      <h1 className="truncate text-[22px] font-bold text-text md:text-[28px]">{title}</h1>
       {actions && <div className="ml-auto flex items-center gap-2.5">{actions}</div>}
     </div>
   );

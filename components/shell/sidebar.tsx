@@ -26,14 +26,23 @@ export function Sidebar({
   items,
   user,
   homeHref = "/",
+  sheet = false,
+  onNavigate,
+  className = "",
 }: {
   items: SidebarNavItem[];
   user: SessionUser;
   homeHref?: string;
+  /** Render as the mobile nav sheet: full-width, no collapse, safe-area padded. */
+  sheet?: boolean;
+  /** Called when a nav link is followed (the sheet closes itself). */
+  onNavigate?: () => void;
+  className?: string;
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsedState, setCollapsed] = useState(false);
+  const collapsed = sheet ? false : collapsedState;
 
   const signOut = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -55,22 +64,28 @@ export function Sidebar({
 
   return (
     <aside
-      className={`flex h-full shrink-0 flex-col bg-sidebar-bg transition-[width] duration-200 ${collapsed ? "w-[68px]" : "w-[248px]"}`}
+      className={`flex h-full shrink-0 flex-col bg-sidebar-bg ${
+        sheet
+          ? "w-full pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
+          : `transition-[width] duration-200 ${collapsed ? "w-[68px]" : "w-[248px]"}`
+      } ${className}`}
     >
       <div className={`flex items-center py-5 ${collapsed ? "justify-center px-2" : "justify-between pl-5 pr-3"}`}>
         {!collapsed && (
-          <Link href={homeHref} aria-label="Liminal home">
+          <Link href={homeHref} aria-label="Liminal home" onClick={onNavigate}>
             <Logo variant="onNavy" size="sm" />
           </Link>
         )}
-        <button
-          type="button"
-          onClick={() => setCollapsed((c) => !c)}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-field text-sidebar-text transition-colors hover:bg-sidebar-active hover:text-white"
-        >
-          <Icon name={collapsed ? "chevron-right" : "chevron-left"} size={18} />
-        </button>
+        {!sheet && (
+          <button
+            type="button"
+            onClick={() => setCollapsed((c) => !c)}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-field text-sidebar-text transition-colors hover:bg-sidebar-active hover:text-white"
+          >
+            <Icon name={collapsed ? "chevron-right" : "chevron-left"} size={18} />
+          </button>
+        )}
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-2.5">
@@ -80,6 +95,7 @@ export function Sidebar({
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               title={collapsed ? item.label : undefined}
               className={`flex items-center gap-3 rounded-field px-2.5 py-2.5 text-[15px] font-medium transition-colors ${
                 active ? "bg-sidebar-active text-white" : "text-sidebar-text hover:bg-sidebar-active/60 hover:text-white"

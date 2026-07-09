@@ -222,6 +222,7 @@ export function AppointmentsList({
             return (
               <ListRow
                 key={a.id}
+                stackTrailing={joinable || changeable}
                 leading={<IconSquare name={a.videoRoom ? "video" : "calendar-check"} />}
                 title={
                   <>
@@ -237,7 +238,7 @@ export function AppointmentsList({
                 }
                 trailing={
                   joinable || changeable ? (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-end gap-2">
                       {changeable && (
                         <>
                           <Button size="sm" variant="secondary" onClick={() => setRescheduling(a)}>

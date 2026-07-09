@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Bricolage_Grotesque } from "next/font/google";
 import { ToastProvider } from "@/components/ui/toast";
 import "./globals.css";
@@ -14,6 +14,14 @@ const bricolage = Bricolage_Grotesque({
 export const metadata: Metadata = {
   title: "Liminal",
   description: "Practice management and EHR for healthcare professionals.",
+};
+
+// viewport-fit=cover lets the app shell own the iPhone safe areas
+// (status bar / home indicator) instead of Safari padding them.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
