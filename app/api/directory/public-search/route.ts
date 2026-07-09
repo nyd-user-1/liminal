@@ -121,13 +121,18 @@ export async function GET(req: NextRequest) {
   const type = p.get("type") ?? undefined; // therapist | psychiatrist | prescriber
   const insurance = p.get("insurance") ?? undefined;
   const kind = p.get("kind") ?? "all"; // all | providers | programs
+  // The provider page's A–Z rail wants the raw directory ordering, so it opts
+  // out of the Liminal-practitioners-first merge that /find-care relies on.
+  const bookableFirst = p.get("bookableFirst") !== "0";
   const page = Math.max(1, Number(p.get("page")) || 1);
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Number(p.get("pageSize")) || DEFAULT_PAGE_SIZE));
 
   const results: PublicResult[] = [];
 
-  // Liminal's own practitioners — page 1 only, never repeated on later pages.
-  if (kind !== "programs" && page === 1) {
+  // Liminal's own practitioners are matched on every page so `total` stays
+  // honest, but only *rendered* on page 1 — never repeated on later pages.
+  let bookableTotal = 0;
+  if (kind !== "programs" && bookableFirst) {
     const bookable = await listBookableProfiles();
     const matched = bookable.filter((prac) => {
       if (q && !matchesQuery(prac, q)) return false;
@@ -137,7 +142,8 @@ export async function GET(req: NextRequest) {
       if (insurance && !matchesInsurance(prac, insurance)) return false;
       return true;
     });
-    results.push(...(await Promise.all(matched.map(toPublicResult))));
+    bookableTotal = matched.length;
+    if (page === 1) results.push(...(await Promise.all(matched.map(toPublicResult))));
   }
 
   let directoryTotal = 0;
@@ -188,5 +194,9 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ results, total: directoryTotal, page, pageSize });
+  // `total` counts providers only (programs are a capped page-1 garnish, never
+  // paginated), so it's what "N providers found" and the infinite scroller's
+  // has-more check both read.
+  const total = directoryTotal + bookableTotal;
+  return NextResponse.json({ results, total, page, pageSize, hasMore: page * pageSize < directoryTotal });
 }

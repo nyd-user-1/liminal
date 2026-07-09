@@ -173,7 +173,7 @@ export function FindCareSpotlightCard({ r }: { r: PublicResult }) {
     const body = (
       <>
         {chipEl}
-        <ProviderIllustration name={r.name} directoryId={r.id} className={findCareArtClass} />
+        <ProviderIllustration name={r.name} directoryId={r.id} gender={r.gender} className={findCareArtClass} />
         <div className="flex min-w-0 flex-1 flex-col">
           <h3 className={findCareTitleClass}>{r.name}</h3>
           {subline && <p className="mt-0.5 text-[14px] text-text-body">{subline}</p>}

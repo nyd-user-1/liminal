@@ -8,6 +8,7 @@ import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Nav } from "@/components/marketing/nav";
 import { ProviderCta } from "@/components/marketing/provider-cta";
 import { ProviderSpotlightRail, type ProviderSpotlight } from "@/components/marketing/provider-spotlight-card";
+import { silhouetteUrl } from "@/components/providers/provider-illustration";
 import { Reveal } from "@/components/marketing/reveal";
 import { ReviewsCarousel, type Review } from "@/components/marketing/reviews-carousel";
 import { ScrollCue } from "@/components/marketing/scroll-cue";
@@ -19,14 +20,11 @@ import { listAvailability, listPractitioners } from "@/lib/repos/services";
 
 export const dynamic = "force-dynamic";
 
-// Placeholder photo pool for the homepage spotlight cards, per Brendan: swap
-// every card's photo for one of these six (no per-provider mapping, just a
-// random draw each render — `dynamic = "force-dynamic"` above means that's
-// actually per page load, not just per deploy).
-const HOME_SPOTLIGHT_PHOTOS = ["Hope", "Mania", "Steady", "Calm", "Energetic", "Grounded"].map(
-  (name) => `https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/${name}.avif`,
-);
-const randomHomePhoto = () => HOME_SPOTLIGHT_PHOTOS[Math.floor(Math.random() * HOME_SPOTLIGHT_PHOTOS.length)];
+// Spotlight-card placeholder art: the same painted silhouette busts the
+// directory rows use (see provider-illustration.tsx). Seeded off the card id
+// rather than drawn at random, so a given provider doesn't switch bodies
+// between page loads — `dynamic = "force-dynamic"` above means every load is a
+// fresh render.
 
 // Home — "First Light" redesign.
 // ────────────────────────────────────────────────────────────────────────────
@@ -289,7 +287,7 @@ export default async function Home() {
   ).filter((p): p is ProviderSpotlight => p !== null && p.quote !== "");
   const spotlightProviders = [...realSpotlights, ...FICTIONAL_SPOTLIGHT].map((p) => ({
     ...p,
-    photoUrl: randomHomePhoto(),
+    photoUrl: silhouetteUrl(p.id),
   }));
 
   return (

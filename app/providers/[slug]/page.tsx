@@ -10,24 +10,27 @@ import { QualificationsCard } from "@/components/providers/qualifications-card";
 import { CareDetailsCard } from "@/components/providers/care-details-card";
 import { NearbyAreas } from "@/components/providers/nearby-areas";
 import { BookingRail } from "@/components/providers/booking-rail";
+import { ProviderDirectoryRail } from "@/components/providers/provider-directory-rail";
+import { ProviderPageSearch } from "@/components/providers/provider-page-search";
+import { ProviderPanel } from "@/components/providers/provider-panel";
+import { ProviderTopSection } from "@/components/providers/provider-top-section";
 import { StickyBookBar } from "@/components/providers/sticky-book-bar";
 import { RevealFx } from "@/components/providers/reveal-fx";
 import { getPractitionerBySlug, listAvailability, listServices } from "@/lib/repos/services";
-import {
-  getProfileByUserId,
-  listBookableProfiles,
-  matchBookablePractitioner,
-  nextAvailableLabel,
-  spotlightRatingFor,
-} from "@/lib/repos/provider-profiles";
-import { getProviderBySlug, nearbyCities } from "@/lib/repos/directory";
+import { getProfileByUserId, nextAvailableLabel, spotlightRatingFor } from "@/lib/repos/provider-profiles";
+import { getProviderBySlug, nearbyCities, providerFacets } from "@/lib/repos/directory";
 import { listPayers } from "@/lib/repos/policies";
 
 // The public provider profile — our version of Headway's provider page.
-// Resolves BOTH sources through one dynamic segment: a bookable Liminal
-// practitioner (users + provider_profiles, real availability) or a sparse
-// NY directory row (directory_providers, no availability yet). Same layout
-// either way; blocks with no data are simply omitted.
+// Resolves BOTH sources through one dynamic segment, and they no longer share
+// a layout, because they never really shared a shape:
+//   - a bookable Liminal practitioner (users + provider_profiles) has an intro,
+//     an approach, real availability. Card per section, sticky booking rail.
+//   - a sparse NY directory row (directory_providers) has a name, a profession,
+//     a license code and an address. Four facts across three cards read as an
+//     empty page, so they fold into one ProviderPanel, the booking widget is
+//     sized to stand beside it, and the rest of the directory follows a→z
+//     beneath a search group that stays pinned under the nav.
 //
 // Note on the booking handoff: this page's own URL uses the persisted,
 // human-readable slug, but /book/[slug] today resolves a raw practitioner
@@ -154,61 +157,58 @@ export default async function ProviderProfilePage({ params }: { params: Promise<
   const directory = await getProviderBySlug(slug);
   if (!directory) notFound();
 
-  const locationLabel = [directory.address, directory.city, directory.zip].filter(Boolean).join(", ") || null;
   // Real nearby cities from the same county (not fabricated neighboring towns).
-  const nearby = await nearbyCities(directory.county, directory.city);
-  // This directory row is an unclaimed NPI listing, not a bookable Liminal
-  // practitioner — offer the closest real match instead of a dead end.
-  const bookable = await listBookableProfiles();
-  const match = matchBookablePractitioner(directory, bookable);
+  const [nearby, facets] = await Promise.all([
+    nearbyCities(directory.county, directory.city),
+    providerFacets(),
+  ]);
   const claimHref = `/join?claim=1&name=${encodeURIComponent(directory.name)}${
     directory.npi ? `&npi=${encodeURIComponent(directory.npi)}` : ""
   }${directory.licenseState ? `&state=${encodeURIComponent(directory.licenseState)}` : ""}`;
 
+  const panel = {
+    id: directory.id,
+    name: directory.name,
+    profession: directory.profession,
+    credential: directory.credential ?? directory.taxonomy,
+    licensedIn: directory.licenseState ? [directory.licenseState] : undefined,
+    specialties: [...new Set([directory.subspecialty, directory.profession].filter((v): v is string => Boolean(v)))],
+    locationLabel: [directory.address, directory.city, directory.zip].filter(Boolean).join(", ") || null,
+    gender: directory.gender,
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-page">
       <Nav ground="bg-page" />
-      <main className="mx-auto grid w-full max-w-6xl flex-1 gap-8 px-6 py-12 lg:grid-cols-[1fr_320px] sm:py-16">
-        <div className="min-w-0 space-y-6">
-          <RevealFx delay={0.05}>
-            <Card>
-              <ProviderHeader name={directory.name} roleTitle={directory.profession} directoryId={directory.id} />
-            </Card>
-          </RevealFx>
-
-          <RevealFx delay={0.15}>
-            <QualificationsCard
-              licenseType={directory.credential ?? directory.taxonomy}
-              licensedIn={directory.licenseState ? [directory.licenseState] : undefined}
-            />
-          </RevealFx>
-
+      {/* No top padding: the search group carries its own 30px inset (see
+          ProviderTopSection), so it rests exactly where it will pin. */}
+      <main className="mx-auto w-full max-w-6xl flex-1 px-6 pb-12 sm:pb-16">
+        <ProviderTopSection
+          search={<ProviderPageSearch facets={facets} />}
+          panel={
+            <RevealFx delay={0.05} className="flex flex-1 flex-col">
+              <ProviderPanel provider={panel} heading="h1" className="flex-1" />
+            </RevealFx>
+          }
+          rail={
+            <RevealFx delay={0.15} className="flex flex-1 flex-col">
+              <BookingRail
+                practitionerId={directory.id}
+                services={[]}
+                active={false}
+                directoryName={directory.name}
+                claimHref={claimHref}
+                className="flex-1"
+              />
+            </RevealFx>
+          }
+        >
           <RevealFx delay={0.25}>
-            <CareDetailsCard
-              topSpecialties={[directory.subspecialty, directory.profession].filter(
-                (v): v is string => Boolean(v),
-              )}
-              locationLabel={locationLabel}
-            />
-          </RevealFx>
-
-          <RevealFx delay={0.35}>
             <NearbyAreas areas={nearby} />
           </RevealFx>
-        </div>
 
-        <aside className="lg:sticky lg:top-6 lg:self-start">
-          <RevealFx delay={0.15}>
-            <BookingRail
-              practitionerId={directory.id}
-              services={[]}
-              active={false}
-              directoryName={directory.name}
-              match={match}
-              claimHref={claimHref}
-            />
-          </RevealFx>
-        </aside>
+          <ProviderDirectoryRail excludeId={directory.id} />
+        </ProviderTopSection>
       </main>
       <MarketingFooter />
     </div>

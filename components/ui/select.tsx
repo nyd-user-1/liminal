@@ -48,6 +48,7 @@ export function Select({
   placeholder,
   value,
   onValueChange,
+  tone = "default",
   id,
   className = "",
   ...rest
@@ -61,6 +62,12 @@ export function Select({
   placeholder?: string;
   value?: string;
   onValueChange?: (value: string) => void;
+  /**
+   * `primary` renders the trigger label, chevron, and every option row in teal
+   * rather than only the selected row — the marketing filter row, where each
+   * dropdown reads as a live filter chip rather than a neutral form field.
+   */
+  tone?: "default" | "primary";
 } & Omit<SelectHTMLAttributes<HTMLSelectElement>, "value">) {
   const inputId = id ?? rest.name;
   const [open, setOpen] = useState(false);
@@ -113,6 +120,7 @@ export function Select({
   );
 
   const selected = options.find((o) => o.value === value);
+  const isPrimary = tone === "primary";
 
   return (
     <div className={className}>
@@ -133,11 +141,19 @@ export function Select({
           onClick={toggle}
           className={`flex items-center justify-between gap-2 ${triggerClass} ${error ? "border-danger" : ""}`}
         >
-          <span className={`flex min-w-0 items-center gap-2 ${value ? "" : "text-text-muted"}`}>
+          <span
+            className={`flex min-w-0 items-center gap-2 ${
+              isPrimary ? "font-medium text-primary" : value ? "" : "text-text-muted"
+            }`}
+          >
             <OptionLead option={selected} />
             <span className="truncate">{value ? (selected?.label ?? value) : (placeholder ?? "Select…")}</span>
           </span>
-          <Icon name="chevron-down" size={16} className="shrink-0 text-text-muted" />
+          <Icon
+            name="chevron-down"
+            size={16}
+            className={`shrink-0 ${isPrimary ? "text-primary" : "text-text-muted"}`}
+          />
         </button>
 
         {open && pos && typeof document !== "undefined" &&
@@ -173,7 +189,9 @@ export function Select({
                       onValueChange?.(o.value);
                       setOpen(false);
                     }}
-                    className={`flex w-full items-center gap-2 rounded-field px-2.5 py-2 text-left text-[15px] font-medium transition-colors hover:bg-[#F3F4F6] ${isSel ? "text-primary" : "text-text"}`}
+                    className={`flex w-full items-center gap-2 rounded-field px-2.5 py-2 text-left text-[15px] font-medium transition-colors hover:bg-[#F3F4F6] ${
+                      isPrimary || isSel ? "text-primary" : "text-text"
+                    }`}
                   >
                     <OptionLead option={o} />
                     <span className="min-w-0 flex-1 truncate">{o.label}</span>
