@@ -188,6 +188,7 @@ registerFixtures("notes", (store) => {
       passwordHash: "",
       phone: null,
       timezone: "America/New_York",
+      slug: null,
       deletedAt: null,
       createdAt: now,
       updatedAt: now,

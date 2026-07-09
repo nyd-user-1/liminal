@@ -75,6 +75,7 @@ registerFixtures("clients", (store) => {
       avatarHue: "amber",
       phone: "+1 212 555 0141",
       timezone: "America/New_York",
+      slug: "priya-raman",
       deletedAt: null,
       createdAt: T,
       updatedAt: T,

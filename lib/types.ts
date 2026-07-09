@@ -13,6 +13,7 @@ export interface User {
   avatarHue: AvatarHue;
   phone: string | null;
   timezone: string | null;
+  slug: string | null; // SEO-friendly, persisted once — /providers/[slug] + (today) /book/[practitionerId]
   deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -311,6 +312,7 @@ export interface DirectoryProvider {
   id: string;
   npi: string | null;
   name: string;
+  slug: string | null; // SEO-friendly, persisted once — never the NPI (see /providers/[slug])
   profession: string | null;
   licenseNo: string | null;
   taxonomy: string | null;
@@ -382,4 +384,36 @@ export interface ProviderApplication {
   message: string | null;
   status: ProviderApplicationStatus;
   createdAt: string;
+}
+
+// ── Provider profiles (the /providers/[slug] content model) ───────────────────
+// Keyed to a practitioner's user_id. Directory providers don't get one of these —
+// their profile page renders straight off DirectoryProvider's sparse fields.
+
+export interface ProviderProfile {
+  id: string;
+  userId: string;
+  roleTitle: string | null; // "Therapist" | "Psychiatrist" | ...
+  pronouns: string | null;
+  yearsExperience: number | null;
+  introMd: string | null; // "Great to meet you!"
+  approachMd: string | null; // "My approach to therapy"
+  expectMd: string | null; // "What you can expect from me"
+  identifyAs: string | null;
+  styleIs: string | null;
+  training: string | null;
+  licenseType: string | null;
+  licensedIn: string[];
+  insuranceAccepted: string[];
+  topSpecialties: string[];
+  moreSpecialties: string[];
+  therapyMethods: string[];
+  careTypes: string[];
+  agesServed: string[];
+  languages: string[];
+  locationLabel: string | null;
+  nearbyAreas: string[];
+  illustrationKey: string | null;
+  createdAt: string;
+  updatedAt: string;
 }

@@ -1,10 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { Tabs } from "@/components/ui/tabs";
 
-// /therapists directory index — four browse-by tabs. Lists are static for now
-// (not yet wired to per-location / per-specialty pages).
+// /therapists directory index — three browse-by tabs. Each item links into a
+// pre-filtered /find-care search rather than a dedicated per-item page — there
+// are 60+ counties/cities and dozens of specialties, and /find-care is the
+// real search surface (see Task 2). County/city are exact facet values (real
+// query matches); specialty labels are curated marketing phrasing that won't
+// always exact-match the raw NPPES subspecialty text, so they go in as a
+// free-text `q` — a specialty with no hits lands on the (now real) empty state
+// rather than a broken page.
 
 // All 62 New York counties.
 const COUNTIES = [
@@ -51,9 +58,12 @@ const TAB_DATA: Record<string, string[]> = {
   specialties: SPECIALTIES,
 };
 
-export function TherapistDirectory() {
+const PARAM: Record<string, string> = { counties: "county", cities: "city", specialties: "q" };
+
+export function TherapistDirectory({ profession }: { profession?: string }) {
   const [tab, setTab] = useState("counties");
   const items = [...TAB_DATA[tab]].sort((a, b) => a.localeCompare(b));
+  const param = PARAM[tab];
 
   return (
     <div>
@@ -68,11 +78,20 @@ export function TherapistDirectory() {
       />
       {/* column-major fill: each column reads a→z top-to-bottom before the next */}
       <ul className="mt-8 columns-2 gap-8 sm:columns-3 lg:columns-4">
-        {items.map((x) => (
-          <li key={x} className="mb-4 break-inside-avoid">
-            <span className="text-[15px] text-text-body transition-colors hover:text-primary">{x}</span>
-          </li>
-        ))}
+        {items.map((x) => {
+          const params = new URLSearchParams({ [param]: x });
+          if (profession) params.set("need", profession);
+          return (
+            <li key={x} className="mb-4 break-inside-avoid">
+              <Link
+                href={`/find-care?${params.toString()}`}
+                className="text-[15px] text-text-body transition-colors hover:text-primary"
+              >
+                {x}
+              </Link>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

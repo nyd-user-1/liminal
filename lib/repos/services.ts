@@ -311,19 +311,36 @@ export interface PractitionerLite {
   id: string;
   name: string;
   avatarHue: AvatarHue;
+  slug: string | null;
 }
 
 export async function listPractitioners(): Promise<PractitionerLite[]> {
   if (hasDb) {
     const rows = (await sql`
-      SELECT id, name, avatar_hue FROM users
+      SELECT id, name, avatar_hue, slug FROM users
       WHERE role IN ('practitioner','admin') AND deleted_at IS NULL
       ORDER BY name
-    `) as Array<{ id: string; name: string; avatar_hue: AvatarHue }>;
-    return rows.map((r) => ({ id: r.id, name: r.name, avatarHue: r.avatar_hue }));
+    `) as Array<{ id: string; name: string; avatar_hue: AvatarHue; slug: string | null }>;
+    return rows.map((r) => ({ id: r.id, name: r.name, avatarHue: r.avatar_hue, slug: r.slug }));
   }
   return [...mockStore().users.values()]
     .filter((u) => (u.role === "practitioner" || u.role === "admin") && !u.deletedAt)
     .sort((a, b) => a.name.localeCompare(b.name))
-    .map((u) => ({ id: u.id, name: u.name, avatarHue: u.avatarHue }));
+    .map((u) => ({ id: u.id, name: u.name, avatarHue: u.avatarHue, slug: u.slug }));
+}
+
+/** Public profile lookup — /providers/[slug]. Read-only; slugs are seeded once, not written here. */
+export async function getPractitionerBySlug(slug: string): Promise<PractitionerLite | null> {
+  if (hasDb) {
+    const rows = (await sql`
+      SELECT id, name, avatar_hue, slug FROM users
+      WHERE role IN ('practitioner','admin') AND deleted_at IS NULL AND slug = ${slug}
+    `) as Array<{ id: string; name: string; avatar_hue: AvatarHue; slug: string | null }>;
+    const r = rows[0];
+    return r ? { id: r.id, name: r.name, avatarHue: r.avatar_hue, slug: r.slug } : null;
+  }
+  const u = [...mockStore().users.values()].find(
+    (u) => (u.role === "practitioner" || u.role === "admin") && !u.deletedAt && u.slug === slug,
+  );
+  return u ? { id: u.id, name: u.name, avatarHue: u.avatarHue, slug: u.slug } : null;
 }

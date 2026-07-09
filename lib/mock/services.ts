@@ -1,4 +1,5 @@
 import { DEMO_PRACTITIONER_ID, registerFixtures } from "@/lib/mock";
+import { slugify } from "@/lib/slug";
 import type { AvatarHue, Availability, Location, Service } from "@/lib/types";
 
 // Scheduling fixtures — services, locations, weekly availability. Mirrors
@@ -44,6 +45,7 @@ registerFixtures("services", (store) => {
       avatarHue,
       phone,
       timezone: "America/New_York",
+      slug: slugify(name),
       deletedAt: null,
       createdAt: at,
       updatedAt: at,

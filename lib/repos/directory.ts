@@ -30,6 +30,7 @@ type ProviderRow = {
   id: string;
   npi: string | null;
   name: string;
+  slug: string | null;
   profession: string | null;
   license_no: string | null;
   taxonomy: string | null;
@@ -60,6 +61,7 @@ function toProvider(r: ProviderRow): DirectoryProvider {
     id: r.id,
     npi: r.npi,
     name: r.name,
+    slug: r.slug ?? null,
     profession: r.profession,
     licenseNo: r.license_no,
     taxonomy: r.taxonomy,
@@ -164,7 +166,9 @@ export async function searchProviders(opts: {
     let p = 1;
     if (!opts.includeInactive) where.push(`deactivated_at IS NULL`); // hide dead NPIs
     if (q) {
-      where.push(`(name ILIKE $${p} OR city ILIKE $${p} OR profession ILIKE $${p})`);
+      where.push(
+        `(name ILIKE $${p} OR city ILIKE $${p} OR profession ILIKE $${p} OR subspecialty ILIKE $${p} OR primary_taxonomy ILIKE $${p})`,
+      );
       params.push(`%${q}%`);
       p++;
     }
@@ -212,9 +216,22 @@ export async function searchProviders(opts: {
       `FROM directory_providers ${clause}) t WHERE _rn = 1`;
     const countRows = (await sql.query(`SELECT count(*)::int AS n FROM (${deduped}) c`, params)) as Array<{ n: number }>;
     const total = countRows[0]?.n ?? 0;
+
+    // Relevance: when there's a free-text query, rank by trigram similarity
+    // against name (pg_trgm + the GIN indexes in sql/005 already exist for
+    // this — added for ILIKE perf, reused here for ranking); otherwise
+    // alphabetical is the sanest default.
+    const dataParams = [...params, pageSize, (page - 1) * pageSize];
+    const limitIdx = p++;
+    const offsetIdx = p++;
+    let orderBy = "name";
+    if (q) {
+      dataParams.push(q);
+      orderBy = `similarity(name, $${p++}) DESC, name`;
+    }
     const rows = (await sql.query(
-      `SELECT * FROM (${deduped}) d ORDER BY name LIMIT $${p++} OFFSET $${p++}`,
-      [...params, pageSize, (page - 1) * pageSize],
+      `SELECT * FROM (${deduped}) d ORDER BY ${orderBy} LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+      dataParams,
     )) as ProviderRow[];
     return { items: rows.map(toProvider), total, page, pageSize };
   }
@@ -229,6 +246,38 @@ export async function getProvider(id: string): Promise<DirectoryProvider | null>
     return rows[0] ? toProvider(rows[0]) : null;
   }
   return mockStore().directoryProviders.get(id) ?? null;
+}
+
+/**
+ * Real nearby-area names for a directory provider's "Nearby areas" block —
+ * other cities with providers in the same county (genuine data we already
+ * have), not fabricated neighboring towns. Falls back to the provider's own
+ * city when the county has no other distinct city on file.
+ */
+export async function nearbyCities(county: string | null, excludeCity: string | null, limit = 16): Promise<string[]> {
+  if (!county) return [];
+  if (hasDb) {
+    const rows = (await sql`
+      SELECT DISTINCT initcap(lower(city)) AS city FROM directory_providers
+      WHERE county = ${county} AND city IS NOT NULL AND deactivated_at IS NULL
+        AND lower(city) != lower(${excludeCity ?? ""})
+      ORDER BY city LIMIT ${limit}
+    `) as Array<{ city: string }>;
+    return rows.map((r) => r.city);
+  }
+  const cities = [...mockStore().directoryProviders.values()]
+    .filter((p) => p.county === county && p.city && p.city.toLowerCase() !== (excludeCity ?? "").toLowerCase())
+    .map((p) => p.city as string);
+  return [...new Set(cities)].sort().slice(0, limit);
+}
+
+/** Public profile lookup — /providers/[slug]'s fallback when no practitioner matches. */
+export async function getProviderBySlug(slug: string): Promise<DirectoryProvider | null> {
+  if (hasDb) {
+    const rows = (await sql`SELECT * FROM directory_providers WHERE slug = ${slug}`) as ProviderRow[];
+    return rows[0] ? toProvider(rows[0]) : null;
+  }
+  return [...mockStore().directoryProviders.values()].find((p) => p.slug === slug) ?? null;
 }
 
 function filterProviders(
@@ -252,7 +301,13 @@ function filterProviders(
   const therapists = opts.providerType === "therapist";
   const matched = list.filter((r) => {
     if (!opts.includeInactive && r.deactivatedAt) return false;
-    if (q && !`${r.name} ${r.city ?? ""} ${r.profession ?? ""}`.toLowerCase().includes(q)) return false;
+    if (
+      q &&
+      !`${r.name} ${r.city ?? ""} ${r.profession ?? ""} ${r.subspecialty ?? ""} ${r.primaryTaxonomy ?? ""}`
+        .toLowerCase()
+        .includes(q)
+    )
+      return false;
     if (zip5 && (r.zip ?? "").replace(/[^0-9]/g, "").slice(0, 5) !== zip5) return false;
     if (opts.city && (r.city ?? "").toLowerCase() !== opts.city.toLowerCase()) return false;
     if (opts.county && r.county !== opts.county) return false;

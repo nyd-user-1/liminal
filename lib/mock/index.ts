@@ -19,6 +19,7 @@ import type {
   Payer,
   Payment,
   ProviderApplication,
+  ProviderProfile,
   Referral,
   Service,
   Session,
@@ -66,6 +67,7 @@ export interface MockStore {
   directoryPrograms: Map<string, DirectoryProgram>;
   referrals: Map<string, Referral>;
   providerApplications: Map<string, ProviderApplication>;
+  providerProfiles: Map<string, ProviderProfile>;
 }
 
 const now = new Date().toISOString();
@@ -101,6 +103,7 @@ function createStore(): MockStore {
     directoryPrograms: new Map(),
     referrals: new Map(),
     providerApplications: new Map(),
+    providerProfiles: new Map(),
   };
 
   const users: User[] = [
@@ -113,6 +116,7 @@ function createStore(): MockStore {
       avatarHue: "teal",
       phone: null,
       timezone: "America/New_York",
+      slug: "brendan-stanton",
       deletedAt: null,
       createdAt: now,
       updatedAt: now,
@@ -126,6 +130,7 @@ function createStore(): MockStore {
       avatarHue: "amber",
       phone: null,
       timezone: "America/New_York",
+      slug: null,
       deletedAt: null,
       createdAt: now,
       updatedAt: now,

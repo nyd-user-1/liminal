@@ -1,6 +1,7 @@
 import { FindCareSearch } from "@/components/marketing/find-care-search";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Nav } from "@/components/marketing/nav";
+import { providerFacets } from "@/lib/repos/directory";
 
 export const dynamic = "force-dynamic";
 
@@ -12,9 +13,10 @@ export const metadata = {
 export default async function FindCarePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; county?: string }>;
+  searchParams: Promise<{ q?: string; county?: string; city?: string; specialty?: string }>;
 }) {
-  const { q, county } = await searchParams;
+  const { q, county, city, specialty } = await searchParams;
+  const facets = await providerFacets();
   return (
     <div className="flex min-h-screen flex-col bg-surface">
       <Nav />
@@ -25,7 +27,13 @@ export default async function FindCarePage({
             Licensed providers and programs across all five New York City boroughs.
           </p>
         </div>
-        <FindCareSearch initialQ={q ?? ""} initialCounty={county ?? ""} />
+        <FindCareSearch
+          initialQ={q ?? ""}
+          initialCounty={county ?? ""}
+          initialCity={city ?? ""}
+          initialSpecialty={specialty ?? ""}
+          facets={facets}
+        />
       </main>
       <MarketingFooter />
     </div>

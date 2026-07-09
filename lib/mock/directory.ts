@@ -1,4 +1,5 @@
 import { registerFixtures } from "@/lib/mock";
+import { slugify } from "@/lib/slug";
 import type { DirectoryProgram, DirectoryProvider } from "@/lib/types";
 
 // Directory fixtures — the zero-env demo slice of the NY open-data directory
@@ -23,6 +24,7 @@ function prov(
     id: PROV(nn),
     npi,
     name,
+    slug: slugify(name),
     profession,
     licenseNo: null,
     taxonomy: null,
