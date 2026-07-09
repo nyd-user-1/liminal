@@ -79,48 +79,71 @@ export async function destroySession(token: string): Promise<void> {
 
 const AVATAR_HUES: AvatarHue[] = ["teal", "amber", "pink", "blue"];
 
-/**
- * Find or create a client-role portal account for a booking lead who has no
- * login yet. There's no typed password — access starts from the activation
- * link (a createSession token) emailed right after booking; the random hash
- * here is just a placeholder so password_hash's NOT NULL is satisfied.
- */
-export async function findOrCreatePortalUser(input: {
-  name: string;
-  email: string;
-  phone?: string | null;
-}): Promise<{ user: SessionUser; created: boolean }> {
-  const email = input.email.trim().toLowerCase();
+// ── portal account lifecycle ────────────────────────────────────────────────
+// Booking with a new email creates a client + a portal login (unusable random
+// password) and emails a one-time set-password link (see createPasswordToken
+// / consumePasswordToken below); "forgot password" reuses the same token
+// flow with purpose "reset". The emailed token is never itself a session
+// credential — it only ever unlocks setting a real password, then a fresh
+// session is minted through the normal login path. That's deliberate: unlike
+// a magic link built on a live session token, a leaked/pre-fetched email
+// (mail relay logs, browser history, a security scanner that follows links)
+// can't hand over standing account access — the token is single-use and can
+// only set a password, nothing else.
+
+export async function findUserByEmail(email: string): Promise<SessionUser | null> {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return null;
   if (hasDb) {
-    const existing = (await sql`
-      SELECT id, role, name, email, avatar_hue FROM users WHERE email = ${email} AND deleted_at IS NULL
-    `) as Array<Omit<UserRow, "password_hash">>;
-    if (existing[0]) {
-      const u = existing[0];
-      return { user: toSessionUser({ id: u.id, role: u.role, name: u.name, email: u.email, avatarHue: u.avatar_hue }), created: false };
-    }
-    const passwordHash = await bcrypt.hash(randomBytes(24).toString("hex"), 10);
-    const avatarHue = AVATAR_HUES[Math.floor(Math.random() * AVATAR_HUES.length)];
     const rows = (await sql`
-      INSERT INTO users (role, name, email, password_hash, avatar_hue, phone)
-      VALUES ('client', ${input.name}, ${email}, ${passwordHash}, ${avatarHue}, ${input.phone ?? null})
-      RETURNING id, role, name, email, avatar_hue
+      SELECT id, role, name, email, avatar_hue FROM users
+      WHERE email = ${normalized} AND deleted_at IS NULL
     `) as Array<Omit<UserRow, "password_hash">>;
     const u = rows[0];
-    return { user: toSessionUser({ id: u.id, role: u.role, name: u.name, email: u.email, avatarHue: u.avatar_hue }), created: true };
+    return u ? toSessionUser({ id: u.id, role: u.role, name: u.name, email: u.email, avatarHue: u.avatar_hue }) : null;
+  }
+  const u = [...mockStore().users.values()].find((x) => x.email === normalized && !x.deletedAt);
+  return u ? toSessionUser(u) : null;
+}
+
+/**
+ * Ensure a booking lead has a portal login: create a client-role user with an
+ * unusable random password hash (real password comes later via
+ * createPasswordToken) and link clients.user_id. Returns null when the email
+ * already belongs to a non-client user.
+ */
+export async function ensureClientPortalUser(input: {
+  clientId: string;
+  email: string;
+  name: string;
+  phone?: string | null;
+}): Promise<{ userId: string; created: boolean } | null> {
+  const email = input.email.trim().toLowerCase();
+  const existing = await findUserByEmail(email);
+  if (existing) return existing.role === "client" ? { userId: existing.id, created: false } : null;
+
+  const unusable = await bcrypt.hash(randomBytes(32).toString("hex"), 10);
+  const avatarHue = AVATAR_HUES[Math.floor(Math.random() * AVATAR_HUES.length)];
+  if (hasDb) {
+    const rows = (await sql`
+      INSERT INTO users (role, name, email, password_hash, avatar_hue, phone)
+      VALUES ('client', ${input.name}, ${email}, ${unusable}, ${avatarHue}, ${input.phone ?? null})
+      RETURNING id
+    `) as Array<{ id: string }>;
+    await sql`UPDATE clients SET user_id = ${rows[0].id}, updated_at = now() WHERE id = ${input.clientId} AND user_id IS NULL`;
+    return { userId: rows[0].id, created: true };
   }
   const store = mockStore();
-  const existing = [...store.users.values()].find((x) => x.email === email && !x.deletedAt);
-  if (existing) return { user: toSessionUser(existing), created: false };
-  const passwordHash = await bcrypt.hash(randomBytes(24).toString("hex"), 10);
+  const client = store.clients.get(input.clientId);
+  if (!client) return null;
   const now = new Date().toISOString();
   const user: User = {
     id: mockId(),
     role: "client",
     name: input.name,
     email,
-    passwordHash,
-    avatarHue: AVATAR_HUES[Math.floor(Math.random() * AVATAR_HUES.length)],
+    passwordHash: unusable,
+    avatarHue,
     phone: input.phone ?? null,
     timezone: null,
     slug: null,
@@ -129,7 +152,56 @@ export async function findOrCreatePortalUser(input: {
     updatedAt: now,
   };
   store.users.set(user.id, user);
-  return { user: toSessionUser(user), created: true };
+  if (!client.userId) store.clients.set(client.id, { ...client, userId: user.id, updatedAt: now });
+  return { userId: user.id, created: true };
+}
+
+const TOKEN_TTL_H = { set: 7 * 24, reset: 2 } as const;
+
+/** Mint a one-time set/reset-password token and return the raw token (caller builds the URL). */
+export async function createPasswordToken(userId: string, purpose: "set" | "reset"): Promise<string> {
+  const token = randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + TOKEN_TTL_H[purpose] * 60 * 60 * 1000).toISOString();
+  if (hasDb) {
+    await sql`INSERT INTO password_tokens (token, user_id, purpose, expires_at) VALUES (${token}, ${userId}, ${purpose}, ${expiresAt})`;
+  } else {
+    mockStore().passwordTokens.set(token, {
+      token,
+      userId,
+      purpose,
+      expiresAt,
+      usedAt: null,
+      createdAt: new Date().toISOString(),
+    });
+  }
+  return token;
+}
+
+/** Validate + burn a token; returns the user id, or null when invalid/expired/already used. */
+export async function consumePasswordToken(token: string): Promise<string | null> {
+  if (!token) return null;
+  if (hasDb) {
+    const rows = (await sql`
+      UPDATE password_tokens SET used_at = now()
+      WHERE token = ${token} AND used_at IS NULL AND expires_at > now()
+      RETURNING user_id
+    `) as Array<{ user_id: string }>;
+    return rows[0]?.user_id ?? null;
+  }
+  const t = mockStore().passwordTokens.get(token);
+  if (!t || t.usedAt || new Date(t.expiresAt) < new Date()) return null;
+  mockStore().passwordTokens.set(token, { ...t, usedAt: new Date().toISOString() });
+  return t.userId;
+}
+
+export async function setUserPassword(userId: string, password: string): Promise<void> {
+  const hash = await bcrypt.hash(password, 10);
+  if (hasDb) {
+    await sql`UPDATE users SET password_hash = ${hash}, updated_at = now() WHERE id = ${userId}`;
+    return;
+  }
+  const u = mockStore().users.get(userId);
+  if (u) mockStore().users.set(userId, { ...u, passwordHash: hash, updatedAt: new Date().toISOString() });
 }
 
 /** Session user from the request cookie, or null. */

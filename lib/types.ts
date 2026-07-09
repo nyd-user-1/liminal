@@ -304,6 +304,16 @@ export interface Session {
   expiresAt: string;
 }
 
+/** One-time link for set-password (new portal account) or reset-password. */
+export interface PasswordToken {
+  token: string;
+  userId: string;
+  purpose: "set" | "reset";
+  expiresAt: string;
+  usedAt: string | null;
+  createdAt: string;
+}
+
 // ── External provider directory (NY open data) ─────────────────────────────────
 
 export type DirectorySource = "medicaid" | "nppes" | "omh" | "nyc_dohmh";

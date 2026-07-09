@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { IconButton } from "@/components/ui/icon-button";
 import { Logo } from "@/components/ui/logo";
+import { TextLink } from "@/components/ui/text-link";
 
 // Sign-in screen (catalog §4 "Welcome back", Liminal branding): navy
 // backdrop, white AuthCard, teal CTA, amber links, demo credentials hint.
@@ -84,10 +85,7 @@ export default function SignInPage() {
         </form>
 
         <p className="mt-5 text-center text-sm text-text-muted">
-          Forgot your password?{" "}
-          <a href="mailto:support@liminal.demo" className="font-semibold text-accent-ink hover:underline">
-            Contact support
-          </a>
+          Forgot your password? <TextLink href="/forgot-password">Reset it</TextLink>
         </p>
       </div>
 

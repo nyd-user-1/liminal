@@ -1,70 +1,28 @@
 import { NextResponse } from "next/server";
 import { logEvent } from "@/lib/audit";
-import { createSession, findOrCreatePortalUser } from "@/lib/auth";
-import { sendEmail } from "@/lib/email";
-import {
-  createAppointment,
-  findOrCreateLeadClient,
-  listAppointments,
-  type ClientLite,
-} from "@/lib/repos/appointments";
-import { linkClientUser } from "@/lib/repos/clients";
+import { createPasswordToken, ensureClientPortalUser } from "@/lib/auth";
+import { DATE_RE, TIME_RE, freeSlots, localDate, toMin } from "@/lib/booking";
+import { appBaseUrl, sendBookingConfirmation } from "@/lib/email";
+import { createAppointment, findOrCreateLeadClient, type ClientLite } from "@/lib/repos/appointments";
 import { getIntakeForm, listResponses, sendForm } from "@/lib/repos/forms";
+import { authorNames } from "@/lib/repos/notes";
 import { createPolicy } from "@/lib/repos/policies";
-import { getService, listAvailability, listLocations } from "@/lib/repos/services";
+import { getService, listLocations } from "@/lib/repos/services";
 import type { Service } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 // Public booking endpoint (no auth — the /book/[slug] page).
 // GET  ?practitionerId&serviceId&date=YYYY-MM-DD → { slots: ["09:00", …] }
-//      free start times from weekly availability minus existing appointments.
+//      free start times via lib/booking (shared with portal reschedule).
 // POST { practitionerId, serviceId, date, time, firstName, lastName, email, phone?, payerId? }
 //      → creates client-if-new (status lead) + appointment (booked_via link),
 //      then onboards them: insurance policy if payerId given, a portal
-//      account + emailed activation link if they don't have one yet, and the
-//      New Client Intake form. None of these three can fail the booking
-//      itself — a booking that succeeds but couldn't send an email is still
-//      a booking; each is independently best-effort.
-
-const SLOT_STEP_MIN = 30;
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
-
-const toMin = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
-const toHHMM = (min: number) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
-
-/** Local-time Date for a plain date + minutes-of-day (practice timezone = server local). */
-const localDate = (date: string, min: number) => new Date(`${date}T${toHHMM(min)}:00`);
-
-async function freeSlots(practitionerId: string, service: Service, date: string): Promise<string[]> {
-  const weekday = localDate(date, 0).getDay();
-  const rules = (await listAvailability(practitionerId)).filter((r) => r.weekday === weekday);
-  if (rules.length === 0) return [];
-
-  const dayStart = localDate(date, 0);
-  const dayEnd = localDate(date, 24 * 60);
-  const busy = (await listAppointments({
-    practitionerId,
-    from: dayStart.toISOString(),
-    to: dayEnd.toISOString(),
-  })).filter((a) => a.status !== "cancelled");
-
-  const now = new Date();
-  const slots: string[] = [];
-  for (const rule of rules) {
-    const windowStart = toMin(rule.startTime);
-    const windowEnd = toMin(rule.endTime);
-    for (let start = windowStart; start + service.durationMin <= windowEnd; start += SLOT_STEP_MIN) {
-      const s = localDate(date, start);
-      const e = localDate(date, start + service.durationMin);
-      if (s <= now) continue;
-      const clash = busy.some((a) => s < new Date(a.endsAt) && e > new Date(a.startsAt));
-      if (!clash) slots.push(toHHMM(start));
-    }
-  }
-  return [...new Set(slots)].sort();
-}
+//      account + emailed booking confirmation (with a one-time set-password
+//      link for new accounts) if they don't have one yet, and the New Client
+//      Intake form. None of these three can fail the booking itself — a
+//      booking that succeeds but couldn't send an email is still a booking;
+//      each is independently best-effort.
 
 /**
  * Everything a first-time booking should kick off besides the appointment
@@ -72,13 +30,17 @@ async function freeSlots(practitionerId: string, service: Service, date: string)
  * to the server console and swallowed, never surfaced to the booking response.
  */
 async function onboardClient(opts: {
-  origin: string;
   client: ClientLite;
+  practitionerId: string;
   firstName: string;
   lastName: string;
   email: string;
   phone: string;
   payerId: string;
+  service: Service;
+  startsAt: string;
+  endsAt: string;
+  locationLabel: string | null;
 }): Promise<void> {
   const { client } = opts;
 
@@ -90,33 +52,46 @@ async function onboardClient(opts: {
     }
   }
 
+  let setPasswordUrl: string | null = null;
   if (!client.userId) {
     try {
-      const { user, created } = await findOrCreatePortalUser({
-        name: `${opts.firstName} ${opts.lastName}`,
+      const portal = await ensureClientPortalUser({
+        clientId: client.id,
         email: opts.email,
+        name: `${opts.firstName} ${opts.lastName}`,
         phone: opts.phone || null,
       });
-      await linkClientUser(client.id, user.id);
-      const { token } = await createSession(user.id);
-      await logEvent({
-        actorId: null,
-        action: created ? "user.create" : "user.link",
-        entity: "user",
-        entityId: user.id,
-        meta: { via: "booking-portal-provision", clientId: client.id },
-      });
-      await sendEmail({
-        to: opts.email,
-        subject: "Your Liminal client portal is ready",
-        html: `<p>Hi ${opts.firstName},</p>
-<p>Your appointment is booked. We've also set up your Liminal client portal — from there you can message your care team, see upcoming appointments, and complete any forms sent to you.</p>
-<p><a href="${opts.origin}/portal/activate?token=${token}">Activate your portal</a></p>
-<p>— Liminal Psychiatry</p>`,
-      });
+      if (portal?.created) {
+        const token = await createPasswordToken(portal.userId, "set");
+        setPasswordUrl = `${appBaseUrl()}/set-password?token=${token}`;
+        await logEvent({
+          actorId: null,
+          action: "user.portal_invite",
+          entity: "user",
+          entityId: portal.userId,
+          meta: { via: "booking-portal-provision", clientId: client.id },
+        });
+      }
     } catch (e) {
       console.error("onboardClient: portal provisioning failed", e);
     }
+  }
+
+  try {
+    const names = await authorNames([opts.practitionerId]);
+    await sendBookingConfirmation({
+      to: opts.email,
+      firstName: opts.firstName,
+      serviceName: opts.service.name,
+      practitionerName: names[opts.practitionerId] ?? "your practitioner",
+      startsAt: opts.startsAt,
+      endsAt: opts.endsAt,
+      locationLabel: opts.locationLabel,
+      telehealth: opts.service.telehealth,
+      setPasswordUrl,
+    });
+  } catch (e) {
+    console.error("onboardClient: confirmation email failed", e);
   }
 
   try {
@@ -230,13 +205,17 @@ export async function POST(req: Request) {
     });
 
     await onboardClient({
-      origin: new URL(req.url).origin,
       client,
+      practitionerId,
       firstName,
       lastName,
       email,
       phone,
       payerId,
+      service,
+      startsAt: appointment.startsAt,
+      endsAt: appointment.endsAt,
+      locationLabel: location?.name ?? null,
     });
 
     return NextResponse.json({ ok: true, appointment: { id: appointment.id, startsAt: appointment.startsAt, endsAt: appointment.endsAt } }, { status: 201 });

@@ -16,6 +16,7 @@ import type {
   Message,
   Note,
   NoteTemplate,
+  PasswordToken,
   Payer,
   Payment,
   ProviderApplication,
@@ -68,6 +69,7 @@ export interface MockStore {
   referrals: Map<string, Referral>;
   providerApplications: Map<string, ProviderApplication>;
   providerProfiles: Map<string, ProviderProfile>;
+  passwordTokens: Map<string, PasswordToken>;
 }
 
 const now = new Date().toISOString();
@@ -104,6 +106,7 @@ function createStore(): MockStore {
     referrals: new Map(),
     providerApplications: new Map(),
     providerProfiles: new Map(),
+    passwordTokens: new Map(),
   };
 
   const users: User[] = [
