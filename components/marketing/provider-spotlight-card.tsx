@@ -75,7 +75,7 @@ export function ProviderSpotlightCard({ p }: { p: ProviderSpotlight }) {
         avatarHue={p.avatarHue}
         illustrationKey={p.illustrationKey}
         directoryId={p.directoryId}
-        className="mt-4 aspect-square w-[168px] shrink-0 self-start object-cover"
+        className="h-[180px] w-[180px] shrink-0 self-start object-cover"
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
