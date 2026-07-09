@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AccordionSection } from "@/components/ui/accordion-section";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Icon, type IconName } from "@/components/ui/icons";
 import { IconButton } from "@/components/ui/icon-button";
 import { SearchInput } from "@/components/ui/search-input";
@@ -49,7 +50,8 @@ const CITIES = [
 ];
 const SPECIALTIES = [
   "ADHD",
-  "Anxiety and Depression",
+  "Anxiety",
+  "Depression",
   "Bipolar Disorder",
   "OCD",
   "Trauma and PTSD",
@@ -91,6 +93,15 @@ function locationSections(type: string, icon: IconName) {
 
 const FIND_CATEGORIES: FindCategory[] = [
   {
+    // Book now renders a bespoke booking panel (calendar + time slots), not the
+    // location/specialty grid — see BookingContent.
+    key: "book",
+    label: "Book now",
+    icon: "calendar-check",
+    sections: [],
+    viewAll: { label: "", href: "/book/liminal" },
+  },
+  {
     key: "therapists",
     label: "Therapists",
     icon: "users",
@@ -107,6 +118,22 @@ const FIND_CATEGORIES: FindCategory[] = [
   {
     key: "specialty",
     label: "Specialty",
+    icon: "grid",
+    sections: [
+      {
+        header: "By specialty",
+        links: SPECIALTIES.map((s) => ({
+          label: s,
+          href: `/find-care?specialty=${encodeURIComponent(s)}`,
+          icon: "sparkle" as IconName,
+        })),
+      },
+    ],
+    viewAll: { label: "+20 more", href: "/find-care" },
+  },
+  {
+    key: "specialty2",
+    label: "Specialty 2",
     icon: "grid",
     sections: [
       {
@@ -200,6 +227,41 @@ function FindLink({ href, label }: { href: string; label: string }) {
   );
 }
 
+// Book now content — a bespoke booking panel: a month calendar (By Day) over a
+// grid of time slots (By Time). Visual only for now; not wired to scheduling.
+const BOOKING_TIMES = [
+  "9:00 AM", "9:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
+  "1:00 PM", "1:30 PM", "2:00 PM", "2:30 PM", "3:00 PM", "3:30 PM",
+];
+
+function BookingContent() {
+  const [day, setDay] = useState<string>();
+  const [time, setTime] = useState<string | null>(null);
+  return (
+    <div>
+      <p className="mb-1 border-b border-primary/30 px-1 pb-1.5 text-[13px] font-semibold text-primary">By Day</p>
+      <DatePicker value={day} onChange={setDay} className="mb-4" />
+      <p className="mb-2 border-b border-primary/30 px-1 pb-1.5 text-[13px] font-semibold text-primary">By Time</p>
+      <div className="grid grid-cols-3 gap-2">
+        {BOOKING_TIMES.map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTime(t)}
+            className={`rounded-field border px-2 py-1.5 text-[13px] font-medium transition-colors ${
+              time === t
+                ? "border-primary bg-primary-wash text-primary"
+                : "border-border text-text-body hover:bg-canvas"
+            }`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => void }) {
   // Both the rail highlight and the right-hand content follow whatever's hovered
   // (falling back to `cat` when nothing is hovered). Clicking a rail item pins it;
@@ -211,14 +273,7 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
     <div className="flex">
       {/* left third — category rail (grey comes from the panel gradient) */}
       <div className="w-1/3 p-2" onMouseLeave={() => setHovered(null)}>
-        {/* Book now — the first option in the rail, styled like the rest of the list. */}
-        <Link
-          href="/book/liminal"
-          className="group flex w-full items-center gap-3 rounded-field px-3 py-2.5 text-left transition-colors hover:bg-surface hover:shadow-sm"
-        >
-          <Icon name="calendar-check" size={20} className="shrink-0 text-text-muted transition-colors group-hover:text-text" />
-          <span className="text-[15px] font-medium text-text-body group-hover:text-text">Book now</span>
-        </Link>
+        <p className="mb-1 border-b border-primary/30 px-3 pb-1.5 pt-1 text-[13px] font-semibold text-primary">By services</p>
         {[...FIND_CATEGORIES].sort((a, b) => a.label.localeCompare(b.label)).map((c) => {
           const on = c.key === highlight;
           return (
@@ -245,13 +300,16 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
         })}
       </div>
 
-      {/* right two-thirds — content; View all is the last grid cell */}
+      {/* right two-thirds — content. Book now gets the bespoke booking panel. */}
       <div className="w-2/3 p-4">
-        {active.sections.map((s, i) => {
+        {active.key === "book" ? (
+          <BookingContent />
+        ) : (
+          active.sections.map((s, i) => {
           const isLast = i === active.sections.length - 1;
           return (
             <div key={i} className="mb-4 last:mb-0">
-              {s.header && <p className="px-3 pb-1 text-[13px] font-semibold text-primary">{s.header}</p>}
+              {s.header && <p className="mb-1 border-b border-primary/30 px-3 pb-1.5 text-[13px] font-semibold text-primary">{s.header}</p>}
               <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
                 {s.links.map((l) => (
                   <FindLink key={l.href + l.label} href={l.href} label={l.label} />
@@ -267,7 +325,7 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
               </div>
             </div>
           );
-        })}
+        }))}
       </div>
     </div>
   );
@@ -439,7 +497,7 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
         </div>
 
         <div className="w-2/3 p-3">
-          <p className="px-1 pb-1 text-[13px] font-semibold text-primary">{active ? "Results" : "Recent searches"}</p>
+          <p className="mb-1 border-b border-primary/30 px-1 pb-1.5 text-[13px] font-semibold text-primary">{active ? "Results" : "Recent searches"}</p>
           {!active && RECENT_RESULTS.map((r) => <ResultRow key={r.name} name={r.name} line={r.line} onClick={go} />)}
           {active && loading && <p className="px-1 py-3 text-sm text-text-muted">Searching…</p>}
           {active && !loading && shown.length === 0 && (
@@ -462,7 +520,7 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
 function ProvidersPanel() {
   return (
     <div className="p-2">
-      <p className="px-3 pb-1 pt-1 text-[13px] font-semibold text-primary">For professionals</p>
+      <p className="mb-1 border-b border-primary/30 px-3 pb-1.5 pt-1 text-[13px] font-semibold text-primary">For professionals</p>
       {PROVIDER_LINKS.map((l) => (
         <PanelRow key={l.href} {...l} />
       ))}
@@ -473,7 +531,7 @@ function ProvidersPanel() {
 function CompanyPanel() {
   return (
     <div className="p-2">
-      <p className="px-3 pb-1 pt-1 text-[13px] font-semibold text-primary">It&apos;s Liminal</p>
+      <p className="mb-1 border-b border-primary/30 px-3 pb-1.5 pt-1 text-[13px] font-semibold text-primary">It&apos;s Liminal</p>
       {COMPANY_LINKS.map((l) => (
         <PanelRow key={l.href} {...l} />
       ))}
@@ -522,7 +580,7 @@ function MyPortalMenu() {
           role="menu"
           className="absolute left-0 top-full z-50 mt-2 flex w-56 flex-col rounded-card border border-border bg-surface p-2 shadow-menu"
         >
-          <p className="px-3 pb-1 pt-1 text-[13px] font-semibold text-primary">Portal</p>
+          <p className="mb-1 border-b border-primary/30 px-3 pb-1.5 pt-1 text-[13px] font-semibold text-primary">Portal</p>
           {(
             [
               { icon: "person-circle", label: "For patients" },
