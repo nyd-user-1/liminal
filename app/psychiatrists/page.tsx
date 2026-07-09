@@ -17,7 +17,7 @@ export default function PsychiatristsPage() {
       <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-12 sm:py-16">
         <div className="relative overflow-hidden rounded-card">
           <img
-            src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/landscape20.avif"
+            src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/Gemini_Generated_Image_pyj40gpyj40gpyj4.avif"
             alt=""
             className="h-64 w-full object-cover sm:h-80"
             loading="eager"

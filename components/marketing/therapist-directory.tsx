@@ -82,12 +82,15 @@ export function TherapistDirectory({ profession }: { profession?: string }) {
           const params = new URLSearchParams({ [param]: x });
           if (profession) params.set("need", profession);
           return (
-            <li key={x} className="mb-4 break-inside-avoid">
+            <li key={x} className="mb-1 break-inside-avoid">
               <Link
                 href={`/find-care?${params.toString()}`}
-                className="text-[15px] text-text-body transition-colors hover:text-primary"
+                className="group -mx-2 flex items-center justify-between gap-2 rounded-field px-2 py-1.5 text-[15px] text-text-body transition-colors hover:bg-page-edge hover:text-text"
               >
                 {x}
+                <span aria-hidden className="text-primary opacity-0 transition-opacity group-hover:opacity-100">
+                  ↗
+                </span>
               </Link>
             </li>
           );
