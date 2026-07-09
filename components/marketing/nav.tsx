@@ -211,7 +211,15 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
     <div className="flex">
       {/* left third — category rail (grey comes from the panel gradient) */}
       <div className="w-1/3 p-2" onMouseLeave={() => setHovered(null)}>
-        {FIND_CATEGORIES.map((c) => {
+        <Link
+          href="/book/liminal"
+          className="group mb-1 flex w-full items-center gap-3 rounded-field px-3 py-2.5 text-left transition-colors hover:bg-surface hover:shadow-sm"
+        >
+          <Icon name="calendar-check" size={20} className="shrink-0 fill-primary-wash text-primary" />
+          <span className="text-[15px] font-semibold text-primary">Book now</span>
+        </Link>
+        <p className="px-3 pb-1 pt-1 text-[13px] font-semibold text-primary">Find your</p>
+        {[...FIND_CATEGORIES].sort((a, b) => a.label.localeCompare(b.label)).map((c) => {
           const on = c.key === highlight;
           return (
             <button
@@ -249,7 +257,10 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
                   <FindLink key={l.href + l.label} href={l.href} label={l.label} />
                 ))}
                 {isLast && (
-                  <Link href={active.viewAll.href} className="group px-3 py-2 text-[15px] font-medium text-primary">
+                  <Link
+                    href={active.viewAll.href}
+                    className="group col-span-2 px-3 py-2 text-[15px] font-medium text-primary"
+                  >
                     <span className="link-wipe">Browse 116,185 providers</span>
                   </Link>
                 )}
@@ -384,7 +395,7 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
       {/* filter rail + results */}
       <div className="flex border-t border-border">
         <div className="w-1/3 bg-canvas p-2">
-          <p className="px-2.5 pb-1 pt-1 text-[13px] font-semibold text-text">Filter by</p>
+          <p className="px-2.5 pb-1 pt-1 text-[13px] font-semibold text-primary">Filter by</p>
           {SEARCH_FILTERS.map((f) => {
             const on = filters.includes(f.value);
             return (
@@ -416,10 +427,14 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
           <button
             type="button"
             onClick={go}
-            className="flex w-full items-center gap-3 rounded-field px-3 py-2.5 text-left text-primary transition-colors hover:bg-surface hover:shadow-sm"
+            className="group flex w-full items-center gap-3 rounded-field px-3 py-2.5 text-left transition-colors hover:bg-surface hover:shadow-sm"
           >
-            <Icon name="grid" size={20} className="shrink-0 text-primary" />
-            <span className="text-[15px] font-medium">View all</span>
+            <Icon
+              name="grid"
+              size={20}
+              className="shrink-0 text-text-muted transition-colors group-hover:fill-primary-wash group-hover:text-text"
+            />
+            <span className="text-[15px] font-medium text-text-body group-hover:text-text">View all</span>
           </button>
         </div>
 
@@ -447,6 +462,7 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
 function ProvidersPanel() {
   return (
     <div className="p-2">
+      <p className="px-3 pb-1 pt-1 text-[13px] font-semibold text-primary">For professionals</p>
       {PROVIDER_LINKS.map((l) => (
         <PanelRow key={l.href} {...l} />
       ))}
@@ -456,17 +472,11 @@ function ProvidersPanel() {
 
 function CompanyPanel() {
   return (
-    <div>
-      <div className="p-2">
-        {COMPANY_LINKS.map((l) => (
-          <PanelRow key={l.href} {...l} />
-        ))}
-      </div>
-      <div className="border-t border-border bg-canvas px-3 py-3">
-        <Link href="/book/liminal" className="group inline-flex px-2 text-[15px] font-medium text-primary">
-          <span className="link-wipe">Book an appointment in minutes</span>
-        </Link>
-      </div>
+    <div className="p-2">
+      <p className="px-3 pb-1 pt-1 text-[13px] font-semibold text-primary">It&apos;s Liminal</p>
+      {COMPANY_LINKS.map((l) => (
+        <PanelRow key={l.href} {...l} />
+      ))}
     </div>
   );
 }
