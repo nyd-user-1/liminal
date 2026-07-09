@@ -22,7 +22,7 @@ const ROUTE_TITLES: Array<[prefix: string, icon: IconName, title: string]> = [
   ["/clients", "users", "Clients"],
   ["/directory", "globe", "Directory"],
   ["/billing", "dollar", "Billing"],
-  ["/templates", "clipboard", "Library"],
+  ["/library", "clipboard", "Library"],
   // Settings is a tabbed section (services/locations/availability) — one constant
   // title, tab bar switches the panel. See app/(app)/settings/layout.tsx.
   ["/settings", "gear", "Settings"],

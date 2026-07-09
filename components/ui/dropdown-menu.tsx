@@ -53,7 +53,7 @@ export function MenuItem({
             className={
               danger
                 ? "text-danger transition-colors group-hover:fill-danger-tint"
-                : "text-text-body transition-colors group-hover:fill-primary-wash group-hover:text-primary"
+                : "text-text transition-colors group-hover:fill-primary-wash"
             }
           />
         ))}

@@ -269,7 +269,7 @@ export function FormBuilder({
         </Badge>
       </div>
       <Breadcrumb
-        items={[{ label: "Library", href: "/templates" }, { label: "Forms", href: "/templates/forms" }, { label: form.title }]}
+        items={[{ label: "Library", href: "/library" }, { label: "Forms", href: "/library/forms" }, { label: form.title }]}
         className="mb-6"
       />
 

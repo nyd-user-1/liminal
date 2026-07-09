@@ -143,7 +143,7 @@ export function TemplatesIndex() {
   // ← / → move between the content tabs (A–Z sections). Ignored while typing in
   // a field or when a modal/dialog is open.
   useEffect(() => {
-    const order = ["all", "assessments", "forms", "guidelines", "notes", "plans", "prompts", "worksheets"];
+    const order = ["all", "assessments", "forms", "notes", "prompts"];
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
       const el = e.target as HTMLElement | null;
@@ -224,7 +224,7 @@ export function TemplatesIndex() {
     });
     if (!res.ok) return toast("Could not create the form.", "danger");
     const form = await res.json();
-    router.push(`/templates/forms/${form.id}`);
+    router.push(`/library/forms/${form.id}`);
   };
   const duplicateForm = async (f: Form) => {
     const res = await fetch("/api/forms", {
@@ -274,7 +274,8 @@ export function TemplatesIndex() {
     Notes: "pink",
     "Plans & reports": "green",
     Prompts: "violet",
-    "Worksheets & handouts": "teal",
+    Worksheets: "teal",
+    Handouts: "blue",
   };
 
   // Each card: a category tag (first) + one secondary tag, bottom-left.
@@ -310,11 +311,11 @@ export function TemplatesIndex() {
     date: formatDate(f.updatedAt),
     category,
     tag: <Badge variant={f.status === "published" ? "success" : "warning"}>{f.status === "published" ? "Published" : "Draft"}</Badge>,
-    onOpen: () => router.push(`/templates/forms/${f.id}`),
+    onOpen: () => router.push(`/library/forms/${f.id}`),
     menu: cardMenu(`Actions for ${f.title}`, {
       canRename: true,
       onDuplicate: () => duplicateForm(f),
-      onRename: () => router.push(`/templates/forms/${f.id}`),
+      onRename: () => router.push(`/library/forms/${f.id}`),
       onDelete: () => deleteForm(f),
     }),
   });
@@ -357,7 +358,8 @@ export function TemplatesIndex() {
     { key: "notes", title: "Notes", onNew: newNote, items: sortAZ(padTo12(notes.map((t) => noteItem(t, "Notes")), "Notes")) },
     { key: "plans", title: "Plans & reports", onNew: comingSoon, items: sortAZ(loremItems("Plans & reports")) },
     { key: "prompts", title: "Prompts", onNew: newNote, items: sortAZ(padTo12([...notes.map((t) => noteItem(t, "Prompts")), ...SCAFFOLD_PROMPTS.map((p, i) => scaffoldItem(p.name, p.name, p.meta, "Community", dateFor(i), "Prompts"))], "Prompts")) },
-    { key: "worksheets", title: "Worksheets & handouts", onNew: comingSoon, items: sortAZ(loremItems("Worksheets & handouts")) },
+    { key: "worksheets", title: "Worksheets", onNew: comingSoon, items: sortAZ(loremItems("Worksheets")) },
+    { key: "handouts", title: "Handouts", onNew: comingSoon, items: sortAZ(loremItems("Handouts")) },
   ].sort((a, b) => a.title.localeCompare(b.title));
 
   const q = search.trim().toLowerCase();
@@ -407,13 +409,23 @@ export function TemplatesIndex() {
   const activeSection = SECTIONS.find((s) => s.key === tab);
   const newAction = activeSection ? activeSection.onNew : newNote;
 
+  // Visible tabs: All + these four; the rest live behind a "View More" dropdown.
+  const PRIMARY_TABS = ["assessments", "forms", "notes", "prompts"];
+  const primaryTabItems = [
+    { key: "all", label: "All" },
+    ...SECTIONS.filter((s) => PRIMARY_TABS.includes(s.key)).map((s) => ({ key: s.key, label: s.title })),
+  ];
+  const overflowTabItems = SECTIONS.filter((s) => !PRIMARY_TABS.includes(s.key)).map((s) => ({ key: s.key, label: s.title }));
+
   return (
     <>
       <Tabs
         className="mb-4"
         active={tab}
         onChange={setTab}
-        items={[{ key: "all", label: "All" }, ...SECTIONS.map((s) => ({ key: s.key, label: s.title }))]}
+        items={primaryTabItems}
+        overflow={overflowTabItems}
+        overflowLabel="View More"
       />
 
       {/* Persistent "New" + search + filters across every tab view */}

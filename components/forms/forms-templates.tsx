@@ -16,7 +16,7 @@ import type { Form } from "@/lib/types";
 
 // Contract export: `FormsTemplates` — the Forms tab of the Templates page
 // (rendered there by the Clinical-docs agent; also mounted at
-// /templates/forms). Card grid of form templates: title, draft/published
+// /library/forms). Card grid of form templates: title, draft/published
 // Badge, response count, KebabMenu edit/send/duplicate. Self-fetching so it
 // can be dropped into any tab host.
 
@@ -58,7 +58,7 @@ export function FormsTemplates({ preview = false, onViewMore }: { preview?: bool
       return;
     }
     const form = await res.json();
-    router.push(`/templates/forms/${form.id}`);
+    router.push(`/library/forms/${form.id}`);
   };
 
   const duplicate = async (form: FormCard) => {
@@ -99,7 +99,7 @@ export function FormsTemplates({ preview = false, onViewMore }: { preview?: bool
         `${f.schema.length} question${f.schema.length === 1 ? "" : "s"} · ${f.responseCount} response${f.responseCount === 1 ? "" : "s"}`
       }
       date={formatDate(f.updatedAt)}
-      onOpen={() => router.push(`/templates/forms/${f.id}`)}
+      onOpen={() => router.push(`/library/forms/${f.id}`)}
       tags={
         <Badge variant={f.status === "published" ? "success" : "warning"}>
           {f.status === "published" ? "Published" : "Draft"}
@@ -107,7 +107,7 @@ export function FormsTemplates({ preview = false, onViewMore }: { preview?: bool
       }
       menu={
         <KebabMenu label={`Actions for ${f.title}`}>
-          <MenuItem icon="edit" label="Edit" onClick={() => router.push(`/templates/forms/${f.id}`)} />
+          <MenuItem icon="edit" label="Edit" onClick={() => router.push(`/library/forms/${f.id}`)} />
           <MenuItem
             icon="send"
             label="Send to client"
