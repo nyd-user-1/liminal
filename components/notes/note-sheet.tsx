@@ -162,15 +162,10 @@ export function NoteSheet({
     onClose();
   }
 
-  // Download stub — exports the markdown source; PDF export comes later.
-  function download() {
+  async function download() {
     if (!note) return;
-    const blob = new Blob([`# ${title}\n\n${bodyMd}`], { type: "text/markdown" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `${title.replace(/[^\w\d -]+/g, "").trim() || "note"}.md`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    if (dirty && !locked && !(await save())) return;
+    window.open(`/notes/${note.id}/print`, "_blank");
   }
 
   if (typeof document === "undefined") return null;
@@ -340,7 +335,7 @@ export function NoteSheet({
                             toast("Copied note markdown", "success");
                           }}
                         />
-                        <MenuItem icon="download" label="Download" onClick={download} />
+                        <MenuItem icon="download" label="Download / print PDF" onClick={download} />
                         {!locked && <MenuItem icon="trash" label="Delete note" danger onClick={remove} />}
                       </KebabMenu>
                     </div>

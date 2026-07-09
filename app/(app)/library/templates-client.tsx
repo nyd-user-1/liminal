@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { NoteSheet } from "@/components/notes/note-sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -104,11 +104,79 @@ interface EditorState {
   isBuiltin: boolean;
 }
 
+// FilterChip + attached popover — same pattern as the Clients/Directory index toolbars.
+function ChipMenu({
+  label,
+  value,
+  options,
+  onSelect,
+  onClear,
+}: {
+  label: string;
+  value?: string;
+  options: string[];
+  onSelect: (v: string) => void;
+  onClear: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [term, setTerm] = useState("");
+  const ref = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [open]);
+  useEffect(() => {
+    if (!open) setTerm("");
+  }, [open]);
+  const searchable = options.length > 6;
+  const shown = searchable && term ? options.filter((o) => o.toLowerCase().includes(term.toLowerCase())) : options;
+  return (
+    <span ref={ref} className="relative">
+      <FilterChip label={label} value={value} onClick={() => setOpen((o) => !o)} onClear={onClear} />
+      {open && (
+        <div className="absolute left-0 top-full z-40 mt-1.5 w-56 rounded-card border border-border bg-surface p-2 shadow-menu">
+          {searchable && (
+            <SearchInput
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              placeholder={`Filter ${label.toLowerCase()}…`}
+              className="mb-1.5 w-full"
+            />
+          )}
+          <div className="max-h-64 overflow-y-auto">
+            {shown.map((o) => (
+              <button
+                key={o}
+                type="button"
+                onClick={() => {
+                  onSelect(o);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center gap-2 rounded-field px-2.5 py-2 text-left text-[15px] transition-colors hover:bg-[#F3F4F6] ${
+                  o === value ? "font-semibold text-primary" : "text-text"
+                }`}
+              >
+                <span className="flex-1">{o}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </span>
+  );
+}
+
 export function TemplatesIndex() {
   const toast = useToast();
   const router = useRouter();
   const [tab, setTab] = useState("all");
   const [search, setSearch] = useState("");
+  const [category, setCategory] = useState<string | undefined>();
+  const [status, setStatus] = useState<string | undefined>();
   const [templates, setTemplates] = useState<NoteTemplate[] | null>(null);
   const [forms, setForms] = useState<Array<Form & { responseCount: number }> | null>(null);
   const [clients, setClients] = useState<ClientOption[]>([]);
@@ -278,8 +346,10 @@ export function TemplatesIndex() {
     Handouts: "blue",
   };
 
-  // Each card: a category tag (first) + one secondary tag, bottom-left.
-  type LibItem = { id: string; title: string; description: string; date: string; category: string; tag: ReactNode; onOpen: () => void; menu: ReactNode };
+  // Each card: a category tag (first) + one secondary tag, bottom-left. `statusLabel`
+  // is the secondary tag's plain-text value, kept alongside the rendered `tag` node
+  // so the Status filter can match against it.
+  type LibItem = { id: string; title: string; description: string; date: string; category: string; statusLabel: string; tag: ReactNode; onOpen: () => void; menu: ReactNode };
 
   const noteItem = (t: NoteTemplate, category: string): LibItem => {
     const kind = KIND_TAG[t.template];
@@ -289,6 +359,7 @@ export function TemplatesIndex() {
       description: sectionPreview(t.bodyMd),
       date: formatDate(t.updatedAt),
       category,
+      statusLabel: kind.label,
       tag: <Tag hue={kind.hue}>{kind.label}</Tag>,
       onOpen: () => {
         setUseClient(clients[0]?.id ?? "");
@@ -310,6 +381,7 @@ export function TemplatesIndex() {
       `${f.schema.length} question${f.schema.length === 1 ? "" : "s"} · ${f.responseCount} response${f.responseCount === 1 ? "" : "s"}`,
     date: formatDate(f.updatedAt),
     category,
+    statusLabel: f.status === "published" ? "Published" : "Draft",
     tag: <Badge variant={f.status === "published" ? "success" : "warning"}>{f.status === "published" ? "Published" : "Draft"}</Badge>,
     onOpen: () => router.push(`/library/forms/${f.id}`),
     menu: cardMenu(`Actions for ${f.title}`, {
@@ -326,6 +398,7 @@ export function TemplatesIndex() {
     description: meta,
     date,
     category,
+    statusLabel: badge,
     tag: <Badge variant="neutral">{badge}</Badge>,
     onOpen: comingSoon,
     menu: cardMenu(`Actions for ${title}`, { canRename: true, onDuplicate: comingSoon, onRename: comingSoon, onDelete: comingSoon }),
@@ -362,8 +435,16 @@ export function TemplatesIndex() {
     { key: "handouts", title: "Handouts", onNew: comingSoon, items: sortAZ(loremItems("Handouts")) },
   ].sort((a, b) => a.title.localeCompare(b.title));
 
+  const allCategories = SECTIONS.map((s) => s.title);
+  const allStatuses = [...new Set(SECTIONS.flatMap((s) => s.items.map((it) => it.statusLabel)))].sort();
+
   const q = search.trim().toLowerCase();
-  const matches = (it: LibItem) => (q ? it.title.toLowerCase().includes(q) : true);
+  const matches = (it: LibItem) => {
+    if (category && it.category !== category) return false;
+    if (status && it.statusLabel !== status) return false;
+    if (q && !it.title.toLowerCase().includes(q)) return false;
+    return true;
+  };
   const card = (it: LibItem) => (
     <LibraryCard
       key={it.id}
@@ -439,8 +520,8 @@ export function TemplatesIndex() {
           placeholder="Search the library…"
           className="max-w-md flex-1"
         />
-        <FilterChip label="Status" onClick={() => toast("Status filter coming soon.", "info")} />
-        <FilterChip label="Tags" onClick={() => toast("Tag filter coming soon.", "info")} />
+        <ChipMenu label="Status" value={status} options={allStatuses} onSelect={setStatus} onClear={() => setStatus(undefined)} />
+        <ChipMenu label="Tags" value={category} options={allCategories} onSelect={setCategory} onClear={() => setCategory(undefined)} />
       </Toolbar>
 
       {tab === "all" ? (
