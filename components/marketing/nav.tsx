@@ -72,7 +72,7 @@ type FindCategory = {
 function locationSections(type: string, icon: IconName) {
   return [
     {
-      header: "By borough",
+      header: "Borough",
       links: BOROUGHS.map(([label, county]) => ({
         label,
         href: `/find-care?type=${type}&county=${encodeURIComponent(county)}`,
@@ -80,7 +80,7 @@ function locationSections(type: string, icon: IconName) {
       })),
     },
     {
-      header: "By city",
+      header: "City",
       // `q` searches the directory's `city` column, so these filter for real.
       links: CITIES.map((c) => ({
         label: c,
@@ -239,25 +239,30 @@ function BookingContent() {
   const [time, setTime] = useState<string | null>(null);
   return (
     <div>
-      <p className="mb-1 border-b border-primary/30 px-1 pb-1.5 text-[13px] font-semibold text-primary">By Day</p>
-      <DatePicker value={day} onChange={setDay} className="mb-4" />
-      <p className="mb-2 border-b border-primary/30 px-1 pb-1.5 text-[13px] font-semibold text-primary">By Time</p>
-      <div className="grid grid-cols-3 gap-2">
-        {BOOKING_TIMES.map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTime(t)}
-            className={`rounded-field border px-2 py-1.5 text-[13px] font-medium transition-colors ${
-              time === t
-                ? "border-primary bg-primary-wash text-primary"
-                : "border-border text-text-body hover:bg-canvas"
-            }`}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
+      <p className="px-1 pb-1 text-[13px] font-semibold text-primary">By Day</p>
+      <DatePicker value={day} onChange={(d) => { setDay(d); setTime(null); }} className="mb-4" />
+      {/* Time slots appear only once a day is chosen. */}
+      {day && (
+        <>
+          <p className="px-1 pb-1 text-[13px] font-semibold text-primary">By Time</p>
+          <div className="grid grid-cols-3 gap-2">
+            {BOOKING_TIMES.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTime(t)}
+                className={`rounded-field border px-2 py-1.5 text-[13px] font-medium transition-colors ${
+                  time === t
+                    ? "border-primary bg-primary-wash text-primary"
+                    : "border-border text-text-body hover:bg-canvas"
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -273,7 +278,7 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
     <div className="flex">
       {/* left third — category rail (grey comes from the panel gradient) */}
       <div className="w-1/3 p-2" onMouseLeave={() => setHovered(null)}>
-        <p className="mb-1 border-b border-primary/30 px-3 pb-1.5 pt-1 text-[13px] font-semibold text-primary">By services</p>
+        <p className="px-3 pb-1 pt-1 text-[13px] font-semibold text-primary">Services</p>
         {[...FIND_CATEGORIES].sort((a, b) => a.label.localeCompare(b.label)).map((c) => {
           const on = c.key === highlight;
           return (
@@ -309,7 +314,7 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
           const isLast = i === active.sections.length - 1;
           return (
             <div key={i} className="mb-4 last:mb-0">
-              {s.header && <p className="mb-1 border-b border-primary/30 px-3 pb-1.5 text-[13px] font-semibold text-primary">{s.header}</p>}
+              {s.header && <p className="px-3 pb-1 text-[13px] font-semibold text-primary">{s.header}</p>}
               <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
                 {s.links.map((l) => (
                   <FindLink key={l.href + l.label} href={l.href} label={l.label} />
@@ -453,7 +458,7 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
       {/* filter rail + results */}
       <div className="flex border-t border-border">
         <div className="w-1/3 bg-canvas p-2">
-          <p className="px-2.5 pb-1 pt-1 text-[13px] font-semibold text-primary">Filter by</p>
+          <p className="px-2.5 pb-1 pt-1 text-[13px] font-semibold text-primary">Filter</p>
           {SEARCH_FILTERS.map((f) => {
             const on = filters.includes(f.value);
             return (
@@ -497,7 +502,7 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
         </div>
 
         <div className="w-2/3 p-3">
-          <p className="mb-1 border-b border-primary/30 px-1 pb-1.5 text-[13px] font-semibold text-primary">{active ? "Results" : "Recent searches"}</p>
+          <p className="px-1 pb-1 text-[13px] font-semibold text-primary">{active ? "Results" : "Search"}</p>
           {!active && RECENT_RESULTS.map((r) => <ResultRow key={r.name} name={r.name} line={r.line} onClick={go} />)}
           {active && loading && <p className="px-1 py-3 text-sm text-text-muted">Searching…</p>}
           {active && !loading && shown.length === 0 && (
@@ -520,7 +525,7 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
 function ProvidersPanel() {
   return (
     <div className="p-2">
-      <p className="mb-1 border-b border-primary/30 px-3 pb-1.5 pt-1 text-[13px] font-semibold text-primary">For professionals</p>
+      <p className="px-3 pb-1 pt-1 text-[13px] font-semibold text-primary">Professionals</p>
       {PROVIDER_LINKS.map((l) => (
         <PanelRow key={l.href} {...l} />
       ))}
@@ -531,7 +536,7 @@ function ProvidersPanel() {
 function CompanyPanel() {
   return (
     <div className="p-2">
-      <p className="mb-1 border-b border-primary/30 px-3 pb-1.5 pt-1 text-[13px] font-semibold text-primary">It&apos;s Liminal</p>
+      <p className="px-3 pb-1 pt-1 text-[13px] font-semibold text-primary">Liminal</p>
       {COMPANY_LINKS.map((l) => (
         <PanelRow key={l.href} {...l} />
       ))}
@@ -544,19 +549,24 @@ function MyPortalMenu() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Hover-open (like the centered nav triggers); a short close delay bridges the
+  // gap between the button and the menu so it doesn't flicker shut.
+  const openMenu = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    setOpen(true);
+  };
+  const scheduleClose = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => setOpen(false), 150);
+  };
 
   useEffect(() => {
     if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
-    };
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    window.addEventListener("mousedown", onDown);
     window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("mousedown", onDown);
-      window.removeEventListener("keydown", onKey);
-    };
+    return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
   const go = (href: string) => {
@@ -565,11 +575,11 @@ function MyPortalMenu() {
   };
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative" onMouseEnter={openMenu} onMouseLeave={scheduleClose}>
       <Button
         variant="secondary"
         className="!border-primary"
-        onClick={() => setOpen((o) => !o)}
+        onClick={openMenu}
         aria-expanded={open}
         aria-haspopup="menu"
       >
@@ -580,7 +590,7 @@ function MyPortalMenu() {
           role="menu"
           className="absolute left-0 top-full z-50 mt-2 flex w-56 flex-col rounded-card border border-border bg-surface p-2 shadow-menu"
         >
-          <p className="mb-1 border-b border-primary/30 px-3 pb-1.5 pt-1 text-[13px] font-semibold text-primary">Portal</p>
+          <p className="px-3 pb-1 pt-1 text-[13px] font-semibold text-primary">Portal</p>
           {(
             [
               { icon: "person-circle", label: "For patients" },
