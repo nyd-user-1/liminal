@@ -6,6 +6,8 @@ import { IconButton } from "@/components/ui/icon-button";
 // Catalog `DatePicker` — mini month grid: month label + prev/next chevrons,
 // M–F header only (no weekend appointments); today = primary-tint circle,
 // selected = solid primary circle. Value is a YYYY-MM-DD string (no timezone surprises).
+// Optional `enabledDates`: when given, any other day renders struck-through
+// and unclickable (booking calendars — days with no open slots).
 
 const WEEKDAYS = ["M", "T", "W", "T", "F"];
 
@@ -16,10 +18,12 @@ function toKey(d: Date): string {
 export function DatePicker({
   value,
   onChange,
+  enabledDates,
   className = "",
 }: {
   value?: string; // YYYY-MM-DD
   onChange: (date: string) => void;
+  enabledDates?: ReadonlySet<string>; // YYYY-MM-DD keys; omit = all days clickable
   className?: string;
 }) {
   const initial = value ? new Date(`${value}T00:00:00`) : new Date();
@@ -65,15 +69,21 @@ export function DatePicker({
           const key = toKey(date);
           const selected = key === value;
           const isToday = key === todayKey;
+          const disabled = enabledDates ? !enabledDates.has(key) : false;
           return (
             <button
               key={key}
               type="button"
+              disabled={disabled}
               onClick={() => onChange(key)}
               className={`mx-auto flex h-8 w-8 items-center justify-center rounded-full text-sm transition-colors ${
-                selected || isToday
-                  ? "bg-primary font-semibold text-white hover:bg-primary-hover"
-                  : "text-text-body hover:bg-teal-100 hover:text-primary"
+                disabled
+                  ? "cursor-default text-text-muted/60 line-through"
+                  : selected || isToday
+                    ? "bg-primary font-semibold text-white hover:bg-primary-hover"
+                    : enabledDates
+                      ? "font-semibold text-text hover:bg-teal-100 hover:text-primary"
+                      : "text-text-body hover:bg-teal-100 hover:text-primary"
               }`}
             >
               {i + 1}

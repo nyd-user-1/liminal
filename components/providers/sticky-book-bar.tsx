@@ -1,15 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { formatCents } from "@/lib/format";
 import type { Service } from "@/lib/types";
 
 // Mobile-only sticky footer CTA — on desktop the BookingRail card is already
-// `lg:sticky`, but on mobile it scrolls away with the long bio content, so
-// the primary "Book" action needs its own persistent surface once the user
-// has scrolled past the fold (matches the reference booking widget).
-export function StickyBookBar({ practitionerId, service }: { practitionerId: string; service?: Service }) {
+// `lg:sticky`, but on mobile it scrolls away with the long bio content. The
+// button scrolls to the rail (id="book") rather than navigating to /book, so
+// the calendar → time → BookingSheet flow is the one booking path everywhere.
+export function StickyBookBar({ service }: { service?: Service }) {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
@@ -34,12 +33,13 @@ export function StickyBookBar({ practitionerId, service }: { practitionerId: str
           </p>
           <p className="truncate text-[13px] text-text-muted">{formatCents(service.priceCents)} · Most insurance accepted</p>
         </div>
-        <Link
-          href={`/book/${practitionerId}?service=${service.id}`}
+        <button
+          type="button"
+          onClick={() => document.getElementById("book")?.scrollIntoView({ behavior: "smooth", block: "start" })}
           className="inline-flex h-9 shrink-0 items-center justify-center rounded-field bg-primary px-4 text-sm font-medium text-white transition-colors hover:bg-primary-hover"
         >
           Book
-        </Link>
+        </button>
       </div>
     </div>
   );

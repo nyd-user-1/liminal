@@ -151,3 +151,85 @@ export async function listBookableProfiles(): Promise<BookableProfile[]> {
   }
   return out;
 }
+
+// Rating/review-count has no backing field yet — authored here until reviews
+// exist (design lead's call). Shared by the homepage spotlight rail and the
+// real provider profile header so both show the same numbers.
+const SPOTLIGHT_RATING: Record<string, { rating: number; reviewCount: number }> = {
+  "brendan-stanton": { rating: 5.0, reviewCount: 182 },
+  "priya-raman": { rating: 4.9, reviewCount: 146 },
+  "lena-whitfield": { rating: 5.0, reviewCount: 97 },
+  "marcus-bell": { rating: 4.8, reviewCount: 64 },
+  "shelley-padgett": { rating: 4.9, reviewCount: 211 },
+};
+
+export function spotlightRatingFor(slug: string | null | undefined): { rating: number; reviewCount: number } | null {
+  return slug ? (SPOTLIGHT_RATING[slug] ?? null) : null;
+}
+
+// The ~116k directory rows (NPPES/OMH bulk) can't be authored one-by-one, so
+// their placeholder rating/tenure is seeded from the row id — same convention
+// as SPOTLIGHT_RATING above (display-only until review data exists), just
+// deterministic instead of hand-picked so a result keeps its numbers across
+// searches and page loads.
+function idHash(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+export function directoryRatingFor(id: string): { rating: number; reviewCount: number } {
+  const h = idHash(id);
+  return { rating: 4.6 + (h % 5) / 10, reviewCount: 12 + (h % 149) };
+}
+
+/** Seeded years-in-service for programs/facilities ("Serving X for N years"). */
+export function directoryYearsFor(id: string): number {
+  return 4 + (idHash(`y:${id}`) % 22);
+}
+
+/**
+ * Directory providers (NPI-sourced, unclaimed) aren't bookable yet — this
+ * picks the closest real Liminal practitioner to offer instead, so the
+ * booking rail can say "book with one of our own X" rather than dead-end.
+ * Psychiatrist professions match Liminal's one psychiatrist; everything else
+ * (LCSW/LMHC/psychologist/counselor professions) matches a therapist, biased
+ * toward whichever therapist's specialties share a keyword with the
+ * directory row's subspecialty, falling back to the first therapist.
+ */
+export function matchBookablePractitioner(
+  directory: { profession?: string | null; subspecialty?: string | null },
+  bookable: BookableProfile[],
+): BookableProfile | null {
+  if (bookable.length === 0) return null;
+  const wantsPsychiatrist = /psychiatr/i.test(directory.profession ?? "");
+  const pool = bookable.filter((b) =>
+    wantsPsychiatrist ? b.roleTitle === "Psychiatrist" : b.roleTitle !== "Psychiatrist",
+  );
+  const candidates = pool.length > 0 ? pool : bookable;
+
+  const keyword = (directory.subspecialty ?? "").toLowerCase();
+  if (keyword) {
+    const withOverlap = candidates.find((c) =>
+      [...c.topSpecialties, ...c.moreSpecialties].some(
+        (s) => keyword.includes(s.toLowerCase()) || s.toLowerCase().includes(keyword),
+      ),
+    );
+    if (withOverlap) return withOverlap;
+  }
+  return [...candidates].sort((a, b) => a.name.localeCompare(b.name))[0];
+}
+
+/** Nearest date (within 2 weeks) matching one of a practitioner's available weekdays. */
+export function nextAvailableLabel(weekdays: number[]): string {
+  if (weekdays.length === 0) return "soon";
+  const today = new Date();
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    if (weekdays.includes(d.getDay())) {
+      return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    }
+  }
+  return "soon";
+}

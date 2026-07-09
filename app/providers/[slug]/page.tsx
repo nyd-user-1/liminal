@@ -10,10 +10,18 @@ import { QualificationsCard } from "@/components/providers/qualifications-card";
 import { CareDetailsCard } from "@/components/providers/care-details-card";
 import { NearbyAreas } from "@/components/providers/nearby-areas";
 import { BookingRail } from "@/components/providers/booking-rail";
+import { StickyBookBar } from "@/components/providers/sticky-book-bar";
 import { RevealFx } from "@/components/providers/reveal-fx";
-import { getPractitionerBySlug, listServices } from "@/lib/repos/services";
-import { getProfileByUserId } from "@/lib/repos/provider-profiles";
+import { getPractitionerBySlug, listAvailability, listServices } from "@/lib/repos/services";
+import {
+  getProfileByUserId,
+  listBookableProfiles,
+  matchBookablePractitioner,
+  nextAvailableLabel,
+  spotlightRatingFor,
+} from "@/lib/repos/provider-profiles";
 import { getProviderBySlug, nearbyCities } from "@/lib/repos/directory";
+import { listPayers } from "@/lib/repos/policies";
 
 // The public provider profile — our version of Headway's provider page.
 // Resolves BOTH sources through one dynamic segment: a bookable Liminal
@@ -43,9 +51,14 @@ export default async function ProviderProfilePage({ params }: { params: Promise<
 
   const practitioner = await getPractitionerBySlug(slug);
   if (practitioner) {
-    const [profile, services] = await Promise.all([getProfileByUserId(practitioner.id), listServices()]);
+    const [profile, services, availability, payers] = await Promise.all([
+      getProfileByUserId(practitioner.id),
+      listServices(),
+      listAvailability(practitioner.id),
+      listPayers(),
+    ]);
     const activeServices = services.filter((s) => s.active);
-    const virtual = profile?.careTypes.some((c) => c.toLowerCase().includes("telehealth")) ?? false;
+    const spotlightRating = spotlightRatingFor(practitioner.slug);
 
     return (
       <div className="flex min-h-screen flex-col bg-page">
@@ -60,9 +73,11 @@ export default async function ProviderProfilePage({ params }: { params: Promise<
                   illustrationKey={profile?.illustrationKey}
                   roleTitle={profile?.roleTitle}
                   yearsExperience={profile?.yearsExperience}
-                  locationLabel={profile?.locationLabel}
-                  topSpecialty={profile?.topSpecialties[0]}
-                  virtual={virtual}
+                  rating={spotlightRating?.rating}
+                  reviewCount={spotlightRating?.reviewCount}
+                  availableLabel={
+                    spotlightRating ? nextAvailableLabel(availability.map((a) => a.weekday)) : undefined
+                  }
                 />
               </Card>
             </RevealFx>
@@ -120,11 +135,18 @@ export default async function ProviderProfilePage({ params }: { params: Promise<
 
           <aside className="lg:sticky lg:top-6 lg:self-start">
             <RevealFx delay={0.15}>
-              <BookingRail practitionerId={practitioner.id} services={activeServices} active />
+              <BookingRail
+                practitionerId={practitioner.id}
+                services={activeServices}
+                payers={payers}
+                availableWeekdays={availability.map((a) => a.weekday)}
+                active
+              />
             </RevealFx>
           </aside>
         </main>
         <MarketingFooter />
+        <StickyBookBar service={activeServices[0]} />
       </div>
     );
   }
@@ -133,9 +155,15 @@ export default async function ProviderProfilePage({ params }: { params: Promise<
   if (!directory) notFound();
 
   const locationLabel = [directory.address, directory.city, directory.zip].filter(Boolean).join(", ") || null;
-  const topSpecialty = directory.subspecialty ?? directory.primaryTaxonomy ?? directory.profession ?? null;
   // Real nearby cities from the same county (not fabricated neighboring towns).
   const nearby = await nearbyCities(directory.county, directory.city);
+  // This directory row is an unclaimed NPI listing, not a bookable Liminal
+  // practitioner — offer the closest real match instead of a dead end.
+  const bookable = await listBookableProfiles();
+  const match = matchBookablePractitioner(directory, bookable);
+  const claimHref = `/join?claim=1&name=${encodeURIComponent(directory.name)}${
+    directory.npi ? `&npi=${encodeURIComponent(directory.npi)}` : ""
+  }${directory.licenseState ? `&state=${encodeURIComponent(directory.licenseState)}` : ""}`;
 
   return (
     <div className="flex min-h-screen flex-col bg-page">
@@ -144,13 +172,7 @@ export default async function ProviderProfilePage({ params }: { params: Promise<
         <div className="min-w-0 space-y-6">
           <RevealFx delay={0.05}>
             <Card>
-              <ProviderHeader
-                name={directory.name}
-                roleTitle={directory.profession}
-                locationLabel={locationLabel}
-                topSpecialty={topSpecialty}
-                directoryId={directory.id}
-              />
+              <ProviderHeader name={directory.name} roleTitle={directory.profession} directoryId={directory.id} />
             </Card>
           </RevealFx>
 
@@ -163,7 +185,7 @@ export default async function ProviderProfilePage({ params }: { params: Promise<
 
           <RevealFx delay={0.25}>
             <CareDetailsCard
-              topSpecialties={[directory.subspecialty, directory.primaryTaxonomy, directory.profession].filter(
+              topSpecialties={[directory.subspecialty, directory.profession].filter(
                 (v): v is string => Boolean(v),
               )}
               locationLabel={locationLabel}
@@ -177,7 +199,14 @@ export default async function ProviderProfilePage({ params }: { params: Promise<
 
         <aside className="lg:sticky lg:top-6 lg:self-start">
           <RevealFx delay={0.15}>
-            <BookingRail practitionerId={directory.id} services={[]} active={false} />
+            <BookingRail
+              practitionerId={directory.id}
+              services={[]}
+              active={false}
+              directoryName={directory.name}
+              match={match}
+              claimHref={claimHref}
+            />
           </RevealFx>
         </aside>
       </main>

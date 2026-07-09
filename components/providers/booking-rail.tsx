@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Select } from "@/components/ui/select";
+import { BookingSheet } from "@/components/providers/booking-sheet";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Spinner } from "@/components/ui/spinner";
 import { TextLink } from "@/components/ui/text-link";
 import type { BookableProfile } from "@/lib/repos/provider-profiles";
@@ -12,36 +13,38 @@ import type { Payer, Service } from "@/lib/types";
 // a graceful stopgap for directory providers (NPI-sourced, unclaimed, no
 // availability yet). Same card, same chrome.
 //
-// Active state: an insurance picker + a compact multi-day availability list
-// (a few chips per day, never the full grid — "See more availabilities"
-// expands it) modeled on the reference booking widget Brendan shared.
-// Clicking a slot hands off to /book/[slug]?service=&date=&time=&payer=,
-// which (via BookClient's `prefill`) jumps straight to the details step —
-// the insurance choice travels with it so it's never asked twice.
+// Active state: the classic calendar-first layout — month grid up top (days
+// with no availability struck through), then at most SIX slot chips (2 rows
+// × 3 cols) for the selected day with a "+N more times" expander, so open
+// times read as scarce/valuable rather than a wall of inventory. Picking a
+// time doesn't navigate away: it lifts the BookingSheet (time-confirm →
+// details+insurance → cost estimate), keeping the user on the provider page.
 //
 // Inactive state: rather than a dead "coming soon", this offers the closest
 // real bookable Liminal practitioner (computed server-side by
 // matchBookablePractitioner) and a "claim this profile" link for the actual
 // provider — see app/providers/[slug]/page.tsx.
 
-const SELF_PAY = "";
-const DAYS_AHEAD = 14;
-const INITIAL_DAYS_SHOWN = 3;
-const MAX_CHIPS_PER_DAY = 4;
+const DAYS_AHEAD = 28;
+const INITIAL_SLOTS = 6; // 2 rows × 3 cols
 
 const slotLabel = (hhmm: string) => {
   const [h, m] = hhmm.split(":").map(Number);
   return new Date(0, 0, 0, h, m).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 };
 
-const dayKey = (d: Date) => d.toISOString().slice(0, 10);
-const dayLabel = (key: string) =>
-  new Date(`${key}T00:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+const dayKey = (d: Date) => {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+const prettyDate = (key: string) =>
+  new Date(`${key}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
 export function BookingRail({
   practitionerId,
   services,
   payers,
+  availableWeekdays,
   active,
   directoryName,
   match,
@@ -50,8 +53,10 @@ export function BookingRail({
   practitionerId: string;
   /** Active Liminal services — ignored (never fetched against) when `active` is false. */
   services: Service[];
-  /** Insurance options; omitted (or empty) hides the picker. */
+  /** Insurance options for the BookingSheet's details step. */
   payers?: Payer[];
+  /** Weekdays (0–6) with availability rules — non-matching calendar days render struck through. */
+  availableWeekdays?: number[];
   /** True for a bookable Liminal practitioner; false for a directory provider. */
   active: boolean;
   /** Directory provider's display name — inactive state only. */
@@ -61,89 +66,109 @@ export function BookingRail({
   /** "Is this you? Claim this profile" link — inactive state only. */
   claimHref?: string;
 }) {
-  const serviceId = services[0]?.id ?? "";
-  const [payerId, setPayerId] = useState(SELF_PAY);
-  const [byDay, setByDay] = useState<Record<string, string[]> | null>(null);
-  const [expanded, setExpanded] = useState(false);
+  const service = services[0];
 
-  const days = useMemo(() => {
+  // Bookable days: tomorrow..DAYS_AHEAD whose weekday has an availability rule.
+  const enabledDates = useMemo(() => {
+    const set = new Set<string>();
+    if (!availableWeekdays?.length) return set;
     const today = new Date();
-    return Array.from({ length: DAYS_AHEAD }, (_, i) => {
+    for (let i = 1; i <= DAYS_AHEAD; i++) {
       const d = new Date(today);
-      d.setDate(today.getDate() + i + 1);
-      return dayKey(d);
-    });
-  }, []);
+      d.setDate(today.getDate() + i);
+      if (availableWeekdays.includes(d.getDay())) set.add(dayKey(d));
+    }
+    return set;
+  }, [availableWeekdays]);
+
+  const firstAvailable = useMemo(() => [...enabledDates].sort()[0], [enabledDates]);
+
+  const [date, setDate] = useState<string | undefined>(undefined);
+  const [slots, setSlots] = useState<string[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [picked, setPicked] = useState<{ date: string; time: string } | null>(null);
+
+  // Preselect the soonest bookable day so real times show immediately.
+  useEffect(() => {
+    if (active && !date && firstAvailable) setDate(firstAvailable);
+  }, [active, date, firstAvailable]);
 
   useEffect(() => {
-    if (!active || !serviceId) return;
+    if (!active || !date || !service) {
+      setSlots(null);
+      return;
+    }
     let alive = true;
-    Promise.all(
-      days.map((date) =>
-        fetch(`/api/book?practitionerId=${encodeURIComponent(practitionerId)}&serviceId=${encodeURIComponent(serviceId)}&date=${date}`)
-          .then((r) => r.json())
-          .then((d) => [date, Array.isArray(d.slots) ? d.slots : []] as const)
-          .catch(() => [date, []] as const),
-      ),
-    ).then((entries) => {
-      if (alive) setByDay(Object.fromEntries(entries.filter(([, slots]) => slots.length > 0)));
-    });
+    setLoading(true);
+    setExpanded(false);
+    fetch(`/api/book?practitionerId=${encodeURIComponent(practitionerId)}&serviceId=${encodeURIComponent(service.id)}&date=${date}`)
+      .then((r) => r.json())
+      .then((d) => alive && setSlots(Array.isArray(d.slots) ? d.slots : []))
+      .catch(() => alive && setSlots([]))
+      .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
     };
-  }, [active, practitionerId, serviceId, days]);
+  }, [active, practitionerId, service, date]);
 
-  const dayEntries = byDay ? Object.entries(byDay) : [];
-  const shown = expanded ? dayEntries : dayEntries.slice(0, INITIAL_DAYS_SHOWN);
-  const bookHref = (date: string, time: string) =>
-    `/book/${practitionerId}?service=${serviceId}&date=${date}&time=${time}${payerId ? `&payer=${payerId}` : ""}`;
+  const shown = slots && !expanded ? slots.slice(0, INITIAL_SLOTS) : slots;
 
   return (
-    <div className="rounded-card border border-border bg-surface p-5 shadow-card">
-      <h2 className="text-[17px] font-semibold text-text">Schedule an appointment</h2>
+    <div id="book" className="scroll-mt-6 rounded-card border border-border bg-surface p-5 shadow-card">
+      <h2 className="text-[17px] font-semibold text-text">Book an appointment</h2>
 
-      {active && (
+      {active && service && (
         <>
-          {payers && payers.length > 0 && (
-            <Select
-              className="mt-3"
-              label="Insurance"
-              options={[{ value: SELF_PAY, label: "Cash / self-pay" }, ...payers.map((p) => ({ value: p.id, label: p.name }))]}
-              value={payerId}
-              onValueChange={setPayerId}
-            />
+          <DatePicker
+            value={date}
+            onChange={setDate}
+            enabledDates={enabledDates.size > 0 ? enabledDates : undefined}
+            className="mt-4"
+          />
+
+          <p className="mb-2 mt-4 text-sm font-medium text-text-body">
+            {date ? prettyDate(date) : "Select a date to see available times."}
+          </p>
+
+          {date && loading && <Spinner className="text-primary" />}
+
+          {date && !loading && slots?.length === 0 && (
+            <p className="text-[14px] text-text-muted">No availability on this day — try another date.</p>
           )}
 
-          {byDay === null && <Spinner className="mt-4 text-primary" />}
-
-          {byDay !== null && dayEntries.length === 0 && (
-            <p className="mt-3 text-[14px] text-text-muted">No upcoming availability — check back soon.</p>
-          )}
-
-          {dayEntries.length > 0 && (
-            <div className="mt-4 space-y-4">
-              {shown.map(([date, slots]) => (
-                <div key={date}>
-                  <p className="text-sm font-medium text-text-body">{dayLabel(date)}</p>
-                  <div className="mt-1.5 flex flex-wrap gap-2">
-                    {slots.slice(0, MAX_CHIPS_PER_DAY).map((s) => (
-                      <Link
-                        key={s}
-                        href={bookHref(date, s)}
-                        className="rounded-field border border-field-border px-3 py-1.5 text-sm font-medium text-text-body transition-colors hover:border-primary hover:bg-teal-100 hover:text-primary"
-                      >
-                        {slotLabel(s)}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              ))}
-              {!expanded && dayEntries.length > shown.length && (
-                <TextLink onClick={() => setExpanded(true)} className="text-sm">
-                  See more availabilities
+          {date && !loading && shown && shown.length > 0 && (
+            <>
+              <div className="grid grid-cols-3 gap-2">
+                {shown.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setPicked({ date, time: s })}
+                    className="rounded-field border border-field-border px-2 py-2 text-center text-sm font-medium text-text-body transition-colors hover:border-primary hover:bg-teal-100 hover:text-primary"
+                  >
+                    {slotLabel(s)}
+                  </button>
+                ))}
+              </div>
+              {!expanded && slots && slots.length > INITIAL_SLOTS && (
+                <TextLink onClick={() => setExpanded(true)} className="mt-2.5 text-sm">
+                  +{slots.length - INITIAL_SLOTS} more times
                 </TextLink>
               )}
-            </div>
+            </>
+          )}
+
+          {picked && (
+            <BookingSheet
+              open={Boolean(picked)}
+              onClose={() => setPicked(null)}
+              practitionerId={practitionerId}
+              service={service}
+              payers={payers ?? []}
+              date={picked.date}
+              time={picked.time}
+            />
           )}
         </>
       )}
