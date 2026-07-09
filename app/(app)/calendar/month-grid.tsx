@@ -2,13 +2,14 @@
 
 import { Icon } from "@/components/ui/icons";
 import type { CalEvent } from "./week-grid";
-import { dateKey, monthMatrix, monthOf, parseKey } from "./calendar-utils";
+import { dateKey, monthMatrixWorkWeek, monthOf, parseKey } from "./calendar-utils";
 
-// Month view — a 6×7 day matrix (Sunday-start) of the anchor's month. Each
-// cell lists its day's session chips (colored by service); "+n more" when a
-// day overflows. Click a chip → detail; click a day → drill into that day.
+// Month view — a Mon–Fri day matrix (Monday-start, no weekend appointments)
+// of the anchor's month. Each cell lists its day's session chips (colored by
+// service); "+n more" when a day overflows. Click a chip → detail; click a
+// day → drill into that day.
 
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 const MAX_CHIPS = 3; // chips shown per day before collapsing to "+n more"
 
 export function MonthGrid({
@@ -22,7 +23,7 @@ export function MonthGrid({
   onChipClick: (id: string) => void;
   onDayClick: (date: string) => void;
 }) {
-  const cells = monthMatrix(anchor);
+  const rows = monthMatrixWorkWeek(anchor);
   const activeMonth = monthOf(anchor);
   const todayKey = dateKey(new Date());
 
@@ -45,11 +46,11 @@ export function MonthGrid({
         ))}
       </div>
 
-      {/* 6 week rows, each stretches to fill the height */}
-      <div className="grid min-h-0 flex-1 grid-rows-6">
-        {Array.from({ length: 6 }).map((_, week) => (
-          <div key={week} className="grid grid-cols-7 border-b border-border last:border-b-0">
-            {cells.slice(week * 7, week * 7 + 7).map((day) => {
+      {/* Week rows (5–6 depending on the month), each stretches to fill the height */}
+      <div className="grid min-h-0 flex-1" style={{ gridTemplateRows: `repeat(${rows.length}, 1fr)` }}>
+        {rows.map((row, week) => (
+          <div key={week} className="grid grid-cols-5 border-b border-border last:border-b-0">
+            {row.map((day) => {
               const d = parseKey(day);
               const inMonth = d.getMonth() === activeMonth;
               const isToday = day === todayKey;

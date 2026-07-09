@@ -23,8 +23,9 @@ import {
   dateKey,
   daysOfMonth,
   minutesOfDay,
+  nextWorkday,
   parseKey,
-  startOfWeek,
+  startOfWorkWeek,
 } from "./calendar-utils";
 import { AppointmentDetailPanel, AppointmentFormPanel, STATUS_META, type CreateDraft } from "./appointment-panels";
 import { MonthGrid } from "./month-grid";
@@ -81,8 +82,8 @@ export function CalendarClient({
 
   const days = useMemo(() => {
     if (view === "day") return [anchor];
-    const start = startOfWeek(anchor);
-    return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+    const start = startOfWorkWeek(anchor);
+    return Array.from({ length: 5 }, (_, i) => addDays(start, i));
   }, [view, anchor]);
 
   const events: CalEvent[] = useMemo(
@@ -124,8 +125,8 @@ export function CalendarClient({
     if (agendaRange === "day") {
       keys = [anchor];
     } else if (agendaRange === "week") {
-      const start = startOfWeek(anchor);
-      keys = Array.from({ length: 7 }, (_, i) => addDays(start, i));
+      const start = startOfWorkWeek(anchor);
+      keys = Array.from({ length: 5 }, (_, i) => addDays(start, i));
     } else {
       keys = daysOfMonth(anchor);
     }
@@ -228,7 +229,7 @@ export function CalendarClient({
           leftIcon="plus"
           onClick={() => {
             const now = new Date();
-            openCreate({ date: dateKey(now), startMin: Math.min(19 * 60, (now.getHours() + 1) * 60) });
+            openCreate({ date: nextWorkday(dateKey(now)), startMin: Math.min(19 * 60, (now.getHours() + 1) * 60) });
           }}
         >
           New
@@ -250,7 +251,7 @@ export function CalendarClient({
         </div>
         {/* Right column — flex-1 so the controls align with the grid */}
         <div className="flex flex-1 flex-wrap items-center gap-2">
-          <Button variant="secondary" onClick={() => setAnchor(dateKey(new Date()))}>
+          <Button variant="secondary" onClick={() => setAnchor(nextWorkday(dateKey(new Date())))}>
             Today
           </Button>
           <Select

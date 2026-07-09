@@ -229,6 +229,7 @@ export function AppointmentFormPanel({
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirmWeekend, setConfirmWeekend] = useState(false);
 
   // Re-seed the form each time a new draft opens.
   useEffect(() => {
@@ -242,10 +243,15 @@ export function AppointmentFormPanel({
     setDuration(draft.endMin ? draft.endMin - draft.startMin : 30);
     setNotes("");
     setError("");
+    setConfirmWeekend(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft]);
 
   if (!draft) return null;
+
+  // No weekend appointments — the practice doesn't operate Sat/Sun, so a
+  // staff pick lands here as a confirm step rather than a silent block.
+  const isWeekend = !!date && [0, 6].includes(new Date(`${date}T00:00:00`).getDay());
 
   const pickService = (id: string) => {
     setServiceId(id);
@@ -261,6 +267,10 @@ export function AppointmentFormPanel({
   const submit = async () => {
     if (!clientId || !serviceId || !practitionerId || !date || !time) {
       setError("Client, service, practitioner, date and time are required.");
+      return;
+    }
+    if (isWeekend && !confirmWeekend) {
+      setConfirmWeekend(true);
       return;
     }
     setError("");
@@ -287,14 +297,25 @@ export function AppointmentFormPanel({
       title="New appointment"
       icon="calendar"
       footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button loading={busy} onClick={submit}>
-            Create appointment
-          </Button>
-        </>
+        confirmWeekend ? (
+          <>
+            <Button variant="secondary" onClick={() => setConfirmWeekend(false)}>
+              Go back
+            </Button>
+            <Button loading={busy} onClick={submit}>
+              Book anyway
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button loading={busy} onClick={submit}>
+              Create appointment
+            </Button>
+          </>
+        )
       }
     >
       <div className="space-y-4">
@@ -336,9 +357,25 @@ export function AppointmentFormPanel({
           onValueChange={setLocationId}
         />
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Date" required type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <Field
+            label="Date"
+            required
+            type="date"
+            value={date}
+            onChange={(e) => {
+              setDate(e.target.value);
+              setConfirmWeekend(false);
+            }}
+            hint={isWeekend ? "Falls on a weekend — the practice has no regular weekend availability." : undefined}
+          />
           <Field label="Start time" required type="time" value={time} onChange={(e) => setTime(e.target.value)} />
         </div>
+        {confirmWeekend && (
+          <p className="flex items-center gap-1.5 text-[13px] text-warning">
+            <Icon name="info" size={14} className="shrink-0" />
+            This appointment falls on a weekend. Click &quot;Book anyway&quot; to confirm, or change the date.
+          </p>
+        )}
         <Field
           label="Duration"
           type="number"

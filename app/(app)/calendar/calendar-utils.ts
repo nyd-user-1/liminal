@@ -20,9 +20,18 @@ export function addDays(key: string, n: number): string {
   return dateKey(d);
 }
 
-/** Sunday-start week (matches the mini-month DatePicker). */
-export function startOfWeek(key: string): string {
-  return addDays(key, -parseKey(key).getDay());
+/** Monday-start work week — no weekend appointments, so Sat/Sun never appear. */
+export function startOfWorkWeek(key: string): string {
+  const mondayOffset = (parseKey(key).getDay() + 6) % 7; // Mon=0 … Sun=6
+  return addDays(key, -mondayOffset);
+}
+
+/** Rolls a Sat/Sun date forward to the following Monday; weekdays pass through. */
+export function nextWorkday(key: string): string {
+  const dow = parseKey(key).getDay();
+  if (dow === 0) return addDays(key, 1); // Sun → Mon
+  if (dow === 6) return addDays(key, 2); // Sat → Mon
+  return key;
 }
 
 /** Shift by whole months, clamping the day to the target month's length. */
@@ -41,12 +50,20 @@ export function daysOfMonth(key: string): string[] {
   return Array.from({ length: n }, (_, i) => dateKey(new Date(d.getFullYear(), d.getMonth(), i + 1)));
 }
 
-/** Full 6-week (42-day) Sunday-start grid covering `key`'s month. */
-export function monthMatrix(key: string): string[] {
+/** Monday-start Mon–Fri grid covering `key`'s month, one 5-date row per week
+ *  (rows vary 5–6 depending on the month's leading weekday). */
+export function monthMatrixWorkWeek(key: string): string[][] {
   const d = parseKey(key);
   const first = dateKey(new Date(d.getFullYear(), d.getMonth(), 1));
-  const gridStart = startOfWeek(first);
-  return Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
+  const last = dateKey(new Date(d.getFullYear(), d.getMonth() + 1, 0));
+  let cursor = startOfWorkWeek(first);
+  const rows: string[][] = [];
+  do {
+    const row = Array.from({ length: 5 }, (_, i) => addDays(cursor, i));
+    rows.push(row);
+    cursor = addDays(cursor, 7);
+  } while (rows[rows.length - 1][4] < last);
+  return rows;
 }
 
 export function monthOf(key: string): number {

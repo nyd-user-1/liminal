@@ -4,10 +4,10 @@ import { useState } from "react";
 import { IconButton } from "@/components/ui/icon-button";
 
 // Catalog `DatePicker` — mini month grid: month label + prev/next chevrons,
-// S–S header; today = primary-tint circle, selected = solid primary circle.
-// Value is a YYYY-MM-DD string (no timezone surprises).
+// M–F header only (no weekend appointments); today = primary-tint circle,
+// selected = solid primary circle. Value is a YYYY-MM-DD string (no timezone surprises).
 
-const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
+const WEEKDAYS = ["M", "T", "W", "T", "F"];
 
 function toKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -27,7 +27,8 @@ export function DatePicker({
   const [viewMonth, setViewMonth] = useState(initial.getMonth());
 
   const first = new Date(viewYear, viewMonth, 1);
-  const startPad = first.getDay();
+  const mondayOffset = (first.getDay() + 6) % 7; // Mon=0 … Sun=6
+  const startPad = mondayOffset <= 4 ? mondayOffset : 0; // month starting Sat/Sun needs no lead-in
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const todayKey = toKey(new Date());
 
@@ -48,7 +49,7 @@ export function DatePicker({
           <IconButton icon="chevron-right" label="Next month" onClick={() => shift(1)} className="h-7 w-7" />
         </span>
       </div>
-      <div className="grid grid-cols-7 gap-y-1 text-center">
+      <div className="grid grid-cols-5 gap-y-1 text-center">
         {WEEKDAYS.map((d, i) => (
           <span key={i} className="text-xs font-medium text-text-muted">
             {d}
@@ -58,7 +59,10 @@ export function DatePicker({
           <span key={`pad-${i}`} />
         ))}
         {Array.from({ length: daysInMonth }).map((_, i) => {
-          const key = toKey(new Date(viewYear, viewMonth, i + 1));
+          const date = new Date(viewYear, viewMonth, i + 1);
+          const dow = date.getDay();
+          if (dow === 0 || dow === 6) return null; // no weekend appointments
+          const key = toKey(date);
           const selected = key === value;
           const isToday = key === todayKey;
           return (
