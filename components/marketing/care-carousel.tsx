@@ -3,6 +3,7 @@ import { Icon } from "@/components/ui/icons";
 
 const ILLUSTRATIONS = "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations";
 const illustration = (name: string) => `${ILLUSTRATIONS}/${name}.avif`;
+const gridPhoto = (name: string) => `${ILLUSTRATIONS}/Hompage%20Grid/${encodeURIComponent(name)}.avif`;
 
 // "Find care for whatever's on your mind" — a static 3-col x 4-row grid of
 // portrait cards (same chrome as ProviderSpotlightCard — border/hover — just
@@ -13,27 +14,28 @@ const illustration = (name: string) => `${ILLUSTRATIONS}/${name}.avif`;
 //     than its neighbors.
 //   - title is teal by default (not just on hover); the up-right arrow
 //     rotates flat to point right on hover, signaling motion forward.
-//   - images are exclusively the curated "person in a scene" illustrations
-//     (single identifiable figure, not a group, not a bare landscape or a
-//     landscape with only a silhouette) — condition-named art (ADHD.avif
-//     etc.) and mood art (Hope/Calm/…) are deliberately not used here.
+//   - images: Brendan's new "Hompage Grid" blob folder first (7 of its 10
+//     files show an identifiable person — objects1/objects2/image.jpg are
+//     still-life shots, excluded), topped up with as few of the older
+//     "maya" portraits as needed (5 of 6) to fill all 12 slots — the point
+//     being even distribution, no single recurring character dominating.
 // Links: a real /care/[slug] page where lib/site-content/topics.ts has one
 // (the 9 conditions in the nav's Conditions panel); otherwise a slug with no
 // topic entry, which /care/[topic] 404s on by design.
 type Card = { slug: string; label: string; image: string };
 
 const CARDS: Card[] = [
-  { slug: "anxiety", label: "Anxiety & stress", image: illustration("maya-1") },
-  { slug: "depression", label: "Depression & mood", image: illustration("maya6") },
-  { slug: "adhd", label: "ADHD", image: illustration("liminal-9") },
-  { slug: "trauma", label: "Trauma & PTSD", image: illustration("liminal_nielb8nielb8niel") },
-  { slug: "relationships", label: "Relationships & family", image: illustration("maya-2") },
-  { slug: "grief", label: "Grief & loss", image: illustration("liminal_a2t92la2t92la2t9") },
-  { slug: "sleep", label: "Sleep", image: illustration("liminal_e0mhvxe0mhvxe0mh") },
-  { slug: "bipolar", label: "Bipolar disorder", image: illustration("liminal_n1y3w0n1y3w0n1y3") },
-  { slug: "lgbtqia", label: "LGBTQIA+ affirming", image: illustration("liminal_4ji9244ji9244ji9") },
-  { slug: "autism", label: "Autism (ASD)", image: illustration("liminal_5ziunj5ziunj5ziu") },
-  { slug: "ocd", label: "OCD", image: illustration("liminal_7h6ra17h6ra17h6r") },
+  { slug: "anxiety", label: "Anxiety & stress", image: gridPhoto("sam2") },
+  { slug: "depression", label: "Depression & mood", image: gridPhoto("nia2") },
+  { slug: "adhd", label: "ADHD", image: gridPhoto("image (8)") },
+  { slug: "trauma", label: "Trauma & PTSD", image: gridPhoto("image (9)") },
+  { slug: "relationships", label: "Relationships & family", image: gridPhoto("image (10)") },
+  { slug: "grief", label: "Grief & loss", image: gridPhoto("image (11)") },
+  { slug: "sleep", label: "Sleep", image: gridPhoto("marco1") },
+  { slug: "bipolar", label: "Bipolar disorder", image: illustration("maya-1") },
+  { slug: "lgbtqia", label: "LGBTQIA+ affirming", image: illustration("maya-2") },
+  { slug: "autism", label: "Autism (ASD)", image: illustration("maya6") },
+  { slug: "ocd", label: "OCD", image: illustration("maya10") },
   { slug: "mania", label: "Mania", image: illustration("maya11") },
 ];
 
