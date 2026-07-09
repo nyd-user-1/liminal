@@ -1,34 +1,24 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ChoiceChip } from "@/components/ui/choice-chip";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Icon } from "@/components/ui/icons";
 import { Pagination } from "@/components/ui/pagination";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
-import { Tag } from "@/components/ui/tag";
+import { FindCareSpotlightCard } from "@/components/marketing/provider-spotlight-card";
 import type { PublicResult } from "@/app/api/directory/public-search/route";
 
-const COUNTIES = [
-  { value: "", label: "All boroughs" },
-  { value: "New York", label: "Manhattan" },
-  { value: "Kings", label: "Brooklyn" },
-  { value: "Queens", label: "Queens" },
-  { value: "Bronx", label: "Bronx" },
-  { value: "Richmond", label: "Staten Island" },
-];
-
-const TYPES = [
-  { label: "All", value: "" },
-  { label: "Therapist", value: "therapist" },
-  { label: "Psychiatrist", value: "psychiatrist" },
+// Care-type filter — first of the inline filter row (Grow-style: plain
+// dropdowns, no "All"). "Medication" ≈ psychiatrist/PMHNP roles, "Therapy" ≈
+// therapist roles (see matchesType in the public-search API route).
+const TYPE_OPTIONS = [
+  { value: "psychiatrist", label: "Medication" },
+  { value: "therapist", label: "Therapy" },
 ];
 
 // The payers Liminal's own practitioners actually carry (real content, Task 1),
@@ -50,23 +40,20 @@ const PAGE_SIZE = 20;
 
 export function FindCareSearch({
   initialQ = "",
-  initialCounty = "",
   initialCity = "",
   initialSpecialty = "",
   facets,
 }: {
   initialQ?: string;
-  initialCounty?: string;
   initialCity?: string;
   initialSpecialty?: string;
   facets: { cities: string[]; counties: string[]; professions: string[]; subspecialties: string[] };
 }) {
   const router = useRouter();
   const [q, setQ] = useState(initialQ);
-  const [county, setCounty] = useState(initialCounty);
   const [city, setCity] = useState(initialCity);
   const [specialty, setSpecialty] = useState(initialSpecialty);
-  const [type, setType] = useState("");
+  const [type, setType] = useState(TYPE_OPTIONS[0].value);
   const [insurance, setInsurance] = useState("");
 
   const [results, setResults] = useState<PublicResult[]>([]);
@@ -89,7 +76,6 @@ export function FindCareSearch({
       setError(false);
       const params = new URLSearchParams();
       if (q.trim()) params.set("q", q.trim());
-      if (county) params.set("county", county);
       if (city) params.set("city", city);
       if (specialty) params.set("specialty", specialty);
       if (type) params.set("type", type);
@@ -109,12 +95,12 @@ export function FindCareSearch({
         setLoading(false);
       }
     },
-    [q, county, city, specialty, type, insurance],
+    [q, city, specialty, type, insurance],
   );
 
   // First load, only if the URL already carries a query or filter.
   useEffect(() => {
-    if (initialQ || initialCounty || initialCity || initialSpecialty) run(1);
+    if (initialQ || initialCity || initialSpecialty) run(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -122,39 +108,39 @@ export function FindCareSearch({
   useEffect(() => {
     if (searched) run(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [county, city, specialty, type, insurance]);
+  }, [city, specialty, type, insurance]);
 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const bookableMatches = results.filter((r) => r.bookable);
   const showFunnelCard = !loading && !error && searched && bookableMatches.length === 0;
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <div className="flex-1">
-          <SearchInput
-            placeholder="Search by name, specialty, or program…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && run(1)}
-          />
-        </div>
-        <Button onClick={() => run(1)}>Search</Button>
+    <div className="mx-auto max-w-[704px]">
+      <div className="relative">
+        <SearchInput
+          className="[&_input]:h-14 [&_input]:pr-28 [&_input]:text-base [&_input]:shadow-card [&_svg]:fill-primary-wash [&_svg]:text-text"
+          placeholder="Search by name, specialty, or program…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && run(1)}
+        />
+        <Button size="md" onClick={() => run(1)} className="absolute right-2 top-1/2 -translate-y-1/2">
+          Search
+        </Button>
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <Select options={COUNTIES} value={county} onValueChange={setCounty} aria-label="Borough" />
-        <Select options={cityOptions} value={city} onValueChange={setCity} searchable aria-label="City" />
-        <Select options={specialtyOptions} value={specialty} onValueChange={setSpecialty} searchable aria-label="Specialty" />
-      </div>
-
-      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap gap-2">
-          {TYPES.map((t) => (
-            <ChoiceChip key={t.label} label={t.label} selected={type === t.value} onSelect={() => setType(t.value)} />
-          ))}
-        </div>
-        <Select options={INSURANCE_OPTIONS} value={insurance} onValueChange={setInsurance} className="sm:w-56" aria-label="Insurance" />
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <Select options={TYPE_OPTIONS} value={type} onValueChange={setType} aria-label="Care type" />
+        <Select options={cityOptions} value={city} onValueChange={setCity} searchable placeholder="City" aria-label="City" />
+        <Select
+          options={specialtyOptions}
+          value={specialty}
+          onValueChange={setSpecialty}
+          searchable
+          placeholder="Specialty"
+          aria-label="Specialty"
+        />
+        <Select options={INSURANCE_OPTIONS} value={insurance} onValueChange={setInsurance} placeholder="Insurance" aria-label="Insurance" />
       </div>
       <p className="mt-2 text-xs text-text-muted">
         Insurance shown for Liminal providers; New York directory providers are Medicaid-enrolled.
@@ -190,41 +176,10 @@ export function FindCareSearch({
               {total.toLocaleString()} {total === 1 ? "provider" : "providers"} found
               {pageCount > 1 ? ` · page ${page} of ${pageCount}` : ""}
             </p>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {results.map((r) => {
-                const card = (
-                  <Card className={r.bookable ? "border-primary/30" : ""}>
-                    <div className="flex items-start gap-3">
-                      <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal-100 text-primary">
-                        <Icon name={r.kind === "provider" ? "person-circle" : "globe"} size={18} />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="truncate font-semibold text-text">{r.name}</h3>
-                          {r.bookable && <Tag hue="teal">Bookable now</Tag>}
-                        </div>
-                        {r.subtitle && <p className="text-sm text-text-body">{titleCase(r.subtitle)}</p>}
-                        {r.agency && <p className="truncate text-sm text-text-muted">{r.agency}</p>}
-                        <p className="mt-1 text-sm text-text-muted">
-                          {[r.county, r.phone].filter(Boolean).join(" · ") || "—"}
-                        </p>
-                      </div>
-                    </div>
-                  </Card>
-                );
-                if (r.kind === "provider" && r.slug) {
-                  return (
-                    <Link
-                      key={`${r.kind}-${r.id}`}
-                      href={`/providers/${r.slug}`}
-                      className="block transition-transform hover:-translate-y-0.5"
-                    >
-                      {card}
-                    </Link>
-                  );
-                }
-                return <div key={`${r.kind}-${r.id}`}>{card}</div>;
-              })}
+            <div className="grid grid-cols-1 gap-4">
+              {results.map((r) => (
+                <FindCareSpotlightCard key={`${r.kind}-${r.id}`} r={r} />
+              ))}
 
               {showFunnelCard && (
                 <Card className="border-primary/30 bg-teal-100/40">
@@ -255,11 +210,4 @@ export function FindCareSearch({
       </div>
     </div>
   );
-}
-
-function titleCase(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/\b\w/g, (c) => c.toUpperCase())
-    .replace(/\bMhotrs\b/i, "MHOTRS");
 }

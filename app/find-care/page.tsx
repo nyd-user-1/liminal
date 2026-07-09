@@ -10,31 +10,44 @@ export const metadata = {
   description: "Search licensed mental-health providers and programs across New York.",
 };
 
+const HERO_IMAGE = "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/Gemini_Generated_Image_pyj40gpyj40gpyj4.avif";
+
+// /find-care — the real search + results page (see find-care-search.tsx and
+// find-care-result-card.tsx for the search logic and card rendering). Shell
+// matches the homepage: warm bg-page ground, canonical Nav, and the
+// /therapists hero pattern (image + gradient + overlaid H1) with the search
+// dropped directly underneath it, crossroads-signpost art standing in for
+// "choosing where to start."
 export default async function FindCarePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; county?: string; city?: string; specialty?: string }>;
+  searchParams: Promise<{ q?: string; city?: string; specialty?: string }>;
 }) {
-  const { q, county, city, specialty } = await searchParams;
+  const { q, city, specialty } = await searchParams;
   const facets = await providerFacets();
   return (
-    <div className="flex min-h-screen flex-col bg-surface">
-      <Nav />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-14">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-text">Find mental-health care</h1>
-          <p className="mt-2 text-text-body">
-            Licensed providers and programs across all five New York City boroughs.
-          </p>
+    <div className="flex min-h-screen flex-col bg-page">
+      <Nav ground="bg-page" />
+
+      <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-12 sm:py-16">
+        <div className="relative overflow-hidden rounded-card">
+          <img
+            src={HERO_IMAGE}
+            alt="A watercolour illustration of a signpost at a crossroads in a meadow at dusk, two paths diverging toward the horizon."
+            className="h-64 w-full object-cover sm:h-80"
+            loading="eager"
+          />
+          <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent" />
+          <h1 className="absolute bottom-6 left-8 font-display text-4xl font-extrabold tracking-tight text-white sm:left-12 sm:text-6xl">
+            Find care
+          </h1>
         </div>
-        <FindCareSearch
-          initialQ={q ?? ""}
-          initialCounty={county ?? ""}
-          initialCity={city ?? ""}
-          initialSpecialty={specialty ?? ""}
-          facets={facets}
-        />
+
+        <div className="mt-10">
+          <FindCareSearch initialQ={q ?? ""} initialCity={city ?? ""} initialSpecialty={specialty ?? ""} facets={facets} />
+        </div>
       </main>
+
       <MarketingFooter />
     </div>
   );

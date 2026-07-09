@@ -1,6 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { searchPrograms, searchProviders } from "@/lib/repos/directory";
-import { listBookableProfiles, type BookableProfile } from "@/lib/repos/provider-profiles";
+import {
+  listBookableProfiles,
+  nextAvailableLabel,
+  spotlightRatingFor,
+  type BookableProfile,
+} from "@/lib/repos/provider-profiles";
+import { listAvailability } from "@/lib/repos/services";
 
 export const dynamic = "force-dynamic";
 
@@ -13,8 +19,8 @@ export const dynamic = "force-dynamic";
 //   - The NY directory (directory_providers, ~116k rows) — paginated for real
 //     via searchProviders' Page<T>, ranked by trigram similarity when there's
 //     a free-text query.
-// Programs (directory_programs) are a small, first-page-only list underneath;
-// there's no program detail page anywhere in the app, so they stay non-links.
+// Programs (directory_programs) are a small, first-page-only list underneath,
+// linking to their /programs/[id] page.
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
@@ -43,6 +49,11 @@ export type PublicResult = {
   // profile linking (additive — nav.tsx's search dropdown ignores these)
   slug?: string | null;
   bookable?: boolean;
+  // spotlight-card enrichment, bookable practitioners only (server-computed
+  // so the card stays dumb): placeholder rating + next real availability.
+  rating?: number;
+  reviewCount?: number;
+  availableLabel?: string;
 };
 
 function matchesQuery(p: BookableProfile, q: string): boolean {
@@ -77,7 +88,9 @@ function matchesInsurance(p: BookableProfile, insurance: string): boolean {
   return p.insuranceAccepted.some((i) => i.toLowerCase() === insurance.toLowerCase());
 }
 
-function toPublicResult(p: BookableProfile): PublicResult {
+async function toPublicResult(p: BookableProfile): Promise<PublicResult> {
+  const rating = spotlightRatingFor(p.slug);
+  const weekdays = (await listAvailability(p.id)).map((a) => a.weekday);
   return {
     id: p.id,
     kind: "provider",
@@ -90,6 +103,9 @@ function toPublicResult(p: BookableProfile): PublicResult {
     subspecialty: p.topSpecialties[0] ?? null,
     slug: p.slug,
     bookable: true,
+    rating: rating?.rating,
+    reviewCount: rating?.reviewCount,
+    availableLabel: nextAvailableLabel(weekdays),
   };
 }
 
@@ -121,7 +137,7 @@ export async function GET(req: NextRequest) {
       if (insurance && !matchesInsurance(prac, insurance)) return false;
       return true;
     });
-    results.push(...matched.map(toPublicResult));
+    results.push(...(await Promise.all(matched.map(toPublicResult))));
   }
 
   let directoryTotal = 0;

@@ -69,6 +69,7 @@ export function Select({
   // `overflow-hidden`/scroll-container ancestor can clip it (matches DropdownMenu).
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -76,13 +77,20 @@ export function Select({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
+    // Capture-phase scroll closes the menu (e.g. the page scrolled, so the
+    // trigger-relative `pos` is stale) — but ignore scrolls whose target is
+    // inside the menu itself, i.e. the user scrolling the option list.
+    const onScroll = (e: Event) => {
+      if (menuRef.current && e.target instanceof Node && menuRef.current.contains(e.target)) return;
+      setOpen(false);
+    };
     window.addEventListener("click", close);
     window.addEventListener("keydown", onKey);
-    window.addEventListener("scroll", close, true);
+    window.addEventListener("scroll", onScroll, true);
     return () => {
       window.removeEventListener("click", close);
       window.removeEventListener("keydown", onKey);
-      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("scroll", onScroll, true);
     };
   }, [open]);
 
@@ -135,6 +143,7 @@ export function Select({
         {open && pos && typeof document !== "undefined" &&
           createPortal(
             <div
+              ref={menuRef}
               onClick={(e) => e.stopPropagation()}
               style={{ top: pos.top, left: pos.left, width: pos.width }}
               className="fixed z-50 rounded-card border border-border bg-surface p-2 shadow-menu"
