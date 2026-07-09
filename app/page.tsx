@@ -19,6 +19,15 @@ import { listAvailability, listPractitioners } from "@/lib/repos/services";
 
 export const dynamic = "force-dynamic";
 
+// Placeholder photo pool for the homepage spotlight cards, per Brendan: swap
+// every card's photo for one of these six (no per-provider mapping, just a
+// random draw each render — `dynamic = "force-dynamic"` above means that's
+// actually per page load, not just per deploy).
+const HOME_SPOTLIGHT_PHOTOS = ["Hope", "Mania", "Steady", "Calm", "Energetic", "Grounded"].map(
+  (name) => `https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/${name}.avif`,
+);
+const randomHomePhoto = () => HOME_SPOTLIGHT_PHOTOS[Math.floor(Math.random() * HOME_SPOTLIGHT_PHOTOS.length)];
+
 // Home — "First Light" redesign.
 // ────────────────────────────────────────────────────────────────────────────
 // The old page floated the watercolours on a cream "paper" ground (the 2026 AI
@@ -278,7 +287,10 @@ export default async function Home() {
         }),
     )
   ).filter((p): p is ProviderSpotlight => p !== null && p.quote !== "");
-  const spotlightProviders = [...realSpotlights, ...FICTIONAL_SPOTLIGHT];
+  const spotlightProviders = [...realSpotlights, ...FICTIONAL_SPOTLIGHT].map((p) => ({
+    ...p,
+    photoUrl: randomHomePhoto(),
+  }));
 
   return (
     <div className="flex min-h-screen flex-col bg-page">

@@ -40,6 +40,7 @@ export function ProviderIllustration({
   avatarHue,
   illustrationKey,
   directoryId,
+  photoUrl,
   className = "",
 }: {
   name: string;
@@ -48,11 +49,19 @@ export function ProviderIllustration({
   illustrationKey?: string | null;
   /** Directory providers with no explicit key hash into the curated pool by id. */
   directoryId?: string;
+  /**
+   * Full asset URL, takes priority over illustrationKey/directoryId. Used by
+   * the homepage spotlight cards' random placeholder pool, which lives
+   * outside the `illustrations/` prefix `urlFor` assumes — so it's resolved
+   * by the caller and passed straight through.
+   */
+  photoUrl?: string | null;
   className?: string;
 }) {
-  const key = illustrationKey ?? (directoryId ? PORTRAIT_POOL[hashToPoolIndex(directoryId)] : null);
+  const src =
+    photoUrl ?? (illustrationKey ? urlFor(illustrationKey) : directoryId ? urlFor(PORTRAIT_POOL[hashToPoolIndex(directoryId)]) : null);
 
-  if (!key) {
+  if (!src) {
     return (
       <div className={`flex items-center justify-center rounded-card bg-primary-wash ${className}`}>
         <Avatar name={name} hue={avatarHue} size="lg" />
@@ -62,7 +71,7 @@ export function ProviderIllustration({
 
   return (
     <img
-      src={urlFor(key)}
+      src={src}
       alt=""
       className={`block rounded-card object-cover ${className}`}
       loading="eager"
