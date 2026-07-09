@@ -296,11 +296,10 @@ function BookPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
 
       {/* right two-thirds — pick a day, then a real open time */}
       <div className="w-2/3 p-4">
-        <p className="px-1 pb-1 text-[13px] font-semibold text-primary">By Day</p>
         <DatePicker value={day} onChange={setDay} className="mb-4" />
         {day && (
           <>
-            <p className="px-1 pb-1 text-[13px] font-semibold text-primary">By Time</p>
+            <p className="px-1 pb-1 text-[13px] font-semibold text-primary">Availability</p>
             {loading && <p className="px-1 py-2 text-sm text-text-muted">Finding open times…</p>}
             {!loading && slots && slots.length === 0 && (
               <p className="px-1 py-2 text-sm text-text-muted">No open times that day — try another.</p>

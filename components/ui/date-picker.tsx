@@ -67,11 +67,9 @@ export function DatePicker({
               type="button"
               onClick={() => onChange(key)}
               className={`mx-auto flex h-8 w-8 items-center justify-center rounded-full text-sm transition-colors ${
-                selected
-                  ? "bg-primary font-semibold text-white"
-                  : isToday
-                    ? "bg-teal-100 font-semibold text-primary"
-                    : "text-text-body hover:bg-canvas"
+                selected || isToday
+                  ? "bg-primary font-semibold text-white hover:bg-primary-hover"
+                  : "text-text-body hover:bg-teal-100 hover:text-primary"
               }`}
             >
               {i + 1}

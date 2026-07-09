@@ -7,12 +7,15 @@ import { HeroSearch } from "@/components/marketing/hero-search";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Nav } from "@/components/marketing/nav";
 import { ProviderCta } from "@/components/marketing/provider-cta";
+import { ProviderSpotlightRail, type ProviderSpotlight } from "@/components/marketing/provider-spotlight-card";
 import { Reveal } from "@/components/marketing/reveal";
 import { ReviewsCarousel, type Review } from "@/components/marketing/reviews-carousel";
 import { ScrollCue } from "@/components/marketing/scroll-cue";
 import { TherapistSearchCta } from "@/components/marketing/therapist-search-cta";
 import { WatercolorHover } from "@/components/marketing/watercolor-hover";
 import { WatercolorPlayground } from "@/components/marketing/watercolor-playground";
+import { getProfileByUserId } from "@/lib/repos/provider-profiles";
+import { listAvailability, listPractitioners } from "@/lib/repos/services";
 
 export const dynamic = "force-dynamic";
 
@@ -136,6 +139,108 @@ const REVIEWS: Review[] = [
   },
 ];
 
+// ── Provider spotlight rail (replaces the testimonial cards in the first
+// "Reach" section — Image 1's cards, turned into real provider cards). Real
+// bookable demo practitioners get their live profile + availability;
+// rating/review-count has no backing field yet, so it's authored here
+// (design lead's call — wire it up once reviews exist). The rest of the rail
+// is entirely authored copy for providers that don't exist in the DB yet
+// (minimum-9-cards ask) — their CTAs point at /find-care rather than a
+// dead profile link.
+const REAL_SPOTLIGHT_META: Record<string, { rating: number; reviewCount: number }> = {
+  "brendan-stanton": { rating: 5.0, reviewCount: 182 },
+  "priya-raman": { rating: 4.9, reviewCount: 146 },
+  "lena-whitfield": { rating: 5.0, reviewCount: 97 },
+  "marcus-bell": { rating: 4.8, reviewCount: 64 },
+  "shelley-padgett": { rating: 4.9, reviewCount: 211 },
+};
+
+function nextAvailableLabel(weekdays: number[]): string {
+  if (weekdays.length === 0) return "soon";
+  const today = new Date();
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    if (weekdays.includes(d.getDay())) {
+      return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    }
+  }
+  return "soon";
+}
+
+const FICTIONAL_SPOTLIGHT: ProviderSpotlight[] = [
+  {
+    id: "spotlight-amara",
+    name: "Dr. Amara Okafor",
+    credentialLine: "PMHNP · 8 years of experience",
+    rating: 4.9,
+    reviewCount: 142,
+    availableLabel: "Fri, Jul 10",
+    quote: "I want you to feel like a partner in your own care, not a passenger — we’ll figure out what’s working together.",
+    specialties: ["Medication management", "ADHD", "Anxiety"],
+    moreCount: 6,
+    careType: "medication",
+    illustrationKey: "liminal_4ji9244ji9244ji9",
+    href: "/find-care",
+  },
+  {
+    id: "spotlight-jordan",
+    name: "Jordan Kessler",
+    credentialLine: "LMFT · 11 years of experience",
+    rating: 5.0,
+    reviewCount: 98,
+    availableLabel: "Mon, Jul 13",
+    quote: "Most couples don’t need to fall back in love — they need better tools to fight fair and actually hear each other.",
+    specialties: ["Couples counseling", "Family conflict", "Communication"],
+    moreCount: 5,
+    careType: "therapy",
+    illustrationKey: "liminal-9",
+    href: "/find-care",
+  },
+  {
+    id: "spotlight-naomi",
+    name: "Dr. Naomi Chen",
+    credentialLine: "Clinical Psychologist, PhD · 16 years of experience",
+    rating: 4.9,
+    reviewCount: 211,
+    availableLabel: "Tue, Jul 14",
+    quote: "Healing from trauma isn’t about forgetting — it’s about the memory finally losing its grip on your nervous system.",
+    specialties: ["Trauma & PTSD", "EMDR", "Grief"],
+    moreCount: 4,
+    careType: "therapy",
+    illustrationKey: "liminal_a2t92la2t92la2t9",
+    href: "/find-care",
+  },
+  {
+    id: "spotlight-malik",
+    name: "Malik Owens",
+    credentialLine: "LCSW · 6 years of experience",
+    rating: 4.8,
+    reviewCount: 76,
+    availableLabel: "Wed, Jul 15",
+    quote: "A lot of men get to me after years of white-knuckling it — my job is to show you there’s a better way to carry it.",
+    specialties: ["Men’s mental health", "Anger management", "Career & burnout"],
+    moreCount: 3,
+    careType: "therapy",
+    illustrationKey: "liminal_n1y3w0n1y3w0n1y3",
+    href: "/find-care",
+  },
+  {
+    id: "spotlight-sofia",
+    name: "Dr. Sofia Reyes",
+    credentialLine: "LMHC · 9 years of experience",
+    rating: 5.0,
+    reviewCount: 134,
+    availableLabel: "Thu, Jul 16",
+    quote: "Teenagers can smell a script from a mile away — I just try to be a real adult who actually listens.",
+    specialties: ["Teens", "Anxiety", "School stress"],
+    moreCount: 4,
+    careType: "therapy",
+    illustrationKey: "maya11",
+    href: "/find-care",
+  },
+];
+
 // Section 6 — NY-focused insurance plans (colours approximate each brand).
 const INSURERS: Array<{ name: string; color: string }> = [
   { name: "Aetna", color: "text-[#7d3f98]" },
@@ -162,7 +267,39 @@ const HOW_IT_WORKS: Array<{ title: string; body: string }> = [
   },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const practitioners = await listPractitioners();
+  const realSpotlights = (
+    await Promise.all(
+      practitioners
+        .filter((pr) => pr.slug && REAL_SPOTLIGHT_META[pr.slug])
+        .map(async (pr): Promise<ProviderSpotlight | null> => {
+          const [profile, availability] = await Promise.all([getProfileByUserId(pr.id), listAvailability(pr.id)]);
+          if (!profile) return null;
+          const meta = REAL_SPOTLIGHT_META[pr.slug!];
+          const isPrescriber =
+            (profile.roleTitle?.toLowerCase().includes("psychiatr") ?? false) ||
+            profile.topSpecialties.some((s) => s.toLowerCase().includes("medication"));
+          return {
+            id: pr.id,
+            name: pr.name,
+            credentialLine: `${profile.licenseType ?? profile.roleTitle ?? "Therapist"} · ${profile.yearsExperience ?? 0} years of experience`,
+            rating: meta.rating,
+            reviewCount: meta.reviewCount,
+            availableLabel: nextAvailableLabel(availability.map((a) => a.weekday)),
+            quote: profile.styleIs ?? "",
+            specialties: profile.topSpecialties.slice(0, 3),
+            moreCount: profile.moreSpecialties.length,
+            careType: isPrescriber ? "medication" : "therapy",
+            illustrationKey: profile.illustrationKey,
+            avatarHue: pr.avatarHue,
+            href: `/providers/${pr.slug}`,
+          };
+        }),
+    )
+  ).filter((p): p is ProviderSpotlight => p !== null && p.quote !== "");
+  const spotlightProviders = [...realSpotlights, ...FICTIONAL_SPOTLIGHT];
+
   return (
     <div className="flex min-h-screen flex-col bg-page">
       <Nav ground="bg-page" />
@@ -269,7 +406,7 @@ export default function Home() {
         </div>
 
         <Reveal className="pt-10 pb-12 sm:pb-14">
-          <ReviewsCarousel reviews={REVIEWS} />
+          <ProviderSpotlightRail providers={spotlightProviders} />
         </Reveal>
       </section>
 
