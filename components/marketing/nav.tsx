@@ -736,6 +736,7 @@ export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
 
   const barRef = useRef<HTMLDivElement>(null);
   const triggerRefs = useRef<Record<MenuKey, HTMLButtonElement | null>>({
+    book: null,
     search: null,
     find: null,
     providers: null,
