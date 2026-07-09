@@ -82,6 +82,18 @@ export async function getForm(id: string): Promise<Form | null> {
   return mockStore().forms.get(id) ?? null;
 }
 
+/** The seeded "New Client Intake" form — auto-sent right after a client's first booking. */
+export async function getIntakeForm(): Promise<Form | null> {
+  if (hasDb) {
+    const rows = (await sql`
+      SELECT * FROM forms WHERE title = 'New Client Intake' AND status = 'published' LIMIT 1
+    `) as FormRow[];
+    return rows[0] ? toForm(rows[0]) : null;
+  }
+  const form = [...mockStore().forms.values()].find((f) => f.title === "New Client Intake" && f.status === "published");
+  return form ?? null;
+}
+
 export interface SaveFormInput {
   id?: string;
   title: string;

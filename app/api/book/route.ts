@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 import { logEvent } from "@/lib/audit";
+import { createSession, findOrCreatePortalUser } from "@/lib/auth";
+import { sendEmail } from "@/lib/email";
 import {
   createAppointment,
   findOrCreateLeadClient,
   listAppointments,
+  type ClientLite,
 } from "@/lib/repos/appointments";
+import { linkClientUser } from "@/lib/repos/clients";
+import { getIntakeForm, listResponses, sendForm } from "@/lib/repos/forms";
+import { createPolicy } from "@/lib/repos/policies";
 import { getService, listAvailability, listLocations } from "@/lib/repos/services";
 import type { Service } from "@/lib/types";
 
@@ -13,8 +19,13 @@ export const dynamic = "force-dynamic";
 // Public booking endpoint (no auth — the /book/[slug] page).
 // GET  ?practitionerId&serviceId&date=YYYY-MM-DD → { slots: ["09:00", …] }
 //      free start times from weekly availability minus existing appointments.
-// POST { practitionerId, serviceId, date, time, firstName, lastName, email, phone? }
-//      → creates client-if-new (status lead) + appointment (booked_via link).
+// POST { practitionerId, serviceId, date, time, firstName, lastName, email, phone?, payerId? }
+//      → creates client-if-new (status lead) + appointment (booked_via link),
+//      then onboards them: insurance policy if payerId given, a portal
+//      account + emailed activation link if they don't have one yet, and the
+//      New Client Intake form. None of these three can fail the booking
+//      itself — a booking that succeeds but couldn't send an email is still
+//      a booking; each is independently best-effort.
 
 const SLOT_STEP_MIN = 30;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -55,6 +66,70 @@ async function freeSlots(practitionerId: string, service: Service, date: string)
   return [...new Set(slots)].sort();
 }
 
+/**
+ * Everything a first-time booking should kick off besides the appointment
+ * itself. Each step is independently best-effort — a failure here is logged
+ * to the server console and swallowed, never surfaced to the booking response.
+ */
+async function onboardClient(opts: {
+  origin: string;
+  client: ClientLite;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  payerId: string;
+}): Promise<void> {
+  const { client } = opts;
+
+  if (opts.payerId) {
+    try {
+      await createPolicy({ clientId: client.id, payerId: opts.payerId, memberId: "", kind: "primary", status: "unverified" });
+    } catch (e) {
+      console.error("onboardClient: insurance policy failed", e);
+    }
+  }
+
+  if (!client.userId) {
+    try {
+      const { user, created } = await findOrCreatePortalUser({
+        name: `${opts.firstName} ${opts.lastName}`,
+        email: opts.email,
+        phone: opts.phone || null,
+      });
+      await linkClientUser(client.id, user.id);
+      const { token } = await createSession(user.id);
+      await logEvent({
+        actorId: null,
+        action: created ? "user.create" : "user.link",
+        entity: "user",
+        entityId: user.id,
+        meta: { via: "booking-portal-provision", clientId: client.id },
+      });
+      await sendEmail({
+        to: opts.email,
+        subject: "Your Liminal client portal is ready",
+        html: `<p>Hi ${opts.firstName},</p>
+<p>Your appointment is booked. We've also set up your Liminal client portal — from there you can message your care team, see upcoming appointments, and complete any forms sent to you.</p>
+<p><a href="${opts.origin}/portal/activate?token=${token}">Activate your portal</a></p>
+<p>— Liminal Psychiatry</p>`,
+      });
+    } catch (e) {
+      console.error("onboardClient: portal provisioning failed", e);
+    }
+  }
+
+  try {
+    const intake = await getIntakeForm();
+    if (intake) {
+      const already = await listResponses({ clientId: client.id, formId: intake.id });
+      if (already.length === 0) await sendForm(intake.id, client.id);
+    }
+  } catch (e) {
+    console.error("onboardClient: intake form send failed", e);
+  }
+}
+
 export async function GET(req: Request) {
   const p = new URL(req.url).searchParams;
   const practitionerId = p.get("practitionerId") ?? "";
@@ -88,6 +163,7 @@ export async function POST(req: Request) {
   const lastName = s("lastName");
   const email = s("email").toLowerCase();
   const phone = s("phone");
+  const payerId = s("payerId"); // "" = self-pay/cash, no policy created
 
   if (!practitionerId || !serviceId) {
     return NextResponse.json({ error: "Pick a service." }, { status: 400 });
@@ -151,6 +227,16 @@ export async function POST(req: Request) {
       entity: "appointment",
       entityId: appointment.id,
       meta: { via: "booking-link", serviceId, startsAt: appointment.startsAt },
+    });
+
+    await onboardClient({
+      origin: new URL(req.url).origin,
+      client,
+      firstName,
+      lastName,
+      email,
+      phone,
+      payerId,
     });
 
     return NextResponse.json({ ok: true, appointment: { id: appointment.id, startsAt: appointment.startsAt, endsAt: appointment.endsAt } }, { status: 201 });

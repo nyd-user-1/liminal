@@ -2,8 +2,8 @@ import { randomBytes } from "crypto";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 import { hasDb, sql } from "@/lib/db";
-import { mockStore } from "@/lib/mock";
-import type { AvatarHue, Role } from "@/lib/types";
+import { mockId, mockStore } from "@/lib/mock";
+import type { AvatarHue, Role, User } from "@/lib/types";
 
 // Cookie-session auth. With a DB: users + sessions tables, bcrypt hashes.
 // Without: the seeded demo users in lib/mock (brendan@liminal.demo /
@@ -75,6 +75,61 @@ export async function createSession(userId: string): Promise<{ token: string; ex
 export async function destroySession(token: string): Promise<void> {
   if (hasDb) await sql`DELETE FROM sessions WHERE token = ${token}`;
   else mockStore().sessions.delete(token);
+}
+
+const AVATAR_HUES: AvatarHue[] = ["teal", "amber", "pink", "blue"];
+
+/**
+ * Find or create a client-role portal account for a booking lead who has no
+ * login yet. There's no typed password — access starts from the activation
+ * link (a createSession token) emailed right after booking; the random hash
+ * here is just a placeholder so password_hash's NOT NULL is satisfied.
+ */
+export async function findOrCreatePortalUser(input: {
+  name: string;
+  email: string;
+  phone?: string | null;
+}): Promise<{ user: SessionUser; created: boolean }> {
+  const email = input.email.trim().toLowerCase();
+  if (hasDb) {
+    const existing = (await sql`
+      SELECT id, role, name, email, avatar_hue FROM users WHERE email = ${email} AND deleted_at IS NULL
+    `) as Array<Omit<UserRow, "password_hash">>;
+    if (existing[0]) {
+      const u = existing[0];
+      return { user: toSessionUser({ id: u.id, role: u.role, name: u.name, email: u.email, avatarHue: u.avatar_hue }), created: false };
+    }
+    const passwordHash = await bcrypt.hash(randomBytes(24).toString("hex"), 10);
+    const avatarHue = AVATAR_HUES[Math.floor(Math.random() * AVATAR_HUES.length)];
+    const rows = (await sql`
+      INSERT INTO users (role, name, email, password_hash, avatar_hue, phone)
+      VALUES ('client', ${input.name}, ${email}, ${passwordHash}, ${avatarHue}, ${input.phone ?? null})
+      RETURNING id, role, name, email, avatar_hue
+    `) as Array<Omit<UserRow, "password_hash">>;
+    const u = rows[0];
+    return { user: toSessionUser({ id: u.id, role: u.role, name: u.name, email: u.email, avatarHue: u.avatar_hue }), created: true };
+  }
+  const store = mockStore();
+  const existing = [...store.users.values()].find((x) => x.email === email && !x.deletedAt);
+  if (existing) return { user: toSessionUser(existing), created: false };
+  const passwordHash = await bcrypt.hash(randomBytes(24).toString("hex"), 10);
+  const now = new Date().toISOString();
+  const user: User = {
+    id: mockId(),
+    role: "client",
+    name: input.name,
+    email,
+    passwordHash,
+    avatarHue: AVATAR_HUES[Math.floor(Math.random() * AVATAR_HUES.length)],
+    phone: input.phone ?? null,
+    timezone: null,
+    slug: null,
+    deletedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+  store.users.set(user.id, user);
+  return { user: toSessionUser(user), created: true };
 }
 
 /** Session user from the request cookie, or null. */

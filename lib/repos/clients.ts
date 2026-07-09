@@ -175,6 +175,19 @@ export async function updateClient(id: string, patch: UpdateClientPatch): Promis
   return next;
 }
 
+/** Link a newly auto-provisioned portal account to a booking lead. No-op if already linked. */
+export async function linkClientUser(clientId: string, userId: string): Promise<void> {
+  if (hasDb) {
+    await sql`UPDATE clients SET user_id = ${userId}, updated_at = now() WHERE id = ${clientId} AND user_id IS NULL`;
+    return;
+  }
+  const store = mockStore();
+  const client = store.clients.get(clientId);
+  if (client && !client.userId) {
+    store.clients.set(clientId, { ...client, userId, updatedAt: new Date().toISOString() });
+  }
+}
+
 export interface PractitionerOption {
   id: string;
   name: string;

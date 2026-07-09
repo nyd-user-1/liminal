@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ChoiceChip } from "@/components/ui/choice-chip";
@@ -31,14 +31,21 @@ const STATES = [
 
 export function JoinForm() {
   const router = useRouter();
+  // Handoff from a directory provider page's "Is this you? Claim this
+  // profile" link — prefills what we already know so a real clinician
+  // doesn't retype their own name/NPI to claim a listing that's already theirs.
+  const params = useSearchParams();
+  const claiming = params.get("claim") === "1";
   const [step, setStep] = useState(0);
   const [licenseType, setLicenseType] = useState("");
-  const [npi, setNpi] = useState("");
-  const [state, setState] = useState("NY");
-  const [name, setName] = useState("");
+  const [npi, setNpi] = useState(params.get("npi") ?? "");
+  const [state, setState] = useState(params.get("state") ?? "NY");
+  const [name, setName] = useState(params.get("name") ?? "");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(
+    claiming ? "I'd like to claim my directory listing on Liminal and turn on online booking." : "",
+  );
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);

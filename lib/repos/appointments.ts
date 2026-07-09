@@ -205,17 +205,18 @@ export interface ClientLite {
   id: string;
   name: string;
   status: Client["status"];
+  userId: string | null;
 }
 
 export async function listClientsLite(): Promise<ClientLite[]> {
   if (hasDb) {
     const rows = (await sql`
-      SELECT id, first_name, last_name, status FROM clients ORDER BY first_name, last_name
-    `) as Array<{ id: string; first_name: string; last_name: string; status: Client["status"] }>;
-    return rows.map((r) => ({ id: r.id, name: `${r.first_name} ${r.last_name}`, status: r.status }));
+      SELECT id, first_name, last_name, status, user_id FROM clients ORDER BY first_name, last_name
+    `) as Array<{ id: string; first_name: string; last_name: string; status: Client["status"]; user_id: string | null }>;
+    return rows.map((r) => ({ id: r.id, name: `${r.first_name} ${r.last_name}`, status: r.status, userId: r.user_id }));
   }
   return [...mockStore().clients.values()]
-    .map((c) => ({ id: c.id, name: `${c.firstName} ${c.lastName}`, status: c.status }))
+    .map((c) => ({ id: c.id, name: `${c.firstName} ${c.lastName}`, status: c.status, userId: c.userId }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -230,26 +231,26 @@ export async function findOrCreateLeadClient(input: {
   const email = input.email.trim().toLowerCase();
   if (hasDb) {
     const found = (await sql`
-      SELECT id, first_name, last_name, status FROM clients WHERE lower(email) = ${email} LIMIT 1
-    `) as Array<{ id: string; first_name: string; last_name: string; status: Client["status"] }>;
+      SELECT id, first_name, last_name, status, user_id FROM clients WHERE lower(email) = ${email} LIMIT 1
+    `) as Array<{ id: string; first_name: string; last_name: string; status: Client["status"]; user_id: string | null }>;
     if (found[0]) {
       const r = found[0];
-      return { client: { id: r.id, name: `${r.first_name} ${r.last_name}`, status: r.status }, created: false };
+      return { client: { id: r.id, name: `${r.first_name} ${r.last_name}`, status: r.status, userId: r.user_id }, created: false };
     }
     const rows = (await sql`
       INSERT INTO clients (first_name, last_name, email, phone, status, tags, primary_practitioner_id)
       VALUES (${input.firstName}, ${input.lastName}, ${email}, ${input.phone ?? null},
               'lead', ${["online-booking"]}, ${input.practitionerId})
-      RETURNING id, first_name, last_name, status
-    `) as Array<{ id: string; first_name: string; last_name: string; status: Client["status"] }>;
+      RETURNING id, first_name, last_name, status, user_id
+    `) as Array<{ id: string; first_name: string; last_name: string; status: Client["status"]; user_id: string | null }>;
     const r = rows[0];
-    return { client: { id: r.id, name: `${r.first_name} ${r.last_name}`, status: r.status }, created: true };
+    return { client: { id: r.id, name: `${r.first_name} ${r.last_name}`, status: r.status, userId: r.user_id }, created: true };
   }
   const store = mockStore();
   const existing = [...store.clients.values()].find((c) => c.email?.toLowerCase() === email);
   if (existing) {
     return {
-      client: { id: existing.id, name: `${existing.firstName} ${existing.lastName}`, status: existing.status },
+      client: { id: existing.id, name: `${existing.firstName} ${existing.lastName}`, status: existing.status, userId: existing.userId },
       created: false,
     };
   }
@@ -272,5 +273,8 @@ export async function findOrCreateLeadClient(input: {
     updatedAt: now,
   };
   store.clients.set(client.id, client);
-  return { client: { id: client.id, name: `${client.firstName} ${client.lastName}`, status: client.status }, created: true };
+  return {
+    client: { id: client.id, name: `${client.firstName} ${client.lastName}`, status: client.status, userId: client.userId },
+    created: true,
+  };
 }

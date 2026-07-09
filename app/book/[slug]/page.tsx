@@ -1,4 +1,5 @@
 import { Logo } from "@/components/ui/logo";
+import { listPayers } from "@/lib/repos/policies";
 import { listPractitioners, listServices } from "@/lib/repos/services";
 import { BookClient } from "./book-client";
 
@@ -11,11 +12,11 @@ export default async function BookPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ service?: string; date?: string; time?: string }>;
+  searchParams: Promise<{ service?: string; date?: string; time?: string; payer?: string }>;
 }) {
   const { slug } = await params;
   const sp = await searchParams;
-  const [services, practitioners] = await Promise.all([listServices(), listPractitioners()]);
+  const [services, practitioners, payers] = await Promise.all([listServices(), listPractitioners(), listPayers()]);
   const locked = practitioners.find((p) => p.id === slug) ?? null;
 
   return (
@@ -37,8 +38,9 @@ export default async function BookPage({
         <BookClient
           services={services.filter((s) => s.active)}
           practitioners={practitioners}
+          payers={payers}
           lockedPractitionerId={locked?.id ?? null}
-          prefill={{ serviceId: sp.service, date: sp.date, time: sp.time }}
+          prefill={{ serviceId: sp.service, date: sp.date, time: sp.time, payerId: sp.payer }}
         />
       </main>
 
