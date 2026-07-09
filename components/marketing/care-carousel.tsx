@@ -1,42 +1,40 @@
 import Link from "next/link";
-import { getTopic } from "@/lib/site-content";
+import { Icon } from "@/components/ui/icons";
 
-const BLOB = "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com";
-const illustrations = (name: string) => `${BLOB}/illustrations/${name}.avif`;
-const condition = (name: string) => `${BLOB}/${name}.avif`;
+const ILLUSTRATIONS = "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations";
+const illustration = (name: string) => `${ILLUSTRATIONS}/${name}.avif`;
 
-// "Find care for whatever's on your mind" — reworked from a horizontal rail
-// into a static 4-col x 3-row grid of portrait cards (same chrome as
-// ProviderSpotlightCard — border/hover/typography — just image-on-top
-// instead of image-left). Per Brendan:
-//   - image: the matching blob condition photo (ADHD/Anxiety/Depressed/
-//     Bi-Polar/ASD/OCD/Mania) where the name 1:1 matches; otherwise one of
-//     the curated "maya" portraits.
-//   - link: a real /care/[slug] page where lib/site-content/topics.ts has
-//     one (the same 9 conditions in the nav's Conditions panel); otherwise a
-//     slug with no topic entry, which /care/[topic] 404s on by design.
-// Title/sub for the 9 real topics come straight from topics.ts (getTopic) so
-// this card's copy never drifts from the page it links to.
-type Card = { slug: string; label: string; sub: string; image: string };
-
-function topicCard(slug: string, image: string): Card {
-  const topic = getTopic(slug);
-  return { slug, label: topic?.label ?? slug, sub: topic?.firstPerson ?? "", image };
-}
+// "Find care for whatever's on your mind" — a static 3-col x 4-row grid of
+// portrait cards (same chrome as ProviderSpotlightCard — border/hover — just
+// image-on-top instead of image-left). Per Brendan's second pass:
+//   - every card is the same shape: fixed-height image (object-cover, so
+//     source aspect ratio never changes the card height) + a fixed-height
+//     title row — no description, so nothing can make one card taller
+//     than its neighbors.
+//   - title is teal by default (not just on hover); the up-right arrow
+//     rotates flat to point right on hover, signaling motion forward.
+//   - images are exclusively the curated "person in a scene" illustrations
+//     (single identifiable figure, not a group, not a bare landscape or a
+//     landscape with only a silhouette) — condition-named art (ADHD.avif
+//     etc.) and mood art (Hope/Calm/…) are deliberately not used here.
+// Links: a real /care/[slug] page where lib/site-content/topics.ts has one
+// (the 9 conditions in the nav's Conditions panel); otherwise a slug with no
+// topic entry, which /care/[topic] 404s on by design.
+type Card = { slug: string; label: string; image: string };
 
 const CARDS: Card[] = [
-  topicCard("anxiety", condition("Anxiety")),
-  topicCard("depression", condition("Depressed")),
-  topicCard("adhd", condition("ADHD")),
-  topicCard("trauma", illustrations("maya-1")),
-  topicCard("relationships", illustrations("maya-2")),
-  topicCard("grief", illustrations("maya-4")),
-  topicCard("sleep", illustrations("maya6")),
-  topicCard("bipolar", condition("Bi-Polar")),
-  topicCard("lgbtqia", illustrations("maya10")),
-  { slug: "autism", label: "Autism (ASD)", sub: "My brain works differently, and I want support that gets that.", image: condition("ASD") },
-  { slug: "ocd", label: "OCD", sub: "The intrusive thoughts and rituals won't let up.", image: condition("OCD") },
-  { slug: "mania", label: "Mania", sub: "My highs feel as unmanageable as my lows.", image: condition("Mania") },
+  { slug: "anxiety", label: "Anxiety & stress", image: illustration("maya-1") },
+  { slug: "depression", label: "Depression & mood", image: illustration("maya6") },
+  { slug: "adhd", label: "ADHD", image: illustration("liminal-9") },
+  { slug: "trauma", label: "Trauma & PTSD", image: illustration("liminal_nielb8nielb8niel") },
+  { slug: "relationships", label: "Relationships & family", image: illustration("maya-2") },
+  { slug: "grief", label: "Grief & loss", image: illustration("liminal_a2t92la2t92la2t9") },
+  { slug: "sleep", label: "Sleep", image: illustration("liminal_e0mhvxe0mhvxe0mh") },
+  { slug: "bipolar", label: "Bipolar disorder", image: illustration("liminal_n1y3w0n1y3w0n1y3") },
+  { slug: "lgbtqia", label: "LGBTQIA+ affirming", image: illustration("liminal_4ji9244ji9244ji9") },
+  { slug: "autism", label: "Autism (ASD)", image: illustration("liminal_5ziunj5ziunj5ziu") },
+  { slug: "ocd", label: "OCD", image: illustration("liminal_7h6ra17h6ra17h6r") },
+  { slug: "mania", label: "Mania", image: illustration("maya11") },
 ];
 
 export function CareCarousel() {
@@ -54,21 +52,23 @@ export function CareCarousel() {
         </Link>
       </div>
 
-      <div className="mt-8 grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {CARDS.map((c) => (
           <Link
             key={c.slug}
             href={`/care/${c.slug}`}
-            className="group flex flex-col overflow-hidden rounded-card border border-page-edge bg-surface transition-shadow hover:shadow-card"
+            className="group flex flex-col overflow-hidden rounded-card border border-page-edge bg-surface transition-colors hover:border-primary"
           >
-            <div className="aspect-[3/4] w-full overflow-hidden">
+            <div className="h-64 w-full shrink-0 overflow-hidden">
               <img src={c.image} alt="" className="h-full w-full object-cover" loading="lazy" />
             </div>
-            <div className="flex flex-1 flex-col p-5">
-              <h3 className="font-display text-lg font-semibold text-text transition-colors group-hover:text-primary">
-                {c.label}
-              </h3>
-              {c.sub && <p className="mt-2 text-sm leading-relaxed text-text-body">{c.sub}</p>}
+            <div className="flex min-h-[4.5rem] items-center justify-between gap-3 p-5">
+              <h3 className="line-clamp-2 font-display text-lg font-semibold leading-snug text-primary">{c.label}</h3>
+              <Icon
+                name="arrow-right"
+                size={20}
+                className="-rotate-45 shrink-0 text-primary transition-transform duration-200 group-hover:rotate-0"
+              />
             </div>
           </Link>
         ))}

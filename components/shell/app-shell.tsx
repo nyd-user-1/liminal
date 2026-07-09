@@ -26,6 +26,7 @@ const PORTAL_NAV: SidebarNavItem[] = [
   { label: "Forms", href: "/portal/forms", icon: "clipboard" },
   { label: "Invoices", href: "/portal/invoices", icon: "credit-card" },
   { label: "Messages", href: "/portal/messages", icon: "message" },
+  { label: "Profile", href: "/portal/profile", icon: "person-circle" },
 ];
 
 export function AppShell({

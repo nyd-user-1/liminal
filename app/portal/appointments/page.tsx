@@ -35,6 +35,8 @@ export default async function PortalAppointmentsPage() {
     endsAt: a.endsAt,
     status: a.status,
     videoRoom: a.videoRoom,
+    serviceId: a.serviceId,
+    practitionerId: a.practitionerId,
     serviceName: serviceById.get(a.serviceId)?.name ?? "Appointment",
     practitionerName: names[a.practitionerId] ?? "Practitioner",
     locationName: a.locationId ? (locationById.get(a.locationId)?.name ?? null) : null,
@@ -42,7 +44,7 @@ export default async function PortalAppointmentsPage() {
 
   return (
     <>
-      <AppointmentsList appointments={rows} />
+      <AppointmentsList appointments={rows} bookHref={`/book/${client.primaryPractitionerId ?? "liminal"}`} />
     </>
   );
 }

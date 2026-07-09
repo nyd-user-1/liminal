@@ -33,6 +33,7 @@ const ROUTE_TITLES: Array<[prefix: string, icon: IconName, title: string]> = [
   ["/portal/forms", "clipboard", "Forms"],
   ["/portal/invoices", "credit-card", "Invoices"],
   ["/portal/messages", "message", "Messages"],
+  ["/portal/profile", "person-circle", "Profile"],
 ];
 
 function routeTitle(pathname: string, user: SessionUser): { icon: IconName; title: string } {
