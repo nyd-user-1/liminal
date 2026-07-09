@@ -693,31 +693,6 @@ const DEMO_ICONS: IconName[] = [
   "edit", "trash", "download", "upload", "lock", "globe", "sparkle", "paint-roller",
 ];
 
-// Demo-only link-treatment sample (NOT the shipped TextLink) — lets the
-// TextLink Spec compare underline/color options side by side.
-function LinkSample({
-  color,
-  deco,
-  icon,
-  children,
-}: {
-  color: string;
-  deco: string;
-  icon?: IconName;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      className={`group inline-flex items-center gap-1.5 text-[15px] font-semibold transition-colors ${color}`}
-    >
-      {icon && <Icon name={icon} size={16} className="shrink-0" />}
-      <span className={deco}>{children}</span>
-    </button>
-  );
-}
-
-
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 const DESIGN_RULES = `Liminal design system — start here (read before you build)
@@ -1140,11 +1115,12 @@ export default function DesignSystemPage() {
                 );
               })}
             </Spec>
-            <Spec name="TextLink" desc="Inline link; primary (default) or underline variant; optional leading icon.">
+            <Spec name="TextLink" desc="Inline link. STANDARD (default): teal with an underline that wipes in on hover. Variants: primary (teal, no underline), underline (static rule). Optional leading icon.">
               <div className="flex flex-col items-start gap-2">
-                <LinkSample color="text-accent-ink" deco="link-wipe">View all clients</LinkSample>
-                <LinkSample color="text-accent-ink" deco="link-wipe" icon="download">Export</LinkSample>
-                <TextLink variant="underline">View all therapists</TextLink>
+                <TextLink>View all clients</TextLink>
+                <TextLink icon="download">Export</TextLink>
+                <TextLink variant="primary">Primary — teal, no underline</TextLink>
+                <TextLink variant="underline">Underline — static rule</TextLink>
               </div>
             </Spec>
           </Group>

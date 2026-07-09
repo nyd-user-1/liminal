@@ -211,13 +211,13 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
     <div className="flex">
       {/* left third — category rail (grey comes from the panel gradient) */}
       <div className="w-1/3 p-2" onMouseLeave={() => setHovered(null)}>
-        <p className="px-3 pb-1 pt-1 text-[13px] font-semibold text-primary">Get care</p>
+        {/* Book now — the first option in the rail, styled like the rest of the list. */}
         <Link
           href="/book/liminal"
           className="group flex w-full items-center gap-3 rounded-field px-3 py-2.5 text-left transition-colors hover:bg-surface hover:shadow-sm"
         >
-          <Icon name="calendar-check" size={20} className="shrink-0 fill-primary-wash text-primary" />
-          <span className="text-[15px] font-semibold text-primary">Book now</span>
+          <Icon name="calendar-check" size={20} className="shrink-0 text-text-muted transition-colors group-hover:text-text" />
+          <span className="text-[15px] font-medium text-text-body group-hover:text-text">Book now</span>
         </Link>
         {[...FIND_CATEGORIES].sort((a, b) => a.label.localeCompare(b.label)).map((c) => {
           const on = c.key === highlight;
@@ -522,10 +522,11 @@ function MyPortalMenu() {
           role="menu"
           className="absolute left-0 top-full z-50 mt-2 flex w-56 flex-col rounded-card border border-border bg-surface p-2 shadow-menu"
         >
+          <p className="px-3 pb-1 pt-1 text-[13px] font-semibold text-primary">Portal</p>
           {(
             [
-              { icon: "person-circle", label: "Patient portal" },
-              { icon: "lock", label: "Provider portal" },
+              { icon: "person-circle", label: "For patients" },
+              { icon: "lock", label: "For providers" },
             ] as const
           ).map((it) => (
             <button
@@ -533,10 +534,10 @@ function MyPortalMenu() {
               type="button"
               role="menuitem"
               onClick={() => go("/sign-in")}
-              className="group flex w-full items-center gap-2.5 rounded-field px-2.5 py-2 text-left text-[15px] font-medium text-text transition-colors hover:bg-primary-wash hover:text-primary"
+              className="group flex w-full items-center gap-3 rounded-field px-3 py-2 text-left transition-colors hover:bg-canvas"
             >
-              <Icon name={it.icon} className="text-text-body transition-colors group-hover:fill-primary-wash group-hover:text-primary" />
-              {it.label}
+              <Icon name={it.icon} size={20} className="shrink-0 text-text-muted transition-colors group-hover:fill-primary-wash group-hover:text-text" />
+              <span className="text-[15px] font-medium text-text-body group-hover:text-text">{it.label}</span>
             </button>
           ))}
         </div>
