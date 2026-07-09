@@ -1,14 +1,21 @@
 import Link from "next/link";
 import { Icon, type IconName } from "@/components/ui/icons";
+import { CARE_TYPE_TOPICS, CONDITION_LINKS, PARTNER_LINKS, PROVIDER_LINKS } from "@/lib/site-content";
 
 // Public marketing footer — navy brand block: link columns, a crisis-support
 // note (a mental-health site should always surface these), practice contact,
 // and the data-source line.
+//
+// Doubles as a running site map while the public pages are still being built:
+// every live public route is linked from one of these columns, plus an
+// "Other" column for pages that exist in the repo but aren't decided yet
+// (ship or delete) — audit surface, remove once the site settles.
 
-const COLUMNS: Array<{ heading: string; links: Array<{ label: string; href: string }> }> = [
+const COLUMNS: Array<{ heading: string; note?: string; links: Array<{ label: string; href: string }> }> = [
   {
     heading: "Find care",
     links: [
+      { label: "Find a provider", href: "/find-care" },
       { label: "Therapists", href: "/therapists" },
       { label: "Psychiatrists", href: "/psychiatrists" },
       { label: "Psychiatric NP", href: "/psychiatric-np" },
@@ -17,12 +24,24 @@ const COLUMNS: Array<{ heading: string; links: Array<{ label: string; href: stri
     ],
   },
   {
+    heading: "Care types",
+    links: CARE_TYPE_TOPICS.map((t) => ({ label: t.label, href: `/care/${t.slug}` })),
+  },
+  {
+    heading: "Conditions",
+    links: CONDITION_LINKS,
+  },
+  {
     heading: "For providers",
     links: [
-      { label: "Join Liminal", href: "/join" },
-      { label: "Provider portal", href: "/sign-in" },
+      ...PROVIDER_LINKS.map(({ label, href }) => ({ label, href })),
       { label: "Refer a provider", href: "/join?ref=1" },
+      { label: "Provider portal", href: "/sign-in" },
     ],
+  },
+  {
+    heading: "Partners",
+    links: PARTNER_LINKS,
   },
   {
     heading: "Company",
@@ -31,6 +50,11 @@ const COLUMNS: Array<{ heading: string; links: Array<{ label: string; href: stri
       { label: "Press", href: "/company/press" },
       { label: "Careers", href: "/company/careers" },
     ],
+  },
+  {
+    heading: "Other",
+    note: "Exists — not decided yet",
+    links: [{ label: "Home v2 (WIP)", href: "/home-2" }],
   },
 ];
 
@@ -50,7 +74,7 @@ export function MarketingFooter() {
   return (
     <footer className="bg-dusk-deep text-sidebar-text">
       <div className="mx-auto max-w-6xl px-6 py-14">
-        <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-[1.4fr_repeat(3,1fr)]">
+        <div className="grid gap-10 lg:grid-cols-[1.1fr_3fr]">
           <div>
             <Link href="/" aria-label="Liminal home" className="inline-block">
               <img
@@ -64,26 +88,29 @@ export function MarketingFooter() {
             </p>
           </div>
 
-          {COLUMNS.map((col) => (
-            <div key={col.heading}>
-              <h3 className="text-sm font-semibold text-white">{col.heading}</h3>
-              <ul className="mt-3 flex flex-col gap-2 text-sm">
-                {col.links.map((l) => (
-                  <li key={l.href + l.label}>
-                    <Link
-                      href={l.href}
-                      className="group flex items-center justify-between text-sidebar-text/80 transition-colors hover:text-white"
-                    >
-                      {l.label}
-                      <span aria-hidden className="text-white opacity-0 transition-opacity group-hover:opacity-100">
-                        ↗
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          <div className="grid grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
+            {COLUMNS.map((col) => (
+              <div key={col.heading}>
+                <h3 className={`text-sm font-semibold ${col.note ? "text-accent" : "text-white"}`}>{col.heading}</h3>
+                {col.note && <p className="mt-0.5 text-xs text-sidebar-text/50">{col.note}</p>}
+                <ul className="mt-3 flex flex-col gap-2 text-sm">
+                  {col.links.map((l) => (
+                    <li key={l.href + l.label}>
+                      <Link
+                        href={l.href}
+                        className="group -mx-2 flex items-center justify-between rounded-field px-2 py-1.5 text-sidebar-text/80 transition-colors hover:bg-white/[0.06] hover:text-white"
+                      >
+                        {l.label}
+                        <span aria-hidden className="text-white opacity-0 transition-opacity group-hover:opacity-100">
+                          ↗
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Crisis + contact */}

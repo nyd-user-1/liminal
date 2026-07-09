@@ -863,7 +863,7 @@ export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
                 onMouseEnter={() => openMenu(t.key)}
                 onFocus={() => openMenu(t.key)}
                 aria-expanded={open === t.key}
-                className={`rounded-field px-3 py-2 text-[15px] font-medium transition-colors hover:text-primary ${
+                className={`rounded-field px-3 py-2 text-[15px] font-medium transition-colors hover:bg-black/[0.04] hover:text-primary ${
                   open === t.key ? "text-primary" : "text-text-body"
                 }`}
               >

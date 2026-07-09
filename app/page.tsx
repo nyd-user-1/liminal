@@ -14,7 +14,7 @@ import { ScrollCue } from "@/components/marketing/scroll-cue";
 import { TherapistSearchCta } from "@/components/marketing/therapist-search-cta";
 import { WatercolorHover } from "@/components/marketing/watercolor-hover";
 import { WatercolorPlayground } from "@/components/marketing/watercolor-playground";
-import { getProfileByUserId } from "@/lib/repos/provider-profiles";
+import { getProfileByUserId, nextAvailableLabel, spotlightRatingFor } from "@/lib/repos/provider-profiles";
 import { listAvailability, listPractitioners } from "@/lib/repos/services";
 
 export const dynamic = "force-dynamic";
@@ -141,32 +141,12 @@ const REVIEWS: Review[] = [
 
 // ── Provider spotlight rail (replaces the testimonial cards in the first
 // "Reach" section — Image 1's cards, turned into real provider cards). Real
-// bookable demo practitioners get their live profile + availability;
-// rating/review-count has no backing field yet, so it's authored here
-// (design lead's call — wire it up once reviews exist). The rest of the rail
-// is entirely authored copy for providers that don't exist in the DB yet
-// (minimum-9-cards ask) — their CTAs point at /find-care rather than a
-// dead profile link.
-const REAL_SPOTLIGHT_META: Record<string, { rating: number; reviewCount: number }> = {
-  "brendan-stanton": { rating: 5.0, reviewCount: 182 },
-  "priya-raman": { rating: 4.9, reviewCount: 146 },
-  "lena-whitfield": { rating: 5.0, reviewCount: 97 },
-  "marcus-bell": { rating: 4.8, reviewCount: 64 },
-  "shelley-padgett": { rating: 4.9, reviewCount: 211 },
-};
-
-function nextAvailableLabel(weekdays: number[]): string {
-  if (weekdays.length === 0) return "soon";
-  const today = new Date();
-  for (let i = 0; i < 14; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    if (weekdays.includes(d.getDay())) {
-      return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-    }
-  }
-  return "soon";
-}
+// bookable demo practitioners get their live profile + availability; rating/
+// review-count comes from spotlightRatingFor (lib/repos/provider-profiles —
+// no backing field yet, authored there, shared with the real provider page).
+// The rest of the rail is entirely authored copy for providers that don't
+// exist in the DB yet (minimum-9-cards ask) — their CTAs point at /find-care
+// rather than a dead profile link.
 
 const FICTIONAL_SPOTLIGHT: ProviderSpotlight[] = [
   {
@@ -272,11 +252,11 @@ export default async function Home() {
   const realSpotlights = (
     await Promise.all(
       practitioners
-        .filter((pr) => pr.slug && REAL_SPOTLIGHT_META[pr.slug])
+        .filter((pr) => spotlightRatingFor(pr.slug))
         .map(async (pr): Promise<ProviderSpotlight | null> => {
           const [profile, availability] = await Promise.all([getProfileByUserId(pr.id), listAvailability(pr.id)]);
           if (!profile) return null;
-          const meta = REAL_SPOTLIGHT_META[pr.slug!];
+          const meta = spotlightRatingFor(pr.slug)!;
           const isPrescriber =
             (profile.roleTitle?.toLowerCase().includes("psychiatr") ?? false) ||
             profile.topSpecialties.some((s) => s.toLowerCase().includes("medication"));
@@ -367,15 +347,12 @@ export default async function Home() {
       <section id="reach" className="relative scroll-mt-24 overflow-hidden bg-page">
         <div className="mx-auto w-full max-w-6xl px-6 pt-10 sm:pt-12">
           <Reveal className="text-center">
-            <p className="font-display text-[13px] font-semibold uppercase tracking-[0.16em] text-primary-deep">
-              Through Liminal
-            </p>
-            <h2 className="mt-3 text-balance font-display text-4xl font-bold tracking-tight text-text sm:text-5xl">
+            <h2 className="text-balance font-display text-4xl font-bold tracking-tight text-text sm:text-5xl">
               Millions have found support
             </h2>
           </Reveal>
 
-          <div className="mt-8 grid items-center gap-6 lg:grid-cols-[1.4fr_1fr] lg:gap-10">
+          <div className="mt-8 grid items-center gap-6 lg:grid-cols-[1.3fr_1.1fr] lg:gap-10">
             <Reveal className="order-last lg:order-first lg:-ml-10 xl:-ml-20" delay={80}>
               <WatercolorHover className="mx-auto block w-full max-w-xl lg:max-w-none">
                 <img
@@ -390,22 +367,24 @@ export default async function Home() {
             </Reveal>
 
             <Reveal delay={220}>
-              <dl className="flex flex-col justify-center">
-                {STATS.map((s, i) => (
-                  <div key={s.n} className={`py-5 ${i > 0 ? "border-t border-page-edge" : ""}`}>
-                    <dt className="font-display text-[44px] font-extrabold leading-none tracking-tight text-text sm:text-[50px]">
-                      {s.n}
-                    </dt>
-                    <p className="mt-2 font-display text-base font-semibold text-text">{s.label}</p>
-                    <dd className="mt-2 max-w-md text-pretty leading-relaxed text-text-body">{s.body}</dd>
-                  </div>
+              <ol className="flex flex-col justify-center gap-4">
+                {HOW_IT_WORKS.map((s, i) => (
+                  <li key={s.title} className="flex gap-4">
+                    <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-wash font-display text-sm font-bold text-primary-deep">
+                      {i + 1}
+                    </span>
+                    <div>
+                      <h3 className="font-display text-lg font-semibold text-text">{s.title}</h3>
+                      <p className="mt-1 text-pretty leading-relaxed text-text-body">{s.body}</p>
+                    </div>
+                  </li>
                 ))}
-              </dl>
+              </ol>
             </Reveal>
           </div>
         </div>
 
-        <Reveal className="pt-10 pb-12 sm:pb-14">
+        <Reveal className="pt-8 pb-10 sm:pb-12">
           <ProviderSpotlightRail providers={spotlightProviders} />
         </Reveal>
       </section>
