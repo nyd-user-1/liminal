@@ -211,14 +211,14 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
     <div className="flex">
       {/* left third — category rail (grey comes from the panel gradient) */}
       <div className="w-1/3 p-2" onMouseLeave={() => setHovered(null)}>
+        <p className="px-3 pb-1 pt-1 text-[13px] font-semibold text-primary">Get care</p>
         <Link
           href="/book/liminal"
-          className="group mb-1 flex w-full items-center gap-3 rounded-field px-3 py-2.5 text-left transition-colors hover:bg-surface hover:shadow-sm"
+          className="group flex w-full items-center gap-3 rounded-field px-3 py-2.5 text-left transition-colors hover:bg-surface hover:shadow-sm"
         >
           <Icon name="calendar-check" size={20} className="shrink-0 fill-primary-wash text-primary" />
           <span className="text-[15px] font-semibold text-primary">Book now</span>
         </Link>
-        <p className="px-3 pb-1 pt-1 text-[13px] font-semibold text-primary">Find your</p>
         {[...FIND_CATEGORIES].sort((a, b) => a.label.localeCompare(b.label)).map((c) => {
           const on = c.key === highlight;
           return (
