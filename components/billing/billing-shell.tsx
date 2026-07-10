@@ -23,13 +23,14 @@ import { formatCents, formatDate } from "@/lib/format";
 import type { InvoiceListItem, InvoiceStats } from "@/lib/repos/invoices";
 import type { PayerListItem } from "@/lib/repos/payers";
 
-// Billing — KPI strip, page-level Tabs (Open/Settled/Payers) and search
-// (the clients/directory pattern), then a master/detail row: invoice list
-// panel styled like the calendar's agenda rail beside the open invoice
-// (children from billing/layout.tsx). Below lg the panes swap on navigation.
-// New invoice lives in the TopBar; the biller never leaves /billing.
+// Billing — page-level Tabs (Overview/Open/Settled/Payers) and search (the
+// clients/directory pattern) over one master/detail container: agenda-style
+// invoice list pane beside the open invoice (children from
+// billing/layout.tsx). Overview is the KPI tab; below lg the split panes
+// swap on navigation. New invoice lives in the TopBar; the biller never
+// leaves /billing.
 
-type ShellTab = "open" | "settled" | "payers";
+type ShellTab = "overview" | "open" | "settled" | "payers";
 
 const isSettled = (s: InvoiceListItem["status"]) => s === "paid" || s === "void";
 
@@ -119,27 +120,20 @@ export function BillingShell({
     <div className="flex h-full min-h-0 flex-col">
       <TopBarActions>
         {tab === "payers" ? (
-          <Button leftIcon="plus" onClick={() => setPayerPanel({ open: true, payer: null })}>
+          <Button size="sm" leftIcon="plus" onClick={() => setPayerPanel({ open: true, payer: null })}>
             New payer
           </Button>
         ) : (
-          <Button leftIcon="plus" onClick={() => setNewInvoiceOpen(true)}>
+          <Button size="sm" leftIcon="plus" onClick={() => setNewInvoiceOpen(true)}>
             New invoice
           </Button>
         )}
       </TopBarActions>
 
-      {/* KPI strip — its own container above everything */}
-      <div className="mb-5 grid shrink-0 grid-cols-2 gap-4 xl:grid-cols-4">
-        <StatCard label="Outstanding" value={formatCents(stats.outstandingCents)} />
-        <StatCard label="Paid this month" value={formatCents(stats.paidThisMonthCents)} />
-        <StatCard label="Overdue invoices" value={stats.overdueCount} />
-        <StatCard label="Drafts" value={stats.draftCount} />
-      </div>
-
       <Tabs
         className="mb-4 shrink-0"
         items={[
+          { key: "overview", label: "Overview" },
           { key: "open", label: "Open", count: counts.open },
           { key: "settled", label: "Settled", count: counts.settled },
           { key: "payers", label: "Payers", count: payers.length },
@@ -148,6 +142,18 @@ export function BillingShell({
         onChange={(k) => setTab(k as ShellTab)}
       />
 
+      {tab === "overview" ? (
+        // The KPI tab — practice numbers get their own home.
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+            <StatCard label="Outstanding" value={formatCents(stats.outstandingCents)} />
+            <StatCard label="Paid this month" value={formatCents(stats.paidThisMonthCents)} />
+            <StatCard label="Overdue invoices" value={stats.overdueCount} />
+            <StatCard label="Drafts" value={stats.draftCount} />
+          </div>
+        </div>
+      ) : (
+        <>
       <Toolbar className="mb-4 shrink-0">
         <SearchInput
           placeholder={tab === "payers" ? "Search payers" : "Search invoices or clients"}
@@ -157,10 +163,10 @@ export function BillingShell({
         />
       </Toolbar>
 
-      <div className="flex min-h-0 flex-1 gap-4">
-        {/* Invoice list panel — the calendar agenda-rail treatment */}
+      <div className="flex min-h-0 flex-1 overflow-hidden rounded-card border border-border bg-surface shadow-card">
+        {/* Invoice list pane — agenda-rail row treatment inside the split */}
         <aside
-          className={`w-full flex-col overflow-hidden rounded-card border border-border bg-surface shadow-card lg:flex lg:w-80 lg:shrink-0 ${
+          className={`w-full flex-col border-border lg:flex lg:w-80 lg:shrink-0 lg:border-r ${
             activeId ? "hidden" : "flex"
           }`}
         >
@@ -253,14 +259,10 @@ export function BillingShell({
         </aside>
 
         {/* Invoice pane */}
-        <div
-          className={`min-w-0 flex-1 flex-col overflow-hidden rounded-card border border-border bg-surface shadow-card lg:flex ${
-            activeId ? "flex" : "hidden"
-          }`}
-        >
-          {children}
-        </div>
+        <div className={`min-w-0 flex-1 flex-col lg:flex ${activeId ? "flex" : "hidden"}`}>{children}</div>
       </div>
+        </>
+      )}
 
       <NewInvoicePanel
         open={newInvoiceOpen}
