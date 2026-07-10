@@ -3,26 +3,20 @@ import { Icon } from "@/components/ui/icons";
 import { WatercolorHover } from "@/components/marketing/watercolor-hover";
 
 const ILLUSTRATIONS = "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations";
-const illustration = (name: string) => `${ILLUSTRATIONS}/${name}.avif`;
 const gridPhoto = (name: string) => `${ILLUSTRATIONS}/Hompage%20Grid/${encodeURIComponent(name)}.avif`;
 
-// "Care for life." — a static 3-col x 4-row grid of
-// portrait cards. Per Brendan's third pass: the photo is now the whole card
+// "Care for life." — a static 3-col x 2-row grid of
+// portrait cards, trimmed from 4 rows so the section stays one scroll beat
+// instead of two viewports of unlabeled imagery. The six kept are the
+// highest-volume conditions, and every slug has a real /care/[slug] topic
+// page in lib/site-content/topics.ts. The photo is the whole card
 // (aspect-[4/5], object-cover, no separate footer) with the same
 // WatercolorHover cursor-bloom used on every other illustration on the site;
 // the title + arrow live in a scrim overlay that's invisible until hover,
 // rather than a permanent white label strip.
-//   - images: Brendan's "Hompage Grid" blob folder first (7 of its 10 files
-//     show an identifiable person — objects1/objects2/image.jpg are
-//     still-life shots, excluded), topped up with as few of the older
-//     "maya" portraits as needed (5 of 6) — even distribution, no single
-//     recurring character dominating.
 //   - objectPosition: object-cover's default (center) crops sam2 oddly
 //     since the source is a wide landscape scene with the subject sitting
 //     left-of-center — nudged left so he isn't cropped out on tall cards.
-// Links: a real /care/[slug] page where lib/site-content/topics.ts has one
-// (the 9 conditions in the nav's Conditions panel); otherwise a slug with no
-// topic entry, which /care/[topic] 404s on by design.
 // `darkImage` — an optional alternate illustration swapped in via the
 // marketing dark toggle (CSS-only, see .care-img-dark in globals.css); most
 // cards don't have one and just render `image` in both themes.
@@ -45,21 +39,6 @@ const CARDS: Card[] = [
     image: gridPhoto("image (11)"),
     darkImage: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/Dark%20Mode/sad-maya-planting.avif",
   },
-  { slug: "sleep", label: "Sleep", image: gridPhoto("marco1") },
-  { slug: "bipolar", label: "Bipolar disorder", image: illustration("maya-1") },
-  {
-    slug: "lgbtqia",
-    label: "LGBTQIA+ affirming",
-    image: illustration("maya-2"),
-    darkImage: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/Dark%20Mode/sad-maya-planting.avif",
-  },
-  {
-    slug: "autism",
-    label: "ASD",
-    image: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/Dark%20Mode/maya5-Photoroom.avif",
-  },
-  { slug: "ocd", label: "OCD", image: illustration("maya10") },
-  { slug: "mania", label: "Mania", image: illustration("maya11") },
 ];
 
 export function CareCarousel() {
