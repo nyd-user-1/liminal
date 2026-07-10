@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { logEvent } from "@/lib/audit";
 import { AuthError, requireRole } from "@/lib/auth";
+import { sendPaymentReceiptEmail } from "@/lib/email";
 import { getInvoice, recordPayment } from "@/lib/repos/invoices";
 import { clientForUser } from "@/lib/repos/threads";
 import { getStripe } from "@/lib/stripe";
@@ -47,6 +48,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         entityId: result?.payment.id ?? null,
         meta: { invoice: id, number: invoice.number, amount_cents: invoice.balanceCents, method: "card", mode: "portal_mock" },
       });
+      if (invoice.client?.email) {
+        await sendPaymentReceiptEmail({
+          to: invoice.client.email,
+          firstName: invoice.client.firstName,
+          number: invoice.number,
+          amountCents: invoice.balanceCents,
+          balanceCents: result?.invoice.balanceCents ?? 0,
+          invoiceId: id,
+        });
+      }
       return NextResponse.json({ paid: true });
     }
 
@@ -65,7 +76,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       customer_email: invoice.client?.email ?? undefined,
       client_reference_id: id,
       metadata: { invoiceId: id, number: invoice.number },
-      success_url: `${origin}/portal/invoices?paid=1`,
+      // Through /api/stripe/confirm so the payment is recorded on redirect
+      // even where webhooks can't reach (local dev); ?portal=1 sends the
+      // client back to their invoices, not the practitioner workspace.
+      success_url: `${origin}/api/stripe/confirm?session_id={CHECKOUT_SESSION_ID}&portal=1`,
       cancel_url: `${origin}/portal/invoices?canceled=1`,
     });
     await logEvent({

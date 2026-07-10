@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { logEvent } from "@/lib/audit";
 import { getUser } from "@/lib/auth";
+import { sendPaymentReceiptEmail } from "@/lib/email";
 import { getInvoice, recordPayment } from "@/lib/repos/invoices";
 import { getStripe } from "@/lib/stripe";
 
@@ -22,6 +23,9 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const origin = req.nextUrl.origin;
   const stripe = getStripe();
+  // ?portal=1 → the payer is the client (portal checkout): land them back on
+  // their invoices, not the practitioner workspace.
+  const portal = req.nextUrl.searchParams.get("portal") === "1";
 
   // ── MOCK confirm ────────────────────────────────────────────────────────────
   if (!stripe && req.nextUrl.searchParams.get("mock") === "1") {
@@ -42,13 +46,24 @@ export async function GET(req: NextRequest) {
         entityId: result?.payment.id ?? null,
         meta: { invoice: invoiceId, number: invoice.number, amount_cents: invoice.balanceCents, method: "card", mode: "mock" },
       });
+      if (invoice.client?.email) {
+        await sendPaymentReceiptEmail({
+          to: invoice.client.email,
+          firstName: invoice.client.firstName,
+          number: invoice.number,
+          amountCents: invoice.balanceCents,
+          balanceCents: result?.invoice.balanceCents ?? 0,
+          invoiceId,
+        });
+      }
     }
     return NextResponse.redirect(`${origin}/billing/${invoiceId}?paid=1`, 303);
   }
 
   // ── LIVE confirm ────────────────────────────────────────────────────────────
+  const home = portal ? `${origin}/portal/invoices` : `${origin}/billing`;
   const sessionId = req.nextUrl.searchParams.get("session_id");
-  if (!stripe || !sessionId) return NextResponse.redirect(`${origin}/billing`, 303);
+  if (!stripe || !sessionId) return NextResponse.redirect(home, 303);
 
   try {
     const session = await stripe.checkout.sessions.retrieve(sessionId);
@@ -58,8 +73,9 @@ export async function GET(req: NextRequest) {
       const invoice = await getInvoice(invoiceId);
       const alreadyRecorded = intent && invoice?.payments.some((p) => p.stripePaymentIntent === intent);
       if (invoice && invoice.balanceCents > 0 && !alreadyRecorded) {
+        const amountCents = Math.min(session.amount_total ?? invoice.balanceCents, invoice.balanceCents);
         const result = await recordPayment(invoiceId, {
-          amountCents: Math.min(session.amount_total ?? invoice.balanceCents, invoice.balanceCents),
+          amountCents,
           method: "card",
           stripePaymentIntent: intent,
         });
@@ -70,12 +86,25 @@ export async function GET(req: NextRequest) {
           entityId: result?.payment.id ?? null,
           meta: { invoice: invoiceId, number: invoice.number, mode: "stripe_confirm" },
         });
+        if (invoice.client?.email) {
+          await sendPaymentReceiptEmail({
+            to: invoice.client.email,
+            firstName: invoice.client.firstName,
+            number: invoice.number,
+            amountCents,
+            balanceCents: result?.invoice.balanceCents ?? 0,
+            invoiceId,
+          });
+        }
       }
-      return NextResponse.redirect(`${origin}/billing/${invoiceId}?paid=1`, 303);
+      return NextResponse.redirect(
+        portal ? `${origin}/portal/invoices?paid=1&invoice=${invoiceId}` : `${origin}/billing/${invoiceId}?paid=1`,
+        303,
+      );
     }
-    if (invoiceId) return NextResponse.redirect(`${origin}/billing/${invoiceId}`, 303);
+    if (invoiceId) return NextResponse.redirect(portal ? home : `${origin}/billing/${invoiceId}`, 303);
   } catch (err) {
     console.error("[stripe] confirm error:", err);
   }
-  return NextResponse.redirect(`${origin}/billing`, 303);
+  return NextResponse.redirect(home, 303);
 }

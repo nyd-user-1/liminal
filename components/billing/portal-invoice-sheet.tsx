@@ -1,0 +1,266 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icons";
+import { Logo } from "@/components/ui/logo";
+import { SidePanel } from "@/components/ui/side-panel";
+import { TextLink } from "@/components/ui/text-link";
+import { useToast } from "@/components/ui/toast";
+import { formatCents, formatDate, formatDateTime } from "@/lib/format";
+import type { InvoiceStatus } from "@/lib/types";
+
+// Portal invoice sheet — the client's whole billing flow in one surface
+// (bottom sheet on phones, right panel on desktop): the invoice document,
+// a Pay footer, and an in-place success state once the payment lands.
+// Mock mode (no Stripe key) settles right here; a live key swaps the same
+// button for a Stripe Checkout redirect that returns via /api/stripe/confirm.
+
+export interface PortalInvoice {
+  id: string;
+  number: string;
+  status: InvoiceStatus;
+  issuedOn: string | null;
+  dueOn: string | null;
+  subtotalCents: number;
+  taxCents: number;
+  totalCents: number;
+  paidCents: number;
+  balanceCents: number;
+  items: Array<{ id: string; description: string; qty: number; unitCents: number; amountCents: number }>;
+  payments: Array<{ id: string; method: string; amountCents: number; paidAt: string }>;
+}
+
+export const PORTAL_STATUS: Record<
+  InvoiceStatus,
+  { label: string; variant: "neutral" | "success" | "warning" | "danger" | "info" }
+> = {
+  draft: { label: "Draft", variant: "neutral" },
+  sent: { label: "Due", variant: "warning" },
+  paid: { label: "Paid", variant: "success" },
+  overdue: { label: "Overdue", variant: "danger" },
+  void: { label: "Void", variant: "neutral" },
+};
+
+const METHOD_LABEL: Record<string, string> = {
+  card: "Card",
+  cash: "Cash",
+  insurance: "Insurance",
+  other: "Other",
+};
+
+const dateOnly = (d: string) => formatDate(`${d}T00:00:00`);
+
+export function PortalInvoiceSheet({
+  invoice,
+  onClose,
+  stripeLive,
+  clientEmail,
+}: {
+  invoice: PortalInvoice | null;
+  onClose: () => void;
+  stripeLive: boolean;
+  clientEmail: string | null;
+}) {
+  const router = useRouter();
+  const toast = useToast();
+  const [paying, setPaying] = useState(false);
+  const [paidAmount, setPaidAmount] = useState<number | null>(null); // non-null = success state
+
+  // A fresh selection resets the success state.
+  useEffect(() => {
+    setPaidAmount(null);
+  }, [invoice?.id]);
+
+  const payable =
+    !!invoice &&
+    paidAmount === null &&
+    invoice.balanceCents > 0 &&
+    (invoice.status === "sent" || invoice.status === "overdue");
+
+  const pay = async () => {
+    if (!invoice) return;
+    setPaying(true);
+    try {
+      const res = await fetch(`/portal/invoices/${invoice.id}/pay`, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "Could not start the payment.");
+      if (data?.url) {
+        window.location.assign(data.url); // live Stripe Checkout — returns via /api/stripe/confirm
+        return;
+      }
+      setPaidAmount(invoice.balanceCents);
+      router.refresh();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Could not start the payment.", "danger");
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  const openPdf = () => invoice && window.open(`/billing/${invoice.id}/print`, "_blank");
+
+  const s = invoice ? PORTAL_STATUS[invoice.status] : null;
+
+  return (
+    <SidePanel
+      open={!!invoice}
+      onClose={onClose}
+      title={invoice?.number ?? ""}
+      icon="file-text"
+      mobileSheet
+      footer={
+        payable ? (
+          <div className="w-full space-y-2">
+            <Button className="w-full" leftIcon="credit-card" loading={paying} onClick={pay}>
+              Pay {formatCents(invoice.balanceCents)}
+            </Button>
+            <p className="text-center text-[12px] text-text-muted">
+              {stripeLive
+                ? "You'll be redirected to Stripe's secure checkout."
+                : "Payments are simulated in this demo environment."}
+            </p>
+          </div>
+        ) : paidAmount !== null ? (
+          <Button className="w-full" variant="secondary" onClick={onClose}>
+            Done
+          </Button>
+        ) : undefined
+      }
+    >
+      {invoice &&
+        (paidAmount !== null ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3 py-10 text-center">
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-success-tint text-success">
+              <Icon name="circle-check" size={28} />
+            </span>
+            <p className="text-[19px] font-semibold text-text">Payment received</p>
+            <p className="max-w-[340px] text-[15px] text-text-body">
+              {formatCents(paidAmount)} paid on {invoice.number} — thank you.
+              {clientEmail ? ` A receipt is on its way to ${clientEmail}.` : ""}
+            </p>
+            <Button variant="secondary" leftIcon="download" onClick={openPdf}>
+              View receipt (PDF)
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {/* Letterhead */}
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <Logo size="sm" />
+                <p className="mt-1 text-[13px] text-text-muted">Liminal Psychiatry · hello@liminal.demo</p>
+              </div>
+              {s && <Badge variant={s.variant}>{s.label}</Badge>}
+            </div>
+
+            {/* Dates */}
+            <dl className="flex gap-8">
+              {invoice.issuedOn && (
+                <div>
+                  <dt className="text-[12px] font-medium uppercase tracking-wide text-text-muted">Issued</dt>
+                  <dd className="text-[14px] text-text">{dateOnly(invoice.issuedOn)}</dd>
+                </div>
+              )}
+              {invoice.dueOn && (
+                <div>
+                  <dt className="text-[12px] font-medium uppercase tracking-wide text-text-muted">Due</dt>
+                  <dd
+                    className={`text-[14px] ${invoice.status === "overdue" ? "font-medium text-danger" : "text-text"}`}
+                  >
+                    {dateOnly(invoice.dueOn)}
+                  </dd>
+                </div>
+              )}
+            </dl>
+
+            {/* Line items */}
+            <table className="w-full border-collapse text-left">
+              <thead>
+                <tr className="border-b-2 border-text/80">
+                  <th className="py-2 pr-4 text-[12px] font-semibold uppercase tracking-wide text-text-muted">
+                    Description
+                  </th>
+                  <th className="py-2 text-right text-[12px] font-semibold uppercase tracking-wide text-text-muted">
+                    Amount
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoice.items.map((it) => (
+                  <tr key={it.id} className="border-b border-border text-[15px] text-text-body">
+                    <td className="py-2.5 pr-4">
+                      {it.description}
+                      {it.qty > 1 && (
+                        <span className="ml-1.5 text-[13px] text-text-muted">
+                          × {it.qty} at {formatCents(it.unitCents)}
+                        </span>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap py-2.5 text-right font-medium text-text">
+                      {formatCents(it.amountCents)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Totals */}
+            <div className="flex justify-end">
+              <dl className="w-full max-w-[250px] space-y-1.5 text-[15px]">
+                <div className="flex justify-between text-text-body">
+                  <dt>Subtotal</dt>
+                  <dd>{formatCents(invoice.subtotalCents)}</dd>
+                </div>
+                {invoice.taxCents > 0 && (
+                  <div className="flex justify-between text-text-body">
+                    <dt>Tax</dt>
+                    <dd>{formatCents(invoice.taxCents)}</dd>
+                  </div>
+                )}
+                <div className="flex justify-between border-t border-border pt-1.5 font-semibold text-text">
+                  <dt>Total</dt>
+                  <dd>{formatCents(invoice.totalCents)}</dd>
+                </div>
+                {invoice.paidCents > 0 && (
+                  <div className="flex justify-between text-text-body">
+                    <dt>Paid</dt>
+                    <dd>−{formatCents(invoice.paidCents)}</dd>
+                  </div>
+                )}
+                <div className="flex justify-between font-semibold">
+                  <dt className="text-text">Balance due</dt>
+                  <dd className={payable ? "text-danger" : "text-success"}>{formatCents(invoice.balanceCents)}</dd>
+                </div>
+              </dl>
+            </div>
+
+            {/* Payments */}
+            {invoice.payments.length > 0 && (
+              <div>
+                <p className="mb-2 text-[12px] font-medium uppercase tracking-wide text-text-muted">
+                  Payments received
+                </p>
+                <ul className="space-y-1.5 text-[14px] text-text-body">
+                  {invoice.payments.map((p) => (
+                    <li key={p.id} className="flex items-center justify-between gap-3">
+                      <span className="min-w-0 truncate">
+                        {METHOD_LABEL[p.method] ?? p.method} · {formatDateTime(p.paidAt)}
+                      </span>
+                      <span className="shrink-0 font-medium text-text">{formatCents(p.amountCents)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <TextLink icon="download" onClick={openPdf}>
+              Download PDF
+            </TextLink>
+          </div>
+        ))}
+    </SidePanel>
+  );
+}

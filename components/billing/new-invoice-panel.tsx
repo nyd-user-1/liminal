@@ -125,6 +125,7 @@ export function NewInvoicePanel({
       if (!res.ok) throw new Error(data.error ?? "Could not create the invoice.");
       toast(`${data.invoice.number} ${status === "sent" ? "created and sent" : "saved as draft"}`, "success");
       onClose();
+      router.push(`/billing/${data.invoice.id}`); // land on the new invoice, ready to send/collect
       router.refresh();
     } catch (err) {
       toast(err instanceof Error ? err.message : "Could not create the invoice.", "danger");
@@ -140,6 +141,7 @@ export function NewInvoicePanel({
       title="New invoice"
       icon="file-text"
       width="max-w-2xl"
+      mobileSheet
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
@@ -170,7 +172,7 @@ export function NewInvoicePanel({
         <div>
           <FieldLabel>Items</FieldLabel>
           <div className="space-y-2">
-            <div className="grid grid-cols-[1fr_64px_110px_90px_36px] gap-2 text-[13px] font-medium text-text-muted">
+            <div className="hidden grid-cols-[1fr_64px_110px_90px_36px] gap-2 text-[13px] font-medium text-text-muted sm:grid">
               <span>Description</span>
               <span>Qty</span>
               <span>Unit</span>
@@ -182,19 +184,22 @@ export function NewInvoicePanel({
               const unit = toCents(it.unit);
               const amount = Number.isFinite(qty) && qty > 0 && unit > 0 ? qty * unit : 0;
               return (
-                <div key={i} className="grid grid-cols-[1fr_64px_110px_90px_36px] items-center gap-2">
+                // Phones: description on its own line, qty/unit/amount wrap below; sm+: one grid row.
+                <div key={i} className="flex flex-wrap items-center gap-2 sm:grid sm:grid-cols-[1fr_64px_110px_90px_36px]">
                   <Input
                     placeholder="Session, service, adjustment…"
+                    className="w-full sm:w-auto"
                     value={it.description}
                     onChange={(e) => patchItem(i, { description: e.target.value })}
                   />
                   <Input
                     type="number"
                     min={1}
+                    className="w-16 sm:w-auto"
                     value={it.qty}
                     onChange={(e) => patchItem(i, { qty: e.target.value })}
                   />
-                  <div className="flex h-11 items-center rounded-field border border-field-border bg-surface transition-colors focus-within:border-field-border-focus">
+                  <div className="flex h-11 w-[110px] items-center rounded-field border border-field-border bg-surface transition-colors focus-within:border-field-border-focus sm:w-auto">
                     <span className="pl-3 text-[15px] text-text-muted">$</span>
                     <input
                       inputMode="decimal"
@@ -204,7 +209,7 @@ export function NewInvoicePanel({
                       className="h-full min-w-0 flex-1 bg-transparent px-2 text-[15px] text-text outline-none placeholder:text-text-muted"
                     />
                   </div>
-                  <span className="text-right text-[15px] font-medium text-text">
+                  <span className="min-w-0 flex-1 text-right text-[15px] font-medium text-text sm:flex-none">
                     {amount > 0 ? formatCents(amount) : "—"}
                   </span>
                   <button
