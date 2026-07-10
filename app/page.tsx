@@ -6,7 +6,6 @@ import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Nav } from "@/components/marketing/nav";
 import { ProviderSpotlightRail, type ProviderSpotlight } from "@/components/marketing/provider-spotlight-card";
 import { silhouetteUrl } from "@/components/providers/provider-illustration";
-import { headshotFor } from "@/lib/headshots";
 import { Reveal } from "@/components/marketing/reveal";
 import { ReviewsCarousel, type Review } from "@/components/marketing/reviews-carousel";
 import { ScrollCue } from "@/components/marketing/scroll-cue";
@@ -239,7 +238,7 @@ const INSURERS: Array<{ name: string; color: string }> = [
 const HOW_IT_WORKS: Array<{ title: string; body: string }> = [
   {
     title: "Find the right fit",
-    body: "Share your preferences and we'll filter through 116,000+ therapists and psychiatrists to find your matches.",
+    body: "Share preferences and we'll filter 116,000+ providers to find your matches.",
   },
   {
     title: "Get the in-network price",
@@ -319,7 +318,7 @@ export default async function Home() {
   ).filter((p): p is ProviderSpotlight => p !== null && p.quote !== "");
   const spotlightProviders = [...realSpotlights, ...FICTIONAL_SPOTLIGHT].map((p) => ({
     ...p,
-    photoUrl: headshotFor(p.id) ?? silhouetteUrl(p.id),
+    photoUrl: silhouetteUrl(p.id),
   }));
 
   return (
@@ -347,6 +346,18 @@ export default async function Home() {
         </div>
 
         <div className="pointer-events-none relative z-10 mx-auto w-full max-w-6xl px-6 py-16 sm:py-20 lg:py-16">
+          {/* mobile painting — leads the page below lg */}
+          <div className="mkt-develop mb-10 lg:hidden">
+            <img
+              src={`${CUT}/lakeside.avif`}
+              alt="A watercolour illustration — a person wrapped in a shawl sits on a bench by a still lake at dawn, holding a warm mug."
+              width={1600}
+              height={1200}
+              className="block w-full"
+              loading="eager"
+            />
+          </div>
+
           <div className="pointer-events-auto lg:max-w-[54%]">
             <h1
               className="mkt-rise text-balance font-display font-extrabold tracking-[-0.03em] text-text"
@@ -368,17 +379,6 @@ export default async function Home() {
             </p>
           </div>
 
-          {/* mobile painting */}
-          <div className="mkt-develop mt-10 lg:hidden">
-            <img
-              src={`${CUT}/lakeside.avif`}
-              alt="A watercolour illustration — a person wrapped in a shawl sits on a bench by a still lake at dawn, holding a warm mug."
-              width={1600}
-              height={1200}
-              className="block w-full"
-              loading="eager"
-            />
-          </div>
         </div>
 
         {/* scroll cue — fades/rises in after load, out on first scroll (client) */}
@@ -395,7 +395,7 @@ export default async function Home() {
           </Reveal>
 
           <div className="mt-8 grid items-center gap-6 lg:grid-cols-[1.3fr_1.1fr] lg:gap-10">
-            <Reveal className="order-last lg:order-first lg:-ml-10 xl:-ml-20" delay={80}>
+            <Reveal className="lg:-ml-10 xl:-ml-20" delay={80}>
               <WatercolorHover className="mx-auto block w-full max-w-xl lg:max-w-none">
                 <img
                   src={`${ILLO}/maya10.avif`}
