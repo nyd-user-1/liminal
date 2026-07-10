@@ -5,10 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Icon, IconSquare } from "@/components/ui/icons";
-import { ListRow } from "@/components/ui/list-row";
 import { TopBarActions } from "@/components/shell/topbar-slot";
 import { Select } from "@/components/ui/select";
 import { SidePanel } from "@/components/ui/side-panel";
+import { Table, Td, Tr } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import type { Location, LocationKind } from "@/lib/types";
 
@@ -78,23 +78,29 @@ export function LocationsSettings({ initialLocations }: { initialLocations: Loca
           New location
         </Button>
       </TopBarActions>
-      <div className="space-y-2.5">
+      <Table head={["Location", "Type", "Address", ""]}>
         {locations.map((l) => (
-          <ListRow
-            key={l.id}
-            onClick={() => open({ mode: "edit", location: l })}
-            leading={<IconSquare name={l.kind === "telehealth" ? "video" : "globe"} />}
-            title={
-              <>
+          <Tr key={l.id} onClick={() => open({ mode: "edit", location: l })}>
+            <Td className="font-semibold text-text">
+              <span className="flex items-center gap-2.5">
+                <IconSquare name={l.kind === "telehealth" ? "video" : "globe"} />
                 {l.name}
-                {l.kind === "telehealth" && <Badge variant="info">Virtual location</Badge>}
-              </>
-            }
-            meta={l.address ?? (l.kind === "telehealth" ? "Video conferencing" : undefined)}
-            trailing={<Icon name="chevron-right" size={18} className="text-text-muted" />}
-          />
+              </span>
+            </Td>
+            <Td>
+              {l.kind === "telehealth" ? (
+                <Badge variant="info">Virtual</Badge>
+              ) : (
+                <span className="text-text-muted">Office</span>
+              )}
+            </Td>
+            <Td>{l.address ?? (l.kind === "telehealth" ? "Video conferencing" : "—")}</Td>
+            <Td className="w-10 text-right">
+              <Icon name="chevron-right" size={18} className="text-text-muted" />
+            </Td>
+          </Tr>
         ))}
-      </div>
+      </Table>
 
       <SidePanel
         open={panel !== null}

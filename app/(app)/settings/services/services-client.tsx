@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { ColorSwatch } from "@/components/ui/color-swatch";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Icon } from "@/components/ui/icons";
-import { ListRow } from "@/components/ui/list-row";
 import { TopBarActions } from "@/components/shell/topbar-slot";
 import { SidePanel } from "@/components/ui/side-panel";
+import { Table, Td, Tr } from "@/components/ui/table";
 import { Tag } from "@/components/ui/tag";
 import { useToast } from "@/components/ui/toast";
 import { Toggle } from "@/components/ui/toggle";
@@ -104,28 +104,35 @@ export function ServicesSettings({ initialServices }: { initialServices: Service
           New service
         </Button>
       </TopBarActions>
-      <div className="space-y-2.5">
+      <Table head={["Service", "Duration", "Rate", "Type", "Status", ""]}>
         {services.map((s) => (
-          <ListRow
-            key={s.id}
-            onClick={() => open({ mode: "edit", service: s })}
-            leading={<ColorSwatch color={serviceColorHex(s.color)} />}
-            title={
-              <>
+          <Tr key={s.id} onClick={() => open({ mode: "edit", service: s })}>
+            <Td className="font-semibold text-text">
+              <span className="flex items-center gap-2.5">
+                <ColorSwatch color={serviceColorHex(s.color)} />
                 {s.name}
-                {s.telehealth && (
-                  <Tag hue="teal">
-                    <Icon name="video" size={12} /> Telehealth
-                  </Tag>
-                )}
-                {!s.active && <Badge variant="neutral">Inactive</Badge>}
-              </>
-            }
-            meta={`${s.durationMin} mins · ${formatCents(s.priceCents)}`}
-            trailing={<Icon name="chevron-right" size={18} className="text-text-muted" />}
-          />
+              </span>
+            </Td>
+            <Td className="whitespace-nowrap">{s.durationMin} mins</Td>
+            <Td className="whitespace-nowrap">{formatCents(s.priceCents)}</Td>
+            <Td>
+              {s.telehealth ? (
+                <Tag hue="teal">
+                  <Icon name="video" size={12} /> Telehealth
+                </Tag>
+              ) : (
+                <span className="text-text-muted">In office</span>
+              )}
+            </Td>
+            <Td>
+              {s.active ? <Badge variant="success">Active</Badge> : <Badge variant="neutral">Inactive</Badge>}
+            </Td>
+            <Td className="w-10 text-right">
+              <Icon name="chevron-right" size={18} className="text-text-muted" />
+            </Td>
+          </Tr>
         ))}
-      </div>
+      </Table>
 
       <SidePanel
         open={panel !== null}
