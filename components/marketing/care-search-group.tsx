@@ -15,14 +15,14 @@ import { Select } from "@/components/ui/select";
 // tone: teal trigger label and teal option rows, so each field reads as a
 // live filter rather than an empty form input.
 
-// Care-type filter — "Medication" ≈ psychiatrist/PMHNP roles, "Therapy" ≈
-// therapist roles (see matchesType in the public-search API route). Unset by
-// default: /find-care opens on the whole directory, and every filter narrows
-// from there rather than the page arriving pre-narrowed to prescribers.
+// Care-type filter — "Medication Mgmt." ≈ psychiatrist/PMHNP roles, "Talk
+// Therapy" ≈ therapist roles (see matchesType in the public-search API route).
+// Talk Therapy is preselected, per Brendan: it's what most people arriving at
+// /find-care are after. "Any care type" widens back out to the full directory.
 export const TYPE_OPTIONS = [
   { value: "", label: "Any care type" },
-  { value: "psychiatrist", label: "Medication" },
-  { value: "therapist", label: "Therapy" },
+  { value: "psychiatrist", label: "Medication Mgmt." },
+  { value: "therapist", label: "Talk Therapy" },
 ];
 
 // The payers Liminal's own practitioners actually carry, plus Medicaid — true
@@ -56,7 +56,7 @@ export type CareFacets = {
 
 export const EMPTY_FILTERS: CareFilters = {
   q: "",
-  type: "",
+  type: "therapist",
   city: "",
   specialty: "",
   insurance: "",
@@ -101,7 +101,9 @@ export function CareSearchGroup({
         </Button>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      {/* Care type gets the wider column — "Medication Mgmt." doesn't fit a
+          quarter of this row, and an ellipsised filter label is useless. */}
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-[1.35fr_1fr_1fr_1fr]">
         <Select
           tone="primary"
           options={TYPE_OPTIONS}

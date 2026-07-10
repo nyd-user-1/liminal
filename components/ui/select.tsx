@@ -66,6 +66,8 @@ export function Select({
    * `primary` renders the trigger label, chevron, and every option row in teal
    * rather than only the selected row — the marketing filter row, where each
    * dropdown reads as a live filter chip rather than a neutral form field.
+   * Weight stays regular there (teal at 500 read as bold); the selected row
+   * keeps 500 as the one weight cue, since colour no longer distinguishes it.
    */
   tone?: "default" | "primary";
 } & Omit<SelectHTMLAttributes<HTMLSelectElement>, "value">) {
@@ -143,7 +145,7 @@ export function Select({
         >
           <span
             className={`flex min-w-0 items-center gap-2 ${
-              isPrimary ? "font-medium text-primary" : value ? "" : "text-text-muted"
+              isPrimary ? "text-primary" : value ? "" : "text-text-muted"
             }`}
           >
             <OptionLead option={selected} />
@@ -161,8 +163,12 @@ export function Select({
             <div
               ref={menuRef}
               onClick={(e) => e.stopPropagation()}
-              style={{ top: pos.top, left: pos.left, width: pos.width }}
-              className="fixed z-50 rounded-card border border-border bg-surface p-2 shadow-menu"
+              // Trigger width is the floor, not the cap: a narrow filter chip
+              // shouldn't ellipsise its own options ("Medication Mg…"). Grows
+              // rightward to fit the longest label, bounded so a stray long
+              // option can't run off-screen.
+              style={{ top: pos.top, left: pos.left, minWidth: pos.width }}
+              className="fixed z-50 w-max max-w-[min(22rem,92vw)] rounded-card border border-border bg-surface p-2 shadow-menu"
             >
             {searchable && (
               <div className="mb-1 flex items-center gap-2 rounded-field border border-field-border px-2.5">
@@ -189,9 +195,9 @@ export function Select({
                       onValueChange?.(o.value);
                       setOpen(false);
                     }}
-                    className={`flex w-full items-center gap-2 rounded-field px-2.5 py-2 text-left text-[15px] font-medium transition-colors hover:bg-[#F3F4F6] ${
+                    className={`flex w-full items-center gap-2 rounded-field px-2.5 py-2 text-left text-[15px] transition-colors hover:bg-[#F3F4F6] ${
                       isPrimary || isSel ? "text-primary" : "text-text"
-                    }`}
+                    } ${isPrimary && !isSel ? "font-normal" : "font-medium"}`}
                   >
                     <OptionLead option={o} />
                     <span className="min-w-0 flex-1 truncate">{o.label}</span>
