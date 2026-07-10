@@ -28,7 +28,7 @@ export default function TherapistsPage() {
 
         <p className="mt-6 max-w-3xl text-pretty leading-relaxed text-text-body">
           Liminal simplifies finding{" "}
-          <Link href="/find-care" className="text-primary underline underline-offset-2">
+          <Link href="/providers" className="text-primary underline underline-offset-2">
             mental health providers who accept insurance
           </Link>{" "}
           by partnering with New York&apos;s top plans — including Aetna, Cigna, UnitedHealthcare, Empire BCBS, Fidelis

@@ -4,7 +4,7 @@ import Link from "next/link";
 // index (components/marketing/therapist-directory.tsx): column-major a→z fill,
 // a hover pill, and an up-right arrow that fades in. These were dead text
 // before; every one is a real place with real providers in it, so each is a
-// link into a pre-filtered /find-care search.
+// link into a pre-filtered /providers search.
 //
 // The field is the mint wash rather than a white Card, per Brendan. On the
 // directory index the pill is a *darker cream* against the cream ground, and
@@ -22,7 +22,7 @@ export function NearbyAreas({ areas }: { areas?: string[] }) {
         {areas.map((a) => (
           <li key={a} className="mb-1 break-inside-avoid">
             <Link
-              href={`/find-care?city=${encodeURIComponent(a)}`}
+              href={`/providers?city=${encodeURIComponent(a)}`}
               className="group -mx-2 flex items-center justify-between gap-2 rounded-field px-2 py-1.5 text-[15px] text-text-body transition-colors hover:bg-primary-weak hover:text-primary-deep"
             >
               {a}

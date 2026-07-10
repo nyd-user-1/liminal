@@ -27,7 +27,7 @@ export default function AboutPage() {
           eyebrow="About Liminal"
           title="Care shouldn't be this hard to find."
           lede="Liminal started from a simple frustration: New Yorkers looking for a therapist or psychiatrist spend weeks on hold, calling offices that never call back, before they even learn who takes their insurance. We built the directory we wished existed — and the practice software behind it, so the providers on the other end can actually keep up."
-          primary={{ href: "/find-care", label: "Find a provider" }}
+          primary={{ href: "/providers", label: "Find a provider" }}
           secondary={{ href: "/join", label: "For providers" }}
         />
 
@@ -71,7 +71,7 @@ export default function AboutPage() {
         <CtaBand
           title="Find care, or bring your practice to Liminal."
           lede="One system for the person looking for help, and the provider ready to see them."
-          primary={{ href: "/find-care", label: "Find a provider" }}
+          primary={{ href: "/providers", label: "Find a provider" }}
           secondary={{ href: "/join", label: "Join as a provider" }}
         />
       </main>

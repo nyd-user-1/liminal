@@ -9,7 +9,7 @@ import { CtaBand } from "@/components/site/cta-band";
 import { Placeholder } from "@/components/site/placeholder";
 import { PROVIDER_FAQS } from "@/lib/site-content";
 
-// /providers/therapists — counselors & clinical social workers. Distinct
+// /for-providers/therapists — counselors & clinical social workers. Distinct
 // economics and language from the prescriber path. Software/EHR language
 // allowed. NEW (public marketing site).
 

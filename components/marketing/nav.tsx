@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AccordionSection } from "@/components/ui/accordion-section";
@@ -11,6 +11,7 @@ import { Icon, type IconName } from "@/components/ui/icons";
 import { IconButton } from "@/components/ui/icon-button";
 import { SearchInput } from "@/components/ui/search-input";
 import { Tag } from "@/components/ui/tag";
+import { ThemeToggle } from "@/components/marketing/theme-toggle";
 import type { PublicResult } from "@/app/api/directory/public-search/route";
 
 // Public marketing nav (Headway pattern, Liminal brand). One shared dropdown
@@ -75,7 +76,7 @@ function locationSections(type: string, icon: IconName) {
       header: "Borough",
       links: BOROUGHS.map(([label, county]) => ({
         label,
-        href: `/find-care?type=${type}&county=${encodeURIComponent(county)}`,
+        href: `/providers?type=${type}&county=${encodeURIComponent(county)}`,
         icon,
       })),
     },
@@ -84,7 +85,7 @@ function locationSections(type: string, icon: IconName) {
       // `q` searches the directory's `city` column, so these filter for real.
       links: CITIES.map((c) => ({
         label: c,
-        href: `/find-care?type=${type}&q=${encodeURIComponent(c)}`,
+        href: `/providers?type=${type}&q=${encodeURIComponent(c)}`,
         icon: "globe" as IconName,
       })),
     },
@@ -97,14 +98,14 @@ const FIND_CATEGORIES: FindCategory[] = [
     label: "Therapists",
     icon: "users",
     sections: locationSections("therapist", "person-circle"),
-    viewAll: { label: "View all", href: "/find-care?type=therapist" },
+    viewAll: { label: "View all", href: "/providers?type=therapist" },
   },
   {
     key: "psychiatrists",
     label: "Psychiatrists",
     icon: "book-heart",
     sections: locationSections("psychiatrist", "book-heart"),
-    viewAll: { label: "View all", href: "/find-care?type=psychiatrist" },
+    viewAll: { label: "View all", href: "/providers?type=psychiatrist" },
   },
   {
     key: "specialty",
@@ -115,12 +116,12 @@ const FIND_CATEGORIES: FindCategory[] = [
         header: "By specialty",
         links: SPECIALTIES.map((s) => ({
           label: s,
-          href: `/find-care?specialty=${encodeURIComponent(s)}`,
+          href: `/providers?specialty=${encodeURIComponent(s)}`,
           icon: "sparkle" as IconName,
         })),
       },
     ],
-    viewAll: { label: "+20 more", href: "/find-care" },
+    viewAll: { label: "+20 more", href: "/providers" },
   },
   {
     key: "specialty2",
@@ -131,12 +132,12 @@ const FIND_CATEGORIES: FindCategory[] = [
         header: "By specialty",
         links: SPECIALTIES.map((s) => ({
           label: s,
-          href: `/find-care?specialty=${encodeURIComponent(s)}`,
+          href: `/providers?specialty=${encodeURIComponent(s)}`,
           icon: "sparkle" as IconName,
         })),
       },
     ],
-    viewAll: { label: "+20 more", href: "/find-care" },
+    viewAll: { label: "+20 more", href: "/providers" },
   },
   {
     key: "virtual",
@@ -145,13 +146,13 @@ const FIND_CATEGORIES: FindCategory[] = [
     sections: [
       {
         links: [
-          { label: "Virtual therapy", href: "/find-care?type=virtual", icon: "video" },
-          { label: "Virtual psychiatry", href: "/find-care?type=virtual&kind=psychiatry", icon: "video" },
-          { label: "Same-week appointments", href: "/find-care?type=virtual", icon: "calendar-check" },
+          { label: "Virtual therapy", href: "/providers?type=virtual", icon: "video" },
+          { label: "Virtual psychiatry", href: "/providers?type=virtual&kind=psychiatry", icon: "video" },
+          { label: "Same-week appointments", href: "/providers?type=virtual", icon: "calendar-check" },
         ],
       },
     ],
-    viewAll: { label: "Browse virtual care", href: "/find-care?type=virtual" },
+    viewAll: { label: "Browse virtual care", href: "/providers?type=virtual" },
   },
   {
     key: "resources",
@@ -161,7 +162,7 @@ const FIND_CATEGORIES: FindCategory[] = [
       {
         links: [
           { label: "Mental health programs", href: "/portal/resources", icon: "globe" },
-          { label: "Crisis support", href: "/find-care?type=crisis", icon: "phone" },
+          { label: "Crisis support", href: "/providers?type=crisis", icon: "phone" },
           { label: "What to expect", href: "/#for-providers", icon: "note" },
         ],
       },
@@ -480,7 +481,7 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
     const p = new URLSearchParams();
     if (q.trim()) p.set("q", q.trim());
     if (filters[0]) p.set("need", filters[0]);
-    onNavigate(`/find-care${p.toString() ? `?${p.toString()}` : ""}`);
+    onNavigate(`/providers${p.toString() ? `?${p.toString()}` : ""}`);
   };
 
   const shown = results.slice(0, 6);
@@ -721,11 +722,15 @@ function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
 // ── nav ──────────────────────────────────────────────────────────────────────
 
 // `ground` is the non-scrolled bar background (Tailwind classes). Defaults to the
-// mint hero wash used on /join and /find-care; the redesigned home passes the
+// mint hero wash used on /join and /providers; the redesigned home passes the
 // First Light page ground so the bar melts into the hero.
 export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
   const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
+  const [dark, setDark] = useState(false);
+  // Direction-based bar height, same technique as the /providers filter
+  // collapse: down shrinks the bar, up (or being back near the top) grows it.
+  const [compact, setCompact] = useState(false);
   const [open, setOpen] = useState<MenuKey | null>(null);
   const [cat, setCat] = useState("therapists");
   const [caretX, setCaretX] = useState(0);
@@ -775,11 +780,87 @@ export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
   }, []);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
-    onScroll();
+    let lastY = window.scrollY;
+    // Cumulative travel *since the last direction reversal*, not frame-to-frame
+    // velocity. Momentum/trackpad scrolling doesn't stop cleanly — the last few
+    // frames as it settles fire tiny alternating-sign deltas, and a per-frame
+    // threshold flips `compact` back and forth on that noise (visible as the bar
+    // jumping right as the user stops). Requiring 32px of sustained travel in one
+    // direction filters that out: reversals reset the count before it can cross.
+    let dir = 0;
+    let accum = 0;
+    const TOGGLE_PX = 32;
+    let ticking = false;
+    const update = () => {
+      const y = window.scrollY;
+      setScrolled(y > 8);
+      const diff = y - lastY;
+      lastY = y;
+      if (y <= 8) {
+        setCompact(false);
+        dir = 0;
+        accum = 0;
+        return;
+      }
+      if (diff === 0) return;
+      const newDir = diff > 0 ? 1 : -1;
+      if (newDir !== dir) {
+        dir = newDir;
+        accum = 0;
+      }
+      accum += Math.abs(diff);
+      if (accum > TOGGLE_PX) setCompact(dir === 1);
+    };
+    update();
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        update();
+        ticking = false;
+      });
+    };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  useEffect(() => {
+    const isDark = localStorage.getItem("mkt-theme") === "dark";
+    setDark(isDark);
+    document.documentElement.classList.toggle("dark", isDark);
+  }, []);
+
+  // Marketing-only dark toggle — circular reveal via the View Transitions
+  // API, ported from 44b's AppLayout. Lives here (not inside ThemeToggle) so
+  // the logo swap below can read the same `dark` state.
+  const toggleTheme = useCallback(
+    (e: React.MouseEvent) => {
+      const x = e.clientX;
+      const y = e.clientY;
+      const next = !dark;
+
+      const apply = () => {
+        setDark(next);
+        document.documentElement.classList.toggle("dark", next);
+        localStorage.setItem("mkt-theme", next ? "dark" : "light");
+      };
+
+      if (!document.startViewTransition) {
+        apply();
+        return;
+      }
+
+      const endRadius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+      const transition = document.startViewTransition(() => flushSync(apply));
+      transition.ready.then(() => {
+        document.documentElement.animate(
+          { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${endRadius}px at ${x}px ${y}px)`] },
+          { duration: 600, easing: "cubic-bezier(.76,.32,.29,.99)", pseudoElement: "::view-transition-new(root)" },
+        );
+      });
+    },
+    [dark],
+  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -821,6 +902,7 @@ export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
   return (
     <>
       <header
+        data-nav
         className={`sticky top-0 z-40 transition-all duration-200 ${
           scrolled ? "bg-surface shadow-card" : ground
         }`}
@@ -828,7 +910,7 @@ export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
         <div
           ref={barRef}
           className={`relative mx-auto flex max-w-6xl items-center gap-6 px-6 transition-all duration-200 ${
-            scrolled ? "h-[70px]" : "h-[72px]"
+            compact ? "h-[70px]" : "h-[100px]"
           }`}
           onMouseLeave={scheduleClose}
         >
@@ -838,20 +920,37 @@ export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
                 (brighter/warmer pigment) rises up through the watercolor on hover.
                 No motion — the base mark stays put. */}
             <img
-              src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-dark.png"
+              src={
+                dark
+                  ? "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-light.png"
+                  : "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-dark.png"
+              }
               alt="Liminal"
-              className="block h-11 w-auto"
+              className={`block w-auto transition-all duration-200 ${dark ? "brightness-125" : ""} ${compact ? "h-[2.2rem]" : "h-11"}`}
             />
             <img
-              src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-dark.png"
+              src={
+                dark
+                  ? "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-light.png"
+                  : "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-dark.png"
+              }
               alt=""
               aria-hidden
-              className="pointer-events-none absolute left-0 top-0 block h-11 w-auto brightness-110 saturate-[1.25] [clip-path:inset(100%_0_0_0)] transition-[clip-path] duration-[600ms] ease-out group-hover:[clip-path:inset(0_0_0_0)]"
+              className={`pointer-events-none absolute left-0 top-0 block w-auto saturate-[1.25] ${dark ? "brightness-125" : "brightness-110"} [clip-path:inset(100%_0_0_0)] transition-[clip-path,height] duration-[600ms,200ms] ease-out group-hover:[clip-path:inset(0_0_0_0)] ${
+                compact ? "h-[2.2rem]" : "h-11"
+              }`}
             />
           </Link>
 
-          {/* nav links — centered in the bar */}
-          <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 md:flex">
+          {/* nav links — centered in the bar. Dissolves (opacity, not layout)
+              once the bar contracts, so the compact state reads as logo +
+              menu button only. */}
+          <nav
+            aria-hidden={compact}
+            className={`absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 transition-opacity duration-200 md:flex ${
+              compact ? "pointer-events-none opacity-0" : "opacity-100"
+            }`}
+          >
             {triggers.map((t) => (
               <button
                 key={t.key}
@@ -859,6 +958,7 @@ export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
                   triggerRefs.current[t.key] = el;
                 }}
                 type="button"
+                tabIndex={compact ? -1 : undefined}
                 onMouseEnter={() => openMenu(t.key)}
                 onFocus={() => openMenu(t.key)}
                 aria-expanded={open === t.key}
@@ -871,9 +971,16 @@ export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
             ))}
           </nav>
 
-          {/* right cluster */}
+          {/* right cluster — same dissolve; the mobile menu button stays put
+              (below md it's the only way in, compact or not). */}
           <div className="ml-auto flex items-center gap-2">
-            <div className="hidden items-center gap-2 md:flex">
+            <div
+              aria-hidden={compact}
+              className={`hidden items-center gap-2 transition-opacity duration-200 md:flex ${
+                compact ? "pointer-events-none opacity-0" : "opacity-100"
+              }`}
+            >
+              <ThemeToggle dark={dark} onToggle={toggleTheme} />
               <MyPortalMenu />
               <Button onClick={() => router.push("/join")}>Sign up</Button>
             </div>

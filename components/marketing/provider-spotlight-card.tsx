@@ -8,7 +8,7 @@ import { directoryRatingFor, directoryYearsFor } from "@/lib/directory-rating";
 import type { AvatarHue } from "@/lib/types";
 
 // Homepage "meet a few providers" card — the old testimonial rail's
-// replacement. Leads to the real /providers/[slug] page (or /find-care for
+// replacement. Leads to the real /providers/[slug] page (or /providers for
 // the not-yet-wired spotlight entries), so it's composed to *feel* like that
 // page: same ProviderIllustration system (illustrations, not photos — no
 // photo data exists for any provider, real or directory). Kept deliberately
@@ -69,7 +69,7 @@ export function ProviderSpotlightCard({ p }: { p: ProviderSpotlight }) {
     >
       <div className="absolute right-3 top-3 z-10">
         <Tooltip label={careType.label} placement="top">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-field bg-[#F3F4F6]">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-surface shadow-card">
             <Icon name={careType.icon} size={18} className="fill-primary-wash text-text" />
           </span>
         </Tooltip>
@@ -135,11 +135,16 @@ function titleCase(s: string): string {
     .replace(/\bMhotrs\b/i, "MHOTRS");
 }
 
+// `@container` + `@xl:` below key these breakpoints off the card's own
+// rendered width, not the viewport — required now that the card can render
+// either full-width (1-col) or half-width (2-col) at the same viewport size.
+// See components/marketing/providers-search.tsx's results grid.
 const findCareCardClass =
-  "relative flex w-full gap-4 rounded-card border border-page-edge bg-surface p-5 transition-colors sm:gap-5";
-const findCareArtClass = "h-[150px] w-[150px] shrink-0 self-start object-cover sm:h-[250px] sm:w-[250px]";
+  "relative flex w-full @container gap-4 rounded-card border border-page-edge bg-surface p-5 transition-colors @xl:gap-5";
+const findCareArtClass =
+  "h-[9.375rem] w-[9.375rem] shrink-0 self-start object-cover @xl:h-[15.625rem] @xl:w-[15.625rem]";
 const findCareTitleClass =
-  "text-balance font-display text-[22px] font-bold tracking-tight leading-tight text-primary sm:text-[28px]";
+  "text-balance font-display text-[1.375rem] font-bold tracking-tight leading-tight text-primary @xl:text-[1.75rem]";
 
 function findCareChip(r: PublicResult): { icon: IconName; label: string } {
   if (r.kind === "program") return { icon: "hand-heart", label: "Program" };
@@ -155,7 +160,7 @@ export function FindCareSpotlightCard({ r }: { r: PublicResult }) {
   const chipEl = (
     <div className="absolute right-3 top-3 z-10">
       <Tooltip label={chip.label} placement="top">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-field bg-[#F3F4F6]">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-surface shadow-card">
           <Icon name={chip.icon} size={18} className="fill-primary-wash text-text" />
         </span>
       </Tooltip>
@@ -186,7 +191,7 @@ export function FindCareSpotlightCard({ r }: { r: PublicResult }) {
             }
             className="mt-2"
           />
-          <div className="mt-auto flex gap-2 pt-3">
+          <div className="mt-auto flex flex-wrap gap-2 pt-3">
             <span className={`${pillBase} border border-border bg-surface text-primary`}>View profile</span>
             {r.bookable && <span className={`${pillBase} bg-primary text-white`}>Book session</span>}
           </div>
@@ -211,7 +216,7 @@ export function FindCareSpotlightCard({ r }: { r: PublicResult }) {
   return (
     <div className={findCareCardClass}>
       {chipEl}
-      <span className={`flex items-center justify-center rounded-card bg-[#F3F4F6] ${findCareArtClass}`}>
+      <span className={`flex items-center justify-center rounded-card bg-canvas ${findCareArtClass}`}>
         <Icon name="hand-heart" size={44} className="fill-primary-wash text-text" />
       </span>
       <div className="flex min-w-0 flex-1 flex-col">

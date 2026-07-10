@@ -9,7 +9,7 @@ import { CtaBand } from "@/components/site/cta-band";
 import { Placeholder } from "@/components/site/placeholder";
 import { PROVIDER_FAQS } from "@/lib/site-content";
 
-// /providers/prescribers — psychiatrists & PMHNPs. Distinct economics and
+// /for-providers/prescribers — psychiatrists & PMHNPs. Distinct economics and
 // language from the therapist path. Software/EHR language allowed. NEW.
 
 export const dynamic = "force-dynamic";

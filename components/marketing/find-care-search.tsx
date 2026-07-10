@@ -16,7 +16,7 @@ import {
 import { FindCareSpotlightCard } from "@/components/marketing/provider-spotlight-card";
 import type { PublicResult } from "@/app/api/directory/public-search/route";
 
-// /find-care — providers only. Programs live at /programs and were never what
+// /providers — providers only. Programs live at /programs and were never what
 // this page was for; showing them here meant a "0 providers found" header
 // sitting above a stack of program cards.
 //
@@ -28,10 +28,20 @@ import type { PublicResult } from "@/app/api/directory/public-search/route";
 // The search group is sticky 30px below the nav; results scroll behind it.
 
 const PAGE_SIZE = 20;
-// Pin flush to the 70px scrolled nav, then inset the card 30px with padding —
-// the wrapper's `bg-page` then fills that gap, so result cards pass cleanly
-// behind the group instead of being sliced against the nav's bottom edge.
-const NAV_OFFSET = "top-[70px]";
+// Pins flush to the bottom of the nav, then insets the card 30px with
+// padding — the wrapper's `bg-page` then fills that gap, so result cards
+// pass cleanly behind the group instead of being sliced against the nav's
+// bottom edge. The nav's own height oscillates 70–100px on scroll direction
+// (see Nav's `compact` state), so the pin offset is measured live off the
+// nav's actual DOM height (`navHeight` below) rather than hardcoded — a
+// fixed value would leave the group overlapped or gapped whenever the nav
+// re-expands while this group is already stuck.
+//
+// STICKY_GATE_PX is a separate, looser number: just an approximation of the
+// nav height for "has the group actually started sticking yet" below. The
+// hero above it is 300px+, so a 30px margin of error there (70 vs 100)
+// never moves that gate noticeably.
+const STICKY_GATE_PX = 70;
 
 export function FindCareSearch({
   initialQ = "",
@@ -69,6 +79,73 @@ export function FindCareSearch({
   // Monotonic request token: a filter change while a "load more" is still in
   // flight must win, and the older response must not append to the new list.
   const reqIdRef = useRef(0);
+
+  // Collapses the filter row once the search group is actually pinned:
+  // scrolling down hides filters (search input stays put), scrolling up
+  // brings them back. Below the pin point it's always expanded — collapsing
+  // ordinary in-flow content would just look like the page randomly shrank.
+  const groupRef = useRef<HTMLDivElement>(null);
+  const [collapsed, setCollapsed] = useState(false);
+  // Matches Nav's expanded height by default (100px) so there's no first-paint
+  // gap before the first measurement runs.
+  const [navHeight, setNavHeight] = useState(100);
+
+  useEffect(() => {
+    const navEl = document.querySelector<HTMLElement>("[data-nav]");
+    const stickyStart = { current: 0 };
+    const measure = () => {
+      const el = groupRef.current;
+      if (!el) return;
+      stickyStart.current = el.getBoundingClientRect().top + window.scrollY - STICKY_GATE_PX;
+      if (navEl) setNavHeight(navEl.getBoundingClientRect().height);
+    };
+    measure();
+
+    let lastY = window.scrollY;
+    // Cumulative travel since the last direction reversal, not frame-to-frame
+    // velocity — see the matching comment in Nav's scroll effect. Momentum
+    // scrolling's noisy tail can flip a per-frame threshold back and forth
+    // right as the user stops, which visibly yanks the collapsed filters
+    // open/closed. 32px of sustained travel filters that out.
+    let dir = 0;
+    let accum = 0;
+    const TOGGLE_PX = 32;
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = window.scrollY;
+        const diff = y - lastY;
+        lastY = y;
+        if (y <= stickyStart.current) {
+          setCollapsed(false);
+          dir = 0;
+          accum = 0;
+        } else if (diff !== 0) {
+          const newDir = diff > 0 ? 1 : -1;
+          if (newDir !== dir) {
+            dir = newDir;
+            accum = 0;
+          }
+          accum += Math.abs(diff);
+          if (accum > TOGGLE_PX) setCollapsed(dir === 1);
+        }
+        // Nav's height animates on the same scroll-direction logic — keep
+        // this group's pin offset tracking it live (see the comment above
+        // STICKY_GATE_PX).
+        if (navEl) setNavHeight(navEl.getBoundingClientRect().height);
+        ticking = false;
+      });
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", measure);
+    };
+  }, []);
 
   const fetchPage = useCallback(
     async (targetPage: number, f: CareFilters, q: string) => {
@@ -128,10 +205,10 @@ export function FindCareSearch({
   }, [hasMore, loading, loadingMore, error, page, filters, committedQ, fetchPage]);
 
   return (
-    <div className="mx-auto mt-6 max-w-[704px]">
+    <div className="mt-6">
       {/* `mt-6` above only sets the group's resting place under the hero — once
           it pins, `top` wins and the margin stops mattering. */}
-      <div className={`sticky ${NAV_OFFSET} z-30 bg-page pb-4 pt-[30px]`}>
+      <div ref={groupRef} className="sticky z-30 bg-page pb-4 pt-[30px]" style={{ top: navHeight }}>
         <CareSearchGroup
           facets={facets}
           filters={filters}
@@ -140,6 +217,7 @@ export function FindCareSearch({
             if (filters.q === committedQ) fetchPage(1, filters, filters.q);
             else setCommittedQ(filters.q);
           }}
+          collapsed={collapsed}
         />
       </div>
 
@@ -172,7 +250,7 @@ export function FindCareSearch({
             <p className="mb-4 text-sm text-text-muted">
               {total.toLocaleString()} {total === 1 ? "provider" : "providers"} found
             </p>
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {results.map((r) => (
                 <FindCareSpotlightCard key={`${r.kind}-${r.id}`} r={r} />
               ))}

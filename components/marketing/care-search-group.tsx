@@ -10,7 +10,7 @@ import { Select } from "@/components/ui/select";
 // surface rather than three loose rows.
 //
 // Callers own the state (find-care runs a live search off it; the provider
-// page routes to /find-care with it) and own the sticky wrapper — this
+// page routes to /providers with it) and own the sticky wrapper — this
 // component only draws the group. Filter dropdowns use Select's `primary`
 // tone: teal trigger label and teal option rows, so each field reads as a
 // live filter rather than an empty form input.
@@ -18,7 +18,7 @@ import { Select } from "@/components/ui/select";
 // Care-type filter — "Medication Mgmt." ≈ psychiatrist/PMHNP roles, "Talk
 // Therapy" ≈ therapist roles (see matchesType in the public-search API route).
 // Talk Therapy is preselected, per Brendan: it's what most people arriving at
-// /find-care are after. "Any care type" widens back out to the full directory.
+// /providers are after. "Any care type" widens back out to the full directory.
 export const TYPE_OPTIONS = [
   { value: "", label: "Any care type" },
   { value: "psychiatrist", label: "Medication Mgmt." },
@@ -67,6 +67,7 @@ export function CareSearchGroup({
   filters,
   onChange,
   onSubmit,
+  collapsed = false,
   className = "",
 }: {
   facets: CareFacets;
@@ -75,6 +76,9 @@ export function CareSearchGroup({
   onChange: (next: CareFilters) => void;
   /** Search button / Enter in the query field. */
   onSubmit: () => void;
+  /** Animates the filter row + footnote out, leaving just the search input.
+      Driven by scroll direction in find-care-search.tsx. */
+  collapsed?: boolean;
   className?: string;
 }) {
   const set = <K extends keyof CareFilters>(key: K, value: CareFilters[K]) =>
@@ -101,48 +105,62 @@ export function CareSearchGroup({
         </Button>
       </div>
 
-      {/* Care type gets the wider column — "Medication Mgmt." doesn't fit a
-          quarter of this row, and an ellipsised filter label is useless. */}
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-[1.35fr_1fr_1fr_1fr]">
-        <Select
-          tone="primary"
-          options={TYPE_OPTIONS}
-          value={filters.type}
-          onValueChange={(v) => set("type", v)}
-          placeholder="Care type"
-          aria-label="Care type"
-        />
-        <Select
-          tone="primary"
-          options={cityOptions}
-          value={filters.city}
-          onValueChange={(v) => set("city", v)}
-          searchable
-          placeholder="City"
-          aria-label="City"
-        />
-        <Select
-          tone="primary"
-          options={specialtyOptions}
-          value={filters.specialty}
-          onValueChange={(v) => set("specialty", v)}
-          searchable
-          placeholder="Specialty"
-          aria-label="Specialty"
-        />
-        <Select
-          tone="primary"
-          options={INSURANCE_OPTIONS}
-          value={filters.insurance}
-          onValueChange={(v) => set("insurance", v)}
-          placeholder="Insurance"
-          aria-label="Insurance"
-        />
-      </div>
+      {/* `grid-rows-[1fr]` → `[0fr]` is the CSS trick for animating to/from
+          auto height without hardcoding a max-height guess. `mt-0`/`mt-3` is
+          folded into the same transition so the card's own height (and the
+          border/padding around it) contracts smoothly to just the search
+          row, rather than leaving a dangling gap. */}
+      <div
+        className={`grid transition-[grid-template-rows,opacity,margin-top] duration-300 ease-out ${
+          collapsed ? "mt-0 grid-rows-[0fr] opacity-0" : "mt-3 grid-rows-[1fr] opacity-100"
+        }`}
+      >
+        <div className="overflow-hidden">
+          {/* Care type gets the wider column — "Medication Mgmt." doesn't
+              fit a quarter of this row, and an ellipsised filter label is
+              useless. */}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1.35fr_1fr_1fr_1fr]">
+            <Select
+              tone="primary"
+              options={TYPE_OPTIONS}
+              value={filters.type}
+              onValueChange={(v) => set("type", v)}
+              placeholder="Care type"
+              aria-label="Care type"
+            />
+            <Select
+              tone="primary"
+              options={cityOptions}
+              value={filters.city}
+              onValueChange={(v) => set("city", v)}
+              searchable
+              placeholder="City"
+              aria-label="City"
+            />
+            <Select
+              tone="primary"
+              options={specialtyOptions}
+              value={filters.specialty}
+              onValueChange={(v) => set("specialty", v)}
+              searchable
+              placeholder="Specialty"
+              aria-label="Specialty"
+            />
+            <Select
+              tone="primary"
+              options={INSURANCE_OPTIONS}
+              value={filters.insurance}
+              onValueChange={(v) => set("insurance", v)}
+              placeholder="Insurance"
+              aria-label="Insurance"
+            />
+          </div>
 
-      <p className="mt-2 text-xs text-text-muted">
-        Insurance shown for Liminal providers; New York directory providers are Medicaid-enrolled.
-      </p>
+          <p className="mt-2 text-xs text-text-muted">
+            Insurance shown for Liminal providers; New York directory providers are Medicaid-enrolled.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

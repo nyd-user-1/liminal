@@ -24,13 +24,13 @@ export async function generateSitemaps(): Promise<Array<{ id: number }>> {
 
 const STATIC_PATHS = [
   "",
-  "/find-care",
+  "/providers",
   "/therapists",
   "/psychiatrists",
   "/psychiatric-np",
-  "/providers",
-  "/providers/therapists",
-  "/providers/prescribers",
+  "/for-providers",
+  "/for-providers/therapists",
+  "/for-providers/prescribers",
   "/for-employers",
   "/for-health-plans",
   "/for-physicians",

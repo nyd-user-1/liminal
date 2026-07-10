@@ -204,7 +204,7 @@ export default async function HomeTwo() {
       <CtaBand
         title="Find care without the guesswork."
         lede="Search by specialty, borough, and coverage — and take the first step this week."
-        primary={{ href: "/find-care", label: "Find your provider" }}
+        primary={{ href: "/providers", label: "Find your provider" }}
         secondary={{ href: "/care/therapy", label: "See how care works" }}
         illo={{
           src: `${ILLO}/liminal-landscape_w68hevw68hevw68h.avif`,

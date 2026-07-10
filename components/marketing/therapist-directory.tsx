@@ -5,8 +5,8 @@ import { useState } from "react";
 import { Tabs } from "@/components/ui/tabs";
 
 // /therapists directory index — three browse-by tabs. Each item links into a
-// pre-filtered /find-care search rather than a dedicated per-item page — there
-// are 60+ counties/cities and dozens of specialties, and /find-care is the
+// pre-filtered /providers search rather than a dedicated per-item page — there
+// are 60+ counties/cities and dozens of specialties, and /providers is the
 // real search surface (see Task 2). County/city are exact facet values (real
 // query matches); specialty labels are curated marketing phrasing that won't
 // always exact-match the raw NPPES subspecialty text, so they go in as a
@@ -84,7 +84,7 @@ export function TherapistDirectory({ profession }: { profession?: string }) {
           return (
             <li key={x} className="mb-1 break-inside-avoid">
               <Link
-                href={`/find-care?${params.toString()}`}
+                href={`/providers?${params.toString()}`}
                 className="group -mx-2 flex items-center justify-between gap-2 rounded-field px-2 py-1.5 text-[15px] text-text-body transition-colors hover:bg-page-edge hover:text-text"
               >
                 {x}

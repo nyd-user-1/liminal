@@ -25,7 +25,7 @@ function matchedProviders(topic: Topic) {
 
 export function CareTemplate({ topic, providerCount }: { topic: Topic; providerCount?: number }) {
   const providers = matchedProviders(topic);
-  const browseHref = `/find-care?q=${encodeURIComponent(topic.matchQuery)}`;
+  const browseHref = `/providers?q=${encodeURIComponent(topic.matchQuery)}`;
 
   return (
     <>

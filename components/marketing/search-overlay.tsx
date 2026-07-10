@@ -8,7 +8,7 @@ import { SearchInput } from "@/components/ui/search-input";
 import type { PublicResult } from "@/app/api/directory/public-search/route";
 
 // ⌘K-style provider search overlay for the marketing nav. Hits the public
-// (anon) search route; selecting a result deep-links into /find-care.
+// (anon) search route; selecting a result deep-links into /providers.
 
 export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
@@ -47,7 +47,7 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
 
   function go() {
     onClose();
-    router.push(`/find-care?q=${encodeURIComponent(q)}`);
+    router.push(`/providers?q=${encodeURIComponent(q)}`);
   }
 
   return (

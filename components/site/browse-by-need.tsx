@@ -17,7 +17,7 @@ export function BrowseByNeed() {
         <h2 className="max-w-xl text-balance font-display text-3xl font-bold tracking-tight text-text sm:text-4xl">
           What are you walking through?
         </h2>
-        <ArrowLink href="/find-care" className="shrink-0">
+        <ArrowLink href="/providers" className="shrink-0">
           Browse the full directory
         </ArrowLink>
       </div>

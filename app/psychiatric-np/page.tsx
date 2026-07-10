@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 // /psychiatric-np — same directory-index pattern as /therapists, scoped to the
 // "Psychiatric Nurse Practitioner" profession (a distinct NPPES-normalized
 // value from "Psychiatrist", which gets its own page at /psychiatrists).
-// Browse-by links carry &need=Psychiatric+Nurse+Practitioner into /find-care.
+// Browse-by links carry &need=Psychiatric+Nurse+Practitioner into /providers.
 export default function PsychiatricNpPage() {
   return (
     <div className="flex min-h-screen flex-col bg-page">
@@ -31,7 +31,7 @@ export default function PsychiatricNpPage() {
         <p className="mt-6 max-w-3xl text-pretty leading-relaxed text-text-body">
           Liminal simplifies finding{" "}
           <Link
-            href="/find-care?need=Psychiatric+Nurse+Practitioner"
+            href="/providers?need=Psychiatric+Nurse+Practitioner"
             className="text-primary underline underline-offset-2"
           >
             psychiatric nurse practitioners who accept insurance

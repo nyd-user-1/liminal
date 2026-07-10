@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 // /psychiatrists — same directory-index pattern as /therapists, scoped to the
 // "Psychiatrist" profession (a distinct NPPES-normalized value from
 // "Psychiatric Nurse Practitioner", which gets its own page at
-// /psychiatric-np). Browse-by links carry &need=Psychiatrist into /find-care.
+// /psychiatric-np). Browse-by links carry &need=Psychiatrist into /providers.
 export default function PsychiatristsPage() {
   return (
     <div className="flex min-h-screen flex-col bg-page">
@@ -30,7 +30,7 @@ export default function PsychiatristsPage() {
 
         <p className="mt-6 max-w-3xl text-pretty leading-relaxed text-text-body">
           Liminal simplifies finding{" "}
-          <Link href="/find-care?need=Psychiatrist" className="text-primary underline underline-offset-2">
+          <Link href="/providers?need=Psychiatrist" className="text-primary underline underline-offset-2">
             psychiatrists who accept insurance
           </Link>{" "}
           by partnering with New York&apos;s top plans — including Aetna, Cigna, UnitedHealthcare, Empire BCBS, Fidelis

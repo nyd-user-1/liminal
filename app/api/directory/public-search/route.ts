@@ -122,7 +122,7 @@ export async function GET(req: NextRequest) {
   const insurance = p.get("insurance") ?? undefined;
   const kind = p.get("kind") ?? "all"; // all | providers | programs
   // The provider page's A–Z rail wants the raw directory ordering, so it opts
-  // out of the Liminal-practitioners-first merge that /find-care relies on.
+  // out of the Liminal-practitioners-first merge that /providers relies on.
   const bookableFirst = p.get("bookableFirst") !== "0";
   const page = Math.max(1, Number(p.get("page")) || 1);
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Number(p.get("pageSize")) || DEFAULT_PAGE_SIZE));

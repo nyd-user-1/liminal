@@ -15,11 +15,11 @@ const COLUMNS: Array<{ heading: string; note?: string; links: Array<{ label: str
   {
     heading: "Find care",
     links: [
-      { label: "Find a provider", href: "/find-care" },
+      { label: "Find a provider", href: "/providers" },
       { label: "Therapists", href: "/therapists" },
       { label: "Psychiatrists", href: "/psychiatrists" },
       { label: "Psychiatric NP", href: "/psychiatric-np" },
-      { label: "Virtual therapy", href: "/find-care?type=virtual" },
+      { label: "Virtual therapy", href: "/providers?type=virtual" },
       { label: "Book with Liminal", href: "/book/liminal" },
     ],
   },

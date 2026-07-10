@@ -22,7 +22,7 @@ export const CARE_LINKS: NavLink[] = [
   { label: "Therapy", href: "/care/therapy", note: "Talk therapy, virtual or in person" },
   { label: "Medication management", href: "/care/medication", note: "Psychiatric prescribing & follow-up" },
   { label: "Therapy + medication", href: "/care/both", note: "Both, coordinated in one place" },
-  { label: "Browse the full directory", href: "/find-care", note: "Search every provider in New York" },
+  { label: "Browse the full directory", href: "/providers", note: "Search every provider in New York" },
 ];
 
 // Conditions — derived from the topic content so they never drift.
@@ -33,9 +33,9 @@ export const CONDITION_LINKS: NavLink[] = CONDITION_TOPICS.map((t) => ({
 
 // Providers — the clinician-facing paths.
 export const PROVIDER_LINKS: NavLink[] = [
-  { label: "Why Liminal", href: "/providers", note: "Be present, not buried in paperwork" },
-  { label: "For prescribers", href: "/providers/prescribers", note: "Psychiatrists & PMHNPs" },
-  { label: "For therapists", href: "/providers/therapists", note: "Counselors & clinical social workers" },
+  { label: "Why Liminal", href: "/for-providers", note: "Be present, not buried in paperwork" },
+  { label: "For prescribers", href: "/for-providers/prescribers", note: "Psychiatrists & PMHNPs" },
+  { label: "For therapists", href: "/for-providers/therapists", note: "Counselors & clinical social workers" },
   { label: "Join Liminal", href: "/join", note: "Apply or book a walkthrough" },
 ];
 
@@ -59,7 +59,7 @@ export const FOOTER_COLUMNS: NavGroup[] = [
   {
     label: "Get care",
     links: [
-      { label: "Find a provider", href: "/find-care" },
+      { label: "Find a provider", href: "/providers" },
       { label: "Therapy", href: "/care/therapy" },
       { label: "Medication management", href: "/care/medication" },
       { label: "Therapy + medication", href: "/care/both" },

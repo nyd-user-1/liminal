@@ -152,7 +152,7 @@ const REVIEWS: Review[] = [
 // review-count comes from spotlightRatingFor (lib/repos/provider-profiles —
 // no backing field yet, authored there, shared with the real provider page).
 // The rest of the rail is entirely authored copy for providers that don't
-// exist in the DB yet (minimum-9-cards ask) — their CTAs point at /find-care
+// exist in the DB yet (minimum-9-cards ask) — their CTAs point at /providers
 // rather than a dead profile link.
 
 const FICTIONAL_SPOTLIGHT: ProviderSpotlight[] = [
@@ -168,7 +168,7 @@ const FICTIONAL_SPOTLIGHT: ProviderSpotlight[] = [
     moreCount: 6,
     careType: "medication",
     illustrationKey: "liminal_4ji9244ji9244ji9",
-    href: "/find-care",
+    href: "/providers",
   },
   {
     id: "spotlight-jordan",
@@ -182,7 +182,7 @@ const FICTIONAL_SPOTLIGHT: ProviderSpotlight[] = [
     moreCount: 5,
     careType: "therapy",
     illustrationKey: "liminal-9",
-    href: "/find-care",
+    href: "/providers",
   },
   {
     id: "spotlight-naomi",
@@ -196,7 +196,7 @@ const FICTIONAL_SPOTLIGHT: ProviderSpotlight[] = [
     moreCount: 4,
     careType: "therapy",
     illustrationKey: "liminal_a2t92la2t92la2t9",
-    href: "/find-care",
+    href: "/providers",
   },
   {
     id: "spotlight-malik",
@@ -210,7 +210,7 @@ const FICTIONAL_SPOTLIGHT: ProviderSpotlight[] = [
     moreCount: 3,
     careType: "therapy",
     illustrationKey: "liminal_n1y3w0n1y3w0n1y3",
-    href: "/find-care",
+    href: "/providers",
   },
   {
     id: "spotlight-sofia",
@@ -224,7 +224,7 @@ const FICTIONAL_SPOTLIGHT: ProviderSpotlight[] = [
     moreCount: 4,
     careType: "therapy",
     illustrationKey: "maya11",
-    href: "/find-care",
+    href: "/providers",
   },
 ];
 
@@ -270,7 +270,7 @@ export default async function Home() {
           return {
             id: pr.id,
             name: pr.name,
-            credentialLine: `${profile.licenseType ?? profile.roleTitle ?? "Therapist"} · ${profile.yearsExperience ?? 0} years of experience`,
+            credentialLine: `${profile.licenseType ?? profile.roleTitle ?? "Therapist"} · ${profile.yearsExperience ?? 0} year${profile.yearsExperience === 1 ? "" : "s"} of experience`,
             rating: meta.rating,
             reviewCount: meta.reviewCount,
             availableLabel: nextAvailableLabel(availability.map((a) => a.weekday)),
@@ -380,7 +380,7 @@ export default async function Home() {
               <ol className="flex flex-col justify-center gap-4">
                 {HOW_IT_WORKS.map((s, i) => (
                   <li key={s.title} className="flex gap-4">
-                    <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-wash font-display text-sm font-bold text-primary-deep">
+                    <span className="mt-0.5 w-7 shrink-0 font-display text-lg font-bold text-primary-deep">
                       {i + 1}
                     </span>
                     <div>
@@ -482,7 +482,7 @@ export default async function Home() {
               can focus on your care, without worrying about cost.
             </p>
             <Link
-              href="/find-care"
+              href="/providers"
               className="mt-8 inline-flex h-11 items-center justify-center rounded-field border border-border bg-surface px-6 text-[15px] font-medium text-text transition-colors hover:border-primary hover:text-primary"
             >
               Find your price
@@ -539,7 +539,7 @@ export default async function Home() {
             <ol className="mt-8 space-y-6">
               {HOW_IT_WORKS.map((s, i) => (
                 <li key={s.title} className="flex gap-4">
-                  <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-wash font-display text-sm font-bold text-primary-deep">
+                  <span className="mt-0.5 w-7 shrink-0 font-display text-lg font-bold text-primary-deep">
                     {i + 1}
                   </span>
                   <div>
@@ -549,7 +549,7 @@ export default async function Home() {
                 </li>
               ))}
             </ol>
-            <form action="/find-care" className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <form action="/providers" className="mt-8 flex flex-col gap-3 sm:flex-row">
               <SearchInput name="q" placeholder="Enter your ZIP code" className="flex-1" />
               <Button type="submit" className="h-10 shrink-0">
                 Find your provider
@@ -594,7 +594,7 @@ export default async function Home() {
                   />
                 </WatercolorHover>
               </Reveal>
-              <Link href="/find-care" className="group mt-6 inline-flex items-center text-[15px] font-semibold text-primary">
+              <Link href="/providers" className="group mt-6 inline-flex items-center text-[15px] font-semibold text-primary">
                 <span className="link-wipe">Browse the full directory</span>
               </Link>
             </div>
@@ -604,7 +604,7 @@ export default async function Home() {
               {SPECIALTIES.map((s) => (
                 <li key={s.name}>
                   <Link
-                    href={`/find-care?q=${encodeURIComponent(s.q)}`}
+                    href={`/providers?q=${encodeURIComponent(s.q)}`}
                     className="group block border-b border-page-edge py-4"
                   >
                     <span className="font-display text-lg font-semibold text-text transition-colors group-hover:text-primary">
@@ -731,7 +731,7 @@ export default async function Home() {
             </p>
             <div className="mt-8">
               <Link
-                href="/find-care"
+                href="/providers"
                 className="group inline-flex h-12 items-center justify-center gap-1.5 rounded-field bg-primary px-7 text-[15px] font-semibold text-white transition-colors hover:bg-primary-hover"
               >
                 Find your provider
@@ -764,7 +764,7 @@ export default async function Home() {
             </p>
             <div className="mt-8">
               <Link
-                href="/find-care"
+                href="/providers"
                 className="group inline-flex h-12 items-center justify-center gap-1.5 rounded-field bg-accent px-7 text-[15px] font-semibold text-[#12292f] transition-colors hover:bg-[#e7a244]"
               >
                 Find your provider

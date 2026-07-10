@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { SearchInput } from "@/components/ui/search-input";
 
 // The hero / closing "find care" bar — the SearchInput primitive, hero-sized.
-// Enter routes to the real directory (/find-care?q=), the same anonymous
+// Enter routes to the real directory (/providers?q=), the same anonymous
 // search the nav overlay uses. No button.
 
 export function HeroSearch({ autoFocus = false }: { autoFocus?: boolean }) {
@@ -15,7 +15,7 @@ export function HeroSearch({ autoFocus = false }: { autoFocus?: boolean }) {
   const go = () => {
     const params = new URLSearchParams();
     if (q.trim()) params.set("q", q.trim());
-    router.push(`/find-care${params.toString() ? `?${params.toString()}` : ""}`);
+    router.push(`/providers${params.toString() ? `?${params.toString()}` : ""}`);
   };
 
   return (

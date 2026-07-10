@@ -20,7 +20,7 @@ export function ConnectedCare() {
           The people who care for you already know it. Every visit picks up where the last one left off — no starting
           over, no repeating the hard parts. Your provider is present with you, not buried in a screen.
         </p>
-        <ArrowLink href="/find-care" className="mt-7">
+        <ArrowLink href="/providers" className="mt-7">
           Find care that remembers
         </ArrowLink>
       </div>

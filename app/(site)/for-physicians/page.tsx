@@ -28,7 +28,7 @@ export default function PhysiciansPage() {
         eyebrow="For physicians"
         title="Refer with confidence."
         lede="Most psychiatric referrals start in primary care. Send yours to a verified New York provider in minutes — and actually hear back."
-        primary={{ href: "/find-care", label: "Refer a patient" }}
+        primary={{ href: "/providers", label: "Refer a patient" }}
         secondary={{ href: "#how", label: "How referral works" }}
       />
 
@@ -105,7 +105,7 @@ export default function PhysiciansPage() {
         title="Send your first referral."
         lede="Refer a patient now, or reach our care team to set up a standing referral relationship."
         ground="canvas"
-        primary={{ href: "/find-care", label: "Refer a patient" }}
+        primary={{ href: "/providers", label: "Refer a patient" }}
         secondary={{ href: REFERRAL_EMAIL, label: "Contact our care team" }}
       />
     </>

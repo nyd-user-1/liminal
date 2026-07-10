@@ -10,9 +10,11 @@ import { CtaBand } from "@/components/site/cta-band";
 import { Placeholder } from "@/components/site/placeholder";
 import { PROVIDER_FAQS } from "@/lib/site-content";
 
-// /providers — clinician-facing landing. Here the EHR IS named: Liminal is one
-// connected system (scheduling + documentation + billing). Software language is
-// allowed on provider pages. NEW (public marketing site).
+// /for-providers — clinician-facing landing. Here the EHR IS named: Liminal is
+// one connected system (scheduling + documentation + billing). Software
+// language is allowed on provider pages. NEW (public marketing site).
+// (Was /providers — that path now serves the public provider search/results
+// page; see app/providers/page.tsx.)
 
 export const dynamic = "force-dynamic";
 
@@ -26,14 +28,14 @@ const MKT = "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/marketing";
 
 const PATHS = [
   {
-    href: "/providers/prescribers",
+    href: "/for-providers/prescribers",
     kicker: "Psychiatrists & PMHNPs",
     title: "For prescribers",
     body: "Medication-management workflow, caseload model, and compensation built for prescribers.",
     icon: "book-heart" as const,
   },
   {
-    href: "/providers/therapists",
+    href: "/for-providers/therapists",
     kicker: "Counselors & clinical social workers",
     title: "For therapists",
     body: "Documentation relief, a full caseload from the directory, and the therapy-side value.",
@@ -41,7 +43,7 @@ const PATHS = [
   },
 ];
 
-export default function ProvidersPage() {
+export default function ForProvidersPage() {
   return (
     <>
       <PageHero

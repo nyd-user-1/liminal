@@ -9,9 +9,9 @@ import {
   type CareFilters,
 } from "@/components/marketing/care-search-group";
 
-// The same search group /find-care runs its live search from, mounted at the
+// The same search group /providers runs its live search from, mounted at the
 // top of a provider profile. There's nothing to search *on this page*, so it
-// hands off: any dropdown change or Search press navigates to /find-care with
+// hands off: any dropdown change or Search press navigates to /providers with
 // the filters applied. An untouched group carries no query string at all, so a
 // bare Search lands on the unfiltered directory.
 
@@ -26,7 +26,7 @@ export function ProviderPageSearch({ facets }: { facets: CareFacets }) {
     if (f.specialty) params.set("specialty", f.specialty);
     if (f.insurance) params.set("insurance", f.insurance);
     if (f.type) params.set("type", f.type);
-    router.push(`/find-care${params.size ? `?${params}` : ""}`);
+    router.push(`/providers${params.size ? `?${params}` : ""}`);
   };
 
   return (

@@ -84,7 +84,7 @@ export function SiteNav() {
             Log in
           </Link>
           <Link
-            href="/find-care"
+            href="/providers"
             className="inline-flex h-10 items-center rounded-field bg-primary px-4 text-[15px] font-semibold text-white transition-colors hover:bg-primary-hover"
           >
             Find care
@@ -127,7 +127,7 @@ export function SiteNav() {
                 Log in
               </Link>
               <Link
-                href="/find-care"
+                href="/providers"
                 className="inline-flex h-11 flex-1 items-center justify-center rounded-field bg-primary text-[15px] font-semibold text-white"
               >
                 Find care
