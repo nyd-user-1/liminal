@@ -388,13 +388,9 @@ export default async function Home() {
       {/* ── Reach — stats + social proof (Headway "found support" layout) ──── */}
       <section id="reach" className="relative scroll-mt-24 overflow-hidden bg-page">
         <div className="mx-auto w-full max-w-6xl px-6 pt-10 sm:pt-12">
-          <Reveal className="text-center">
-            <h2 className="text-balance font-display text-4xl font-bold tracking-tight text-primary sm:text-5xl">
-              Millions have found support
-            </h2>
-          </Reveal>
-
-          <div className="mt-8 grid items-center gap-6 lg:grid-cols-[1.3fr_1.1fr] lg:gap-10">
+          {/* heading lives in the grid: below lg it stacks image → heading →
+              steps; at lg it spans the top row via order-first + col-span-2 */}
+          <div className="grid items-center gap-6 lg:grid-cols-[1.3fr_1.1fr] lg:gap-10">
             <Reveal className="lg:-ml-10 xl:-ml-20" delay={80}>
               <WatercolorHover className="mx-auto block w-full max-w-xl lg:max-w-none">
                 <img
@@ -406,6 +402,12 @@ export default async function Home() {
                   loading="lazy"
                 />
               </WatercolorHover>
+            </Reveal>
+
+            <Reveal className="text-center lg:order-first lg:col-span-2">
+              <h2 className="text-balance font-display text-4xl font-bold tracking-tight text-primary sm:text-5xl">
+                Millions have found support
+              </h2>
             </Reveal>
 
             <Reveal delay={220}>
@@ -445,13 +447,13 @@ export default async function Home() {
         <div className="mx-auto w-full max-w-6xl px-6">
           <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
             <Reveal>
-              <WatercolorHover className="mx-auto block w-full max-w-lg">
+              <WatercolorHover className="mx-auto block w-full max-w-xl">
                 <img
-                  src={`${CUT}/grounding.avif`}
-                  alt="A watercolour illustration — a person kneels with their hands resting on the earth in soft light."
-                  width={1200}
-                  height={1200}
-                  className="block w-full"
+                  src={`${ILLO}/maya10.avif`}
+                  alt="A watercolour illustration — two people walk a small dog along a path through a meadow at dawn, soft light on the horizon."
+                  width={2030}
+                  height={1211}
+                  className="mkt-soft block w-full"
                   loading="lazy"
                 />
               </WatercolorHover>
