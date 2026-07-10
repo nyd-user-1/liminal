@@ -3,10 +3,12 @@
 Live handoff doc. A fresh session picking this up: read this file top to bottom, check the
 checkboxes below against `git log billing-feature-branch`, continue from the first unchecked item.
 Branch: `billing-feature-branch` (repo `~/Code/liminal`, shared tree — stage+commit atomically,
-never `git add -A`, leave other sessions' dirty files alone: `components/providers/qualifications-card.tsx`,
-`lib/mock/services.ts`, `lib/repos/provider-profiles.ts`, `.impeccable/`, `sql/011_jason_provider.sql`).
-No builds (dev server :3010 running), no browser checks — `npx tsc --noEmit` only
-(4 pre-existing stale `.next/types` validator errors are NOT ours). Delete this file in the final commit.
+never `git add -A`). `.impeccable/` is still untracked/unrelated (some design-review tool's
+scratch output) — leave it alone. Only the ADHD assessment is left, and it's explicitly deferred
+(see section D) — this doc is not being deleted this session since the work isn't actually done.
+No builds (dev server :3010 running); browser-checked via Playwright for the UI-visible chunks
+(forms library, headshots) — `npx tsc --noEmit` for the rest (4 pre-existing stale `.next/types`
+validator errors are NOT ours). Delete this file in the final commit, once ADHD lands too.
 
 ## CORRECTIONS from Brendan (came in after the original asks — these override)
 1. Tab restyle (teal fill/white text) — REVERTED, back to underline style. Done (`ad13cf0`).
@@ -59,20 +61,34 @@ No builds (dev server :3010 running), no browser checks — `npx tsc --noEmit` o
   NOTE: two pre-existing stray DB rows ("Untitled form" draft, "Test Form") now show as real
   cards since padding is gone — not created by this session, left alone, flagging for Brendan
   to delete or keep.
-- [ ] **ADHD ASRS-v1.1 assessment LAST, only if bandwidth remains** — source:
-  https://add.org/wp-content/uploads/2015/03/adhd-questionnaire-ASRS111.pdf
+- [ ] **ADHD ASRS-v1.1 assessment — DEFERRED by Brendan** (2026-07-10), not this session, no ETA.
+  Source when picked back up: https://add.org/wp-content/uploads/2015/03/adhd-questionnaire-ASRS111.pdf
   (18 items, Part A 6 items screener, 5-point frequency scale Never→Very Often).
 
 ### E. Schedules + headshots (Shelley Padgett, Jason Hilario)
-- [ ] Brendan added headshots for both (find them — check `uploads/`, `public/`; another session
-  created `sql/011_jason_provider.sql`, read it for the provider row shape, do NOT modify it).
-- [ ] Seed appointments in live Neon: both fully booked TODAY, ~75% booked next week and the
-  week after; sprinkle appointments for other practitioners through the rest of the month so it
-  isn't only them. Respect the appointments schema (sql/001_schema.sql) + existing clients.
-- [ ] Wire headshots as calendar/app avatars (Avatar primitive may need an image `src` prop —
-  that's a primitive change, flag it) and make their profile pages feed the public provider
-  profiles (`lib/repos/provider-profiles.ts` is ANOTHER SESSION'S dirty file — coordinate:
-  read it, avoid editing if possible, or make minimal additive changes).
+- [x] Headshots found in `~/Downloads` (`jason-headshot.jpeg`, `shelley headshot.jpeg`), resized
+  to 600x600 JPEGs in `public/avatars/`. `sql/011_jason_provider.sql` was already applied live
+  (confirmed via psql before touching anything) — committed as-is, unmodified, in `c2edddf`.
+- [x] Seeded appointments live in Neon (`c2edddf`, applied via psql, not a committed migration —
+  point-in-time demo data tied to "today" = 2026-07-10, script + busy-interval conflict-checking
+  lives in scratchpad, not the repo). First pass packed every slot back-to-back (Brendan: "you
+  went overboard on the meetings" after seeing the actual calendar) — deleted and re-seeded at
+  roughly half density. Final: Shelley + Jason busier today + ~40% booked next 2 weeks,
+  Brendan/Priya/Lena/Marcus get a light sprinkle through end of July. No double-bookings
+  (verified via self-join overlap query on both client_id and practitioner_id).
+- [x] Avatar primitive gained an optional `src` prop (flagged primitive change per the ask) —
+  real photo wins over the initials circle. `lib/headshots.ts` is a small id→url lookup (same
+  pattern as the existing `silhouetteUrl`/`SPOTLIGHT_RATING` maps), not a new DB column, since
+  it's two known judgment-call assets, not a general user feature.
+- [x] Wired into: public `/providers/[slug]` + homepage spotlight rail, calendar practitioner
+  filter (`Select` avatar option gained `src`), topbar/sidebar `UserChip` via
+  `SessionUser.photoUrl`. Verified in a real browser (Playwright) — headshots render in all four
+  places, no console errors introduced.
+- [x] Folded in the other session's small in-flight diffs for this same feature
+  (`qualifications-card.tsx` pluralization, `provider-profiles.ts` jason-hilario spotlight
+  rating) into `c2edddf` rather than leaving them orphaned — confirmed unchanged/complete first.
+- [x] `lib/mock/services.ts`: Shelley + Jason were never added as mock practitioners (mock/DB
+  parity gap from the other session's partial work) — added, mock mode now has both.
 
 ## Done so far (check git log to confirm)
 - [x] Everything in the previous commit `4cf6dc7` (billing split view, pay sheet, emails,
@@ -90,10 +106,12 @@ No builds (dev server :3010 running), no browser checks — `npx tsc --noEmit` o
   `.next/types` errors, not ours).
 - [x] Chunk D forms (`f253c7e`): 6 forms seeded live + mirrored in mocks, lorem padding
   dropped from Forms category, breadcrumb/+New confirmed already-done from chunk A.
-- NEXT: schedules/headshots (E), then ADHD (last, only if bandwidth remains).
+- [x] Chunk E schedules/headshots (`c2edddf`): real photos wired app-wide, appointments seeded
+  live (right-sized after Brendan's density feedback), other session's in-flight diffs folded in.
+- NEXT: only the ADHD assessment is left, and Brendan deferred it — nothing pending otherwise.
 
 ## Order of attack
 1. This doc. 2. ~~Tabs + TopBar (commit).~~ 3. ~~Billing restructure (commit).~~
 4. ~~Inbox (commit).~~ 5. ~~Library breadcrumbs + New button + 6 forms seed (commit).~~
-6. Schedules/headshots (commit). 7. ADHD assessment (commit).
+6. ~~Schedules/headshots (commit).~~ 7. ADHD assessment (commit) — deferred, no ETA.
 Update checkboxes + "Done so far" after each commit.
