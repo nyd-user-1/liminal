@@ -28,20 +28,14 @@ import type { PublicResult } from "@/app/api/directory/public-search/route";
 // The search group is sticky 30px below the nav; results scroll behind it.
 
 const PAGE_SIZE = 20;
-// Pins flush to the bottom of the nav, then insets the card 30px with
-// padding — the wrapper's `bg-page` then fills that gap, so result cards
-// pass cleanly behind the group instead of being sliced against the nav's
-// bottom edge. The nav's own height oscillates 70–100px on scroll direction
-// (see Nav's `compact` state), so the pin offset is measured live off the
-// nav's actual DOM height (`navHeight` below) rather than hardcoded — a
-// fixed value would leave the group overlapped or gapped whenever the nav
-// re-expands while this group is already stuck.
-//
-// STICKY_GATE_PX is a separate, looser number: just an approximation of the
-// nav height for "has the group actually started sticking yet" below. The
-// hero above it is 300px+, so a 30px margin of error there (70 vs 100)
-// never moves that gate noticeably.
-const STICKY_GATE_PX = 70;
+// Pin flush to the 70px scrolled nav, then inset the card 30px with padding —
+// the wrapper's `bg-page` then fills that gap, so result cards pass cleanly
+// behind the group instead of being sliced against the nav's bottom edge.
+const NAV_OFFSET = "top-[70px]";
+// Same 70px, kept as a number for the scroll-collapse math below. Tailwind's
+// class scanner needs NAV_OFFSET as one literal string, so these can't be
+// derived from each other — if you change one, change both.
+const NAV_OFFSET_PX = 70;
 
 export function FindCareSearch({
   initialQ = "",
@@ -86,27 +80,21 @@ export function FindCareSearch({
   // ordinary in-flow content would just look like the page randomly shrank.
   const groupRef = useRef<HTMLDivElement>(null);
   const [collapsed, setCollapsed] = useState(false);
-  // Matches Nav's expanded height by default (100px) so there's no first-paint
-  // gap before the first measurement runs.
-  const [navHeight, setNavHeight] = useState(100);
 
   useEffect(() => {
-    const navEl = document.querySelector<HTMLElement>("[data-nav]");
     const stickyStart = { current: 0 };
     const measure = () => {
       const el = groupRef.current;
       if (!el) return;
-      stickyStart.current = el.getBoundingClientRect().top + window.scrollY - STICKY_GATE_PX;
-      if (navEl) setNavHeight(navEl.getBoundingClientRect().height);
+      stickyStart.current = el.getBoundingClientRect().top + window.scrollY - NAV_OFFSET_PX;
     };
     measure();
 
     let lastY = window.scrollY;
     // Cumulative travel since the last direction reversal, not frame-to-frame
-    // velocity — see the matching comment in Nav's scroll effect. Momentum
-    // scrolling's noisy tail can flip a per-frame threshold back and forth
-    // right as the user stops, which visibly yanks the collapsed filters
-    // open/closed. 32px of sustained travel filters that out.
+    // velocity. Momentum scrolling's noisy tail can flip a per-frame threshold
+    // back and forth right as the user stops, which visibly yanks the
+    // collapsed filters open/closed. 32px of sustained travel filters that out.
     let dir = 0;
     let accum = 0;
     const TOGGLE_PX = 32;
@@ -131,10 +119,6 @@ export function FindCareSearch({
           accum += Math.abs(diff);
           if (accum > TOGGLE_PX) setCollapsed(dir === 1);
         }
-        // Nav's height animates on the same scroll-direction logic — keep
-        // this group's pin offset tracking it live (see the comment above
-        // STICKY_GATE_PX).
-        if (navEl) setNavHeight(navEl.getBoundingClientRect().height);
         ticking = false;
       });
     };
@@ -208,7 +192,7 @@ export function FindCareSearch({
     <div className="mt-6">
       {/* `mt-6` above only sets the group's resting place under the hero — once
           it pins, `top` wins and the margin stops mattering. */}
-      <div ref={groupRef} className="sticky z-30 bg-page pb-4 pt-[30px]" style={{ top: navHeight }}>
+      <div ref={groupRef} className={`sticky ${NAV_OFFSET} z-30 bg-page pb-4 pt-[30px]`}>
         <CareSearchGroup
           facets={facets}
           filters={filters}

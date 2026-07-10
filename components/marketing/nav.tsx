@@ -732,9 +732,6 @@ export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
   const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
   const [dark, setDark] = useState(false);
-  // Direction-based bar height, same technique as the /providers filter
-  // collapse: down shrinks the bar, up (or being back near the top) grows it.
-  const [compact, setCompact] = useState(false);
   const [open, setOpen] = useState<MenuKey | null>(null);
   const [cat, setCat] = useState("therapists");
   const [caretX, setCaretX] = useState(0);
@@ -784,46 +781,8 @@ export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
   }, []);
 
   useEffect(() => {
-    let lastY = window.scrollY;
-    // Cumulative travel *since the last direction reversal*, not frame-to-frame
-    // velocity. Momentum/trackpad scrolling doesn't stop cleanly — the last few
-    // frames as it settles fire tiny alternating-sign deltas, and a per-frame
-    // threshold flips `compact` back and forth on that noise (visible as the bar
-    // jumping right as the user stops). Requiring 32px of sustained travel in one
-    // direction filters that out: reversals reset the count before it can cross.
-    let dir = 0;
-    let accum = 0;
-    const TOGGLE_PX = 32;
-    let ticking = false;
-    const update = () => {
-      const y = window.scrollY;
-      setScrolled(y > 8);
-      const diff = y - lastY;
-      lastY = y;
-      if (y <= 8) {
-        setCompact(false);
-        dir = 0;
-        accum = 0;
-        return;
-      }
-      if (diff === 0) return;
-      const newDir = diff > 0 ? 1 : -1;
-      if (newDir !== dir) {
-        dir = newDir;
-        accum = 0;
-      }
-      accum += Math.abs(diff);
-      if (accum > TOGGLE_PX) setCompact(dir === 1);
-    };
-    update();
-    const onScroll = () => {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(() => {
-        update();
-        ticking = false;
-      });
-    };
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
@@ -906,7 +865,6 @@ export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
   return (
     <>
       <header
-        data-nav
         className={`sticky top-0 z-40 transition-all duration-200 ${
           scrolled ? "bg-surface shadow-card" : ground
         }`}
@@ -914,7 +872,7 @@ export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
         <div
           ref={barRef}
           className={`relative mx-auto flex max-w-6xl items-center gap-6 px-6 transition-all duration-200 ${
-            compact ? "h-[70px]" : "h-[100px]"
+            scrolled ? "h-[70px]" : "h-[72px]"
           }`}
           onMouseLeave={scheduleClose}
         >
@@ -930,7 +888,7 @@ export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
                   : "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-dark.png"
               }
               alt="Liminal"
-              className={`block w-auto transition-all duration-200 ${dark ? "brightness-125" : ""} ${compact ? "h-[2.2rem]" : "h-11"}`}
+              className={`block h-11 w-auto transition-all duration-200 ${dark ? "brightness-125" : ""}`}
             />
             <img
               src={
@@ -940,21 +898,12 @@ export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
               }
               alt=""
               aria-hidden
-              className={`pointer-events-none absolute left-0 top-0 block w-auto saturate-[1.25] ${dark ? "brightness-125" : "brightness-110"} [clip-path:inset(100%_0_0_0)] transition-[clip-path,height] duration-[600ms,200ms] ease-out group-hover:[clip-path:inset(0_0_0_0)] ${
-                compact ? "h-[2.2rem]" : "h-11"
-              }`}
+              className={`pointer-events-none absolute left-0 top-0 block h-11 w-auto saturate-[1.25] ${dark ? "brightness-125" : "brightness-110"} [clip-path:inset(100%_0_0_0)] transition-[clip-path] duration-[600ms] ease-out group-hover:[clip-path:inset(0_0_0_0)]`}
             />
           </Link>
 
-          {/* nav links — centered in the bar. Dissolves (opacity, not layout)
-              once the bar contracts, so the compact state reads as logo +
-              menu button only. */}
-          <nav
-            aria-hidden={compact}
-            className={`absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 transition-opacity duration-200 md:flex ${
-              compact ? "pointer-events-none opacity-0" : "opacity-100"
-            }`}
-          >
+          {/* nav links — centered in the bar */}
+          <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 md:flex">
             {triggers.map((t) => (
               <button
                 key={t.key}
@@ -962,7 +911,6 @@ export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
                   triggerRefs.current[t.key] = el;
                 }}
                 type="button"
-                tabIndex={compact ? -1 : undefined}
                 onMouseEnter={() => openMenu(t.key)}
                 onFocus={() => openMenu(t.key)}
                 aria-expanded={open === t.key}
@@ -975,15 +923,9 @@ export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
             ))}
           </nav>
 
-          {/* right cluster — same dissolve; the mobile menu button stays put
-              (below md it's the only way in, compact or not). */}
+          {/* right cluster */}
           <div className="ml-auto flex items-center gap-2">
-            <div
-              aria-hidden={compact}
-              className={`hidden items-center gap-2 transition-opacity duration-200 md:flex ${
-                compact ? "pointer-events-none opacity-0" : "opacity-100"
-              }`}
-            >
+            <div className="hidden items-center gap-2 md:flex">
               {/* Dark/light mode is staying — just hiding the trigger for now.
                   Flip SHOW_THEME_TOGGLE back to true to bring the icon back. */}
               {SHOW_THEME_TOGGLE && <ThemeToggle dark={dark} onToggle={toggleTheme} />}

@@ -16,6 +16,7 @@ export function ProviderHeader({
   avatarHue,
   illustrationKey,
   directoryId,
+  photoUrl,
   rating,
   reviewCount,
   availableLabel,
@@ -26,6 +27,8 @@ export function ProviderHeader({
   avatarHue?: AvatarHue;
   illustrationKey?: string | null;
   directoryId?: string;
+  /** Takes priority over illustrationKey/directoryId — see ProviderIllustration. */
+  photoUrl?: string | null;
   rating?: number | null;
   reviewCount?: number | null;
   availableLabel?: string | null;
@@ -37,13 +40,16 @@ export function ProviderHeader({
         avatarHue={avatarHue}
         illustrationKey={illustrationKey}
         directoryId={directoryId}
+        photoUrl={photoUrl}
         className="h-[250px] w-[250px] shrink-0"
       />
       <div className="min-w-0">
         <h1 className="text-balance font-display text-[28px] font-bold tracking-tight text-primary">{name}</h1>
         {roleTitle && <p className="mt-1 text-[17px] text-text-body">{roleTitle}</p>}
         {yearsExperience != null && (
-          <p className="mt-0.5 text-[15px] text-text-muted">{yearsExperience} years of experience</p>
+          <p className="mt-0.5 text-[15px] text-text-muted">
+            {yearsExperience} year{yearsExperience === 1 ? "" : "s"} of experience
+          </p>
         )}
         {rating != null && reviewCount != null && availableLabel && (
           <RatingAvailability rating={rating} reviewCount={reviewCount} availableLabel={availableLabel} className="mt-3" />

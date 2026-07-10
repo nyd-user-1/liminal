@@ -17,6 +17,7 @@ import { StickyBookBar } from "@/components/providers/sticky-book-bar";
 import { RevealFx } from "@/components/providers/reveal-fx";
 import { getPractitionerBySlug, listAvailability, listServices } from "@/lib/repos/services";
 import { getProfileByUserId, nextAvailableLabel, spotlightRatingFor } from "@/lib/repos/provider-profiles";
+import { silhouetteUrl } from "@/components/providers/provider-illustration";
 import { getProviderBySlug, nearbyCities, providerFacets } from "@/lib/repos/directory";
 import { listPayers } from "@/lib/repos/policies";
 
@@ -55,8 +56,12 @@ export default async function ProviderProfilePage({ params }: { params: Promise<
 
   const practitioner = await getPractitionerBySlug(slug);
   if (practitioner) {
-    const [profile, services, availability, payers] = await Promise.all([
-      getProfileByUserId(practitioner.id),
+    const profile = await getProfileByUserId(practitioner.id);
+    // No provider_profiles content (e.g. the practice admin, who isn't a
+    // public-facing provider) — nothing to show, so this isn't a public page.
+    if (!profile) notFound();
+
+    const [services, availability, payers] = await Promise.all([
       listServices(),
       listAvailability(practitioner.id),
       listPayers(),
@@ -75,6 +80,7 @@ export default async function ProviderProfilePage({ params }: { params: Promise<
                   name={practitioner.name}
                   avatarHue={practitioner.avatarHue}
                   illustrationKey={profile?.illustrationKey}
+                  photoUrl={silhouetteUrl(practitioner.id)}
                   roleTitle={profile?.roleTitle}
                   yearsExperience={profile?.yearsExperience}
                   rating={spotlightRating?.rating}
