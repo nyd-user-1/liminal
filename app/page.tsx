@@ -346,16 +346,20 @@ export default async function Home() {
         </div>
 
         <div className="pointer-events-none relative z-10 mx-auto w-full max-w-6xl px-6 py-16 sm:py-20 lg:py-16">
-          {/* mobile painting — leads the page below lg */}
-          <div className="mkt-develop mb-10 lg:hidden">
-            <img
-              src={`${CUT}/lakeside.avif`}
-              alt="A watercolour illustration — a person wrapped in a shawl sits on a bench by a still lake at dawn, holding a warm mug."
-              width={1600}
-              height={1200}
-              className="block w-full"
-              loading="eager"
-            />
+          {/* mobile painting — leads the page below lg; pointer-events-auto
+              re-enables hover inside the pointer-events-none overlay so the
+              watercolour bloom works here like everywhere else */}
+          <div className="pointer-events-auto mkt-develop mb-10 lg:hidden">
+            <WatercolorHover>
+              <img
+                src={`${CUT}/lakeside.avif`}
+                alt="A watercolour illustration — a person wrapped in a shawl sits on a bench by a still lake at dawn, holding a warm mug."
+                width={1600}
+                height={1200}
+                className="block w-full"
+                loading="eager"
+              />
+            </WatercolorHover>
           </div>
 
           <div className="pointer-events-auto lg:max-w-[54%]">
