@@ -332,7 +332,7 @@ export default async function Home() {
 
         {/* large hero painting, bleeding off the right (desktop) — pointer events
             enabled so the watercolour bloom can track the cursor over it */}
-        <div className="absolute top-1/2 right-0 z-0 hidden w-[54vw] max-w-[920px] -translate-y-1/2 lg:block">
+        <div className="absolute top-1/2 right-0 z-0 hidden w-[58vw] max-w-[960px] -translate-y-1/2 lg:block">
           <WatercolorHover>
             <img
               src={`${CUT}/lakeside.avif`}
@@ -394,9 +394,9 @@ export default async function Home() {
         <div className="mx-auto w-full max-w-6xl px-6 pt-10 sm:pt-12">
           {/* heading lives in the grid: below lg it stacks image → heading →
               steps; at lg it spans the top row via order-first + col-span-2 */}
-          <div className="grid items-center gap-6 lg:grid-cols-[1.3fr_1.1fr] lg:gap-10">
+          <div className="grid items-center gap-6 lg:grid-cols-[1.5fr_1fr] lg:gap-10">
             <Reveal className="lg:-ml-10 xl:-ml-20" delay={80}>
-              <WatercolorHover className="mx-auto block w-full max-w-xl lg:max-w-none">
+              <WatercolorHover className="mx-auto block w-full max-w-2xl lg:max-w-none">
                 <img
                   src={`${ILLO}/maya10.avif`}
                   alt="A watercolour illustration — two people walk a small dog along a path through a meadow at dawn, soft light on the horizon."
@@ -449,9 +449,9 @@ export default async function Home() {
       {/* ── 4 · Use your insurance — the savings claim + the plans behind it ── */}
       <section className="bg-page py-16 sm:py-20">
         <div className="mx-auto w-full max-w-6xl px-6">
-          <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
+          <div className="grid items-center gap-10 lg:grid-cols-[1.4fr_1fr] lg:gap-12">
             <Reveal>
-              <WatercolorHover className="mx-auto block w-full max-w-xl">
+              <WatercolorHover className="mx-auto block w-full max-w-2xl">
                 <img
                   src={`${ILLO}/maya10.avif`}
                   alt="A watercolour illustration — two people walk a small dog along a path through a meadow at dawn, soft light on the horizon."
@@ -506,7 +506,7 @@ export default async function Home() {
             </h2>
           </Reveal>
 
-          <div className="mt-8 grid items-center gap-6 lg:grid-cols-[1fr_1.4fr] lg:gap-10">
+          <div className="mt-8 grid items-center gap-6 lg:grid-cols-[1fr_1.55fr] lg:gap-10">
             <Reveal delay={220}>
               <dl className="flex flex-col justify-center">
                 {STATS.map((s, i) => (
@@ -521,7 +521,7 @@ export default async function Home() {
               </dl>
             </Reveal>
             <Reveal className="lg:-mr-10 xl:-mr-20" delay={80}>
-              <WatercolorHover className="mx-auto block w-full max-w-xl lg:max-w-none">
+              <WatercolorHover className="mx-auto block w-full max-w-2xl lg:max-w-none">
                 <img
                   src={`${CUT}/tending-seedling.avif`}
                   alt="A watercolour illustration — a person kneels in a garden bed, planting a seedling, a watering can beside them."
