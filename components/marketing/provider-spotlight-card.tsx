@@ -40,7 +40,7 @@ export type ProviderSpotlight = {
   illustrationKey?: string | null;
   avatarHue?: AvatarHue;
   directoryId?: string;
-  /** Random placeholder photo (Hope/Mania/Steady/Calm/Energetic/Grounded pool) — takes priority over illustrationKey/directoryId. */
+  /** Takes priority over illustrationKey/directoryId — see ProviderIllustration. */
   photoUrl?: string | null;
   href: string;
 };

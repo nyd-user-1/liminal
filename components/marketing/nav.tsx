@@ -22,6 +22,10 @@ import type { PublicResult } from "@/app/api/directory/public-search/route";
 //
 // Icon hover treatment: navy line + hero-pastel (primary-wash) fill on hover.
 
+// Dark mode is built (theme-toggle.tsx, globals.css `:root.dark`) and staying
+// — just no trigger for it right now. Flip this back to true to restore it.
+const SHOW_THEME_TOGGLE = false;
+
 type MenuKey = "book" | "search" | "find" | "providers" | "company";
 const WIDTHS: Record<MenuKey, number> = { book: 700, search: 636, find: 636, providers: 320, company: 300 };
 
@@ -980,7 +984,9 @@ export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
                 compact ? "pointer-events-none opacity-0" : "opacity-100"
               }`}
             >
-              <ThemeToggle dark={dark} onToggle={toggleTheme} />
+              {/* Dark/light mode is staying — just hiding the trigger for now.
+                  Flip SHOW_THEME_TOGGLE back to true to bring the icon back. */}
+              {SHOW_THEME_TOGGLE && <ThemeToggle dark={dark} onToggle={toggleTheme} />}
               <MyPortalMenu />
               <Button onClick={() => router.push("/join")}>Sign up</Button>
             </div>

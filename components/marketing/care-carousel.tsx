@@ -23,18 +23,36 @@ const gridPhoto = (name: string) => `${ILLUSTRATIONS}/Hompage%20Grid/${encodeURI
 // Links: a real /care/[slug] page where lib/site-content/topics.ts has one
 // (the 9 conditions in the nav's Conditions panel); otherwise a slug with no
 // topic entry, which /care/[topic] 404s on by design.
-type Card = { slug: string; label: string; image: string; objectPosition?: string };
+// `darkImage` — an optional alternate illustration swapped in via the
+// marketing dark toggle (CSS-only, see .care-img-dark in globals.css); most
+// cards don't have one and just render `image` in both themes.
+type Card = { slug: string; label: string; image: string; darkImage?: string; objectPosition?: string };
 
 const CARDS: Card[] = [
   { slug: "anxiety", label: "Anxiety", image: gridPhoto("sam2"), objectPosition: "30% 50%" },
   { slug: "depression", label: "Depression", image: gridPhoto("nia2") },
   { slug: "adhd", label: "ADHD", image: gridPhoto("image (8)") },
-  { slug: "trauma", label: "Trauma", image: gridPhoto("image (9)") },
+  {
+    slug: "trauma",
+    label: "Trauma",
+    image: gridPhoto("image (9)"),
+    darkImage: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/Dark%20Mode/sad-version.avif",
+  },
   { slug: "relationships", label: "Relationships", image: gridPhoto("image (10)") },
-  { slug: "grief", label: "Grief", image: gridPhoto("image (11)") },
+  {
+    slug: "grief",
+    label: "Grief",
+    image: gridPhoto("image (11)"),
+    darkImage: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/Dark%20Mode/sad-maya-planting.avif",
+  },
   { slug: "sleep", label: "Sleep", image: gridPhoto("marco1") },
   { slug: "bipolar", label: "Bipolar disorder", image: illustration("maya-1") },
-  { slug: "lgbtqia", label: "LGBTQIA+ affirming", image: illustration("maya-2") },
+  {
+    slug: "lgbtqia",
+    label: "LGBTQIA+ affirming",
+    image: illustration("maya-2"),
+    darkImage: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/Dark%20Mode/sad-maya-planting.avif",
+  },
   {
     slug: "autism",
     label: "ASD",
@@ -48,7 +66,7 @@ export function CareCarousel() {
   return (
     <div className="mx-auto max-w-6xl px-6">
       <div className="flex items-end justify-between gap-4">
-        <h2 className="max-w-xl text-balance font-display text-4xl font-bold tracking-tight text-text sm:text-[40px] sm:leading-[1.08]">
+        <h2 className="max-w-xl text-balance font-display text-4xl font-bold tracking-tight text-primary sm:text-[40px] sm:leading-[1.08]">
           Care for life.
         </h2>
         <Link
@@ -71,14 +89,23 @@ export function CareCarousel() {
                 <img
                   src={c.image}
                   alt=""
-                  className="h-full w-full object-cover"
+                  className={`h-full w-full object-cover ${c.darkImage ? "care-img-light" : ""}`}
                   style={c.objectPosition ? { objectPosition: c.objectPosition } : undefined}
                   loading="lazy"
                 />
+                {c.darkImage && (
+                  <img
+                    src={c.darkImage}
+                    alt=""
+                    className="care-img-dark absolute inset-0 h-full w-full object-cover"
+                    style={c.objectPosition ? { objectPosition: c.objectPosition } : undefined}
+                    loading="lazy"
+                  />
+                )}
               </WatercolorHover>
             </div>
 
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex translate-y-6 items-center justify-between gap-3 bg-gradient-to-t from-black/75 via-black/15 to-transparent p-5 pt-12 opacity-0 transition-[transform,opacity] duration-300 ease-out group-hover/card:translate-y-0 group-hover/card:opacity-100">
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex items-center justify-between gap-3 bg-gradient-to-t from-black/75 via-black/15 to-transparent p-5 pt-12 opacity-0 transition-opacity duration-200 group-hover/card:opacity-100">
               <h3 className="line-clamp-2 font-display text-lg font-semibold leading-snug text-white">{c.label}</h3>
               <div className="care-arrow-target pointer-events-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-primary bg-white">
                 <Icon

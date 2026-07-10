@@ -357,7 +357,7 @@ export default async function Home() {
       <section id="reach" className="relative scroll-mt-24 overflow-hidden bg-page">
         <div className="mx-auto w-full max-w-6xl px-6 pt-10 sm:pt-12">
           <Reveal className="text-center">
-            <h2 className="text-balance font-display text-4xl font-bold tracking-tight text-text sm:text-5xl">
+            <h2 className="text-balance font-display text-4xl font-bold tracking-tight text-primary sm:text-5xl">
               Millions have found support
             </h2>
           </Reveal>
@@ -416,7 +416,7 @@ export default async function Home() {
             <p className="font-display text-[13px] font-semibold uppercase tracking-[0.16em] text-primary-deep">
               Through Liminal
             </p>
-            <h2 className="mt-3 text-balance font-display text-4xl font-bold tracking-tight text-text sm:text-5xl">
+            <h2 className="mt-3 text-balance font-display text-4xl font-bold tracking-tight text-primary sm:text-5xl">
               Millions have found support
             </h2>
           </Reveal>
@@ -438,10 +438,10 @@ export default async function Home() {
             <Reveal className="lg:-mr-10 xl:-mr-20" delay={80}>
               <WatercolorHover className="mx-auto block w-full max-w-xl lg:max-w-none">
                 <img
-                  src={`${ILLO}/dusk11.avif`}
-                  alt="A watercolour illustration — a person sits in a meadow at dusk, facing a warm band of light on the horizon."
-                  width={2077}
-                  height={1251}
+                  src={`${CUT}/tending-seedling.avif`}
+                  alt="A watercolour illustration — a person kneels in a garden bed, planting a seedling, a watering can beside them."
+                  width={1600}
+                  height={1120}
                   className="mkt-soft block w-full"
                   loading="lazy"
                 />
@@ -474,7 +474,7 @@ export default async function Home() {
             <p className="font-display text-[13px] font-semibold uppercase tracking-[0.16em] text-primary-deep">
               Use your insurance
             </p>
-            <h2 className="mt-3 text-balance font-display text-4xl font-bold tracking-tight text-text sm:text-[42px] sm:leading-[1.1]">
+            <h2 className="mt-3 text-balance font-display text-4xl font-bold tracking-tight text-primary sm:text-[42px] sm:leading-[1.1]">
               See how much you save on sessions
             </h2>
             <p className="mt-5 text-pretty text-lg leading-relaxed text-text-body">
@@ -498,7 +498,7 @@ export default async function Home() {
             <p className="font-display text-[13px] font-semibold uppercase tracking-[0.16em] text-primary-deep">
               Statewide access
             </p>
-            <h2 className="mt-3 text-balance font-display text-4xl font-bold tracking-tight text-text sm:text-5xl">
+            <h2 className="mt-3 text-balance font-display text-4xl font-bold tracking-tight text-primary sm:text-5xl">
               Get mental health care, covered by insurance
             </h2>
             <p className="mx-auto mt-5 max-w-2xl text-pretty leading-relaxed text-text-body">
@@ -535,7 +535,7 @@ export default async function Home() {
             <p className="font-display text-[13px] font-semibold uppercase tracking-[0.16em] text-primary-deep">
               Getting started
             </p>
-            <h2 className="mt-3 font-display text-4xl font-bold tracking-tight text-text sm:text-5xl">How it works</h2>
+            <h2 className="mt-3 font-display text-4xl font-bold tracking-tight text-primary sm:text-5xl">How it works</h2>
             <ol className="mt-8 space-y-6">
               {HOW_IT_WORKS.map((s, i) => (
                 <li key={s.title} className="flex gap-4">
@@ -579,7 +579,7 @@ export default async function Home() {
           <div className="grid gap-10 lg:grid-cols-3 lg:gap-12">
             {/* Col 1 — heading stacked on the image */}
             <div>
-              <h2 className="text-balance font-display text-4xl font-bold tracking-tight text-text sm:text-[40px] sm:leading-[1.08]">
+              <h2 className="text-balance font-display text-4xl font-bold tracking-tight text-primary sm:text-[40px] sm:leading-[1.08]">
                 Find care for whatever&apos;s on your mind.
               </h2>
               <Reveal className="mt-8">
@@ -622,7 +622,7 @@ export default async function Home() {
       {/* ── How it works — three honest steps (fixes "will this actually work?") */}
       <section className="bg-page">
         <div className="mx-auto w-full max-w-6xl px-6 py-24 sm:py-28">
-          <h2 className="max-w-xl text-balance font-display text-4xl font-bold tracking-tight text-text sm:text-5xl">
+          <h2 className="max-w-xl text-balance font-display text-4xl font-bold tracking-tight text-primary sm:text-5xl">
             Getting care shouldn&apos;t be the hard part.
           </h2>
           <p className="mt-4 max-w-lg text-pretty text-lg leading-relaxed text-text-body">
@@ -679,7 +679,7 @@ export default async function Home() {
             <p className="font-display text-[13px] font-semibold uppercase tracking-[0.14em] text-primary-deep">
               For providers
             </p>
-            <h2 className="mt-3 text-balance font-display text-3xl font-bold tracking-tight text-text sm:text-[40px] sm:leading-[1.08]">
+            <h2 className="mt-3 text-balance font-display text-3xl font-bold tracking-tight text-primary sm:text-[40px] sm:leading-[1.08]">
               Run your New York practice on Liminal.
             </h2>
             <p className="mt-5 text-pretty text-lg leading-relaxed text-text-body">
@@ -695,10 +695,10 @@ export default async function Home() {
           <Reveal className="lg:order-last">
             <WatercolorHover>
               <img
-                src={`${CUT}/tending-seedling.avif`}
-                alt="A watercolour illustration — a person kneels in a garden bed, planting a seedling, a watering can beside them."
-                width={1600}
-                height={1120}
+                src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/Gemini_Generated_Image_tep72ltep72ltep7-Photoroom.avif"
+                alt="A watercolour illustration — a doctor's office desk with a stethoscope on a clipboard, a succulent, and a sweater draped over a chair."
+                width={2400}
+                height={1309}
                 className="block w-full"
                 loading="lazy"
               />
@@ -723,7 +723,7 @@ export default async function Home() {
             </WatercolorHover>
           </Reveal>
           <div className="max-w-md lg:pr-6">
-            <h2 className="text-balance font-display text-4xl font-bold tracking-tight text-text sm:text-5xl">
+            <h2 className="text-balance font-display text-4xl font-bold tracking-tight text-primary sm:text-5xl">
               Find care without the guesswork.
             </h2>
             <p className="mt-5 text-pretty text-lg leading-relaxed text-text-body">

@@ -9,7 +9,7 @@ import { Icon, type IconName } from "@/components/ui/icons";
 export function InfoRow({ icon, label, value }: { icon: IconName; label: string; value: ReactNode }) {
   return (
     <div className="flex items-start gap-3">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-field bg-[#F3F4F6]">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-field bg-canvas">
         <Icon name={icon} size={18} className="fill-primary-wash text-text" />
       </span>
       <div className="min-w-0 flex-1">

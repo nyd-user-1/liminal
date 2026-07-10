@@ -1,8 +1,12 @@
 @import "tailwindcss";
 
 /* Liminal theme — Component Catalog §1 (structure) + §1b (brand values).
-   Light theme only. Every token doubles as a Tailwind utility
-   (e.g. bg-primary, text-text-muted, border-border, rounded-field). */
+   Light theme only for the authenticated app (sidebar, calendar, EHR
+   surfaces). The public marketing site additionally supports an optional
+   dark toggle (see .dark override block + components/marketing/theme-toggle)
+   — AppShell strips any leaked `dark` class on mount so it never reaches the
+   app shell. Every token doubles as a Tailwind utility (e.g. bg-primary,
+   text-text-muted, border-border, rounded-field). */
 @theme {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif; /* marketing display + headings */
@@ -81,6 +85,45 @@ body {
   background-color: var(--color-canvas);
   color: var(--color-text);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Marketing dark mode — scoped to the token subset the public site actually
+   uses (see components/marketing/theme-toggle). Built from the existing
+   "dusk" ramp so it reads as an extension of the brand, not a bolt-on.
+   Deliberately NOT a full re-skin: --color-canvas, --color-sidebar-*, and
+   --color-stage are untouched since only the authenticated app relies on
+   them, and AppShell strips `dark` before those surfaces ever render. */
+:root.dark {
+  --color-page: #08181c;
+  --color-page-edge: #16313a;
+  /* Deliberately close to --color-page (not the old, much-lighter step) —
+     in light mode surface (white) vs. page (cream) is a subtle lift; the
+     same big jump in dark mode read as a floating band, most visible on
+     the sticky nav once it switches from `ground` to bg-surface on scroll. */
+  --color-surface: #0f262c;
+  --color-border: #1c3a42;
+  --color-text: #f7f3e8;
+  --color-text-body: #a3b8bb;
+  --color-text-muted: #5f7477;
+  --color-primary-wash: rgba(111, 179, 188, 0.12);
+  --color-primary-deep: #a9d3d8;
+  /* --color-canvas is otherwise app-shell-only (AppShell strips `dark` before
+     it renders) — but a few marketing components (ProviderCard's care-type
+     badge, Nav's panel-row hover) already reuse this token, so it needs a
+     dark value too or those bits stay light-grey and float off the card. */
+  --color-canvas: #16323a;
+}
+
+/* Care-carousel per-card dark-mode illustration swap (see care-carousel.tsx
+   Card.darkImage) — plain CSS, no client component needed. */
+.care-img-dark {
+  display: none;
+}
+:root.dark .care-img-light {
+  display: none;
+}
+:root.dark .care-img-dark {
+  display: block;
 }
 
 /* Hide the scrollbar on horizontal card rows (still scrollable via wheel/trackpad). */
@@ -237,6 +280,12 @@ body {
   .watercolor-hover:hover::after {
     transform: none;
   }
+}
+
+/* Care carousel card arrow — rotates only when the circle itself is hovered,
+   independent of the card-level group-hover that reveals the scrim overlay. */
+.care-arrow-target:hover .care-arrow-icon {
+  transform: rotate(-45deg);
 }
 
 /* First-light hero glow — a single soft teal bloom on the RIGHT of the hero.
