@@ -443,7 +443,7 @@ export function TemplatesIndex() {
   // A–Z sorted sections; cards within each section are also sorted A–Z.
   const SECTIONS: Array<{ key: string; title: string; onNew: () => void; items: LibItem[] }> = [
     { key: "assessments", title: "Assessments", onNew: comingSoon, items: sortAZ(SCAFFOLD_ASSESSMENTS.map((a, i) => scaffoldItem(a.name, a.name, a.meta, "Auto-scored", dateFor(i), "Assessments"))) },
-    { key: "forms", title: "Forms", onNew: createForm, items: sortAZ(padTo12(formList.map((f) => formItem(f, "Forms")), "Forms")) },
+    { key: "forms", title: "Forms", onNew: createForm, items: sortAZ(formList.map((f) => formItem(f, "Forms"))) },
     { key: "guidelines", title: "Guidelines", onNew: comingSoon, items: sortAZ(loremItems("Guidelines")) },
     { key: "notes", title: "Notes", onNew: newNote, items: sortAZ(padTo12(notes.map((t) => noteItem(t, "Notes")), "Notes")) },
     { key: "plans", title: "Plans & reports", onNew: comingSoon, items: sortAZ(loremItems("Plans & reports")) },
