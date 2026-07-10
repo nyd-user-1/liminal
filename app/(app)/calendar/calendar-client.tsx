@@ -275,7 +275,7 @@ export function CalendarClient({
               ...practitioners.map((p) => ({
                 value: p.id,
                 label: p.name,
-                avatar: { name: p.name, hue: p.avatarHue },
+                avatar: { name: p.name, hue: p.avatarHue, src: p.photoUrl },
               })),
             ]}
             value={filterValue}

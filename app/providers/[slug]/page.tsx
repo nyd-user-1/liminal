@@ -18,6 +18,7 @@ import { RevealFx } from "@/components/providers/reveal-fx";
 import { getPractitionerBySlug, listAvailability, listServices } from "@/lib/repos/services";
 import { getProfileByUserId, nextAvailableLabel, spotlightRatingFor } from "@/lib/repos/provider-profiles";
 import { silhouetteUrl } from "@/components/providers/provider-illustration";
+import { headshotFor } from "@/lib/headshots";
 import { getProviderBySlug, nearbyCities, providerFacets } from "@/lib/repos/directory";
 import { listPayers } from "@/lib/repos/policies";
 
@@ -80,7 +81,7 @@ export default async function ProviderProfilePage({ params }: { params: Promise<
                   name={practitioner.name}
                   avatarHue={practitioner.avatarHue}
                   illustrationKey={profile?.illustrationKey}
-                  photoUrl={silhouetteUrl(practitioner.id)}
+                  photoUrl={headshotFor(practitioner.id) ?? silhouetteUrl(practitioner.id)}
                   roleTitle={profile?.roleTitle}
                   yearsExperience={profile?.yearsExperience}
                   rating={spotlightRating?.rating}

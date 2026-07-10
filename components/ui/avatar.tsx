@@ -21,13 +21,25 @@ export function Avatar({
   name,
   hue = "teal",
   size = "sm",
+  src,
   className = "",
 }: {
   name: string;
   hue?: AvatarHue;
   size?: keyof typeof sizes;
+  /** Real photo — takes priority over the initials circle when present. */
+  src?: string | null;
   className?: string;
 }) {
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={name}
+        className={`inline-block shrink-0 select-none rounded-full object-cover ${sizes[size]} ${className}`}
+      />
+    );
+  }
   const c = hues[hue] ?? hues.teal;
   return (
     <span

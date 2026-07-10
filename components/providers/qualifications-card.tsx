@@ -27,7 +27,11 @@ export function QualificationsCard({
       <h2 className="mb-4 text-[19px] font-semibold text-text">Qualification and insurance</h2>
       <div className="space-y-5">
         {yearsExperience != null && (
-          <InfoRow icon="graduation-cap" label="Years of experience" value={`${yearsExperience} years`} />
+          <InfoRow
+            icon="graduation-cap"
+            label="Years of experience"
+            value={`${yearsExperience} year${yearsExperience === 1 ? "" : "s"}`}
+          />
         )}
         {training && <InfoRow icon="graduation-cap" label="Training" value={training} />}
         {licenseType && <InfoRow icon="circle-check" label="License type" value={licenseType} />}

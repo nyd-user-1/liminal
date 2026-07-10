@@ -6,6 +6,7 @@ import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Nav } from "@/components/marketing/nav";
 import { ProviderSpotlightRail, type ProviderSpotlight } from "@/components/marketing/provider-spotlight-card";
 import { silhouetteUrl } from "@/components/providers/provider-illustration";
+import { headshotFor } from "@/lib/headshots";
 import { Reveal } from "@/components/marketing/reveal";
 import { ReviewsCarousel, type Review } from "@/components/marketing/reviews-carousel";
 import { ScrollCue } from "@/components/marketing/scroll-cue";
@@ -318,7 +319,7 @@ export default async function Home() {
   ).filter((p): p is ProviderSpotlight => p !== null && p.quote !== "");
   const spotlightProviders = [...realSpotlights, ...FICTIONAL_SPOTLIGHT].map((p) => ({
     ...p,
-    photoUrl: silhouetteUrl(p.id),
+    photoUrl: headshotFor(p.id) ?? silhouetteUrl(p.id),
   }));
 
   return (

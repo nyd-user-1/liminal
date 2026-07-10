@@ -2,6 +2,7 @@ import { randomBytes } from "crypto";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 import { hasDb, sql } from "@/lib/db";
+import { headshotFor } from "@/lib/headshots";
 import { mockId, mockStore } from "@/lib/mock";
 import type { AvatarHue, Role, User } from "@/lib/types";
 
@@ -18,6 +19,7 @@ export interface SessionUser {
   name: string;
   email: string;
   avatarHue: AvatarHue;
+  photoUrl: string | null;
 }
 
 /** Thrown by requireUser/requireRole; API routes map it to a JSON response. */
@@ -39,7 +41,7 @@ type UserRow = {
 };
 
 function toSessionUser(u: { id: string; role: Role; name: string; email: string; avatarHue: AvatarHue }): SessionUser {
-  return { id: u.id, role: u.role, name: u.name, email: u.email, avatarHue: u.avatarHue };
+  return { id: u.id, role: u.role, name: u.name, email: u.email, avatarHue: u.avatarHue, photoUrl: headshotFor(u.id) };
 }
 
 /** Check email/password against the users table (or mock users). */
