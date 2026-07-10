@@ -46,14 +46,19 @@ No builds (dev server :3010 running), no browser checks — `npx tsc --noEmit` o
   reopen-on-click, delete, save-on-close, clear-on-send — `670eb6f`.
 
 ### D. Library / forms
-- [ ] Form detail (`app/(app)/library/forms/[id]` / library page): breadcrumbs move to UNDER the
-  search bar, before the cards (lets user toggle back). Read the library page structure first.
-- [ ] Library "+ New" button → TopBarActions (see A).
-- [ ] Seed **6 real, usable forms** (live Neon DB — `DATABASE_URL` in .env.local; repos in
-  `lib/repos/forms.ts`, schema in `sql/`): suggested GAD-7, Consent to Treatment & Privacy,
-  Telehealth Consent, Release of Information, Financial Policy/Card-on-File, Medication
-  History. New Client Intake + PHQ-9 already exist. DELETE the lorem "Forms N · Placeholder"
-  cards in the Forms category only. Mirror in mocks if convention requires.
+- [x] Form detail breadcrumb toggle-back — already done in chunk A (`templates-client.tsx`
+  renders it under Tabs+Toolbar, before the form builder). `/library/forms/[id]` is a
+  separate, unreferenced legacy route (only linked from itself + design-system catalog) —
+  left alone, out of scope.
+- [x] Library "+ New" button — already in TopBarActions from chunk A, confirmed.
+- [x] Seeded 6 real forms (`f253c7e`): GAD-7 Anxiety Screen, Consent to Treatment & Privacy,
+  Telehealth Consent, Release of Information, Financial Policy & Card-on-File Authorization,
+  Medication History. Applied to live Neon via `sql/012_seed_forms.sql` (psql, idempotent),
+  mirrored in `lib/mock/forms.ts`. Forms category no longer pads to 12 with lorem cards.
+  Verified in a real browser (Playwright against :3010) — 8 real cards render, no lorem.
+  NOTE: two pre-existing stray DB rows ("Untitled form" draft, "Test Form") now show as real
+  cards since padding is gone — not created by this session, left alone, flagging for Brendan
+  to delete or keep.
 - [ ] **ADHD ASRS-v1.1 assessment LAST, only if bandwidth remains** — source:
   https://add.org/wp-content/uploads/2015/03/adhd-questionnaire-ASRS111.pdf
   (18 items, Part A 6 items screener, 5-point frequency scale Never→Very Often).
@@ -83,10 +88,12 @@ No builds (dev server :3010 running), no browser checks — `npx tsc --noEmit` o
 - Picked up by a fresh session (usage-window handoff) at `670eb6f` — everything above is
   committed and verified clean (`npx tsc --noEmit`, only the 4 pre-existing stale
   `.next/types` errors, not ours).
-- NEXT: forms chunk (D), then schedules/headshots (E), then ADHD (last).
+- [x] Chunk D forms (`f253c7e`): 6 forms seeded live + mirrored in mocks, lorem padding
+  dropped from Forms category, breadcrumb/+New confirmed already-done from chunk A.
+- NEXT: schedules/headshots (E), then ADHD (last, only if bandwidth remains).
 
 ## Order of attack
 1. This doc. 2. ~~Tabs + TopBar (commit).~~ 3. ~~Billing restructure (commit).~~
-4. ~~Inbox (commit).~~ 5. Library breadcrumbs + New button + 6 forms seed (commit).
+4. ~~Inbox (commit).~~ 5. ~~Library breadcrumbs + New button + 6 forms seed (commit).~~
 6. Schedules/headshots (commit). 7. ADHD assessment (commit).
 Update checkboxes + "Done so far" after each commit.
