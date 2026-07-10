@@ -15,9 +15,11 @@ const REFERRAL_BADGE: Record<ReferralStatus, "neutral" | "info" | "success" | "d
   declined: "danger",
 };
 
-// Overview tab — 2:1 grid: upcoming appointments + billing summary (left)
-// beside a contact FieldDisplay card (right). Server component; appointment
-// and invoice data come from the sibling repos via page.tsx.
+// Overview tab — 1:2 grid, matching the list-left/content-right convention
+// used elsewhere (Billing, Directory, Inbox): contact FieldDisplay card
+// (left) beside upcoming appointments + billing summary + referrals (right).
+// Server component; appointment and invoice data come from the sibling
+// repos via page.tsx.
 
 export function OverviewTab({
   client,
@@ -49,6 +51,37 @@ export function OverviewTab({
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
+      <SettingsCard
+        icon="person-circle"
+        title="Contact"
+        className="self-start"
+        action={<ContactMenu clientId={client.id} email={client.email} phone={client.phone} />}
+      >
+        <div className="flex flex-col gap-4">
+          <FieldDisplay label="Email" value={client.email} />
+          <FieldDisplay label="Phone" value={client.phone} />
+          <FieldDisplay label="Address" value={client.address} />
+          <FieldDisplay label="Date of birth" value={client.dob ? formatDob(client.dob) : null} />
+          <FieldDisplay label="Gender" value={client.gender} />
+          <FieldDisplay label="Pronouns" value={client.pronouns} />
+          <FieldDisplay label="Primary practitioner" value={practitionerName} />
+          <FieldDisplay
+            label="Tags"
+            value={
+              client.tags.length > 0 ? (
+                <span className="mt-1 flex flex-wrap gap-1">
+                  {client.tags.map((t) => (
+                    <Tag key={t} hue={tagHue(t)}>
+                      {t}
+                    </Tag>
+                  ))}
+                </span>
+              ) : null
+            }
+          />
+        </div>
+      </SettingsCard>
+
       <div className="flex flex-col gap-6 lg:col-span-2">
         <SettingsCard icon="calendar" title="Upcoming appointments">
           {upcoming.length === 0 ? (
@@ -143,37 +176,6 @@ export function OverviewTab({
           )}
         </SettingsCard>
       </div>
-
-      <SettingsCard
-        icon="person-circle"
-        title="Contact"
-        className="self-start"
-        action={<ContactMenu clientId={client.id} email={client.email} phone={client.phone} />}
-      >
-        <div className="flex flex-col gap-4">
-          <FieldDisplay label="Email" value={client.email} />
-          <FieldDisplay label="Phone" value={client.phone} />
-          <FieldDisplay label="Address" value={client.address} />
-          <FieldDisplay label="Date of birth" value={client.dob ? formatDob(client.dob) : null} />
-          <FieldDisplay label="Gender" value={client.gender} />
-          <FieldDisplay label="Pronouns" value={client.pronouns} />
-          <FieldDisplay label="Primary practitioner" value={practitionerName} />
-          <FieldDisplay
-            label="Tags"
-            value={
-              client.tags.length > 0 ? (
-                <span className="mt-1 flex flex-wrap gap-1">
-                  {client.tags.map((t) => (
-                    <Tag key={t} hue={tagHue(t)}>
-                      {t}
-                    </Tag>
-                  ))}
-                </span>
-              ) : null
-            }
-          />
-        </div>
-      </SettingsCard>
     </div>
   );
 }
