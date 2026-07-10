@@ -238,15 +238,15 @@ const INSURERS: Array<{ name: string; color: string }> = [
 const HOW_IT_WORKS: Array<{ title: string; body: string }> = [
   {
     title: "Find the right fit",
-    body: "Share preferences and we'll filter 116,000+ providers to find your matches.",
+    body: "We filter 116,000 New York providers to find you care.",
   },
   {
-    title: "Get the in-network price",
-    body: "Add your insurance details so we can estimate your cost — before you book.",
+    title: "Schedule care",
+    body: "Add your insurance details and schedule your appointment.",
   },
   {
-    title: "Book your session",
-    body: "Book right on Liminal — we'll handle everything from there. You'll only be billed after your session.",
+    title: "See you soon",
+    body: "We'll handle everything from here.",
   },
 ];
 
