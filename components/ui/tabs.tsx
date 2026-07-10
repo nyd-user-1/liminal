@@ -6,11 +6,11 @@ import { useState, type MouseEvent } from "react";
 import { DropdownMenu, MenuItem } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/ui/icons";
 
-// Catalog `Tabs` — underline tabs. Active = solid teal fill, white text,
-// rounded top corners (the ghost-hover shape, committed). On hover a tab
-// gets a ghost-button wash and a muted-teal rail slides to it. Href tabs
-// (routes) or controlled (active + onChange). `overflow` tucks extra tabs
-// behind a "View More" dropdown at the end of the rail.
+// Catalog `Tabs` — underline tabs. Active = primary text + a full-teal underline.
+// On hover a tab gets a ghost-button wash and a muted-teal rail slides to it;
+// the selected tab keeps its full-teal underline. Href tabs (routes) or
+// controlled (active + onChange). `overflow` tucks extra tabs behind a
+// "View More" dropdown at the end of the rail.
 
 export interface TabItem {
   key: string;
@@ -21,9 +21,7 @@ export interface TabItem {
 
 const tabCls = (isActive: boolean) =>
   `relative z-10 -mb-px inline-flex items-center gap-1.5 rounded-t-md border-b-2 px-3 pb-2.5 pt-1.5 text-[15px] font-medium transition-colors ${
-    isActive
-      ? "border-primary bg-primary text-white"
-      : "border-transparent text-text-body hover:bg-primary-wash/40 hover:text-text"
+    isActive ? "border-primary text-primary" : "border-transparent text-text-body hover:bg-primary-wash/40 hover:text-text"
   }`;
 
 export function Tabs({
@@ -63,13 +61,7 @@ export function Tabs({
           <>
             {t.label}
             {t.count !== undefined && (
-              <span
-                className={`rounded-full px-1.5 text-[13px] ${
-                  isActive ? "bg-white/25 text-white" : "bg-canvas text-text-muted"
-                }`}
-              >
-                {t.count}
-              </span>
+              <span className="rounded-full bg-canvas px-1.5 text-[13px] text-text-muted">{t.count}</span>
             )}
           </>
         );
