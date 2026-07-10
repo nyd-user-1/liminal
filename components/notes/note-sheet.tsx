@@ -22,20 +22,39 @@ import { useToast } from "@/components/ui/toast";
 import { formatDateTime, formatDateTimeNumeric } from "@/lib/format";
 import type { Note, Transcript } from "@/lib/types";
 
-// Catalog `BottomSheet` — full-screen slide-up document surface: dark top
-// strip (× close / minimize-restore), client-name header + note meta, right
-// actions (Save · Sign → confirm Modal), Tabs, page-like editor body with a
-// hover KebabMenu on the note card, and an optional left `AIPanel` rail when
-// the note's appointment has a transcript.
+// Catalog `BottomSheet` — a Gmail-compose-style floating document window:
+// dark title strip (minimize · expand/restore · × close), client-name header
+// + note meta, right actions (Save · Sign → confirm Modal), Tabs, page-like
+// editor body with a hover KebabMenu on the note card, and an optional left
+// `AIPanel` rail when the note's appointment has a transcript. Three sizes,
+// all reachable from the title strip: compact (default), big (~1200px,
+// via expand), and minimized (title strip only, docked bottom-right).
 
-// Diagonal expand/collapse arrows (⤢) — not in the foundation icon set →
-// local inline SVG (FLAG). Triggers minimize/restore.
-const ExpandCollapseIcon = () => (
-  <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+// Diagonal outward arrows (⤢) — not in the foundation icon set → local
+// inline SVG (FLAG). "Expand" to the big (1200px) size.
+const ExpandIcon = () => (
+  <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
     <polyline points="15 4 20 4 20 9" />
     <line x1="20" y1="4" x2="14" y2="10" />
     <polyline points="9 20 4 20 4 15" />
     <line x1="4" y1="20" x2="10" y2="14" />
+  </svg>
+);
+
+// Diagonal inward arrows — "restore" the big size back to compact.
+const RestoreIcon = () => (
+  <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <polyline points="9 4 9 9 4 9" />
+    <line x1="9" y1="9" x2="3" y2="3" />
+    <polyline points="15 20 15 15 20 15" />
+    <line x1="15" y1="15" x2="21" y2="21" />
+  </svg>
+);
+
+// A single dash — minimize, matching Gmail's "–" title-bar control.
+const MinimizeIcon = () => (
+  <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden>
+    <line x1="5" y1="12" x2="19" y2="12" />
   </svg>
 );
 
@@ -84,6 +103,8 @@ export function NoteSheet({
   const [signOpen, setSignOpen] = useState(false);
   const [signing, setSigning] = useState(false);
   const [minimized, setMinimized] = useState(false);
+  // Compact (Gmail default-compose size) unless expanded to the big ~1200px view.
+  const [big, setBig] = useState(false);
   const [tab, setTab] = useState("note");
   const [editorFocused, setEditorFocused] = useState(false);
   const [askOpen, setAskOpen] = useState(false);
@@ -170,57 +191,62 @@ export function NoteSheet({
 
   if (typeof document === "undefined") return null;
 
-  // Minimized — a Gmail-style dock in the bottom-right corner, roughly a
-  // quarter of the viewport, so the note stays visible (and its content
-  // glanceable) instead of shrinking to a forgettable pill.
+  // Minimized — title strip only, docked bottom-right (Gmail's minimize),
+  // not a bigger preview panel. Click it, or the restore icon, to reopen at
+  // whatever size (compact/big) it had before minimizing.
   if (minimized) {
-    const preview = bodyMd.replace(/[#>*`_-]/g, "").trim();
     return createPortal(
-      <div className="fixed bottom-0 right-4 z-50 flex h-[70vh] max-h-[520px] w-full max-w-sm flex-col overflow-hidden rounded-t-2xl border border-border bg-surface shadow-menu sm:right-6">
-        <div className="flex h-11 shrink-0 items-center justify-between gap-2 bg-sidebar-bg pl-3 pr-1">
-          <button
-            type="button"
-            onClick={() => setMinimized(false)}
-            aria-label="Restore note"
-            className="flex min-w-0 flex-1 items-center gap-2 rounded-field py-1 text-left"
-          >
-            <Icon name="note" size={16} className="shrink-0 text-sidebar-text" />
+      <div className="fixed bottom-0 right-4 z-50 w-full max-w-xs overflow-hidden rounded-t-2xl border border-border bg-surface shadow-menu sm:right-6 sm:max-w-sm">
+        <button
+          type="button"
+          onClick={() => setMinimized(false)}
+          aria-label="Restore note"
+          className="flex h-11 w-full items-center justify-between gap-2 bg-sidebar-bg pl-3 pr-1 text-left"
+        >
+          <span className="flex min-w-0 flex-1 items-center gap-2">
+            <Icon name="note" size={15} className="shrink-0 text-sidebar-text" />
             <span className="truncate text-[13px] font-medium text-sidebar-text">{title || "Untitled note"}</span>
             {dirty && <span className="shrink-0 text-[11px] text-sidebar-text/70">· unsaved</span>}
-          </button>
-          <div className="flex shrink-0 items-center gap-0.5">
-            <button
-              type="button"
-              onClick={() => setMinimized(false)}
+          </span>
+          <span className="flex shrink-0 items-center gap-0.5">
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation();
+                setMinimized(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.stopPropagation();
+                  setMinimized(false);
+                }
+              }}
               aria-label="Restore note"
               className="inline-flex h-8 w-8 items-center justify-center rounded-field text-sidebar-text transition-colors hover:bg-sidebar-active hover:text-white"
             >
-              <Icon name="chevron-up" size={16} />
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
+              <RestoreIcon />
+            </span>
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.stopPropagation();
+                  onClose();
+                }
+              }}
               aria-label="Close note"
               className="inline-flex h-8 w-8 items-center justify-center rounded-field text-sidebar-text transition-colors hover:bg-sidebar-active hover:text-white"
             >
               <Icon name="x" size={16} />
-            </button>
-          </div>
-        </div>
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => setMinimized(false)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") setMinimized(false);
-          }}
-          className="min-h-0 flex-1 cursor-pointer overflow-hidden p-4 text-left transition-colors hover:bg-canvas focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
-        >
-          <p className="mb-1 truncate text-[13px] font-semibold text-text">{data?.client ?? "Loading…"}</p>
-          <p className="line-clamp-6 whitespace-pre-line text-[13px] text-text-muted">
-            {preview || "No content yet."}
-          </p>
-        </div>
+            </span>
+          </span>
+        </button>
       </div>,
       document.body,
     );
@@ -237,30 +263,48 @@ export function NoteSheet({
       </Badge>
     ));
 
+  // Gmail-style floating window — no scrim; the rest of the page stays visible
+  // and interactive around it. Compact by default, ~1200px max when expanded.
+  const sizeClasses = big
+    ? "inset-0 m-auto h-[85vh] max-h-[860px] w-[92vw] max-w-[1200px] rounded-2xl"
+    : "bottom-0 right-4 sm:right-6 h-[560px] max-h-[80vh] w-full max-w-[520px] rounded-t-2xl";
+
   return createPortal(
-    <div className="fixed inset-0 z-50 bg-scrim">
-      {/* nearly full-screen sheet — slides up from the bottom, small gap left at
-          the top so it still reads as a sheet rather than a hard page swap */}
-      <div className="sheet-rise absolute inset-x-0 bottom-0 top-6 flex flex-col overflow-hidden rounded-t-2xl shadow-menu sm:top-10">
-      {/* dark top strip */}
-      <div className="flex h-11 shrink-0 items-center justify-between bg-sidebar-bg px-2">
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close note"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-field text-sidebar-text transition-colors hover:bg-sidebar-active hover:text-white"
-        >
-          <Icon name="x" size={18} />
-        </button>
-        <span className="text-[13px] font-medium text-sidebar-text">Clinical note</span>
-        <button
-          type="button"
-          onClick={() => setMinimized(true)}
-          aria-label="Minimize note"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-field text-sidebar-text transition-colors hover:bg-sidebar-active hover:text-white"
-        >
-          <ExpandCollapseIcon />
-        </button>
+    <div
+      className={`sheet-rise fixed z-50 flex flex-col overflow-hidden border border-border bg-surface shadow-menu transition-[width,height,border-radius] duration-200 ${sizeClasses}`}
+    >
+      {/* dark title strip — label left, minimize · expand/restore · close right */}
+      <div className="flex h-11 shrink-0 items-center justify-between gap-1 bg-sidebar-bg pl-3 pr-1">
+        <span className="flex min-w-0 items-center gap-2 text-[13px] font-medium text-sidebar-text">
+          <Icon name="note" size={15} className="shrink-0" />
+          <span className="truncate">Clinical note</span>
+        </span>
+        <div className="flex shrink-0 items-center gap-0.5">
+          <button
+            type="button"
+            onClick={() => setMinimized(true)}
+            aria-label="Minimize note"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-field text-sidebar-text transition-colors hover:bg-sidebar-active hover:text-white"
+          >
+            <MinimizeIcon />
+          </button>
+          <button
+            type="button"
+            onClick={() => setBig((b) => !b)}
+            aria-label={big ? "Restore note" : "Expand note"}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-field text-sidebar-text transition-colors hover:bg-sidebar-active hover:text-white"
+          >
+            {big ? <RestoreIcon /> : <ExpandIcon />}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close note"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-field text-sidebar-text transition-colors hover:bg-sidebar-active hover:text-white"
+          >
+            <Icon name="x" size={16} />
+          </button>
+        </div>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col bg-canvas">
@@ -324,8 +368,9 @@ export function NoteSheet({
             )}
 
             <div className="relative flex min-h-0 flex-1">
-              {/* AIPanel — left rail when a session transcript exists */}
-              {data.transcript && (
+              {/* AIPanel — left rail when a session transcript exists; needs the
+                  big (~1200px) size to have room, so it's hidden while compact. */}
+              {data.transcript && big && (
                 <aside className="hidden w-80 shrink-0 overflow-y-auto border-r border-border bg-surface p-4 lg:block">
                   <div className="mb-4 flex items-center gap-2.5">
                     <Avatar name={data.client} hue="teal" size="md" />
@@ -435,7 +480,6 @@ export function NoteSheet({
             </div>
           </>
         )}
-      </div>
       </div>
 
       {/* sign / lock confirmation */}
