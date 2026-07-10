@@ -381,6 +381,21 @@ export interface Referral {
   targetKind?: "provider" | "program";
 }
 
+export type ProviderLeadStatus = "new" | "contacted" | "closed";
+
+/** Public "request an appointment" lead for an off-platform directory provider. */
+export interface ProviderLead {
+  id: string;
+  providerId: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  payer: string | null;
+  note: string | null;
+  status: ProviderLeadStatus;
+  createdAt: string;
+}
+
 export type ProviderApplicationStatus = "new" | "reviewing" | "contacted" | "closed";
 
 export interface ProviderApplication {

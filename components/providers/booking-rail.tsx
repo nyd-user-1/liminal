@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { BookingSheet } from "@/components/providers/booking-sheet";
+import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
+import { Field } from "@/components/ui/field";
+import { Icon } from "@/components/ui/icons";
 import { Logo } from "@/components/ui/logo";
 import { Spinner } from "@/components/ui/spinner";
 import { TextLink } from "@/components/ui/text-link";
@@ -41,6 +44,71 @@ const dayKey = (d: Date) => {
 
 const prettyDate = (key: string) =>
   new Date(`${key}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+
+/** Lead capture for off-platform providers — posts to /api/directory/leads. */
+function RequestAppointmentForm({ providerId }: { providerId: string }) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [payer, setPayer] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSending(true);
+    try {
+      const res = await fetch("/api/directory/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providerId, name, email, phone, payer }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Could not send your request.");
+        return;
+      }
+      setSent(true);
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (sent) {
+    return (
+      <div className="rounded-field bg-teal-100 p-4">
+        <p className="flex items-start gap-2 text-[15px] font-medium text-text">
+          <Icon name="circle-check" size={18} className="mt-0.5 shrink-0 text-primary" />
+          Request sent
+        </p>
+        <p className="mt-1.5 text-sm text-text-body">
+          Our care team will reach out within one business day to coordinate with this provider — or match you with a
+          similar one who has openings this week.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-3">
+      <Field label="Your name" name="name" required value={name} onChange={(e) => setName(e.target.value)} placeholder="First and last name" />
+      <Field label="Email" name="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+      <Field label="Phone" name="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Optional" />
+      <Field label="Insurance" name="payer" value={payer} onChange={(e) => setPayer(e.target.value)} placeholder="e.g. Aetna — optional" />
+      {error && <p className="text-sm text-danger">{error}</p>}
+      <Button type="submit" fullWidth loading={sending}>
+        Request appointment
+      </Button>
+      <p className="text-[12px] leading-relaxed text-text-muted">
+        Liminal will contact this provider on your behalf and follow up with you by email.
+      </p>
+    </form>
+  );
+}
 
 export function BookingRail({
   practitionerId,
@@ -188,6 +256,8 @@ export function BookingRail({
             This is a directory listing sourced from the national provider registry — {directoryName ?? "this provider"}{" "}
             isn&apos;t on Liminal&apos;s booking platform yet.
           </p>
+
+          <RequestAppointmentForm providerId={practitionerId} />
 
           <div className="rounded-field border border-border bg-canvas p-3">
             <Logo size="sm" className="mb-2" />

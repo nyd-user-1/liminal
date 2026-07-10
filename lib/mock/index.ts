@@ -20,6 +20,7 @@ import type {
   Payer,
   Payment,
   ProviderApplication,
+  ProviderLead,
   ProviderProfile,
   Referral,
   Service,
@@ -68,6 +69,7 @@ export interface MockStore {
   directoryPrograms: Map<string, DirectoryProgram>;
   referrals: Map<string, Referral>;
   providerApplications: Map<string, ProviderApplication>;
+  providerLeads: Map<string, ProviderLead>;
   providerProfiles: Map<string, ProviderProfile>;
   passwordTokens: Map<string, PasswordToken>;
 }
@@ -105,6 +107,7 @@ function createStore(): MockStore {
     directoryPrograms: new Map(),
     referrals: new Map(),
     providerApplications: new Map(),
+    providerLeads: new Map(),
     providerProfiles: new Map(),
     passwordTokens: new Map(),
   };

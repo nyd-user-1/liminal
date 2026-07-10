@@ -6,6 +6,7 @@ import type {
   DirectoryProgram,
   DirectoryProvider,
   ProviderApplication,
+  ProviderLead,
   Referral,
   ReferralStatus,
 } from "@/lib/types";
@@ -660,4 +661,106 @@ function paginate<T>(all: T[], page: number, pageSize: number): Page<T> {
 
 function unique(vals: Array<string | null>): string[] {
   return [...new Set(vals.filter((v): v is string => !!v))].sort();
+}
+
+// ── provider leads (public "request an appointment" on directory profiles) ────
+
+type LeadRow = {
+  id: string;
+  provider_id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  payer: string | null;
+  note: string | null;
+  status: ProviderLead["status"];
+  created_at: string | Date;
+};
+
+function toLead(r: LeadRow): ProviderLead {
+  return {
+    id: r.id,
+    providerId: r.provider_id,
+    name: r.name,
+    email: r.email,
+    phone: r.phone,
+    payer: r.payer,
+    note: r.note,
+    status: r.status,
+    createdAt: isoDateTime(r.created_at),
+  };
+}
+
+export async function createProviderLead(input: {
+  providerId: string;
+  name: string;
+  email: string;
+  phone?: string | null;
+  payer?: string | null;
+  note?: string | null;
+}): Promise<ProviderLead> {
+  if (hasDb) {
+    const rows = (await sql`
+      INSERT INTO provider_leads (provider_id, name, email, phone, payer, note)
+      VALUES (${input.providerId}, ${input.name}, ${input.email},
+              ${input.phone ?? null}, ${input.payer ?? null}, ${input.note ?? null})
+      RETURNING *
+    `) as LeadRow[];
+    return toLead(rows[0]);
+  }
+  const lead: ProviderLead = {
+    id: mockId(),
+    providerId: input.providerId,
+    name: input.name,
+    email: input.email,
+    phone: input.phone ?? null,
+    payer: input.payer ?? null,
+    note: input.note ?? null,
+    status: "new",
+    createdAt: new Date().toISOString(),
+  };
+  mockStore().providerLeads.set(lead.id, lead);
+  return lead;
+}
+
+export async function listProviderLeads(f?: { providerId?: string }): Promise<ProviderLead[]> {
+  if (hasDb) {
+    const rows = (await sql`
+      SELECT * FROM provider_leads
+      WHERE (${f?.providerId ?? null}::uuid IS NULL OR provider_id = ${f?.providerId ?? null})
+      ORDER BY created_at DESC
+    `) as LeadRow[];
+    return rows.map(toLead);
+  }
+  return [...mockStore().providerLeads.values()]
+    .filter((l) => !f?.providerId || l.providerId === f.providerId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+// ── sitemap support ───────────────────────────────────────────────────────────
+
+export async function countActiveProviders(): Promise<number> {
+  if (hasDb) {
+    const rows = (await sql`SELECT count(*)::int AS n FROM directory_providers WHERE deactivated_at IS NULL AND slug IS NOT NULL`) as Array<{ n: number }>;
+    return rows[0]?.n ?? 0;
+  }
+  return [...mockStore().directoryProviders.values()].filter((p) => !p.deactivatedAt && p.slug).length;
+}
+
+/** One stable, id-ordered page of provider slugs for the chunked sitemap. */
+export async function listProviderSlugs(page: number, pageSize: number): Promise<string[]> {
+  if (hasDb) {
+    const rows = (await sql`
+      SELECT slug FROM directory_providers
+      WHERE deactivated_at IS NULL AND slug IS NOT NULL
+      ORDER BY id
+      LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}
+    `) as Array<{ slug: string }>;
+    return rows.map((r) => r.slug);
+  }
+  return [...mockStore().directoryProviders.values()]
+    .filter((p) => !p.deactivatedAt && p.slug)
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .slice((page - 1) * pageSize, page * pageSize)
+    .map((p) => p.slug as string);
 }
