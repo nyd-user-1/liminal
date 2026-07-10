@@ -8,48 +8,42 @@ never `git add -A`, leave other sessions' dirty files alone: `components/provide
 No builds (dev server :3010 running), no browser checks — `npx tsc --noEmit` only
 (4 pre-existing stale `.next/types` validator errors are NOT ours). Delete this file in the final commit.
 
+## CORRECTIONS from Brendan (came in after the original asks — these override)
+1. Tab restyle (teal fill/white text) — REVERTED, back to underline style. Done (`ad13cf0`).
+2. TopBar button group (bell/profile/chat) — REVERTED to original bell + UserChip; actions stay
+   in the right cluster but ALL TopBar action buttons are now `size="sm"`. Done (`0e2236a`).
+3. Billing KPI strip must NOT sit above the split, and the split must be ONE container (not two
+   separate cards). KPIs now live on a dedicated "Overview" tab in billing. Done (`47d17a8`).
+
 ## The asks (Brendan, 2026-07-10 ~3pm)
 
 ### A. Global UI standardization
-- [ ] **Tabs primitive** (`components/ui/tabs.tsx`): selected tab = teal (`bg-primary`) with white
-  text, rounded top corners only (like the ghost hover wash but solid) — count badge inside an
-  active tab needs `bg-white/20 text-white`. Hover behavior unchanged.
-- [ ] **TopBar** (`components/shell/topbar.tsx`): move the `TOPBAR_ACTIONS_ID` slot to sit right
-  AFTER the page title (left cluster). Right cluster becomes a standardized 3-button group:
-  bell (exists), profile icon (`person-circle` IconButton wrapping the existing DropdownMenu
-  with name/email/sign-out — UserChip is REMOVED), chat icon (`message` IconButton →
-  `/inbox` for practitioners, `/portal/messages` for portal variant). Applies to both variants.
-- [ ] Any page rendering its own "+ New"-style primary action in content (library page does —
-  see Image: "+ New" next to search) moves it into `<TopBarActions>` so every page's action
-  appears after the H1. Billing/inbox already use TopBarActions.
+- [x] **Tabs primitive** — teal-fill restyle applied then superseded by correction #1 (Brendan
+  reverted it; underline style is the final answer here, do not redo).
+- [x] **TopBar** — 3-button group (bell/profile-icon/chat) built then superseded by correction #2
+  (Brendan reverted to bell + UserChip; final state is `0e2236a`, do not redo the 3-button group).
+- [x] "+ New"-style primary actions confirmed routed through `<TopBarActions>` on every page
+  (library, calendar, clients, settings/availability, settings/locations, settings/services,
+  portal/appointments, portal/messages; billing/inbox already did) — all sized `sm` in `0e2236a`.
 
 ### B. Billing restructure (`/billing`)
-- [ ] KPI strip (4 StatCards from `invoiceStats`) moves OUT of the overview pane into its own
-  full-width container ABOVE everything, rendered by BillingShell (layout already loads stats).
-  Remove the mobile mini-stat strip from the list pane.
-- [ ] Open/Settled/Payers tabs move OUT of the split container → page-level Tabs (below KPI strip).
-- [ ] SearchInput moves OUT of the container → page level below tabs (like clients/directory pages).
-- [ ] Left list pane styled like the calendar agenda panel (READ
-  `components/calendar/*` or wherever the agenda pane lives — match its header/row/card look).
-- [ ] Invoice pane (`components/billing/invoice-pane.tsx`):
-  - Back arrow (always visible, not just mobile): IconButton arrow-left at header left →
-    `router.push("/billing")` (fixes "can't get back to overview"). Remove the mobile-only
-    back TextLink row from `app/(app)/billing/[id]/page.tsx`.
-  - REMOVE the "No Stripe key" info Banner entirely.
-  - MOVE the action buttons (Send/Record/Collect + kebab) from the header into the banner's old
-    spot: top of the scroll body, above the document card.
-  - A bit more right padding between cards and the scrollbar in scroll containers.
-- [ ] Overview page (`app/(app)/billing/page.tsx`): now just "Needs attention" as a real `Table`
-  (client wrapper for row onClick → new tiny `components/billing/attention-table.tsx`).
-  Rule of thumb from Brendan: content cards >1000px wide shouldn't be cards → use tables.
-  Also convert the Payments list in invoice-pane to a Table.
+- [x] KPI strip superseded by correction #3: lives on its own "Overview" tab, not a full-width
+  container above everything (Brendan: KPIs must not sit above the split). Mobile mini-stat strip
+  removed. Done `6fccf05` + `47d17a8`.
+- [x] Open/Settled/Payers (+Overview) tabs at page level, below nothing but the H1 — `6fccf05`.
+- [x] SearchInput at page level below tabs — `6fccf05`.
+- [x] Left list pane agenda-style rows + pinned count — `6fccf05`.
+- [x] Invoice pane: always-visible back arrow → `/billing`, mobile-only back TextLink removed,
+  "No Stripe key" Banner removed, action buttons moved to top of scroll body, extra scrollbar
+  padding — `6fccf05`.
+- [x] Overview "Needs attention" as a real Table (`components/billing/attention-table.tsx`),
+  Payments list in invoice-pane also a Table — `6fccf05`.
+- [x] Split container unified into ONE bordered/shadowed container (correction #3) — `47d17a8`.
 
 ### C. Inbox (`components/messaging/inbox-shell.tsx`)
-- [ ] Same treatment: tabs (page-level, out of container) + search above container.
-- [ ] Add **Drafts** tab: compose-modal drafts persisted in localStorage
-  (`liminal:inbox-drafts` = [{id, clientId, subject, body, savedAt}]). Closing compose with
-  content saves a draft; Drafts tab lists them (client name via clients prop) with reopen-on-click
-  (prefill compose) + delete; sending clears the draft.
+- [x] Page-level tabs + search above container — `670eb6f`.
+- [x] Drafts tab: compose-modal drafts persisted in localStorage (`liminal:inbox-drafts`),
+  reopen-on-click, delete, save-on-close, clear-on-send — `670eb6f`.
 
 ### D. Library / forms
 - [ ] Form detail (`app/(app)/library/forms/[id]` / library page): breadcrumbs move to UNDER the
@@ -78,8 +72,21 @@ No builds (dev server :3010 running), no browser checks — `npx tsc --noEmit` o
 ## Done so far (check git log to confirm)
 - [x] Everything in the previous commit `4cf6dc7` (billing split view, pay sheet, emails,
   SidePanel mobileSheet, LIMINAL_EMAIL_FROM=billing@nysgpt.com in .env.local).
+- [x] Chunk A (b322805 + ad13cf0 revert): library New→TopBar, breadcrumb toggle-back under
+  library search (Breadcrumb gained onClick items), tab restyle applied then reverted.
+- [x] Chunk B billing restructure (6fccf05 + 47d17a8): page-level tabs incl. Overview (KPIs),
+  search toolbar, single split container, agenda-style rows + pinned count, invoice pane back
+  arrow, Stripe banner removed, actions in body, payments + needs-attention as Tables.
+- [x] Correction #2 TopBar (0e2236a): bell + UserChip revert, size=sm across all TopBar actions.
+- [x] Chunk C inbox (670eb6f): page-level Open/Closed/Drafts tabs + search, localStorage drafts
+  (save on close, reopen, delete, clear on send).
+- Picked up by a fresh session (usage-window handoff) at `670eb6f` — everything above is
+  committed and verified clean (`npx tsc --noEmit`, only the 4 pre-existing stale
+  `.next/types` errors, not ours).
+- NEXT: forms chunk (D), then schedules/headshots (E), then ADHD (last).
 
 ## Order of attack
-1. This doc. 2. Tabs + TopBar (commit). 3. Billing restructure (commit). 4. Inbox (commit).
-5. Library breadcrumbs + New button + 6 forms seed (commit). 6. Schedules/headshots (commit).
-7. ADHD assessment (commit). Update checkboxes + "Done so far" after each commit.
+1. This doc. 2. ~~Tabs + TopBar (commit).~~ 3. ~~Billing restructure (commit).~~
+4. ~~Inbox (commit).~~ 5. Library breadcrumbs + New button + 6 forms seed (commit).
+6. Schedules/headshots (commit). 7. ADHD assessment (commit).
+Update checkboxes + "Done so far" after each commit.
