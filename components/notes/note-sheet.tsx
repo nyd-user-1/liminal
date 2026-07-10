@@ -170,14 +170,57 @@ export function NoteSheet({
 
   if (typeof document === "undefined") return null;
 
+  // Minimized — a Gmail-style dock in the bottom-right corner, roughly a
+  // quarter of the viewport, so the note stays visible (and its content
+  // glanceable) instead of shrinking to a forgettable pill.
   if (minimized) {
+    const preview = bodyMd.replace(/[#>*`_-]/g, "").trim();
     return createPortal(
-      <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-card border border-border bg-surface py-2 pl-4 pr-2 shadow-menu">
-        <Icon name="note" size={18} className="text-primary" />
-        <span className="max-w-56 truncate text-sm font-semibold text-text">{title || "Untitled note"}</span>
-        {dirty && <span className="text-[12px] text-text-muted">· unsaved</span>}
-        <IconButton icon="chevron-up" label="Restore note" onClick={() => setMinimized(false)} />
-        <IconButton icon="x" label="Close note" onClick={onClose} />
+      <div className="fixed bottom-0 right-4 z-50 flex h-[70vh] max-h-[520px] w-full max-w-sm flex-col overflow-hidden rounded-t-2xl border border-border bg-surface shadow-menu sm:right-6">
+        <div className="flex h-11 shrink-0 items-center justify-between gap-2 bg-sidebar-bg pl-3 pr-1">
+          <button
+            type="button"
+            onClick={() => setMinimized(false)}
+            aria-label="Restore note"
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-field py-1 text-left"
+          >
+            <Icon name="note" size={16} className="shrink-0 text-sidebar-text" />
+            <span className="truncate text-[13px] font-medium text-sidebar-text">{title || "Untitled note"}</span>
+            {dirty && <span className="shrink-0 text-[11px] text-sidebar-text/70">· unsaved</span>}
+          </button>
+          <div className="flex shrink-0 items-center gap-0.5">
+            <button
+              type="button"
+              onClick={() => setMinimized(false)}
+              aria-label="Restore note"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-field text-sidebar-text transition-colors hover:bg-sidebar-active hover:text-white"
+            >
+              <Icon name="chevron-up" size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close note"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-field text-sidebar-text transition-colors hover:bg-sidebar-active hover:text-white"
+            >
+              <Icon name="x" size={16} />
+            </button>
+          </div>
+        </div>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setMinimized(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setMinimized(false);
+          }}
+          className="min-h-0 flex-1 cursor-pointer overflow-hidden p-4 text-left transition-colors hover:bg-canvas focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+        >
+          <p className="mb-1 truncate text-[13px] font-semibold text-text">{data?.client ?? "Loading…"}</p>
+          <p className="line-clamp-6 whitespace-pre-line text-[13px] text-text-muted">
+            {preview || "No content yet."}
+          </p>
+        </div>
       </div>,
       document.body,
     );
@@ -195,7 +238,10 @@ export function NoteSheet({
     ));
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex flex-col">
+    <div className="fixed inset-0 z-50 bg-scrim">
+      {/* nearly full-screen sheet — slides up from the bottom, small gap left at
+          the top so it still reads as a sheet rather than a hard page swap */}
+      <div className="sheet-rise absolute inset-x-0 bottom-0 top-6 flex flex-col overflow-hidden rounded-t-2xl shadow-menu sm:top-10">
       {/* dark top strip */}
       <div className="flex h-11 shrink-0 items-center justify-between bg-sidebar-bg px-2">
         <button
@@ -389,6 +435,7 @@ export function NoteSheet({
             </div>
           </>
         )}
+      </div>
       </div>
 
       {/* sign / lock confirmation */}

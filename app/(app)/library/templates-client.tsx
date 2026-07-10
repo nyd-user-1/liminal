@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { FormBuilder } from "@/components/forms/form-builder";
 import { NoteSheet } from "@/components/notes/note-sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -172,7 +172,6 @@ function ChipMenu({
 
 export function TemplatesIndex() {
   const toast = useToast();
-  const router = useRouter();
   const [tab, setTab] = useState("all");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string | undefined>();
@@ -186,6 +185,7 @@ export function TemplatesIndex() {
   const [useClient, setUseClient] = useState("");
   const [using, setUsing] = useState(false);
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
+  const [openForm, setOpenForm] = useState<(Form & { responseCount: number }) | null>(null);
 
   useEffect(() => {
     fetch("/api/templates")
@@ -284,6 +284,19 @@ export function TemplatesIndex() {
   }
 
   // ── form actions (create / duplicate / delete) ──────────────────────────────
+  const refreshForms = async () => {
+    const d = await fetch("/api/forms").then((r) => r.json()).catch(() => null);
+    if (d) setForms(d.forms ?? []);
+  };
+
+  // Opening a form replaces the grid in place (below the Tabs) rather than
+  // navigating to a separate page; closing it refreshes the grid so any
+  // title/status edits made in the builder show up on the card.
+  const closeForm = () => {
+    setOpenForm(null);
+    refreshForms();
+  };
+
   const createForm = async () => {
     const res = await fetch("/api/forms", {
       method: "POST",
@@ -292,7 +305,9 @@ export function TemplatesIndex() {
     });
     if (!res.ok) return toast("Could not create the form.", "danger");
     const form = await res.json();
-    router.push(`/library/forms/${form.id}`);
+    const withCount = { ...form, responseCount: 0 };
+    setForms((fs) => [...(fs ?? []), withCount]);
+    setOpenForm(withCount);
   };
   const duplicateForm = async (f: Form) => {
     const res = await fetch("/api/forms", {
@@ -383,11 +398,11 @@ export function TemplatesIndex() {
     category,
     statusLabel: f.status === "published" ? "Published" : "Draft",
     tag: <Badge variant={f.status === "published" ? "success" : "warning"}>{f.status === "published" ? "Published" : "Draft"}</Badge>,
-    onOpen: () => router.push(`/library/forms/${f.id}`),
+    onOpen: () => setOpenForm(f),
     menu: cardMenu(`Actions for ${f.title}`, {
       canRename: true,
       onDuplicate: () => duplicateForm(f),
-      onRename: () => router.push(`/library/forms/${f.id}`),
+      onRename: () => setOpenForm(f),
       onDelete: () => deleteForm(f),
     }),
   });
@@ -499,9 +514,9 @@ export function TemplatesIndex() {
   const overflowTabItems = SECTIONS.filter((s) => !PRIMARY_TABS.includes(s.key)).map((s) => ({ key: s.key, label: s.title }));
 
   return (
-    <>
+    <div className="flex h-full min-h-0 flex-col">
       <Tabs
-        className="mb-4"
+        className="mb-4 shrink-0"
         active={tab}
         onChange={setTab}
         items={primaryTabItems}
@@ -509,26 +524,36 @@ export function TemplatesIndex() {
         overflowLabel="View More"
       />
 
-      {/* Persistent "New" + search + filters across every tab view */}
-      <Toolbar className="mb-6 flex-wrap">
-        <Button leftIcon="plus" size="sm" onClick={newAction}>
-          New
-        </Button>
-        <SearchInput
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search the library…"
-          className="max-w-md flex-1"
-        />
-        <ChipMenu label="Status" value={status} options={allStatuses} onSelect={setStatus} onClear={() => setStatus(undefined)} />
-        <ChipMenu label="Tags" value={category} options={allCategories} onSelect={setCategory} onClear={() => setCategory(undefined)} />
-      </Toolbar>
+      {/* Opening a form takes the place of the toolbar + card grid, right
+          below the Tabs, instead of navigating to a separate page. */}
+      {openForm ? (
+        <div className="flex min-h-0 flex-1 flex-col">
+          <FormBuilder form={openForm} clients={clients} onBack={closeForm} />
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {/* Persistent "New" + search + filters across every tab view */}
+          <Toolbar className="mb-6 flex-wrap">
+            <Button leftIcon="plus" size="sm" onClick={newAction}>
+              New
+            </Button>
+            <SearchInput
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search the library…"
+              className="max-w-md flex-1"
+            />
+            <ChipMenu label="Status" value={status} options={allStatuses} onSelect={setStatus} onClear={() => setStatus(undefined)} />
+            <ChipMenu label="Tags" value={category} options={allCategories} onSelect={setCategory} onClear={() => setCategory(undefined)} />
+          </Toolbar>
 
-      {tab === "all" ? (
-        <div className="space-y-16">{SECTIONS.map((s) => renderSection(s, false))}</div>
-      ) : activeSection ? (
-        renderSection(activeSection, true)
-      ) : null}
+          {tab === "all" ? (
+            <div className="space-y-16">{SECTIONS.map((s) => renderSection(s, false))}</div>
+          ) : activeSection ? (
+            renderSection(activeSection, true)
+          ) : null}
+        </div>
+      )}
 
       {/* create / edit template — centered Modal (scrim overlay) suits this form better than a slide-over */}
       <Modal
@@ -618,6 +643,6 @@ export function TemplatesIndex() {
       )}
 
       {openNoteId && <NoteSheet noteId={openNoteId} onClose={() => setOpenNoteId(null)} />}
-    </>
+    </div>
   );
 }

@@ -183,6 +183,16 @@ body {
   .mkt-rise, .mkt-fade, .mkt-develop { animation: none; opacity: 1; transform: none; }
 }
 
+/* ── Bottom-sheet slide-up (product UI, e.g. NoteSheet) ─────────────────── */
+@keyframes sheet-rise {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.sheet-rise { animation: sheet-rise 0.24s cubic-bezier(0.16, 1, 0.3, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .sheet-rise { animation: none; transform: none; }
+}
+
 /* ── Watercolour paintings float on the paper ground ────────────────────────
    Every source painting is a scene on its own sheet of (slightly inconsistent)
    cream paper. On any flat ground that paper edge reads as a hard rectangle —

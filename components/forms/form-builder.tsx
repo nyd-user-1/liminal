@@ -1,9 +1,9 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { SendFormModal } from "@/components/forms/send-form-modal";
 import { Badge } from "@/components/ui/badge";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel, Input } from "@/components/ui/field";
 import { Icon } from "@/components/ui/icons";
@@ -11,6 +11,19 @@ import { IconButton } from "@/components/ui/icon-button";
 import { Toggle } from "@/components/ui/toggle";
 import { useToast } from "@/components/ui/toast";
 import type { Form, FormBlock, FormBlockType } from "@/lib/types";
+
+// Drag handle glyph — not in the foundation icon set → local inline SVG
+// (FLAG), matching the convention already used for block-type glyphs below.
+const GripIcon = () => (
+  <svg viewBox="0 0 24 24" width={14} height={14} fill="currentColor" aria-hidden>
+    <circle cx="9" cy="6" r="1.5" />
+    <circle cx="9" cy="12" r="1.5" />
+    <circle cx="9" cy="18" r="1.5" />
+    <circle cx="15" cy="6" r="1.5" />
+    <circle cx="15" cy="12" r="1.5" />
+    <circle cx="15" cy="18" r="1.5" />
+  </svg>
+);
 
 // Form builder (Carepatron Form UI): left BlockPalette · center QuestionCards
 // (edit-in-place, teal accent bar on the active card, up/down reorder,
@@ -119,6 +132,8 @@ const OPTION_TYPES: FormBlockType[] = ["select", "radio", "checkbox", "scale"];
 
 // Native HTML5 drag payload for palette → canvas (same approach as the hq DnD).
 const DND_BLOCK = "application/x-liminal-block";
+// Separate payload for reordering blocks already committed to the canvas.
+const DND_REORDER = "application/x-liminal-block-reorder";
 
 function newBlock(type: FormBlockType): FormBlock {
   const id = `b_${Math.random().toString(36).slice(2, 9)}`;
@@ -174,32 +189,51 @@ function BlockPreview({ block }: { block: FormBlock }) {
 export function FormBuilder({
   form,
   clients,
+  onBack,
 }: {
   form: Form;
   clients: Array<{ id: string; name: string }>;
+  /** Back-arrow handler. Defaults to navigating to /library (standalone route). */
+  onBack?: () => void;
 }) {
+  const router = useRouter();
   const toast = useToast();
   const [title, setTitle] = useState(form.title);
   // Description is preserved on save but no longer edited from the builder UI.
   const [description] = useState(form.description ?? "");
   const [blocks, setBlocks] = useState<FormBlock[]>(form.schema);
   const [status, setStatus] = useState(form.status);
-  const [selected, setSelected] = useState<string | null>(null);
+  // Blocks default open (all expanded); click a card's type row to collapse it.
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(form.schema.map((b) => b.id)));
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
 
   // Palette → canvas drag-and-drop (native HTML5, hq pattern).
   const [dropActive, setDropActive] = useState(false);
   const dragDepth = useRef(0);
   const canvasRef = useRef<HTMLDivElement>(null);
 
+  const handleBack = () => (onBack ? onBack() : router.push("/library"));
+
   const mutate = (next: FormBlock[]) => {
     setBlocks(next);
     setDirty(true);
   };
 
+  const expandBlock = (id: string) => setExpanded((prev) => new Set(prev).add(id));
+  const toggleExpanded = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
   const hasBlockPayload = (e: React.DragEvent) => e.dataTransfer.types.includes(DND_BLOCK);
+  const hasReorderPayload = (e: React.DragEvent) => e.dataTransfer.types.includes(DND_REORDER);
+  const hasAnyPayload = (e: React.DragEvent) => hasBlockPayload(e) || hasReorderPayload(e);
 
   // Insertion index from the pointer's Y against each committed card's midpoint.
   const dropIndexAt = (clientY: number): number => {
@@ -213,6 +247,23 @@ export function FormBuilder({
   };
 
   const onCanvasDrop = (e: React.DragEvent) => {
+    if (hasReorderPayload(e)) {
+      e.preventDefault();
+      dragDepth.current = 0;
+      setDropActive(false);
+      const id = e.dataTransfer.getData(DND_REORDER);
+      const from = blocks.findIndex((b) => b.id === id);
+      setDraggingId(null);
+      if (from === -1) return;
+      const to = dropIndexAt(e.clientY);
+      const insertAt = from < to ? to - 1 : to;
+      if (insertAt === from) return;
+      const next = [...blocks];
+      const [moved] = next.splice(from, 1);
+      next.splice(insertAt, 0, moved);
+      mutate(next);
+      return;
+    }
     if (!hasBlockPayload(e)) return;
     e.preventDefault();
     dragDepth.current = 0;
@@ -222,7 +273,7 @@ export function FormBuilder({
     const b = newBlock(type);
     const at = blocks.length === 0 ? 0 : dropIndexAt(e.clientY);
     mutate([...blocks.slice(0, at), b, ...blocks.slice(at)]);
-    setSelected(b.id);
+    expandBlock(b.id);
   };
 
   const patchBlock = (id: string, patch: Partial<FormBlock>) =>
@@ -260,18 +311,16 @@ export function FormBuilder({
 
   return (
     <>
-      {/* Entity header — form title + live status tag; breadcrumb beneath it */}
-      <div className="mb-1 flex items-center gap-3">
-        <Icon name="clipboard" size={26} className="text-text-body" />
-        <h1 className="text-[28px] font-bold text-text">{title}</h1>
+      {/* Entity header — back arrow + title sized/styled like the Library
+          section header (PageHeader), with the live status tag alongside. */}
+      <div className="mb-6 flex items-center gap-3">
+        <IconButton icon="arrow-left" label="Back to Library" onClick={handleBack} />
+        <Icon name="clipboard" size={26} className="shrink-0 text-text-body" />
+        <h1 className="truncate text-[22px] font-bold text-text md:text-[28px]">{title}</h1>
         <Badge variant={status === "published" ? "success" : "warning"}>
           {status === "published" ? "Published" : "Draft"}
         </Badge>
       </div>
-      <Breadcrumb
-        items={[{ label: "Library", href: "/library" }, { label: "Forms", href: "/library/forms" }, { label: form.title }]}
-        className="mb-6"
-      />
 
       <div className="flex min-h-0 flex-1 gap-5">
       {/* Left rail — Form settings (fixed, top) + Add-a-block palette (scrolls),
@@ -313,7 +362,7 @@ export function FormBuilder({
               onClick={() => {
                 const b = newBlock(p.type);
                 mutate([...blocks, b]);
-                setSelected(b.id);
+                expandBlock(b.id);
               }}
               className="flex w-full cursor-grab items-center gap-2.5 rounded-field px-1.5 py-2 text-left transition-colors hover:bg-canvas active:cursor-grabbing"
             >
@@ -333,9 +382,9 @@ export function FormBuilder({
       {/* Canvas — fills height; scrolls when populated; palette blocks drop here */}
       <div
         ref={canvasRef}
-        onDragEnter={(e) => { if (!hasBlockPayload(e)) return; e.preventDefault(); dragDepth.current += 1; setDropActive(true); }}
-        onDragOver={(e) => { if (!hasBlockPayload(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = "copy"; }}
-        onDragLeave={(e) => { if (!hasBlockPayload(e)) return; dragDepth.current -= 1; if (dragDepth.current <= 0) { dragDepth.current = 0; setDropActive(false); } }}
+        onDragEnter={(e) => { if (!hasAnyPayload(e)) return; e.preventDefault(); dragDepth.current += 1; setDropActive(true); }}
+        onDragOver={(e) => { if (!hasAnyPayload(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = hasReorderPayload(e) ? "move" : "copy"; }}
+        onDragLeave={(e) => { if (!hasAnyPayload(e)) return; dragDepth.current -= 1; if (dragDepth.current <= 0) { dragDepth.current = 0; setDropActive(false); } }}
         onDrop={onCanvasDrop}
         className="flex min-h-0 min-w-0 flex-1 flex-col"
       >
@@ -346,23 +395,39 @@ export function FormBuilder({
         ) : (
           <div className={`min-h-0 flex-1 space-y-3 overflow-y-auto rounded-card pr-1 transition-[outline] ${dropActive ? "outline-dashed outline-2 outline-offset-2 outline-primary/50" : ""}`}>
         {blocks.map((block, i) => {
-          const isSelected = selected === block.id;
+          const isExpanded = expanded.has(block.id);
           const isSection = block.type === "info";
           return (
             <div
               key={block.id}
               data-block-card
-              onClick={() => setSelected(block.id)}
-              className={`relative cursor-pointer overflow-hidden rounded-card border bg-surface shadow-card transition-colors ${
-                isSelected ? "border-primary" : "border-border hover:border-primary-weak"
-              }`}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData(DND_REORDER, block.id);
+                e.dataTransfer.effectAllowed = "move";
+                setDraggingId(block.id);
+              }}
+              onDragEnd={() => setDraggingId(null)}
+              className={`group relative overflow-hidden rounded-card border bg-surface shadow-card transition-colors ${
+                isExpanded ? "border-primary" : "border-border hover:border-primary-weak"
+              } ${draggingId === block.id ? "opacity-40" : ""}`}
             >
+              {/* drag handle — reorder blocks already on the canvas */}
+              <span
+                aria-hidden
+                className="absolute left-1 top-1/2 z-10 flex h-6 w-4 -translate-y-1/2 cursor-grab items-center justify-center text-text-muted/0 transition-colors group-hover:text-text-muted/60 active:cursor-grabbing"
+              >
+                <GripIcon />
+              </span>
               {/* teal accent bar (Form UI: violet in Carepatron, teal here) */}
-              <span className={`absolute inset-y-0 left-0 w-1 ${isSelected ? "bg-primary" : isSection ? "bg-teal-200" : "bg-transparent"}`} />
+              <span className={`absolute inset-y-0 left-0 w-1 ${isExpanded ? "bg-primary" : isSection ? "bg-teal-200" : "bg-transparent"}`} />
               <div className={`px-5 ${isSection ? "py-4" : "py-4"}`}>
-                {isSelected ? (
+                {isExpanded ? (
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2">
+                    <div
+                      onClick={() => toggleExpanded(block.id)}
+                      className="-m-1 flex cursor-pointer items-center gap-2 rounded-field p-1"
+                    >
                       <span className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-field ${BLOCK_HUE[block.type]}`}>
                         <Glyph type={block.type} />
                       </span>
@@ -372,7 +437,16 @@ export function FormBuilder({
                       <span className="ml-auto flex items-center gap-1">
                         <IconButton icon="chevron-up" label="Move up" disabled={i === 0} onClick={(e) => { e.stopPropagation(); move(i, -1); }} />
                         <IconButton icon="chevron-down" label="Move down" disabled={i === blocks.length - 1} onClick={(e) => { e.stopPropagation(); move(i, 1); }} />
-                        <IconButton icon="copy" label="Duplicate" onClick={(e) => { e.stopPropagation(); mutate([...blocks.slice(0, i + 1), { ...block, id: newBlock(block.type).id }, ...blocks.slice(i + 1)]); }} />
+                        <IconButton
+                          icon="copy"
+                          label="Duplicate"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const copy = { ...block, id: newBlock(block.type).id };
+                            mutate([...blocks.slice(0, i + 1), copy, ...blocks.slice(i + 1)]);
+                            expandBlock(copy.id);
+                          }}
+                        />
                         <IconButton icon="trash" label="Delete" variant="danger" onClick={(e) => { e.stopPropagation(); mutate(blocks.filter((b) => b.id !== block.id)); }} />
                       </span>
                     </div>
@@ -427,9 +501,11 @@ export function FormBuilder({
                     )}
                   </div>
                 ) : isSection ? (
-                  <p className="text-[17px] font-bold text-text">{block.label}</p>
+                  <p className="cursor-pointer text-[17px] font-bold text-text" onClick={() => toggleExpanded(block.id)}>
+                    {block.label}
+                  </p>
                 ) : (
-                  <div className="space-y-2.5">
+                  <div className="cursor-pointer space-y-2.5" onClick={() => toggleExpanded(block.id)}>
                     <p className="text-[15px] font-semibold text-text">
                       {block.label}
                       {block.required && <span className="ml-0.5 text-danger">*</span>}
