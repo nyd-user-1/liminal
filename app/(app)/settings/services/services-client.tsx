@@ -100,7 +100,7 @@ export function ServicesSettings({ initialServices }: { initialServices: Service
   return (
     <div>
       <TopBarActions>
-        <Button leftIcon="plus" onClick={() => open({ mode: "create" })}>
+        <Button size="sm" leftIcon="plus" onClick={() => open({ mode: "create" })}>
           New service
         </Button>
       </TopBarActions>

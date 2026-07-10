@@ -190,7 +190,7 @@ export function AppointmentsList({
     <>
       <TopBarActions>
         <Link href={bookHref}>
-          <Button leftIcon="plus">Book appointment</Button>
+          <Button size="sm" leftIcon="plus">Book appointment</Button>
         </Link>
       </TopBarActions>
 

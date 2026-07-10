@@ -79,7 +79,7 @@ export function AvailabilitySettings({
   return (
     <div>
       <TopBarActions>
-        <Button loading={busy} disabled={invalid} onClick={save}>
+        <Button size="sm" loading={busy} disabled={invalid} onClick={save}>
           Save availability
         </Button>
       </TopBarActions>

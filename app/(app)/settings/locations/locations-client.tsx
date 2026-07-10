@@ -74,7 +74,7 @@ export function LocationsSettings({ initialLocations }: { initialLocations: Loca
   return (
     <div>
       <TopBarActions>
-        <Button leftIcon="plus" onClick={() => open({ mode: "create" })}>
+        <Button size="sm" leftIcon="plus" onClick={() => open({ mode: "create" })}>
           New location
         </Button>
       </TopBarActions>

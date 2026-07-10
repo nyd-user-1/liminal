@@ -58,7 +58,7 @@ export function MessagesList({ threads }: { threads: ThreadSummary[] }) {
   return (
     <>
       <TopBarActions>
-        <Button leftIcon="plus" onClick={() => setComposeOpen(true)}>
+        <Button size="sm" leftIcon="plus" onClick={() => setComposeOpen(true)}>
           New message
         </Button>
       </TopBarActions>

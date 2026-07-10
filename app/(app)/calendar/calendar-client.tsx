@@ -226,6 +226,7 @@ export function CalendarClient({
       {/* Page action lives in the TopBar (canonical rule — CLAUDE.md) */}
       <TopBarActions>
         <Button
+          size="sm"
           leftIcon="plus"
           onClick={() => {
             const now = new Date();
