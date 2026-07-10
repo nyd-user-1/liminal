@@ -638,6 +638,18 @@ export default async function Home() {
       {/* ── Provider band — the single provider moment, on the mint wash ───── */}
       <section id="for-providers" className="scroll-mt-20 bg-primary-wash">
         <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-6 pt-24 sm:pt-28 lg:grid-cols-2 lg:gap-16">
+          <Reveal className="lg:order-last">
+            <WatercolorHover>
+              <img
+                src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/Gemini_Generated_Image_tep72ltep72ltep7-Photoroom.avif"
+                alt="A watercolour illustration — a doctor's office desk with a stethoscope on a clipboard, a succulent, and a sweater draped over a chair."
+                width={2400}
+                height={1309}
+                className="block w-full"
+                loading="lazy"
+              />
+            </WatercolorHover>
+          </Reveal>
           <div className="max-w-md">
             <p className="font-display text-[13px] font-semibold uppercase tracking-[0.14em] text-primary-deep">
               For providers
@@ -658,18 +670,6 @@ export default async function Home() {
               </Link>
             </div>
           </div>
-          <Reveal className="lg:order-last">
-            <WatercolorHover>
-              <img
-                src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/Gemini_Generated_Image_tep72ltep72ltep7-Photoroom.avif"
-                alt="A watercolour illustration — a doctor's office desk with a stethoscope on a clipboard, a succulent, and a sweater draped over a chair."
-                width={2400}
-                height={1309}
-                className="block w-full"
-                loading="lazy"
-              />
-            </WatercolorHover>
-          </Reveal>
         </div>
         <div className="mx-auto w-full max-w-6xl px-6 pt-14 pb-24 sm:pb-28">
           <Reveal>
