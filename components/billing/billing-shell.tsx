@@ -15,18 +15,19 @@ import { IconSquare } from "@/components/ui/icons";
 import { KebabMenu } from "@/components/ui/kebab-menu";
 import { ListRow } from "@/components/ui/list-row";
 import { SearchInput } from "@/components/ui/search-input";
+import { StatCard } from "@/components/ui/stat-card";
 import { Tabs } from "@/components/ui/tabs";
+import { Toolbar } from "@/components/ui/toolbar";
 import { useToast } from "@/components/ui/toast";
 import { formatCents, formatDate } from "@/lib/format";
 import type { InvoiceListItem, InvoiceStats } from "@/lib/repos/invoices";
 import type { PayerListItem } from "@/lib/repos/payers";
 
-// Billing — master/detail split (the Inbox pattern): invoice list pane
-// (Tabs Open/Settled/Payers, search, active highlight) beside the open
-// invoice (children from billing/layout.tsx). Below lg the panes swap on
-// navigation instead of sharing the row. New invoice lives in the TopBar
-// and opens a SidePanel (bottom sheet on phones); payer management stays
-// in-pane. The biller never leaves /billing.
+// Billing — KPI strip, page-level Tabs (Open/Settled/Payers) and search
+// (the clients/directory pattern), then a master/detail row: invoice list
+// panel styled like the calendar's agenda rail beside the open invoice
+// (children from billing/layout.tsx). Below lg the panes swap on navigation.
+// New invoice lives in the TopBar; the biller never leaves /billing.
 
 type ShellTab = "open" | "settled" | "payers";
 
@@ -109,8 +110,13 @@ export function BillingShell({
     router.refresh();
   };
 
+  const railCount =
+    tab === "payers"
+      ? `${visiblePayers.length} ${visiblePayers.length === 1 ? "payer" : "payers"}`
+      : `${visibleInvoices.length} ${visibleInvoices.length === 1 ? "invoice" : "invoices"}`;
+
   return (
-    <>
+    <div className="flex h-full min-h-0 flex-col">
       <TopBarActions>
         {tab === "payers" ? (
           <Button leftIcon="plus" onClick={() => setPayerPanel({ open: true, payer: null })}>
@@ -123,60 +129,51 @@ export function BillingShell({
         )}
       </TopBarActions>
 
-      <div className="flex h-full min-h-0 overflow-hidden rounded-card border border-border bg-surface shadow-card">
-        {/* Invoice list pane */}
-        <div
-          className={`flex w-full flex-col border-border lg:w-[380px] lg:shrink-0 lg:border-r ${
-            activeId ? "max-lg:hidden" : ""
+      {/* KPI strip — its own container above everything */}
+      <div className="mb-5 grid shrink-0 grid-cols-2 gap-4 xl:grid-cols-4">
+        <StatCard label="Outstanding" value={formatCents(stats.outstandingCents)} />
+        <StatCard label="Paid this month" value={formatCents(stats.paidThisMonthCents)} />
+        <StatCard label="Overdue invoices" value={stats.overdueCount} />
+        <StatCard label="Drafts" value={stats.draftCount} />
+      </div>
+
+      <Tabs
+        className="mb-4 shrink-0"
+        items={[
+          { key: "open", label: "Open", count: counts.open },
+          { key: "settled", label: "Settled", count: counts.settled },
+          { key: "payers", label: "Payers", count: payers.length },
+        ]}
+        active={tab}
+        onChange={(k) => setTab(k as ShellTab)}
+      />
+
+      <Toolbar className="mb-4 shrink-0">
+        <SearchInput
+          placeholder={tab === "payers" ? "Search payers" : "Search invoices or clients"}
+          className="w-full max-w-md"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </Toolbar>
+
+      <div className="flex min-h-0 flex-1 gap-4">
+        {/* Invoice list panel — the calendar agenda-rail treatment */}
+        <aside
+          className={`w-full flex-col overflow-hidden rounded-card border border-border bg-surface shadow-card lg:flex lg:w-80 lg:shrink-0 ${
+            activeId ? "hidden" : "flex"
           }`}
         >
-          <div className="shrink-0 space-y-3 border-b border-border p-3">
-            {/* The overview pane is desktop-only, so surface the two numbers that matter on phones. */}
-            <div className="grid grid-cols-2 gap-2 lg:hidden">
-              <div className="rounded-field bg-canvas px-3 py-2">
-                <p className="text-[12px] font-medium text-text-muted">Outstanding</p>
-                <p className="text-[15px] font-semibold text-text">{formatCents(stats.outstandingCents)}</p>
-              </div>
-              <div className="rounded-field bg-canvas px-3 py-2">
-                <p className="text-[12px] font-medium text-text-muted">Overdue</p>
-                <p className={`text-[15px] font-semibold ${stats.overdueCount > 0 ? "text-danger" : "text-text"}`}>
-                  {stats.overdueCount}
-                </p>
-              </div>
-            </div>
-            <Tabs
-              items={[
-                { key: "open", label: "Open", count: counts.open },
-                { key: "settled", label: "Settled", count: counts.settled },
-                { key: "payers", label: "Payers", count: payers.length },
-              ]}
-              active={tab}
-              onChange={(k) => setTab(k as ShellTab)}
-            />
-            <SearchInput
-              placeholder={tab === "payers" ? "Search payers" : "Search invoices or clients"}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto p-2">
             {tab === "payers" ? (
               visiblePayers.length === 0 ? (
                 <EmptyState
                   icon="shield-plus"
                   title={q ? "No payers match" : "No payers yet"}
                   subtext={q ? undefined : "Add the insurance payers your practice bills."}
-                  actions={
-                    q ? undefined : (
-                      <Button leftIcon="plus" onClick={() => setPayerPanel({ open: true, payer: null })}>
-                        New payer
-                      </Button>
-                    )
-                  }
                 />
               ) : (
-                <div className="space-y-2 p-3">
+                <div className="space-y-2 p-1">
                   {visiblePayers.map((p) => (
                     <ListRow
                       key={p.id}
@@ -210,47 +207,57 @@ export function BillingShell({
                 }
               />
             ) : (
-              visibleInvoices.map((inv) => {
-                const current = inv.id === activeId;
-                const meta = invoiceMeta(inv);
-                return (
-                  <Link
-                    key={inv.id}
-                    href={`/billing/${inv.id}`}
-                    aria-current={current ? "page" : undefined}
-                    className={`block border-b border-border px-4 py-3 transition-colors last:border-b-0 hover:bg-canvas ${
-                      current ? "bg-canvas" : ""
-                    }`}
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <Avatar name={inv.clientName} size="sm" />
-                      <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-text">
-                        {inv.clientName}
-                      </span>
-                      <span className="shrink-0 text-[15px] font-semibold text-text">
-                        {formatCents(isSettled(inv.status) ? inv.totalCents : inv.balanceCents)}
-                      </span>
-                    </span>
-                    <span className="mt-1 flex items-center justify-between gap-2">
-                      <span className="truncate text-sm text-text-body">{inv.number}</span>
-                      <InvoiceStatusBadge status={inv.status} />
-                    </span>
-                    <span
-                      className={`mt-0.5 block truncate text-[13px] ${
-                        meta.danger ? "font-medium text-danger" : "text-text-muted"
+              <div className="space-y-0.5">
+                {visibleInvoices.map((inv) => {
+                  const current = inv.id === activeId;
+                  const meta = invoiceMeta(inv);
+                  return (
+                    <Link
+                      key={inv.id}
+                      href={`/billing/${inv.id}`}
+                      aria-current={current ? "page" : undefined}
+                      className={`block rounded-field px-2.5 py-2 transition-colors hover:bg-canvas ${
+                        current ? "bg-canvas" : ""
                       }`}
                     >
-                      {meta.text}
-                    </span>
-                  </Link>
-                );
-              })
+                      <span className="flex items-center gap-2.5">
+                        <Avatar name={inv.clientName} size="sm" />
+                        <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-text">
+                          {inv.clientName}
+                        </span>
+                        <span className="shrink-0 text-[15px] font-semibold text-text">
+                          {formatCents(isSettled(inv.status) ? inv.totalCents : inv.balanceCents)}
+                        </span>
+                      </span>
+                      <span className="mt-1 flex items-center justify-between gap-2">
+                        <span className="truncate text-[13px] text-text-muted">{inv.number}</span>
+                        <InvoiceStatusBadge status={inv.status} />
+                      </span>
+                      <span
+                        className={`mt-0.5 block truncate text-[13px] ${
+                          meta.danger ? "font-medium text-danger" : "text-text-muted"
+                        }`}
+                      >
+                        {meta.text}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
             )}
           </div>
-        </div>
+          {/* Pinned count, agenda-style */}
+          <div className="shrink-0 border-t border-border px-4 py-3 text-[13px] font-medium text-text-muted">
+            {railCount}
+          </div>
+        </aside>
 
         {/* Invoice pane */}
-        <div className={`min-w-0 flex-1 flex-col lg:flex ${activeId ? "flex" : "max-lg:hidden lg:flex"}`}>
+        <div
+          className={`min-w-0 flex-1 flex-col overflow-hidden rounded-card border border-border bg-surface shadow-card lg:flex ${
+            activeId ? "flex" : "hidden"
+          }`}
+        >
           {children}
         </div>
       </div>
@@ -266,6 +273,6 @@ export function BillingShell({
         onClose={() => setPayerPanel({ open: false, payer: null })}
         payer={payerPanel.payer}
       />
-    </>
+    </div>
   );
 }

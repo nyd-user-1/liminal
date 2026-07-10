@@ -9,9 +9,10 @@ import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { MenuItem } from "@/components/ui/dropdown-menu";
 import { Field } from "@/components/ui/field";
-import { Icon } from "@/components/ui/icons";
+import { IconButton } from "@/components/ui/icon-button";
 import { KebabMenu } from "@/components/ui/kebab-menu";
 import { Modal } from "@/components/ui/modal";
+import { Table, Td, Tr } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { formatCents, formatDate, formatDateTime } from "@/lib/format";
 import type { InvoiceDetail } from "@/lib/repos/invoices";
@@ -183,9 +184,15 @@ export function InvoicePane({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* Pane header — who owes what, and every action */}
+      {/* Pane header — back to the overview, who owes what */}
       <div className="shrink-0 border-b border-border px-4 py-4 sm:px-6">
         <div className="flex items-center gap-3">
+          <IconButton
+            icon="arrow-left"
+            label="Back to billing overview"
+            className="-ml-1.5"
+            onClick={() => router.push("/billing")}
+          />
           <Avatar name={invoice.clientName} />
           <div className="min-w-0 flex-1">
             <p className="flex flex-wrap items-center gap-2 text-[17px] font-semibold text-text">
@@ -206,8 +213,23 @@ export function InvoicePane({
             </p>
           </div>
         </div>
+      </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+      {/* Document body */}
+      <div className="min-h-0 flex-1 overflow-y-auto p-4 pr-5 sm:p-6 sm:pr-7">
+        {justPaid && (
+          <Banner variant="success" className="mb-4">
+            Payment collected — {invoice.number} is settled{stripeConfigured ? "." : " (simulated checkout)."}
+          </Banner>
+        )}
+        {canceled && (
+          <Banner variant="warning" className="mb-4">
+            Checkout was canceled — no payment was taken.
+          </Banner>
+        )}
+
+        {/* Actions */}
+        <div className="mb-4 flex flex-wrap items-center gap-2">
           {collectable && (
             <>
               <Button size="sm" leftIcon="send" onClick={() => setSendOpen(true)}>
@@ -241,27 +263,6 @@ export function InvoicePane({
             </KebabMenu>
           </div>
         </div>
-      </div>
-
-      {/* Document body */}
-      <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
-        {justPaid && (
-          <Banner variant="success" className="mb-4">
-            Payment collected — {invoice.number} is settled{stripeConfigured ? "." : " (simulated checkout)."}
-          </Banner>
-        )}
-        {canceled && (
-          <Banner variant="warning" className="mb-4">
-            Checkout was canceled — no payment was taken.
-          </Banner>
-        )}
-        {!stripeConfigured && collectable && (
-          <Banner variant="info" className="mb-4">
-            No Stripe key is configured, so online payments simulate a successful checkout. Add{" "}
-            <code className="font-mono text-[13px]">STRIPE_SECRET_KEY</code> and the same buttons run real Stripe
-            Checkout.
-          </Banner>
-        )}
 
         {/* The “paper” — mirrors /billing/[id]/print */}
         <div className="rounded-card border border-border bg-surface p-5 sm:p-6">
@@ -360,25 +361,16 @@ export function InvoicePane({
             No payments yet{collectable ? " — send the invoice or share the pay link to collect." : "."}
           </p>
         ) : (
-          <ul className="space-y-2">
+          <Table head={["Method", "Date", "Reference", "Amount"]}>
             {invoice.payments.map((p) => (
-              <li key={p.id} className="flex items-center gap-3 rounded-field border border-border px-4 py-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-field bg-success-tint text-success">
-                  <Icon name="circle-check" size={18} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[15px] font-medium text-text">
-                    {METHOD_LABEL[p.method] ?? p.method} payment
-                  </span>
-                  <span className="block truncate text-[13px] text-text-muted">
-                    {formatDateTime(p.paidAt)}
-                    {p.stripePaymentIntent ? ` · ${p.stripePaymentIntent}` : ""}
-                  </span>
-                </span>
-                <span className="shrink-0 text-[15px] font-semibold text-text">{formatCents(p.amountCents)}</span>
-              </li>
+              <Tr key={p.id}>
+                <Td className="font-medium text-text">{METHOD_LABEL[p.method] ?? p.method}</Td>
+                <Td>{formatDateTime(p.paidAt)}</Td>
+                <Td className="font-mono text-[13px] text-text-muted">{p.stripePaymentIntent ?? "—"}</Td>
+                <Td className="font-semibold">{formatCents(p.amountCents)}</Td>
+              </Tr>
             ))}
-          </ul>
+          </Table>
         )}
       </div>
 
