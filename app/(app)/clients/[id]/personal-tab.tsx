@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { SettingsCard } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
-import { IconSquare } from "@/components/ui/icons";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import type { PractitionerOption } from "@/lib/repos/clients";
@@ -86,12 +86,8 @@ export function PersonalTab({
   }
 
   return (
-    <div className="max-w-3xl rounded-card border border-border bg-surface p-6 shadow-card">
-      <div className="mb-5 flex items-center gap-2.5">
-        <IconSquare name="person-circle" />
-        <h2 className="text-[19px] font-semibold text-text">Client details</h2>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
+    <SettingsCard icon="person-circle" title="Client details" className="max-w-3xl">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="First name" required value={form.firstName} onChange={(e) => set("firstName")(e.target.value)} />
         <Field label="Last name" required value={form.lastName} onChange={(e) => set("lastName")(e.target.value)} />
         <Field label="Date of birth" type="date" value={form.dob} onChange={(e) => set("dob")(e.target.value)} />
@@ -106,7 +102,7 @@ export function PersonalTab({
         />
         <Field
           label="Address"
-          className="col-span-2"
+          className="sm:col-span-2"
           value={form.address}
           onChange={(e) => set("address")(e.target.value)}
           placeholder="Street, city, state, zip"
@@ -126,7 +122,7 @@ export function PersonalTab({
         <Select
           label="Primary practitioner"
           placeholder="Select…"
-          className="col-span-2"
+          className="sm:col-span-2"
           options={practitioners.map((p) => ({ value: p.id, label: p.name }))}
           value={form.primaryPractitionerId}
           onValueChange={set("primaryPractitionerId")}
@@ -141,6 +137,6 @@ export function PersonalTab({
           Save
         </Button>
       </div>
-    </div>
+    </SettingsCard>
   );
 }

@@ -12,7 +12,6 @@ import { MenuItem } from "@/components/ui/dropdown-menu";
 import { Radio } from "@/components/ui/radio";
 import { Select } from "@/components/ui/select";
 import { SidePanel } from "@/components/ui/side-panel";
-import { TextLink } from "@/components/ui/text-link";
 import { useToast } from "@/components/ui/toast";
 import { formatCents } from "@/lib/format";
 import type { PolicyWithPayer } from "@/lib/repos/policies";
@@ -82,18 +81,30 @@ function PolicyRow({
 
   return (
     <div className="overflow-visible rounded-card border border-border bg-surface shadow-card">
-      <div className="flex w-full items-center gap-3 px-4 py-3">
-        <IconSquare name="shield-plus" />
-        <button type="button" onClick={() => setOpen((o) => !o)} className="min-w-0 flex-1 text-left">
-          <span className="flex items-center gap-2 text-[15px] font-semibold text-text">
-            {policy.payerName}
-            <span className="font-normal text-text-muted">{policy.payerCode}</span>
+      <div
+        className={`flex w-full items-center gap-3 px-4 py-3 transition-colors hover:bg-canvas ${
+          open ? "rounded-t-card" : "rounded-card"
+        }`}
+      >
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+        >
+          <IconSquare name="shield-plus" />
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-2 text-[15px] font-semibold text-text">
+              {policy.payerName}
+              <span className="font-normal text-text-muted">{policy.payerCode}</span>
+            </span>
+            <span className="mt-0.5 block truncate text-sm text-text-muted">
+              {KIND_LABELS[policy.kind]} · Member ID {policy.memberId}
+            </span>
           </span>
-          <span className="mt-0.5 block truncate text-sm text-text-muted">
-            {KIND_LABELS[policy.kind]} · Member ID {policy.memberId}
-          </span>
+          <PolicyStatusBadge status={policy.status} />
+          <Icon name={open ? "chevron-up" : "chevron-down"} size={18} className="shrink-0 text-text-muted" />
         </button>
-        <PolicyStatusBadge status={policy.status} />
         <KebabMenu label={`Actions for ${policy.payerName} policy`}>
           {policy.status !== "verified" && (
             <MenuItem icon="check" label="Mark verified" onClick={() => patch({ status: "verified" }, "Policy marked verified")} />
@@ -106,15 +117,6 @@ function PolicyRow({
           )}
           <MenuItem icon="trash" label="Delete policy" danger onClick={remove} />
         </KebabMenu>
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          aria-expanded={open}
-          aria-label={open ? "Collapse policy" : "Expand policy"}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-field text-text-muted transition-colors hover:bg-[#F3F4F6] hover:text-text"
-        >
-          <Icon name={open ? "chevron-up" : "chevron-down"} size={18} />
-        </button>
       </div>
       {open && (
         <div className="border-t border-border px-4 py-4">
@@ -215,12 +217,12 @@ export function InsuranceTab({
   }
 
   return (
-    <div className="max-w-3xl">
-      <div className="mb-4 flex items-center">
+    <div>
+      <div className="mb-4 flex items-center justify-between">
         <h2 className="text-[19px] font-semibold text-text">Insurance policies</h2>
-        <TextLink icon="plus" className="ml-auto" onClick={() => setPanelOpen(true)}>
+        <Button size="sm" leftIcon="plus" onClick={() => setPanelOpen(true)}>
           New policy
-        </TextLink>
+        </Button>
       </div>
 
       {policies.length === 0 ? (

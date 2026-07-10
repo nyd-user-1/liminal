@@ -2,9 +2,11 @@ import { Badge } from "@/components/ui/badge";
 import { SettingsCard } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icons";
 import { Tag } from "@/components/ui/tag";
+import { TextLink } from "@/components/ui/text-link";
 import { formatCents, formatDate, formatTime } from "@/lib/format";
 import type { Appointment, Client, Invoice, Referral, ReferralStatus } from "@/lib/types";
 import { ApptStatusBadge, FieldDisplay, InvoiceStatusBadge, formatDob, tagHue } from "../ui";
+import { ContactMenu } from "./contact-menu";
 
 const REFERRAL_BADGE: Record<ReferralStatus, "neutral" | "info" | "success" | "danger"> = {
   draft: "neutral",
@@ -79,7 +81,11 @@ export function OverviewTab({
           )}
         </SettingsCard>
 
-        <SettingsCard icon="dollar" title="Billing summary">
+        <SettingsCard
+          icon="dollar"
+          title="Billing summary"
+          action={<TextLink href="?tab=billing">View billing</TextLink>}
+        >
           <div className="mb-4 grid grid-cols-2 gap-4">
             <div className="rounded-field bg-canvas px-4 py-3">
               <div className="text-sm text-text-muted">Outstanding</div>
@@ -138,7 +144,12 @@ export function OverviewTab({
         </SettingsCard>
       </div>
 
-      <SettingsCard icon="person-circle" title="Contact" className="self-start">
+      <SettingsCard
+        icon="person-circle"
+        title="Contact"
+        className="self-start"
+        action={<ContactMenu clientId={client.id} email={client.email} phone={client.phone} />}
+      >
         <div className="flex flex-col gap-4">
           <FieldDisplay label="Email" value={client.email} />
           <FieldDisplay label="Phone" value={client.phone} />

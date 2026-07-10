@@ -33,6 +33,19 @@ const NEW_NOTE_KINDS: Array<{ kind: NoteTemplateKind; label: string }> = [
   { kind: "free", label: "Free note" },
 ];
 
+// First ~90 chars of the body with markdown syntax stripped, for the row
+// preview line. Template skeletons are mostly headings, so drop those lines.
+function noteSnippet(bodyMd: string): string {
+  const text = bodyMd
+    .split("\n")
+    .filter((l) => !l.trim().startsWith("#"))
+    .join(" ")
+    .replace(/[*_`>-]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length > 90 ? `${text.slice(0, 90)}…` : text;
+}
+
 export function ClientNotes({ clientId }: { clientId: string }) {
   const toast = useToast();
   const [notes, setNotes] = useState<Note[] | null>(null);
@@ -156,6 +169,9 @@ export function ClientNotes({ clientId }: { clientId: string }) {
                       <span className="block truncate text-[15px] font-semibold text-text">{n.title}</span>
                       <span className="block truncate text-[13px] text-text-muted">
                         {formatTime(n.createdAt)} · {authors[n.authorId] ?? "Practitioner"}
+                        {noteSnippet(n.bodyMd) && (
+                          <span className="text-text-muted"> — {noteSnippet(n.bodyMd)}</span>
+                        )}
                       </span>
                     </span>
                   </button>
