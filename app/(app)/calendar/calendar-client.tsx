@@ -17,7 +17,7 @@ import type { Appointment } from "@/lib/types";
 import type { Location, Service } from "@/lib/types";
 import type { ClientLite, CreateAppointmentInput } from "@/lib/repos/appointments";
 import type { PractitionerLite } from "@/lib/repos/services";
-import { serviceColorHex } from "@/lib/service-colors";
+import { SERVICE_COLOR_SLOTS } from "@/lib/service-colors";
 import {
   addDays,
   dateKey,
@@ -31,10 +31,9 @@ import { AppointmentDetailPanel, AppointmentFormPanel, STATUS_META, type CreateD
 import { MonthGrid } from "./month-grid";
 import { WeekGrid, type CalEvent } from "./week-grid";
 
-// Chips are colored by LOCATION (modality), not service type:
-//   telehealth → pink · in-person → purple.
-const TELEHEALTH_COLOR = serviceColorHex("pink");
-const IN_PERSON_COLOR = serviceColorHex("purple");
+// Chips are colored by PRACTITIONER — a stable slot per id (position in the
+// practitioners list, not a hash) so colors stay distinct as long as the
+// roster fits in SERVICE_COLOR_SLOTS.
 
 // The flagship calendar surface: Toolbar (Today · prev/next · range label ·
 // Day/Week · practitioner filter · + New) + rail (mini-month DatePicker +
@@ -79,6 +78,10 @@ export function CalendarClient({
   const serviceById = useMemo(() => new Map(services.map((s) => [s.id, s])), [services]);
   const locationById = useMemo(() => new Map(locations.map((l) => [l.id, l])), [locations]);
   const practitionerById = useMemo(() => new Map(practitioners.map((p) => [p.id, p])), [practitioners]);
+  const practitionerColor = useMemo(
+    () => new Map(practitioners.map((p, i) => [p.id, SERVICE_COLOR_SLOTS[i % SERVICE_COLOR_SLOTS.length].hex])),
+    [practitioners],
+  );
 
   const days = useMemo(() => {
     if (view === "day") return [anchor];
@@ -102,14 +105,14 @@ export function CalendarClient({
             endMin: Math.max(minutesOfDay(a.startsAt) + 15, minutesOfDay(a.endsAt)),
             title: clientById.get(a.clientId)?.name ?? "Client",
             timeLabel: `${formatTime(a.startsAt)} – ${formatTime(a.endsAt)}`,
-            color: telehealth ? TELEHEALTH_COLOR : IN_PERSON_COLOR,
+            color: practitionerColor.get(a.practitionerId) ?? SERVICE_COLOR_SLOTS[0].hex,
             telehealth,
             icon: sessionIcon(svc),
             status: a.status,
             muted: a.status === "completed" || a.status === "no_show",
           };
         }),
-    [appointments, visible, serviceById, clientById, locationById],
+    [appointments, visible, serviceById, clientById, locationById, practitionerColor],
   );
 
   // Search bar filters the grid + agenda by client name.
