@@ -6,7 +6,6 @@ import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Nav } from "@/components/marketing/nav";
 import { ProviderSpotlightRail, type ProviderSpotlight } from "@/components/marketing/provider-spotlight-card";
 import { silhouetteUrl } from "@/components/providers/provider-illustration";
-import { headshotFor } from "@/lib/headshots";
 import { Reveal } from "@/components/marketing/reveal";
 import { ReviewsCarousel, type Review } from "@/components/marketing/reviews-carousel";
 import { ScrollCue } from "@/components/marketing/scroll-cue";
@@ -319,7 +318,7 @@ export default async function Home() {
   ).filter((p): p is ProviderSpotlight => p !== null && p.quote !== "");
   const spotlightProviders = [...realSpotlights, ...FICTIONAL_SPOTLIGHT].map((p) => ({
     ...p,
-    photoUrl: headshotFor(p.id) ?? silhouetteUrl(p.id),
+    photoUrl: silhouetteUrl(p.id),
   }));
 
   return (
@@ -347,16 +346,20 @@ export default async function Home() {
         </div>
 
         <div className="pointer-events-none relative z-10 mx-auto w-full max-w-6xl px-6 py-16 sm:py-20 lg:py-16">
-          {/* mobile painting — leads the page below lg */}
-          <div className="mkt-develop mb-10 lg:hidden">
-            <img
-              src={`${CUT}/lakeside.avif`}
-              alt="A watercolour illustration — a person wrapped in a shawl sits on a bench by a still lake at dawn, holding a warm mug."
-              width={1600}
-              height={1200}
-              className="block w-full"
-              loading="eager"
-            />
+          {/* mobile painting — leads the page below lg; pointer-events-auto
+              re-enables hover inside the pointer-events-none overlay so the
+              watercolour bloom works here like everywhere else */}
+          <div className="pointer-events-auto mkt-develop mb-10 lg:hidden">
+            <WatercolorHover>
+              <img
+                src={`${CUT}/lakeside.avif`}
+                alt="A watercolour illustration — a person wrapped in a shawl sits on a bench by a still lake at dawn, holding a warm mug."
+                width={1600}
+                height={1200}
+                className="block w-full"
+                loading="eager"
+              />
+            </WatercolorHover>
           </div>
 
           <div className="pointer-events-auto lg:max-w-[54%]">
