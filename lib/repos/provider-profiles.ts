@@ -171,38 +171,6 @@ export function spotlightRatingFor(slug: string | null | undefined): { rating: n
 // placeholder convention as SPOTLIGHT_RATING, but client-safe — the find-care
 // result card imports it, and repos pull in lib/db).
 
-/**
- * Directory providers (NPI-sourced, unclaimed) aren't bookable yet — this
- * picks the closest real Liminal practitioner to offer instead, so the
- * booking rail can say "book with one of our own X" rather than dead-end.
- * Psychiatrist professions match Liminal's one psychiatrist; everything else
- * (LCSW/LMHC/psychologist/counselor professions) matches a therapist, biased
- * toward whichever therapist's specialties share a keyword with the
- * directory row's subspecialty, falling back to the first therapist.
- */
-export function matchBookablePractitioner(
-  directory: { profession?: string | null; subspecialty?: string | null },
-  bookable: BookableProfile[],
-): BookableProfile | null {
-  if (bookable.length === 0) return null;
-  const wantsPsychiatrist = /psychiatr/i.test(directory.profession ?? "");
-  const pool = bookable.filter((b) =>
-    wantsPsychiatrist ? b.roleTitle === "Psychiatrist" : b.roleTitle !== "Psychiatrist",
-  );
-  const candidates = pool.length > 0 ? pool : bookable;
-
-  const keyword = (directory.subspecialty ?? "").toLowerCase();
-  if (keyword) {
-    const withOverlap = candidates.find((c) =>
-      [...c.topSpecialties, ...c.moreSpecialties].some(
-        (s) => keyword.includes(s.toLowerCase()) || s.toLowerCase().includes(keyword),
-      ),
-    );
-    if (withOverlap) return withOverlap;
-  }
-  return [...candidates].sort((a, b) => a.name.localeCompare(b.name))[0];
-}
-
 /** Nearest date (within 2 weeks) matching one of a practitioner's available weekdays. */
 export function nextAvailableLabel(weekdays: number[]): string {
   if (weekdays.length === 0) return "soon";

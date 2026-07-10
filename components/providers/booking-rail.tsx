@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { BookingSheet } from "@/components/providers/booking-sheet";
 import { DatePicker } from "@/components/ui/date-picker";
+import { Logo } from "@/components/ui/logo";
 import { Spinner } from "@/components/ui/spinner";
 import { TextLink } from "@/components/ui/text-link";
-import type { BookableProfile } from "@/lib/repos/provider-profiles";
 import type { Payer, Service } from "@/lib/types";
 
 // The universal booking widget — active for bookable Liminal practitioners,
@@ -20,10 +20,12 @@ import type { Payer, Service } from "@/lib/types";
 // time doesn't navigate away: it lifts the BookingSheet (time-confirm →
 // details+insurance → cost estimate), keeping the user on the provider page.
 //
-// Inactive state: rather than a dead "coming soon", this offers the closest
-// real bookable Liminal practitioner (computed server-side by
-// matchBookablePractitioner) and a "claim this profile" link for the actual
-// provider — see app/providers/[slug]/page.tsx.
+// Inactive state: rather than a dead "coming soon", this offers Liminal itself
+// — deliberately not a named clinician. Naming one made a promise the booking
+// flow doesn't keep (/book/liminal lets the client pick), and it read as though
+// we'd matched this specific provider to that specific therapist. The generic
+// hand-off plus the brand mark says what's true: Liminal will route you.
+// A "claim this profile" link is offered to the actual provider alongside it.
 
 const DAYS_AHEAD = 28;
 const INITIAL_SLOTS = 6; // 2 rows × 3 cols
@@ -47,8 +49,8 @@ export function BookingRail({
   availableWeekdays,
   active,
   directoryName,
-  match,
   claimHref,
+  className = "",
 }: {
   practitionerId: string;
   /** Active Liminal services — ignored (never fetched against) when `active` is false. */
@@ -61,10 +63,9 @@ export function BookingRail({
   active: boolean;
   /** Directory provider's display name — inactive state only. */
   directoryName?: string;
-  /** Closest real Liminal practitioner to offer instead — inactive state only. */
-  match?: BookableProfile | null;
   /** "Is this you? Claim this profile" link — inactive state only. */
   claimHref?: string;
+  className?: string;
 }) {
   const service = services[0];
 
@@ -115,7 +116,15 @@ export function BookingRail({
   const shown = slots && !expanded ? slots.slice(0, INITIAL_SLOTS) : slots;
 
   return (
-    <div id="book" className="scroll-mt-6 rounded-card border border-border bg-surface p-5 shadow-card">
+    <div
+      id="book"
+      className={`scroll-mt-6 rounded-card border border-border bg-surface p-5 shadow-card ${
+        // Inactive, the widget is stretched to stand level with the panel beside
+        // it — so its short content becomes a column and the claim link settles
+        // on the bottom edge rather than leaving a hole beneath it.
+        active ? "" : "flex flex-col"
+      } ${className}`}
+    >
       <h2 className="text-[17px] font-semibold text-text">Book an appointment</h2>
 
       {active && service && (
@@ -174,30 +183,28 @@ export function BookingRail({
       )}
 
       {!active && (
-        <div className="mt-3 space-y-3">
+        <div className="mt-3 flex flex-1 flex-col gap-3">
           <p className="text-[13px] text-text-muted">
-            This is a directory listing sourced from the national provider registry —{" "}
-            {directoryName ?? "this provider"} isn&apos;t on Liminal&apos;s booking platform yet.
+            This is a directory listing sourced from the national provider registry — {directoryName ?? "this provider"}{" "}
+            isn&apos;t on Liminal&apos;s booking platform yet.
           </p>
 
-          {match && (
-            <div className="rounded-field border border-border bg-canvas p-3">
-              <p className="text-[13px] text-text-body">
-                We can connect you with <span className="font-semibold text-text">{match.name}</span>
-                {match.roleTitle ? `, one of our own ${match.roleTitle.toLowerCase()}s` : ""} who works with similar
-                needs.
-              </p>
-              <Link
-                href={`/providers/${match.slug ?? match.id}`}
-                className="mt-2.5 inline-flex h-8 items-center justify-center rounded-field bg-primary px-3 text-sm font-medium text-white transition-colors hover:bg-primary-hover"
-              >
-                Book with {match.name.split(" ")[0]}
-              </Link>
-            </div>
-          )}
+          <div className="rounded-field border border-border bg-canvas p-3">
+            <Logo size="sm" className="mb-2" />
+            <p className="text-[13px] text-text-body">
+              We can connect you with a Liminal mental-health professional who works with similar needs — in-person or
+              telehealth, usually within a week.
+            </p>
+            <Link
+              href="/book/liminal"
+              className="mt-2.5 inline-flex h-8 items-center justify-center rounded-field bg-primary px-3 text-sm font-medium text-white transition-colors hover:bg-primary-hover"
+            >
+              Book with Liminal
+            </Link>
+          </div>
 
           {claimHref && (
-            <TextLink href={claimHref} className="text-[13px]">
+            <TextLink href={claimHref} className="mt-auto pt-2 text-[13px]">
               Is this you? Claim this profile
             </TextLink>
           )}

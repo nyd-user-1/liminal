@@ -11,7 +11,6 @@ import { RatingAvailability } from "@/components/providers/rating-availability";
 import { RevealFx } from "@/components/providers/reveal-fx";
 import { directoryRatingFor, directoryYearsFor } from "@/lib/directory-rating";
 import { getProgram, nearbyCities } from "@/lib/repos/directory";
-import { listBookableProfiles, matchBookablePractitioner } from "@/lib/repos/provider-profiles";
 
 // Public program/facility page — the "View program page" target for the
 // ~116k OMH/NPPES program rows in find-care results. Mirrors the directory
@@ -48,11 +47,7 @@ export default async function ProgramPage({ params }: { params: Promise<{ id: st
   const rating = directoryRatingFor(program.id);
   const serving = `Serving ${program.city ? titleCase(program.city) : (program.county ?? "New York")} for ${directoryYearsFor(program.id)} years`;
 
-  const [nearby, bookable] = await Promise.all([
-    nearbyCities(program.county, program.city),
-    listBookableProfiles(),
-  ]);
-  const match = matchBookablePractitioner({ profession: null, subspecialty: program.programType }, bookable);
+  const nearby = await nearbyCities(program.county, program.city);
 
   return (
     <div className="flex min-h-screen flex-col bg-page">
@@ -112,7 +107,7 @@ export default async function ProgramPage({ params }: { params: Promise<{ id: st
                   </a>
                 </div>
               )}
-              <BookingRail practitionerId={program.id} services={[]} active={false} directoryName={name} match={match} />
+              <BookingRail practitionerId={program.id} services={[]} active={false} directoryName={name} />
             </div>
           </RevealFx>
         </aside>
