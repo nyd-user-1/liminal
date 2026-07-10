@@ -1,12 +1,16 @@
-import { InboxList } from "@/components/messaging/inbox-list";
-import { listThreads, threadClients } from "@/lib/repos/threads";
+import { EmptyState } from "@/components/ui/empty-state";
 
-// Practitioner Inbox — secure-messaging thread index (Portal/Inbox, task 10).
-// The (app) layout guarantees a practitioner/admin session.
+// Right pane of the inbox split view when no thread is open. Below lg the
+// list pane owns the screen, so this only renders on desktop.
 
-export const dynamic = "force-dynamic";
-
-export default async function InboxPage() {
-  const [threads, clients] = await Promise.all([listThreads(), threadClients()]);
-  return <InboxList threads={threads} clients={clients} />;
+export default function InboxPage() {
+  return (
+    <div className="flex h-full items-center justify-center">
+      <EmptyState
+        icon="inbox"
+        title="Select a conversation"
+        subtext="Choose a thread from the list, or compose a new message."
+      />
+    </div>
+  );
 }

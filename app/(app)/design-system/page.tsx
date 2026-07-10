@@ -249,12 +249,12 @@ const FEATURES: Array<{
     area: "Messaging",
     items: [
       {
-        name: "InboxList",
-        path: "messaging/inbox-list.tsx",
-        desc: "Practitioner inbox — Compose + Open/Closed tabs.",
+        name: "InboxShell",
+        path: "messaging/inbox-shell.tsx",
+        desc: "Practitioner inbox — split view: thread-list pane + open thread.",
         composedOf: [
-          { name: "PageHeader" }, { name: "Tabs" }, { name: "SearchInput" }, { name: "ListRow" },
-          { name: "EmptyState" }, { name: "Modal" }, { name: "Field" }, { name: "Textarea" },
+          { name: "Tabs" }, { name: "SearchInput" }, { name: "EmptyState" },
+          { name: "Modal" }, { name: "Field" }, { name: "Textarea" },
           { name: "Select" }, { name: "Avatar" }, { name: "Button" }, { name: "Badge" },
         ],
       },
@@ -421,7 +421,7 @@ const LIVE_AT: Record<string, string> = {
   FormsTemplates: "/library (Forms tab)",
   IntakeWizard: "/portal/forms/[responseId]",
   SendFormModal: "/library (Forms tab)",
-  InboxList: "/inbox",
+  InboxShell: "/inbox",
   ThreadView: "/inbox/[id] + /portal/messages/[id]",
   NotesEditor: "inside NoteSheet",
   ClientNotes: "/clients/[id]?tab=documentation",

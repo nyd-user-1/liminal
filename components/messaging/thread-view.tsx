@@ -43,6 +43,7 @@ export function ThreadView({
   senders,
   meId,
   canManage,
+  frameless,
 }: {
   thread: Thread & { clientName: string };
   messages: Message[];
@@ -50,6 +51,8 @@ export function ThreadView({
   meId: string;
   /** Practitioner-side: shows the Close / Reopen action. */
   canManage?: boolean;
+  /** Skip the card chrome — for panes that already draw the border. */
+  frameless?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -93,7 +96,11 @@ export function ThreadView({
   const closed = thread.status === "closed";
 
   return (
-    <div className="flex h-full min-h-0 flex-col rounded-card border border-border bg-surface shadow-card">
+    <div
+      className={`flex h-full min-h-0 flex-col ${
+        frameless ? "bg-surface" : "rounded-card border border-border bg-surface shadow-card"
+      }`}
+    >
       <div className="flex items-center gap-3 border-b border-border px-5 py-4">
         <Avatar name={thread.clientName} size="md" />
         <div className="min-w-0 flex-1">
