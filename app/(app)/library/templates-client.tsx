@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { FormBuilder } from "@/components/forms/form-builder";
 import { NoteSheet } from "@/components/notes/note-sheet";
+import { TopBarActions } from "@/components/shell/topbar-slot";
 import { Badge } from "@/components/ui/badge";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { MenuItem } from "@/components/ui/dropdown-menu";
 import { Field } from "@/components/ui/field";
@@ -515,6 +517,15 @@ export function TemplatesIndex() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      {/* Page primary action lives in the TopBar, right after the H1. */}
+      {!openForm && (
+        <TopBarActions>
+          <Button leftIcon="plus" size="sm" onClick={newAction}>
+            New
+          </Button>
+        </TopBarActions>
+      )}
+
       <Tabs
         className="mb-4 shrink-0"
         active={tab}
@@ -524,29 +535,30 @@ export function TemplatesIndex() {
         overflowLabel="View More"
       />
 
-      {/* Opening a form takes the place of the toolbar + card grid, right
-          below the Tabs, instead of navigating to a separate page. */}
+      {/* Persistent search + filters across every tab view */}
+      <Toolbar className="mb-4 shrink-0 flex-wrap">
+        <SearchInput
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search the library…"
+          className="max-w-md flex-1"
+        />
+        <ChipMenu label="Status" value={status} options={allStatuses} onSelect={setStatus} onClear={() => setStatus(undefined)} />
+        <ChipMenu label="Tags" value={category} options={allCategories} onSelect={setCategory} onClear={() => setCategory(undefined)} />
+      </Toolbar>
+
+      {/* Opening a form takes the place of the card grid, below the toolbar,
+          instead of navigating away; the breadcrumb toggles back to the grid. */}
       {openForm ? (
         <div className="flex min-h-0 flex-1 flex-col">
+          <Breadcrumb
+            className="mb-4 shrink-0"
+            items={[{ label: "Library", onClick: closeForm }, { label: openForm.title || "Untitled form" }]}
+          />
           <FormBuilder form={openForm} clients={clients} onBack={closeForm} />
         </div>
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {/* Persistent "New" + search + filters across every tab view */}
-          <Toolbar className="mb-6 flex-wrap">
-            <Button leftIcon="plus" size="sm" onClick={newAction}>
-              New
-            </Button>
-            <SearchInput
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search the library…"
-              className="max-w-md flex-1"
-            />
-            <ChipMenu label="Status" value={status} options={allStatuses} onSelect={setStatus} onClear={() => setStatus(undefined)} />
-            <ChipMenu label="Tags" value={category} options={allCategories} onSelect={setCategory} onClear={() => setCategory(undefined)} />
-          </Toolbar>
-
           {tab === "all" ? (
             <div className="space-y-16">{SECTIONS.map((s) => renderSection(s, false))}</div>
           ) : activeSection ? (

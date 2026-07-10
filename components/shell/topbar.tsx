@@ -5,15 +5,15 @@ import type { ReactNode } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { DropdownMenu, MenuDivider, MenuItem } from "@/components/ui/dropdown-menu";
 import { IconButton } from "@/components/ui/icon-button";
-import type { IconName } from "@/components/ui/icons";
+import { Icon, type IconName } from "@/components/ui/icons";
 import { PageHeader } from "@/components/ui/page-header";
-import { UserChip } from "@/components/ui/user-chip";
 import { TOPBAR_ACTIONS_ID } from "@/components/shell/topbar-slot";
 import type { SessionUser } from "@/lib/auth";
 
 // Catalog `TopBar` — white strip: page icon + H1 inline-left (route-derived,
-// SSR-safe), right cluster = page actions (via TopBarActions portal) + bell +
-// UserChip → avatar menu. One canonical title everywhere — no per-page drift.
+// SSR-safe) with the page's primary action (TopBarActions portal) right after
+// the title; the right corner is the standardized three-button group on every
+// page — bell · profile (avatar menu) · chat (→ Inbox / portal Messages).
 
 // Longest-prefix wins: order specific → general.
 const ROUTE_TITLES: Array<[prefix: string, icon: IconName, title: string]> = [
@@ -68,25 +68,19 @@ export function TopBar({
   return (
     <header className="flex h-[calc(4rem_+_env(safe-area-inset-top))] shrink-0 items-center gap-2 border-b border-border bg-surface px-3 pt-[env(safe-area-inset-top)] md:gap-3 md:px-6">
       {leading}
-      <div className="min-w-0 flex-1">
-        <PageHeader title={title ?? derived.title} />
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <div id={TOPBAR_ACTIONS_ID} className="flex items-center gap-2" />
+      <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
+        <div className="min-w-0 shrink">
+          <PageHeader title={title ?? derived.title} />
+        </div>
+        <div id={TOPBAR_ACTIONS_ID} className="flex shrink-0 items-center gap-2" />
         {actions}
-        <IconButton icon="bell" label="Notifications" className="max-sm:hidden" />
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        <IconButton icon="bell" label="Notifications" />
         <DropdownMenu
-          label="Avatar menu"
-          trigger={
-            <>
-              <span className="sm:hidden">
-                <UserChip name={user.name} hue={user.avatarHue} collapsed />
-              </span>
-              <span className="max-sm:hidden">
-                <UserChip name={user.name} hue={user.avatarHue} />
-              </span>
-            </>
-          }
+          label="Profile"
+          trigger={<Icon name="person-circle" />}
+          triggerClassName="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-field text-text-body transition-colors hover:bg-[#F3F4F6]"
         >
           <div className="flex items-center gap-3 px-2.5 py-2">
             <Avatar name={user.name} hue={user.avatarHue} size="md" />
@@ -98,6 +92,11 @@ export function TopBar({
           <MenuDivider />
           <MenuItem icon="log-out" label="Sign out" onClick={signOut} />
         </DropdownMenu>
+        <IconButton
+          icon="message"
+          label="Messages"
+          onClick={() => router.push(user.role === "client" ? "/portal/messages" : "/inbox")}
+        />
       </div>
     </header>
   );

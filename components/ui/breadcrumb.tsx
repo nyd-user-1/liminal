@@ -1,13 +1,16 @@
+"use client";
+
 import Link from "next/link";
 
 // Catalog `Breadcrumb` — muted link trail + › separators above PageHeader;
-// current page is the last, unlinked item.
+// current page is the last, unlinked item. Items link via href or, for
+// in-place views (library form builder), act via onClick.
 
 export function Breadcrumb({
   items,
   className = "",
 }: {
-  items: Array<{ label: string; href?: string }>;
+  items: Array<{ label: string; href?: string; onClick?: () => void }>;
   className?: string;
 }) {
   return (
@@ -19,6 +22,14 @@ export function Breadcrumb({
             <Link href={item.href} className="text-text-muted transition-colors hover:text-primary">
               {item.label}
             </Link>
+          ) : item.onClick ? (
+            <button
+              type="button"
+              onClick={item.onClick}
+              className="text-text-muted transition-colors hover:text-primary"
+            >
+              {item.label}
+            </button>
           ) : (
             <span className="font-medium text-text-body">{item.label}</span>
           )}
