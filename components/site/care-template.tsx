@@ -63,6 +63,42 @@ const HERO_ILLO_BY_SLUG: Record<string, { src: string; alt: string; width: numbe
     width: 1024,
     height: 559,
   },
+  therapy: {
+    src: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/cut/coffee.avif",
+    alt: "A watercolour illustration — a quiet nook with two armchairs and a small table by arched windows, set for an unhurried conversation.",
+    width: 1024,
+    height: 559,
+  },
+  medication: {
+    src: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/cut/cityscape.avif",
+    alt: "A watercolour illustration — a coffee and a book resting on a railing that looks out over a soft city skyline at morning.",
+    width: 1024,
+    height: 559,
+  },
+  both: {
+    src: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/cut/suburban-scape.avif",
+    alt: "A watercolour illustration — a stone garden path winding through greenery past a small table with a potted plant.",
+    width: 1024,
+    height: 559,
+  },
+  trauma: {
+    src: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/cut/pond.avif",
+    alt: "A watercolour illustration — a still pond at dusk, reeds along the bank, calm reflective water.",
+    width: 1024,
+    height: 559,
+  },
+  grief: {
+    src: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/cut/hiking.avif",
+    alt: "A watercolour illustration — a wooden bench on a hillside trail at sunset, a pair of boots resting on it.",
+    width: 1024,
+    height: 559,
+  },
+  lgbtqia: {
+    src: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/cut/lemonade.avif",
+    alt: "A watercolour illustration — a little lemonade stand with a striped awning and a welcome sign under summer trees.",
+    width: 1024,
+    height: 559,
+  },
 };
 
 export function CareTemplate({
