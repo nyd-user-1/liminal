@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Icon } from "@/components/ui/icons";
 import { Badge } from "@/components/ui/badge";
 import { ProviderSpotlightRail, type ProviderSpotlight } from "@/components/marketing/provider-spotlight-card";
-import { PageHero } from "./page-hero";
+import { WatercolorHover } from "@/components/marketing/watercolor-hover";
+import { CtaLink } from "./cta-link";
 import { Section, SectionHeading } from "./section";
 import { InsurerStrip } from "./insurer-strip";
 import { FaqList } from "./faq";
@@ -54,14 +55,70 @@ export function CareTemplate({
 
   return (
     <>
-      <PageHero
-        eyebrow={topic.eyebrow}
-        title={topic.firstPerson}
-        lede={topic.lede}
-        primary={{ href: BOOK_HREF, label: "Book a session" }}
-        secondary={{ href: browseHref, label: "Browse providers" }}
-        illo={heroIllo}
-      />
+      {/* Hero — the home page's grammar: warm-paper ground, a large watercolour
+          bleeding off the right (cursor-tracking bloom + develop-in), the copy
+          on the left, sized to fill the viewport under the nav. */}
+      <section className="relative overflow-hidden bg-page lg:flex lg:min-h-[calc(100dvh-72px)] lg:items-center">
+        <div aria-hidden className="mkt-firstlight pointer-events-none absolute inset-0" />
+
+        {/* large hero painting, bleeding off the right (desktop) */}
+        <div className="absolute top-1/2 right-0 z-0 hidden w-[72vw] max-w-[1280px] -translate-y-1/2 lg:block">
+          <WatercolorHover>
+            <img
+              src={heroIllo.src}
+              alt={heroIllo.alt}
+              width={heroIllo.width}
+              height={heroIllo.height}
+              className="mkt-develop mkt-d1 block w-full"
+              loading="eager"
+            />
+          </WatercolorHover>
+        </div>
+
+        {/* Left scrim — keeps the copy legible over the dark painting and lets the
+            watercolour dissolve into the warm paper on the left. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 left-0 z-[1] hidden w-3/5 bg-gradient-to-r from-page via-page/80 to-transparent lg:block"
+        />
+
+        <div className="pointer-events-none relative z-10 mx-auto w-full max-w-6xl px-6 py-16 sm:py-20 lg:py-16">
+          {/* mobile painting — leads the copy below lg */}
+          <div className="pointer-events-auto mkt-develop -mx-6 mb-10 w-[calc(100%+3rem)] lg:hidden">
+            <WatercolorHover>
+              <img
+                src={heroIllo.src}
+                alt={heroIllo.alt}
+                width={heroIllo.width}
+                height={heroIllo.height}
+                className="block w-full"
+                loading="eager"
+              />
+            </WatercolorHover>
+          </div>
+
+          <div className="pointer-events-auto lg:max-w-[54%]">
+            <p className="mkt-rise text-xs font-semibold uppercase tracking-[0.18em] text-primary">{topic.eyebrow}</p>
+            <h1
+              className="mkt-rise mkt-d1 mt-4 text-balance font-display font-extrabold tracking-[-0.02em] text-text"
+              style={{ fontSize: "clamp(2.25rem, 5vw, 3.75rem)", lineHeight: 1.03 }}
+            >
+              {topic.firstPerson}
+            </h1>
+            <p className="mkt-rise mkt-d2 mt-5 max-w-xl text-pretty text-lg leading-relaxed text-text-body sm:text-xl">
+              {topic.lede}
+            </p>
+            <div className="mkt-rise mkt-d3 mt-8 flex flex-col gap-3 sm:flex-row">
+              <CtaLink href={BOOK_HREF} arrow>
+                Book a session
+              </CtaLink>
+              <CtaLink href={browseHref} tone="secondary">
+                Browse providers
+              </CtaLink>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Matching providers — section 2: the real homepage spotlight rail
           (full-bleed horizontal scroll) + a link into the full directory. */}
