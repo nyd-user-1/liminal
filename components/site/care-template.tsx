@@ -32,6 +32,12 @@ const HERO_ILLO_BY_SLUG: Record<string, { src: string; alt: string; width: numbe
     width: 1024,
     height: 559,
   },
+  adhd: {
+    src: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/cut/veranda.avif",
+    alt: "A watercolour illustration — a columned porch lined with rocking chairs and ceiling fans, the veranda receding toward a calm green lawn.",
+    width: 1024,
+    height: 559,
+  },
 };
 
 function matchedProviders(topic: Topic) {
