@@ -39,6 +39,18 @@ const HERO_ILLO_BY_SLUG: Record<string, { src: string; alt: string; width: numbe
     width: 1024,
     height: 559,
   },
+  relationships: {
+    src: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/cut/sunroom.avif",
+    alt: "A watercolour illustration — a garden sunroom at dusk, two wicker chairs and a small table beside tall windows opening onto greenery.",
+    width: 1024,
+    height: 559,
+  },
+  sleep: {
+    src: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/cut/pantry.avif",
+    alt: "A watercolour illustration — a warm-lit pantry at night, shelves of jars glowing under a single hanging lamp.",
+    width: 1024,
+    height: 559,
+  },
 };
 
 export function CareTemplate({
