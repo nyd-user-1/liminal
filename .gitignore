@@ -15,5 +15,8 @@ dev.log
 # disk. This guards any future disk-based extraction from being committed.
 .nppes-scratch/
 
+# Payer-network harvest scratch — probe logs, samples, ad-hoc status scripts.
+.harvest/
+
 # Local design critiques (impeccable skill) — keep out of git
 .impeccable/

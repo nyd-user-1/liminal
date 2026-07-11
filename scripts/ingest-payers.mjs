@@ -74,9 +74,12 @@ const PAYER_REGISTRY = {
   humana: {
     slug: "humana", name: "Humana", fhirBaseUrl: "https://fhir.humana.com/api/",
     authType: "none", planNetProfile: true, buildHeaders: FHIR_HEADERS,
-    // Humana: chained NPI search + specialty search are WAF-blocked, small NY
-    // footprint → reverse-lookup our own NPIs. Full Plan-Net (network+accepting).
-    defaultMode: "enrich", completeness: "full",
+    // Humana: chained params are WAF-blocked but plain reference params are not,
+    // and location= accepts comma OR-lists (≥100 ids per request measured OK).
+    // Roles carry location refs → NY-boundable via --mode=locbatch (Path B):
+    // enumerate Location?address-state=NY, then walk PractitionerRole?location=
+    // <batch> per link.next. Full Plan-Net (network name in display + newpatients).
+    defaultMode: "locbatch", completeness: "full",
   },
   cigna: {
     slug: "cigna", name: "Cigna", fhirBaseUrl: "https://fhir.cigna.com/ProviderDirectory/v1/",
@@ -87,8 +90,10 @@ const PAYER_REGISTRY = {
     // (Cigna's network-reference has no display, unlike Humana). Full Plan-Net.
     defaultMode: "reverse", completeness: "full",
     // Only the :network include (we already know the NPI; location is stored as a
-    // ref). Cigna 400s when practitioner+location+network includes are combined.
-    roleQuery: (npi) => `PractitionerRole?practitioner.identifier=${NPI_SYSTEM}|${npi}` +
+    // ref). Cigna 400s when practitioner+location+network includes are combined,
+    // and hard-400s a raw `|` in the query (WHATWG fetch leaves | unencoded) —
+    // the system|value separator must be sent as %7C.
+    roleQuery: (npi) => `PractitionerRole?practitioner.identifier=${encodeURIComponent(`${NPI_SYSTEM}|${npi}`)}` +
       "&_include=PractitionerRole:network&_count=50",
   },
   healthfirst: {
@@ -541,6 +546,109 @@ async function runWalk(payerSourceId, headers, known) {
   console.log(`\n  scanned ${stats.scanned} roles across ${stats.pages} pages → kept ${stats.kept}: matched ${stats.matched}, unmatched ${stats.unmatched} (parked)`);
 }
 
+// ── driver: locbatch — Path B: NY-location-scoped walk (Humana) ──────────────
+// Phase 1: enumerate Location?address-state=NY (ids cached to <checkpoint>.locations).
+// Phase 2: batch ids into location= OR-lists (--loc-batch, default 100), walk
+// PractitionerRole?location=<batch> following link.next per batch. NY-bounded by
+// construction (no client-side state filter needed); BH-filtered client-side.
+// Matched NPIs → participation rows; unmatched BH NPIs → payer_unmatched_npis.
+async function runLocBatch(payerSourceId, headers, known) {
+  const BATCH = Number(arg("loc-batch", 100));
+  const LOC_PAGES = Number(arg("loc-pages", Infinity)); // bounded-slice: cap phase-1 pages
+  const LOC_FILE = CHECKPOINT + ".locations";
+  const cp = RESUME ? readCheckpoint() : null;
+  if (cp) Object.assign(stats, cp.stats || {});
+
+  // Phase 1 — enumerate NY location ids (resumable via checkpoint locNext).
+  let locIds = null;
+  if (RESUME) { try { locIds = JSON.parse(fs.readFileSync(LOC_FILE, "utf8")); } catch { /* not yet */ } }
+  if (!locIds || (cp && cp.locNext)) {
+    locIds = locIds || [];
+    let url = cp?.locNext || `Location?address-state=${STATE}&_count=${PAGE_COUNT}`;
+    console.log(`• ${source.name} locbatch — phase 1: enumerating ${STATE} locations…`);
+    let locPages = 0;
+    while (url && locPages < LOC_PAGES) {
+      locPages++;
+      const bundle = await fetchJson(source.fhirBaseUrl, url, headers);
+      stats.pages++;
+      for (const e of bundle.entry || []) {
+        const r = e.resource;
+        if (r?.resourceType === "Location" && r.id) locIds.push(r.id);
+      }
+      url = (bundle.link || []).find((l) => l.relation === "next")?.url || null;
+      if (!DRY_RUN) fs.writeFileSync(LOC_FILE, JSON.stringify(locIds));
+      writeCheckpoint({ mode: "locbatch", locNext: url, batchIndex: 0, roleNext: null, stats });
+      process.stdout.write(`\r  locations ${locIds.length}…`);
+      if (DELAY) await sleep(DELAY);
+    }
+    console.log(`\n  ${locIds.length} ${STATE} locations enumerated`);
+  }
+  locIds = [...new Set(locIds)];
+
+  // Phase 2 — batched role walk.
+  const refCache = new Map();
+  const nBatches = Math.ceil(locIds.length / BATCH);
+  let startBatch = cp?.locNext ? 0 : (cp?.batchIndex ?? 0);
+  console.log(`• ${source.name} locbatch — phase 2: ${nBatches} batches of ≤${BATCH} locations`);
+  outer: for (let bi = startBatch; bi < nBatches; bi++) {
+    const ids = locIds.slice(bi * BATCH, (bi + 1) * BATCH);
+    let url = cp && cp.batchIndex === bi && cp.roleNext ? cp.roleNext
+      : `PractitionerRole?location=${ids.join(",")}&_count=${PAGE_COUNT}&_include=PractitionerRole:practitioner`;
+    while (url) {
+      const bundle = await fetchJson(source.fhirBaseUrl, url, headers);
+      stats.pages++;
+      const includes = new Map();
+      for (const e of bundle.entry || []) {
+        const r = e.resource; if (!r) continue;
+        if (r.resourceType && r.id) includes.set(`${r.resourceType}/${r.id}`, r);
+        if (e.fullUrl) includes.set(e.fullUrl, r);
+      }
+      for (const e of bundle.entry || []) {
+        const pr = e.resource;
+        if (e.search?.mode === "include" || pr?.resourceType !== "PractitionerRole") continue;
+        stats.scanned++;
+        // Resolve NPI: page includes first, then a cached point fetch.
+        let npi = null, name = null;
+        const ref = pr.practitioner?.reference;
+        if (ref) {
+          const short = ref.replace(/^https?:\/\/[^/]+\/(api\/)?/, "");
+          let prac = includes.get(ref) || includes.get(short) || refCache.get(ref);
+          if (!prac) {
+            try { prac = await fetchJson(source.fhirBaseUrl, ref, headers); refCache.set(ref, prac); } catch { /* skip */ }
+          }
+          ({ npi, name } = npiOf(prac));
+        }
+        if (!npi) continue;
+        const bhCode = specialtyCodes(pr).find((c) => isMentalHealthTaxonomy(c)) || null;
+        const inOurs = known.has(npi);
+        if (!bhCode && !inOurs) continue; // not behavioral health, not ours → skip
+        stats.kept++;
+        if (inOurs) { stats.matched++; await participationRows(payerSourceId, npi, pr, includes); }
+        else {
+          stats.unmatched++;
+          const nets = networksOf(pr, includes);
+          unmatchedBuf.push({
+            npi, payer_source_id: payerSourceId, name,
+            network_name: nets[0]?.name || null,
+            raw_specialty_code: bhCode || specialtyCodes(pr)[0] || null,
+            accepting_new_patients: acceptingOf(pr), raw_resource: JSON.stringify(stripNarrative(pr)),
+          });
+        }
+        if (partBuf.length >= 500 || unmatchedBuf.length >= 500) await flush();
+        if (stats.scanned >= LIMIT) { await flush(); break outer; }
+      }
+      url = (bundle.link || []).find((l) => l.relation === "next")?.url || null;
+      writeCheckpoint({ mode: "locbatch", locNext: null, batchIndex: bi, roleNext: url, stats });
+      if (DELAY) await sleep(DELAY);
+    }
+    writeCheckpoint({ mode: "locbatch", locNext: null, batchIndex: bi + 1, roleNext: null, stats });
+    process.stdout.write(`\r  batch ${bi + 1}/${nBatches} — scanned ${stats.scanned}, matched ${stats.matched}, unmatched ${stats.unmatched}…`);
+  }
+  await flush();
+  process.stdout.write("\n");
+  console.log(`\n  scanned ${stats.scanned} roles across ${stats.pages} pages → kept ${stats.kept}: matched ${stats.matched}, unmatched ${stats.unmatched} (parked)`);
+}
+
 // ── driver: reverse-lookup — point-query our NPIs (Cigna, Healthfirst) ───────
 // One request per NPI via source.roleQuery(npi): Cigna uses practitioner.identifier
 // (+ _include to resolve the network), Healthfirst uses practitioner.id (= NPI).
@@ -663,6 +771,7 @@ if (REPORT_ONLY) {
   const mode = arg("mode") ? MODE : (source.defaultMode || "enrich");
   console.log(`  driver: ${mode}`);
   if (mode === "walk") await runWalk(payerSourceId, headers, await loadKnownNpis());
+  else if (mode === "locbatch") await runLocBatch(payerSourceId, headers, await loadKnownNpis());
   else if (mode === "reverse") await runReverseLookup(payerSourceId, headers);
   else await runEnrich(payerSourceId, headers);
   if (!DRY_RUN) {
