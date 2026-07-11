@@ -156,11 +156,11 @@ export async function listBookableProfiles(): Promise<BookableProfile[]> {
 // exist (design lead's call). Shared by the homepage spotlight rail and the
 // real provider profile header so both show the same numbers.
 const SPOTLIGHT_RATING: Record<string, { rating: number; reviewCount: number }> = {
-  "brendan-stanton": { rating: 5.0, reviewCount: 182 },
   "priya-raman": { rating: 4.9, reviewCount: 146 },
   "lena-whitfield": { rating: 5.0, reviewCount: 97 },
   "marcus-bell": { rating: 4.8, reviewCount: 64 },
   "shelley-padgett": { rating: 4.9, reviewCount: 211 },
+  "jason-hilario": { rating: 4.9, reviewCount: 21 },
 };
 
 export function spotlightRatingFor(slug: string | null | undefined): { rating: number; reviewCount: number } | null {

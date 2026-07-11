@@ -8,20 +8,23 @@ import { CountBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Field } from "@/components/ui/field";
+import { IconButton } from "@/components/ui/icon-button";
 import { Modal } from "@/components/ui/modal";
 import { TopBarActions } from "@/components/shell/topbar-slot";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
 import { Tabs } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { Toolbar } from "@/components/ui/toolbar";
 import { useToast } from "@/components/ui/toast";
-import { formatDate, formatTime } from "@/lib/format";
+import { formatDate, formatDateTime, formatTime } from "@/lib/format";
 import type { ThreadSummary } from "@/lib/repos/threads";
 
-// Practitioner Inbox — master/detail split: thread list pane (Tabs
-// Open/Closed, search, unread emphasis, active highlight) beside the open
-// thread (children from inbox/layout.tsx). Below lg the panes swap on
-// navigation instead of sharing the row. Compose lives in the TopBar.
+// Practitioner Inbox — page-level Tabs (Open/Closed/Drafts) and search over
+// the master/detail split: thread list pane beside the open thread (children
+// from inbox/layout.tsx). Below lg the panes swap on navigation. Compose
+// lives in the TopBar; closing it mid-write saves a local draft
+// (localStorage) that the Drafts tab lists and reopens.
 
 function threadTime(iso: string | null): string {
   if (!iso) return "";
@@ -29,26 +32,71 @@ function threadTime(iso: string | null): string {
   return d.toDateString() === new Date().toDateString() ? formatTime(d) : formatDate(d);
 }
 
+interface ComposeDraft {
+  id: string;
+  clientId: string;
+  subject: string;
+  body: string;
+  savedAt: string; // ISO
+}
+
+const DRAFTS_KEY = "liminal:inbox-drafts";
+
+function loadDrafts(): ComposeDraft[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(DRAFTS_KEY) ?? "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+type ShellTab = "open" | "closed" | "drafts";
+
 export function InboxShell({
   threads,
-  clients,
+  clients = [],
   children,
+  basePath = "/inbox",
+  variant = "staff",
 }: {
   threads: ThreadSummary[];
-  clients: Array<{ id: string; name: string }>;
+  clients?: Array<{ id: string; name: string }>;
   children: React.ReactNode;
+  /** Route prefix for thread links (e.g. "/inbox" or "/portal/messages"). */
+  basePath?: string;
+  /** "staff" = practitioner inbox; "client" = portal (no client picker, care-team POV). */
+  variant?: "staff" | "client";
 }) {
   const router = useRouter();
   const toast = useToast();
   const pathname = usePathname();
-  const activeId = pathname.startsWith("/inbox/") ? pathname.split("/")[2] : null;
+  const isClient = variant === "client";
+  const activeId = pathname.startsWith(`${basePath}/`)
+    ? pathname.slice(basePath.length + 1).split("/")[0]
+    : null;
 
   const active = threads.find((t) => t.id === activeId);
-  const [tab, setTab] = useState<"open" | "closed">(active?.status === "closed" ? "closed" : "open");
+  const [tab, setTab] = useState<ShellTab>(active?.status === "closed" ? "closed" : "open");
   const [query, setQuery] = useState("");
   const [composeOpen, setComposeOpen] = useState(false);
   const [compose, setCompose] = useState({ clientId: "", subject: "", body: "" });
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<ComposeDraft[]>([]);
   const [busy, setBusy] = useState(false);
+
+  // Drafts live in localStorage — hydrate after mount (SSR-safe).
+  useEffect(() => {
+    setDrafts(loadDrafts());
+  }, []);
+  const saveDrafts = (next: ComposeDraft[]) => {
+    setDrafts(next);
+    try {
+      localStorage.setItem(DRAFTS_KEY, JSON.stringify(next));
+    } catch {
+      /* storage full/unavailable — drafts just won't persist */
+    }
+  };
 
   // Opening a thread marks it read server-side; refresh so the list's
   // unread badge clears. Skip the initial mount.
@@ -68,9 +116,9 @@ export function InboxShell({
     [threads],
   );
 
+  const q = query.trim().toLowerCase();
   const visible = threads.filter((t) => {
     if (t.status !== tab) return false;
-    const q = query.trim().toLowerCase();
     if (!q) return true;
     return (
       t.clientName.toLowerCase().includes(q) ||
@@ -79,16 +127,61 @@ export function InboxShell({
     );
   });
 
+  const clientName = (id: string) => clients.find((c) => c.id === id)?.name ?? null;
+  const visibleDrafts = drafts.filter((d) => {
+    if (!q) return true;
+    return (
+      (clientName(d.clientId) ?? "").toLowerCase().includes(q) ||
+      d.subject.toLowerCase().includes(q) ||
+      d.body.toLowerCase().includes(q)
+    );
+  });
+
+  const openCompose = (draft?: ComposeDraft) => {
+    setCompose(draft ? { clientId: draft.clientId, subject: draft.subject, body: draft.body } : { clientId: "", subject: "", body: "" });
+    setDraftId(draft?.id ?? null);
+    setComposeOpen(true);
+  };
+
+  // Closing compose mid-write keeps the work: save (or update) a draft.
+  const closeCompose = () => {
+    setComposeOpen(false);
+    // The portal has no Drafts tab — don't persist a hidden draft there.
+    if (isClient) {
+      setDraftId(null);
+      setCompose({ clientId: "", subject: "", body: "" });
+      return;
+    }
+    const hasContent = compose.clientId || compose.subject.trim() || compose.body.trim();
+    if (hasContent) {
+      const id = draftId ?? `draft_${Date.now()}`;
+      const next: ComposeDraft = { id, ...compose, savedAt: new Date().toISOString() };
+      saveDrafts([next, ...drafts.filter((d) => d.id !== id)]);
+      if (!draftId) toast("Saved to drafts", "info");
+    } else if (draftId) {
+      saveDrafts(drafts.filter((d) => d.id !== draftId)); // emptied out — drop it
+    }
+    setDraftId(null);
+    setCompose({ clientId: "", subject: "", body: "" });
+  };
+
+  const deleteDraft = (id: string) => saveDrafts(drafts.filter((d) => d.id !== id));
+
   const submitCompose = async () => {
-    if (!compose.clientId || !compose.subject.trim() || !compose.body.trim()) {
-      toast("Choose a client and fill in subject and message.", "warning");
+    if ((!isClient && !compose.clientId) || !compose.subject.trim() || !compose.body.trim()) {
+      toast(
+        isClient ? "Fill in a subject and message." : "Choose a client and fill in subject and message.",
+        "warning",
+      );
       return;
     }
     setBusy(true);
+    // Client threads are scoped to the signed-in client server-side — no clientId.
+    const payload = isClient ? { subject: compose.subject, body: compose.body } : compose;
     const res = await fetch("/api/threads", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(compose),
+      body: JSON.stringify(payload),
     });
     setBusy(false);
     if (!res.ok) {
@@ -96,67 +189,127 @@ export function InboxShell({
       return;
     }
     const thread = await res.json();
+    if (draftId) deleteDraft(draftId);
     setComposeOpen(false);
+    setDraftId(null);
     setCompose({ clientId: "", subject: "", body: "" });
-    router.push(`/inbox/${thread.id}`);
+    router.push(`${basePath}/${thread.id}`);
     router.refresh();
   };
 
   return (
-    <>
+    <div className="flex h-full min-h-0 flex-col">
       <TopBarActions>
-        <Button leftIcon="plus" onClick={() => setComposeOpen(true)}>
-          Compose
+        <Button size="sm" leftIcon="plus" onClick={() => openCompose()}>
+          {isClient ? "New message" : "Compose"}
         </Button>
       </TopBarActions>
 
-      <div className="flex h-full min-h-0 overflow-hidden rounded-card border border-border bg-surface shadow-card">
+      {/* Page-level tabs + search (hidden below lg while a thread is open) */}
+      <Tabs
+        className={`mb-4 shrink-0 ${activeId ? "max-lg:hidden" : ""}`}
+        items={[
+          { key: "open", label: "Open", count: counts.open },
+          { key: "closed", label: "Closed", count: counts.closed },
+          ...(isClient ? [] : [{ key: "drafts", label: "Drafts", count: drafts.length }]),
+        ]}
+        active={tab}
+        onChange={(k) => setTab(k as ShellTab)}
+      />
+      <Toolbar className={`mb-4 shrink-0 ${activeId ? "max-lg:hidden" : ""}`}>
+        <SearchInput
+          placeholder={tab === "drafts" ? "Search drafts" : "Search conversations"}
+          className="w-full max-w-md"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </Toolbar>
+
+      <div className="flex min-h-0 flex-1 overflow-hidden rounded-card border border-border bg-surface shadow-card">
         {/* Thread list pane */}
         <div
           className={`flex w-full flex-col border-border lg:w-[380px] lg:shrink-0 lg:border-r ${
             activeId ? "max-lg:hidden" : ""
           }`}
         >
-          <div className="shrink-0 space-y-3 border-b border-border p-3">
-            <Tabs
-              items={[
-                { key: "open", label: "Open", count: counts.open },
-                { key: "closed", label: "Closed", count: counts.closed },
-              ]}
-              active={tab}
-              onChange={(k) => setTab(k as "open" | "closed")}
-            />
-            <SearchInput
-              placeholder="Search conversations"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            {visible.length === 0 ? (
+          <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto">
+            {tab === "drafts" ? (
+              visibleDrafts.length === 0 ? (
+                <EmptyState
+                  icon="edit"
+                  title={query ? "No drafts match" : "No drafts"}
+                  subtext={query ? undefined : "Messages you start but don't send are saved here."}
+                />
+              ) : (
+                visibleDrafts.map((d) => (
+                  // div, not button — the trash IconButton nests inside.
+                  <div
+                    key={d.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openCompose(d)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") openCompose(d);
+                    }}
+                    className="block w-full cursor-pointer border-b border-border px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-canvas"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-text">
+                        {clientName(d.clientId) ?? "No client selected"}
+                      </span>
+                      <span className="shrink-0 text-[12px] text-text-muted">{formatDateTime(d.savedAt)}</span>
+                      <IconButton
+                        icon="trash"
+                        label="Delete draft"
+                        variant="danger"
+                        className="-mr-2 h-7 w-7"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteDraft(d.id);
+                        }}
+                      />
+                    </span>
+                    <span className="mt-0.5 block truncate text-sm text-text-body">
+                      {d.subject.trim() || "(no subject)"}
+                    </span>
+                    <span className="mt-0.5 block truncate text-[13px] text-text-muted">
+                      {d.body.trim() || "Empty draft"}
+                    </span>
+                  </div>
+                ))
+              )
+            ) : visible.length === 0 ? (
               <EmptyState
                 icon="inbox"
                 title={query ? "No conversations match" : `No ${tab} conversations`}
-                subtext={tab === "open" && !query ? "Client messages will appear here." : undefined}
+                subtext={
+                  tab === "open" && !query
+                    ? isClient
+                      ? "Messages from your care team will appear here."
+                      : "Client messages will appear here."
+                    : undefined
+                }
               />
             ) : (
               visible.map((t) => {
-                const unread = t.unreadFromClient > 0;
+                const unreadCount = isClient ? t.unreadFromStaff : t.unreadFromClient;
+                const unread = unreadCount > 0;
                 const current = t.id === activeId;
+                // The client's counterparty is always their care team; staff see the client's name.
+                const heading = isClient ? "Care team" : t.clientName;
                 return (
                   <Link
                     key={t.id}
-                    href={`/inbox/${t.id}`}
+                    href={`${basePath}/${t.id}`}
                     aria-current={current ? "page" : undefined}
                     className={`block border-b border-border px-4 py-3 transition-colors last:border-b-0 hover:bg-canvas ${
                       current ? "bg-canvas" : ""
                     }`}
                   >
                     <span className="flex items-center gap-2.5">
-                      <Avatar name={t.clientName} size="sm" />
+                      <Avatar name={heading} size="sm" />
                       <span className={`min-w-0 flex-1 truncate text-[15px] text-text ${unread ? "font-bold" : "font-semibold"}`}>
-                        {t.clientName}
+                        {heading}
                       </span>
                       <span className="shrink-0 text-[12px] text-text-muted">{threadTime(t.lastMessageAt)}</span>
                     </span>
@@ -167,7 +320,7 @@ export function InboxShell({
                       <span className="min-w-0 flex-1 truncate text-[13px] text-text-muted">
                         {t.snippet ?? "No messages yet"}
                       </span>
-                      <CountBadge count={t.unreadFromClient} />
+                      <CountBadge count={unreadCount} />
                     </span>
                   </Link>
                 );
@@ -184,12 +337,12 @@ export function InboxShell({
 
       <Modal
         open={composeOpen}
-        onClose={() => setComposeOpen(false)}
-        title="New message"
+        onClose={closeCompose}
+        title={isClient ? "Message your care team" : "New message"}
         icon="message"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setComposeOpen(false)}>
+            <Button variant="secondary" onClick={closeCompose}>
               Cancel
             </Button>
             <Button onClick={submitCompose} loading={busy}>
@@ -199,14 +352,16 @@ export function InboxShell({
         }
       >
         <div className="space-y-4">
-          <Select
-            label="Client"
-            required
-            placeholder="Choose a client"
-            options={clients.map((c) => ({ value: c.id, label: c.name }))}
-            value={compose.clientId}
-            onValueChange={(v) => setCompose((c) => ({ ...c, clientId: v }))}
-          />
+          {!isClient && (
+            <Select
+              label="Client"
+              required
+              placeholder="Choose a client"
+              options={clients.map((c) => ({ value: c.id, label: c.name }))}
+              value={compose.clientId}
+              onValueChange={(v) => setCompose((c) => ({ ...c, clientId: v }))}
+            />
+          )}
           <Field
             label="Subject"
             required
@@ -224,6 +379,6 @@ export function InboxShell({
           />
         </div>
       </Modal>
-    </>
+    </div>
   );
 }

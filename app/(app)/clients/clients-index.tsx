@@ -176,7 +176,7 @@ export function ClientsIndex({
   return (
     <>
       <TopBarActions>
-        <Button leftIcon="plus" onClick={() => setPanelOpen(true)}>
+        <Button size="sm" leftIcon="plus" onClick={() => setPanelOpen(true)}>
           New client
         </Button>
       </TopBarActions>

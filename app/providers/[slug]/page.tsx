@@ -18,7 +18,9 @@ import { RevealFx } from "@/components/providers/reveal-fx";
 import { getPractitionerBySlug, listAvailability, listServices } from "@/lib/repos/services";
 import { getProfileByUserId, nextAvailableLabel, spotlightRatingFor } from "@/lib/repos/provider-profiles";
 import { silhouetteUrl } from "@/components/providers/provider-illustration";
+import { headshotFor } from "@/lib/headshots";
 import { getProviderBySlug, nearbyCities, providerFacets } from "@/lib/repos/directory";
+import { networkSummaryForNpi } from "@/lib/repos/networks";
 import { listPayers } from "@/lib/repos/policies";
 
 // The public provider profile — our version of Headway's provider page.
@@ -80,9 +82,10 @@ export default async function ProviderProfilePage({ params }: { params: Promise<
                   name={practitioner.name}
                   avatarHue={practitioner.avatarHue}
                   illustrationKey={profile?.illustrationKey}
-                  photoUrl={silhouetteUrl(practitioner.id)}
+                  photoUrl={headshotFor(practitioner.id) ?? silhouetteUrl(practitioner.id)}
                   roleTitle={profile?.roleTitle}
                   yearsExperience={profile?.yearsExperience}
+                  careTypes={profile?.careTypes}
                   rating={spotlightRating?.rating}
                   reviewCount={spotlightRating?.reviewCount}
                   availableLabel={
@@ -131,7 +134,6 @@ export default async function ProviderProfilePage({ params }: { params: Promise<
                 topSpecialties={profile?.topSpecialties}
                 moreSpecialties={profile?.moreSpecialties}
                 therapyMethods={profile?.therapyMethods}
-                careTypes={profile?.careTypes}
                 agesServed={profile?.agesServed}
                 languages={profile?.languages}
                 locationLabel={profile?.locationLabel}
@@ -165,9 +167,10 @@ export default async function ProviderProfilePage({ params }: { params: Promise<
   if (!directory) notFound();
 
   // Real nearby cities from the same county (not fabricated neighboring towns).
-  const [nearby, facets] = await Promise.all([
+  const [nearby, facets, networkSummary] = await Promise.all([
     nearbyCities(directory.county, directory.city),
     providerFacets(),
+    networkSummaryForNpi(directory.npi),
   ]);
   const claimHref = `/join?claim=1&name=${encodeURIComponent(directory.name)}${
     directory.npi ? `&npi=${encodeURIComponent(directory.npi)}` : ""
@@ -194,7 +197,7 @@ export default async function ProviderProfilePage({ params }: { params: Promise<
             no height has to be measured. */}
         <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
           <RevealFx delay={0.05} className="flex min-w-0 flex-col">
-            <ProviderPanel provider={panel} heading="h1" className="flex-1" />
+            <ProviderPanel provider={panel} heading="h1" networkSummary={networkSummary} className="flex-1" />
           </RevealFx>
 
           <RevealFx delay={0.15} className="flex flex-col">

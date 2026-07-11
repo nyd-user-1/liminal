@@ -15,6 +15,15 @@ import { PLACEHOLDER_PRACTITIONERS, HOME_FAQS, BOOK_HREF, type Topic } from "@/l
 // matching providers → cost/insurance → first-visit → FAQ → CTA. Reuses the
 // homepage building blocks; invents nothing new. NEW (public marketing site).
 
+// Home-hero watercolour, reused so the care hero reads as the same surface as
+// the front page (warm-paper ground, painting bleeding off the right).
+const HERO_ILLO = {
+  src: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/cut/lakeside.avif",
+  alt: "A watercolour illustration — a person wrapped in a shawl sits on a bench by a still lake at dawn, holding a warm mug.",
+  width: 1600,
+  height: 1200,
+};
+
 function matchedProviders(topic: Topic) {
   const wants = new Set(topic.careOffered);
   const list = PLACEHOLDER_PRACTITIONERS.filter((p) =>
@@ -35,7 +44,11 @@ export function CareTemplate({ topic, providerCount }: { topic: Topic; providerC
         lede={topic.lede}
         primary={{ href: BOOK_HREF, label: "Book a session" }}
         secondary={{ href: browseHref, label: "Browse providers" }}
+        illo={HERO_ILLO}
       />
+
+      {/* Trust strip — splits the hero from the first content section */}
+      <InsurerStrip />
 
       {/* What care looks like here */}
       <Section>
@@ -95,7 +108,6 @@ export function CareTemplate({ topic, providerCount }: { topic: Topic; providerC
           </p>
         </div>
       </Section>
-      <InsurerStrip caption="Filter to in-network before you book." />
 
       {/* First visit */}
       <Section ground="canvas">

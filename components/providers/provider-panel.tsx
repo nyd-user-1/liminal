@@ -1,9 +1,12 @@
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { InfoRow } from "@/components/providers/info-row";
 import { ProviderIllustration } from "@/components/providers/provider-illustration";
 import { RatingAvailability } from "@/components/providers/rating-availability";
 import { directoryRatingFor } from "@/lib/directory-rating";
+import { formatDate } from "@/lib/format";
+import type { ProviderNetworkSummary } from "@/lib/repos/networks";
 
 // The sparse-directory variant of the provider profile: one panel carrying
 // what used to be three (header, "Qualification and insurance", "Care
@@ -33,19 +36,23 @@ export function ProviderPanel({
   provider,
   heading = "h2",
   href,
+  networkSummary,
   className = "",
 }: {
   provider: ProviderPanelData;
   heading?: "h1" | "h2";
   /** When set, the whole panel is a link to the provider's profile. */
   href?: string;
+  /** Insurance-network rollup (payer-networks data); omit/null when we hold none
+      for this provider — absence renders nothing, never "out of network". */
+  networkSummary?: ProviderNetworkSummary | null;
   className?: string;
 }) {
   const { id, name, profession, credential, licensedIn, specialties, locationLabel, gender } = provider;
   const rating = directoryRatingFor(id);
   const Heading = heading;
 
-  const hasQualification = Boolean(credential) || (licensedIn?.length ?? 0) > 0;
+  const hasQualification = Boolean(credential) || (licensedIn?.length ?? 0) > 0 || Boolean(networkSummary);
   const hasCare = (specialties?.length ?? 0) > 0 || Boolean(locationLabel);
 
   const body = (
@@ -76,6 +83,33 @@ export function ProviderPanel({
                 {credential && <InfoRow icon="circle-check" label="License type" value={credential} />}
                 {licensedIn && licensedIn.length > 0 && (
                   <InfoRow icon="circle-check" label="Licensed in" value={licensedIn.join(", ")} />
+                )}
+                {networkSummary && (
+                  <InfoRow
+                    icon="shield-plus"
+                    label="In-network"
+                    value={
+                      <div className="space-y-1.5">
+                        <p className="font-medium text-text">{networkSummary.payers.join(", ")}</p>
+                        {networkSummary.networks.length > 0 && (
+                          <p className="text-[14px] text-text-muted">
+                            {networkSummary.networks.slice(0, 5).join(", ")}
+                            {networkSummary.networks.length > 5
+                              ? `, +${networkSummary.networks.length - 5} more`
+                              : ""}
+                          </p>
+                        )}
+                        {networkSummary.accepting && (
+                          <div className="pt-0.5">
+                            <Badge variant="success">Accepting new patients</Badge>
+                          </div>
+                        )}
+                        {networkSummary.asOf && (
+                          <p className="text-[13px] text-text-muted">as of {formatDate(networkSummary.asOf)}</p>
+                        )}
+                      </div>
+                    }
+                  />
                 )}
               </div>
             </section>

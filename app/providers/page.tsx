@@ -28,9 +28,9 @@ const HERO_IMAGE = "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illu
 export default async function ProvidersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; city?: string; specialty?: string }>;
+  searchParams: Promise<{ q?: string; city?: string; specialty?: string; need?: string }>;
 }) {
-  const { q, city, specialty } = await searchParams;
+  const { q, city, specialty, need } = await searchParams;
   const facets = await providerFacets();
   return (
     <div className="flex min-h-screen flex-col bg-page">
@@ -50,7 +50,13 @@ export default async function ProvidersPage({
           </h1>
         </div>
 
-        <FindCareSearch initialQ={q ?? ""} initialCity={city ?? ""} initialSpecialty={specialty ?? ""} facets={facets} />
+        <FindCareSearch
+          initialQ={q ?? ""}
+          initialCity={city ?? ""}
+          initialSpecialty={specialty ?? ""}
+          initialNeed={need ?? ""}
+          facets={facets}
+        />
       </main>
 
       <MarketingFooter />

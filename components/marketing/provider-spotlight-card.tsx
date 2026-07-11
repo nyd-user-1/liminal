@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import { Icon, type IconName } from "@/components/ui/icons";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ProviderIllustration } from "@/components/providers/provider-illustration";
@@ -48,6 +49,14 @@ export type ProviderSpotlight = {
 const pillBase =
   "inline-flex h-10 shrink-0 items-center justify-center rounded-field px-4 text-[15px] font-medium transition-colors";
 
+// Role/credential strings sometimes carry the full license expansion in parens —
+// "APRN-CNP (Advanced Practice Registered Nurse - Certified Nurse Practitioner)".
+// The card wants just the credential, so drop parentheticals and collapse the
+// whitespace they leave behind.
+function shortenCredential(s: string): string {
+  return s.replace(/\s*\([^)]*\)/g, "").replace(/\s{2,}/g, " ").trim();
+}
+
 // Care-type badge in the card's top-right corner — same grey chip + two-tone
 // icon (navy line, pale-teal fill via `fill-primary-wash`, not a hardcoded
 // color) as components/providers/info-row.tsx uses on the provider profile
@@ -88,7 +97,7 @@ export function ProviderSpotlightCard({ p }: { p: ProviderSpotlight }) {
         <h3 className="text-balance font-display text-[28px] font-bold tracking-tight leading-tight text-primary">
           {p.name}
         </h3>
-        <p className="mt-0.5 text-[14px] text-text-body">{p.credentialLine}</p>
+        <p className="mt-0.5 text-[14px] text-text-body">{shortenCredential(p.credentialLine)}</p>
 
         <RatingAvailability
           rating={p.rating}
@@ -173,7 +182,9 @@ export function FindCareSpotlightCard({ r }: { r: PublicResult }) {
     const rating = r.bookable
       ? { rating: r.rating ?? 5.0, reviewCount: r.reviewCount ?? 0 }
       : seeded;
-    const subline = [r.subtitle ? titleCase(r.subtitle) : null, r.credential].filter(Boolean).join(" · ");
+    const subline = shortenCredential(
+      [r.subtitle ? titleCase(r.subtitle) : null, r.credential].filter(Boolean).join(" · "),
+    );
 
     const body = (
       <>
@@ -191,6 +202,13 @@ export function FindCareSpotlightCard({ r }: { r: PublicResult }) {
             }
             className="mt-2"
           />
+          {/* Only rendered when we hold network data AND they're accepting —
+              absence is never surfaced as "not accepting". */}
+          {r.acceptingNewPatients && (
+            <div className="mt-2">
+              <Badge variant="success">Accepting new patients</Badge>
+            </div>
+          )}
           <div className="mt-auto flex flex-wrap gap-2 pt-3">
             <span className={`${pillBase} border border-border bg-surface text-primary`}>View profile</span>
             {r.bookable && <span className={`${pillBase} bg-primary text-white`}>Book session</span>}

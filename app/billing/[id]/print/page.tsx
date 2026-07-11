@@ -6,6 +6,7 @@ import { getUser } from "@/lib/auth";
 import { formatCents, formatDate } from "@/lib/format";
 import { getInvoice } from "@/lib/repos/invoices";
 import { policiesForClient } from "@/lib/repos/payers";
+import { clientForUser } from "@/lib/repos/threads";
 
 // Print-ready invoice / superbill — deliberately OUTSIDE the (app) route
 // group so the workspace shell never renders around the document. On screen:
@@ -34,11 +35,17 @@ const METHOD_LABEL: Record<string, string> = {
 export default async function InvoicePrintPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
   if (!user) redirect("/sign-in");
-  if (user.role === "client") redirect("/portal");
 
   const { id } = await params;
   const invoice = await getInvoice(id);
   if (!invoice) notFound();
+
+  // Clients can print their own invoices (receipt/superbill from the portal
+  // pay sheet); anyone else's bounce back to the portal.
+  if (user.role === "client") {
+    const client = await clientForUser(user.id);
+    if (!client || client.id !== invoice.clientId) redirect("/portal");
+  }
 
   const policies = await policiesForClient(invoice.clientId);
   await logEvent({ actorId: user.id, action: "invoice.print", entity: "invoice", entityId: id });

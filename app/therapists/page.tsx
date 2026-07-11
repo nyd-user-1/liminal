@@ -22,7 +22,7 @@ export default function TherapistsPage() {
           />
           <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent" />
           <h1 className="absolute bottom-6 left-8 font-display text-4xl font-extrabold tracking-tight text-white sm:left-12 sm:text-6xl">
-            Find a therapist
+            Therapist
           </h1>
         </div>
 

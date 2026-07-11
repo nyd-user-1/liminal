@@ -22,6 +22,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { TextLink } from "@/components/ui/text-link";
 import { Toolbar } from "@/components/ui/toolbar";
 import { useToast } from "@/components/ui/toast";
+import { formatDate } from "@/lib/format";
+import type { ProviderNetworkSummary } from "@/lib/repos/networks";
 import type { DirectoryProgram, DirectoryProvider } from "@/lib/types";
 
 type Tab = "providers" | "programs";
@@ -127,6 +129,7 @@ export function DirectoryClient({
   const [page, setPage] = useState(1);
 
   const [items, setItems] = useState<Array<DirectoryProvider | DirectoryProgram>>([]);
+  const [networks, setNetworks] = useState<Record<string, ProviderNetworkSummary>>({});
   const [total, setTotal] = useState(0);
   const [pageSize, setPageSize] = useState(25);
   const [loading, setLoading] = useState(true);
@@ -173,6 +176,7 @@ export function DirectoryClient({
       const res = await fetch(`/api/directory/${tab}?${params.toString()}`);
       const data = await res.json();
       setItems(data.items ?? []);
+      setNetworks(data.networks ?? {});
       setTotal(data.total ?? 0);
       setPageSize(data.pageSize ?? 25);
     } finally {
@@ -334,6 +338,7 @@ export function DirectoryClient({
                         <TextLink onClick={(e) => { e.stopPropagation(); setSelected(r); }}>{name}</TextLink>
                         {r.credential && <span className="text-sm text-text-muted">{r.credential}</span>}
                       </span>
+                      <NetworkSignal summary={r.npi ? networks[r.npi] : undefined} />
                     </Td>
                     <Td>{r.profession ? titleCase(r.profession) : "–"}</Td>
                     <Td>{r.subspecialty ?? "–"}</Td>
@@ -389,7 +394,13 @@ export function DirectoryClient({
         </>
       )}
 
-      <DetailPanel item={selected} onClose={() => setSelected(null)} clients={clients} onReferred={() => toast("Referral sent.", "success")} />
+      <DetailPanel
+        item={selected}
+        network={selected && isProvider(selected) ? networks[selected.npi ?? ""] ?? null : null}
+        onClose={() => setSelected(null)}
+        clients={clients}
+        onReferred={() => toast("Referral sent.", "success")}
+      />
     </>
   );
 }
@@ -398,6 +409,25 @@ export function DirectoryClient({
 
 function isProvider(item: DirectoryProvider | DirectoryProgram): item is DirectoryProvider {
   return (item as DirectoryProvider).npi !== undefined && "profession" in item;
+}
+
+// Compact payer-network signal shown under a provider's name in the results.
+// Renders nothing when we hold no network data for the NPI — absence is NOT
+// "out of network", so we say nothing rather than imply it. Always dated.
+function NetworkSignal({ summary }: { summary?: ProviderNetworkSummary | null }) {
+  if (!summary) return null;
+  // Lead with the payer(s) — a provider can be in many sub-networks per payer,
+  // so the payer is the stable, readable unit here; networks live in the panel.
+  const label = summary.payers.join(", ") || summary.networks[0];
+  return (
+    <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-text-muted">
+      <Badge variant={summary.accepting ? "success" : "neutral"}>
+        {summary.accepting ? "Accepting" : "Not accepting"}
+      </Badge>
+      {label && <span className="truncate">In-network: {label}</span>}
+      {summary.asOf && <span>· as of {formatDate(summary.asOf)}</span>}
+    </span>
+  );
 }
 
 function LabeledRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -414,11 +444,13 @@ type NpiState = { loading: boolean; result?: { found: boolean; status?: string; 
 
 function DetailPanel({
   item,
+  network,
   onClose,
   clients,
   onReferred,
 }: {
   item: DirectoryProvider | DirectoryProgram | null;
+  network?: ProviderNetworkSummary | null;
   onClose: () => void;
   clients: ClientOption[];
   onReferred: () => void;
@@ -476,6 +508,27 @@ function DetailPanel({
             <>
               <LabeledRow label="Specialty">{p.profession ? titleCase(p.profession) : null}</LabeledRow>
               <LabeledRow label="Sub-specialty">{p.subspecialty ?? null}</LabeledRow>
+              {network && (
+                <LabeledRow label="Insurance">
+                  <span className="flex flex-col gap-1.5">
+                    <span className="flex flex-wrap items-center gap-2">
+                      <Badge variant={network.accepting ? "success" : "neutral"}>
+                        {network.accepting ? "Accepting new patients" : "Not accepting new patients"}
+                      </Badge>
+                      {network.asOf && (
+                        <span className="text-[13px] text-text-muted">as of {formatDate(network.asOf)}</span>
+                      )}
+                    </span>
+                    <span className="text-[15px] text-text">{network.payers.join(", ")}</span>
+                    {network.networks.length > 0 && (
+                      <span className="text-[13px] text-text-muted">
+                        {network.networks.length} network{network.networks.length === 1 ? "" : "s"}:{" "}
+                        {network.networks.join(", ")}
+                      </span>
+                    )}
+                  </span>
+                </LabeledRow>
+              )}
               <LabeledRow label="Credential">{p.credential ?? null}</LabeledRow>
               <LabeledRow label="Gender">{p.gender === "F" ? "Female" : p.gender === "M" ? "Male" : null}</LabeledRow>
               <LabeledRow label="Address">{address || null}</LabeledRow>

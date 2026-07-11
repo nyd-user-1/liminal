@@ -120,11 +120,13 @@ export function Sidebar({
           align="left"
           width="w-64"
           triggerClassName={collapsed ? "flex w-full justify-center" : "w-full"}
-          trigger={<UserChip name={user.name} hue={user.avatarHue} onNavy collapsed={collapsed} className="max-w-full" />}
+          trigger={
+            <UserChip name={user.name} hue={user.avatarHue} src={user.photoUrl} onNavy collapsed={collapsed} className="max-w-full" />
+          }
         >
           {/* Identity header */}
           <div className="flex items-center gap-3 px-2.5 py-2">
-            <Avatar name={user.name} hue={user.avatarHue} size="md" />
+            <Avatar name={user.name} hue={user.avatarHue} src={user.photoUrl} size="md" />
             <span className="min-w-0">
               <span className="block truncate text-[15px] font-semibold text-text">{user.name}</span>
               <span className="block truncate text-sm text-text-muted">{user.email}</span>

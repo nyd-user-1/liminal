@@ -1,22 +1,16 @@
 import { EmptyState } from "@/components/ui/empty-state";
-import { listThreads } from "@/lib/repos/threads";
-import { requirePortalClient } from "../data";
-import { MessagesList } from "./messages-list";
 
-// Portal Messages — the client's secure-message threads.
+// Right pane of the portal messages split view when no thread is open. Below lg
+// the list pane owns the screen (inbox-shell), so this only shows on desktop.
 
-export const dynamic = "force-dynamic";
-
-export default async function PortalMessagesPage() {
-  const { client } = await requirePortalClient();
-  if (!client) {
-    return (
-      <>
-        <EmptyState icon="message" title="No client record is linked to this login" />
-      </>
-    );
-  }
-
-  const threads = await listThreads({ clientId: client.id });
-  return <MessagesList threads={threads} />;
+export default function PortalMessagesPage() {
+  return (
+    <div className="flex h-full items-center justify-center">
+      <EmptyState
+        icon="message"
+        title="Select a conversation"
+        subtext="Choose a thread from the list, or start a new message to your care team."
+      />
+    </div>
+  );
 }

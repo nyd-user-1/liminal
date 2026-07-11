@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { formatDateLong, formatTime } from "@/lib/format";
+import { formatCents, formatDateLong, formatTime } from "@/lib/format";
 
 // Transactional email via Resend. Lazy singleton keyed on LIMINAL_RESEND_API_KEY
 // (the "LIMINAL_" prefix avoids clobbering any host-level RESEND_API_KEY) so
@@ -137,6 +137,88 @@ export async function sendPasswordEmail(opts: {
         ? `<p style="margin:0;">Set a password to activate your client portal — appointments, secure messages, forms, and invoices in one place.</p>`
         : `<p style="margin:0;">We received a request to reset your password. If this wasn't you, you can safely ignore this email.</p>`,
       cta: { label: isNew ? "Set your password" : "Choose a new password", href: opts.url },
+    }),
+  });
+}
+
+// ── billing emails ────────────────────────────────────────────────────────────
+// Mini version of the /billing/[id]/print document: line items + totals in
+// the branded shell, CTA deep-links to the portal pay sheet
+// (/portal/invoices?invoice=…). Amounts + descriptions only — no clinical
+// content.
+
+function itemsTable(items: Array<{ description: string; qty: number; amountCents: number }>): string {
+  const rows = items
+    .map(
+      (it) => `<tr>
+        <td style="padding:9px 0;border-bottom:1px solid #ECEBE7;font-size:14px;color:${INK};">${esc(it.description)}${
+          it.qty > 1 ? ` <span style="color:#8A8F9E;">&times; ${it.qty}</span>` : ""
+        }</td>
+        <td align="right" style="padding:9px 0 9px 16px;border-bottom:1px solid #ECEBE7;font-size:14px;color:${INK};white-space:nowrap;">${formatCents(it.amountCents)}</td>
+      </tr>`,
+    )
+    .join("");
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0 0;border-collapse:collapse;">
+    <tr>
+      <td style="padding:0 0 6px;border-bottom:2px solid ${INK};font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8A8F9E;">Description</td>
+      <td align="right" style="padding:0 0 6px 16px;border-bottom:2px solid ${INK};font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8A8F9E;">Amount</td>
+    </tr>
+    ${rows}
+  </table>`;
+}
+
+export async function sendInvoiceEmail(opts: {
+  to: string;
+  firstName: string;
+  number: string;
+  items: Array<{ description: string; qty: number; amountCents: number }>;
+  totalCents: number;
+  balanceCents: number;
+  dueOn: string | null; // YYYY-MM-DD
+  invoiceId: string;
+}): Promise<boolean> {
+  const due = opts.dueOn ? `Due by ${formatDateLong(`${opts.dueOn}T00:00:00`)}` : "Due on receipt";
+  const totals = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0 0;">
+    <tr>
+      <td style="padding:10px 0 0;font-size:15px;font-weight:700;color:${INK};">Amount due</td>
+      <td align="right" style="padding:10px 0 0;font-size:18px;font-weight:700;color:${INK};white-space:nowrap;">${formatCents(opts.balanceCents)}</td>
+    </tr>
+    <tr><td colspan="2" style="padding:2px 0 0;font-size:13px;color:#8A8F9E;">${esc(due)} · Invoice ${esc(opts.number)}</td></tr>
+  </table>`;
+  return sendEmail({
+    to: opts.to,
+    subject: `Invoice ${opts.number} from Liminal Psychiatry — ${formatCents(opts.balanceCents)} due`,
+    html: shell({
+      heading: `Your invoice, ${esc(opts.firstName)}`,
+      bodyHtml:
+        `<p style="margin:0;">Here's your invoice from Liminal Psychiatry. You can review it and pay securely from your client portal.</p>` +
+        itemsTable(opts.items) +
+        totals,
+      cta: { label: "View & pay invoice", href: `${appBaseUrl()}/portal/invoices?invoice=${opts.invoiceId}` },
+    }),
+  });
+}
+
+export async function sendPaymentReceiptEmail(opts: {
+  to: string;
+  firstName: string;
+  number: string;
+  amountCents: number;
+  balanceCents: number;
+  invoiceId: string;
+}): Promise<boolean> {
+  const settled = opts.balanceCents <= 0;
+  return sendEmail({
+    to: opts.to,
+    subject: `Receipt — ${formatCents(opts.amountCents)} payment on ${opts.number}`,
+    html: shell({
+      heading: `Payment received, ${esc(opts.firstName)}`,
+      bodyHtml:
+        `<p style="margin:0;">We received your payment of <strong>${formatCents(opts.amountCents)}</strong> on invoice ${esc(opts.number)} — thank you.</p>` +
+        (settled
+          ? `<p style="margin:12px 0 0;">This invoice is now paid in full.</p>`
+          : `<p style="margin:12px 0 0;">Remaining balance: <strong>${formatCents(opts.balanceCents)}</strong>.</p>`),
+      cta: { label: "View invoice", href: `${appBaseUrl()}/portal/invoices?invoice=${opts.invoiceId}` },
     }),
   });
 }

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { searchPrograms, searchProviders } from "@/lib/repos/directory";
+import { networkSummariesByNpi } from "@/lib/repos/networks";
 import {
   listBookableProfiles,
   nextAvailableLabel,
@@ -49,6 +50,10 @@ export type PublicResult = {
   // profile linking (additive — nav.tsx's search dropdown ignores these)
   slug?: string | null;
   bookable?: boolean;
+  // Insurance-network signal (payer-networks data). Set true only when we hold a
+  // network row for this NPI AND it's accepting new patients; omitted otherwise —
+  // absence is NOT "not accepting". See lib/repos/networks.ts.
+  acceptingNewPatients?: boolean;
   // spotlight-card enrichment, bookable practitioners only (server-computed
   // so the card stays dumb): placeholder rating + next real availability.
   rating?: number;
@@ -156,7 +161,11 @@ export async function GET(req: NextRequest) {
         q, zip, city, county, profession: need, subspecialty: specialty, gender, providerType: type, page, pageSize,
       });
       directoryTotal = providers.total;
+      // One batched insurance lookup for the whole page — never per card. NPIs
+      // with no network data are simply absent from the map (no flag rendered).
+      const summaries = await networkSummariesByNpi(providers.items.map((r) => r.npi));
       for (const r of providers.items) {
+        const accepting = r.npi ? summaries.get(r.npi)?.accepting === true : false;
         results.push({
           id: r.id,
           kind: "provider",
@@ -173,6 +182,7 @@ export async function GET(req: NextRequest) {
           zip: r.zip,
           slug: r.slug,
           bookable: false,
+          acceptingNewPatients: accepting || undefined,
         });
       }
     }

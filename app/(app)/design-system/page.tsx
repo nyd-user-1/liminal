@@ -101,15 +101,15 @@ const FEATURES: Array<{
     area: "Billing",
     items: [
       {
-        name: "BillingDashboard",
-        path: "billing/billing-dashboard.tsx",
-        desc: "Invoices tab — StatCards + Toolbar + table + row actions.",
+        name: "BillingShell",
+        path: "billing/billing-shell.tsx",
+        desc: "Master/detail split — invoice list pane (Tabs Open/Settled/Payers + search) beside the open invoice.",
         // Primitives actually imported by the file (verified against its import block).
         composedOf: [
-          { name: "PageHeader" }, { name: "StatCard" }, { name: "Tabs" }, { name: "Toolbar" },
-          { name: "SearchInput" }, { name: "FilterChip" }, { name: "Table" }, { name: "ListRow" },
-          { name: "Pagination" }, { name: "KebabMenu" }, { name: "EmptyState" }, { name: "Button" },
-          { name: "TextLink" },
+          { name: "Tabs" }, { name: "SearchInput" }, { name: "Avatar" }, { name: "ListRow" },
+          { name: "KebabMenu" }, { name: "EmptyState" }, { name: "Button" },
+          { name: "InvoiceStatusBadge", feature: true }, { name: "NewInvoicePanel", feature: true },
+          { name: "PayerPanel", feature: true },
         ],
       },
       {
@@ -132,13 +132,22 @@ const FEATURES: Array<{
         ],
       },
       {
-        name: "InvoiceDetail",
-        path: "billing/invoice-detail.tsx",
-        desc: "Invoice header, actions, and line items.",
+        name: "InvoicePane",
+        path: "billing/invoice-pane.tsx",
+        desc: "Invoice pane — document-style detail with inline actions (send · record · collect · void).",
         composedOf: [
-          { name: "Breadcrumb" }, { name: "Card" }, { name: "Table" }, { name: "Banner" },
-          { name: "KebabMenu" }, { name: "Button" }, { name: "Divider" },
+          { name: "Avatar" }, { name: "Banner" }, { name: "Button" }, { name: "Field" },
+          { name: "KebabMenu" }, { name: "Modal" },
           { name: "InvoiceStatusBadge", feature: true }, { name: "RecordPaymentModal", feature: true },
+        ],
+      },
+      {
+        name: "PortalInvoiceSheet",
+        path: "billing/portal-invoice-sheet.tsx",
+        desc: "Client-portal invoice sheet — document + Pay footer + in-place success state.",
+        composedOf: [
+          { name: "SidePanel" }, { name: "Badge" }, { name: "Button" }, { name: "Logo" },
+          { name: "TextLink" },
         ],
       },
       {
@@ -403,10 +412,11 @@ function featureImport(c: { name: string; path: string; desc: string }) {
 
 // Where each feature component renders in the running app.
 const LIVE_AT: Record<string, string> = {
-  BillingDashboard: "/billing",
+  BillingShell: "/billing",
   ClientBilling: "/clients/[id]?tab=billing",
   ClientInvoices: "/clients/[id]?tab=billing",
-  InvoiceDetail: "/billing/[id]",
+  InvoicePane: "/billing/[id]",
+  PortalInvoiceSheet: "/portal/invoices",
   InvoiceStatusBadge: "/billing",
   NewInvoicePanel: "/billing",
   PayerPanel: "/billing (Payers tab)",

@@ -1,4 +1,5 @@
 import type { AvatarHue } from "@/lib/types";
+import { Badge } from "@/components/ui/badge";
 import { ProviderIllustration } from "@/components/providers/provider-illustration";
 import { RatingAvailability } from "@/components/providers/rating-availability";
 
@@ -13,6 +14,7 @@ export function ProviderHeader({
   name,
   roleTitle,
   yearsExperience,
+  careTypes,
   avatarHue,
   illustrationKey,
   directoryId,
@@ -24,6 +26,9 @@ export function ProviderHeader({
   name: string;
   roleTitle?: string | null;
   yearsExperience?: number | null;
+  /** Modalities offered (e.g. Medication management, Telehealth) — shown as
+      pills under the role line so the header carries the at-a-glance basics. */
+  careTypes?: string[];
   avatarHue?: AvatarHue;
   illustrationKey?: string | null;
   directoryId?: string;
@@ -50,6 +55,15 @@ export function ProviderHeader({
           <p className="mt-0.5 text-[15px] text-text-muted">
             {yearsExperience} year{yearsExperience === 1 ? "" : "s"} of experience
           </p>
+        )}
+        {careTypes && careTypes.length > 0 && (
+          <div className="mt-2.5 flex flex-wrap gap-1.5">
+            {careTypes.map((c) => (
+              <Badge key={c} variant="info">
+                {c}
+              </Badge>
+            ))}
+          </div>
         )}
         {rating != null && reviewCount != null && availableLabel && (
           <RatingAvailability rating={rating} reviewCount={reviewCount} availableLabel={availableLabel} className="mt-3" />

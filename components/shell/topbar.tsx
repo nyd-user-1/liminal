@@ -12,8 +12,8 @@ import { TOPBAR_ACTIONS_ID } from "@/components/shell/topbar-slot";
 import type { SessionUser } from "@/lib/auth";
 
 // Catalog `TopBar` — white strip: page icon + H1 inline-left (route-derived,
-// SSR-safe), right cluster = page actions (via TopBarActions portal) + bell +
-// UserChip → avatar menu. One canonical title everywhere — no per-page drift.
+// SSR-safe), right cluster = page actions (via TopBarActions portal, sized
+// sm) + bell + UserChip → avatar menu. One canonical title everywhere.
 
 // Longest-prefix wins: order specific → general.
 const ROUTE_TITLES: Array<[prefix: string, icon: IconName, title: string]> = [
@@ -80,16 +80,16 @@ export function TopBar({
           trigger={
             <>
               <span className="sm:hidden">
-                <UserChip name={user.name} hue={user.avatarHue} collapsed />
+                <UserChip name={user.name} hue={user.avatarHue} src={user.photoUrl} collapsed />
               </span>
               <span className="max-sm:hidden">
-                <UserChip name={user.name} hue={user.avatarHue} />
+                <UserChip name={user.name} hue={user.avatarHue} src={user.photoUrl} />
               </span>
             </>
           }
         >
           <div className="flex items-center gap-3 px-2.5 py-2">
-            <Avatar name={user.name} hue={user.avatarHue} size="md" />
+            <Avatar name={user.name} hue={user.avatarHue} src={user.photoUrl} size="md" />
             <span className="min-w-0">
               <span className="block truncate text-[15px] font-semibold text-text">{user.name}</span>
               <span className="block truncate text-sm text-text-muted">{user.email}</span>

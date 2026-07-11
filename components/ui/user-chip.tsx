@@ -9,12 +9,14 @@ import type { AvatarHue } from "@/lib/types";
 export function UserChip({
   name,
   hue,
+  src,
   onNavy,
   collapsed,
   className = "",
 }: {
   name: string;
   hue?: AvatarHue;
+  src?: string | null;
   onNavy?: boolean;
   collapsed?: boolean;
   className?: string;
@@ -25,7 +27,7 @@ export function UserChip({
         collapsed ? "pr-1" : "pr-2.5"
       } ${onNavy ? "text-white hover:bg-sidebar-active" : "bg-canvas text-text hover:bg-border"} ${className}`}
     >
-      <Avatar name={name} hue={hue} size="sm" />
+      <Avatar name={name} hue={hue} src={src} size="sm" />
       {!collapsed && (
         <>
           <span className="truncate text-[15px] font-semibold">{name}</span>
