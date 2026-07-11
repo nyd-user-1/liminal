@@ -10,8 +10,7 @@ import { ChoiceChip } from "@/components/ui/choice-chip";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Divider } from "@/components/ui/divider";
 import { EmptyState } from "@/components/ui/empty-state";
-import { IconSquare } from "@/components/ui/icons";
-import { ListRow } from "@/components/ui/list-row";
+import { Icon } from "@/components/ui/icons";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
@@ -20,15 +19,17 @@ import { useToast } from "@/components/ui/toast";
 import { formatDateLong, formatTime } from "@/lib/format";
 import { SERVICE_COLOR_SLOTS } from "@/lib/service-colors";
 import type { AppointmentStatus } from "@/lib/types";
-import { addDays, dateKey, minutesOfDay, startOfWorkWeek } from "@/app/(app)/calendar/calendar-utils";
+import { addDays, dateKey, minutesOfDay, parseKey, startOfWorkWeek } from "@/app/(app)/calendar/calendar-utils";
 import { MonthGrid } from "@/app/(app)/calendar/month-grid";
 import { WeekGrid, type CalEvent } from "@/app/(app)/calendar/week-grid";
 
 // Portal Appointments — the provider calendar's two-pane shell from a client's
-// point of view. Left: "My appointments" (upcoming / past) with reschedule /
-// cancel / join, plus a mini-month at lg+. Right (lg+ only): the same Week /
-// Month calendar grid, read-only, reflecting just this client's sessions.
-// Below lg the list is primary (clients are on phones) and the grid is hidden.
+// point of view. Left: "My appointments" (upcoming / past) as a day-grouped
+// agenda list — the same pattern as the provider calendar rail — where a row
+// opens a detail modal carrying reschedule / cancel / join; plus a mini-month
+// at lg+. Right (lg+ only): the same Week / Month calendar grid, read-only,
+// reflecting just this client's sessions. Below lg the list is primary
+// (clients are on phones) and the grid is hidden.
 
 export interface PortalAppointment {
   id: string;
@@ -207,6 +208,29 @@ export function AppointmentsList({
     return Array.from({ length: 5 }, (_, i) => addDays(start, i));
   }, [anchor]);
 
+  // Group the visible list by day — the provider calendar's "Agenda" rail:
+  // a short weekday/date header over compact rows (ascending upcoming,
+  // most-recent-first for past).
+  const grouped = useMemo(() => {
+    const byDay = new Map<string, PortalAppointment[]>();
+    for (const a of visible) {
+      const k = dateKey(new Date(a.startsAt));
+      const bucket = byDay.get(k);
+      if (bucket) bucket.push(a);
+      else byDay.set(k, [a]);
+    }
+    const keys = [...byDay.keys()].sort();
+    if (tab === "past") keys.reverse();
+    return keys.map((k) => ({
+      key: k,
+      label: parseKey(k).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }),
+      items: byDay.get(k)!.sort((x, y) => {
+        const d = minutesOfDay(x.startsAt) - minutesOfDay(y.startsAt);
+        return tab === "past" ? -d : d;
+      }),
+    }));
+  }, [visible, tab]);
+
   const confirmCancel = async () => {
     if (!cancelling) return;
     setCancelBusy(true);
@@ -235,49 +259,38 @@ export function AppointmentsList({
     (a.status === "scheduled" || a.status === "confirmed") && new Date(a.startsAt).getTime() > now;
   const canJoin = (a: PortalAppointment) => !!a.videoRoom && a.status !== "cancelled" && a.status !== "no_show";
 
-  const appointmentRow = (a: PortalAppointment, past: boolean) => {
+  // Agenda-style row (matches the provider calendar rail): a practitioner
+  // colour bar, service + status, and a time · practitioner meta line. Clicking
+  // opens the shared detail modal, where Reschedule / Cancel / Join live.
+  const agendaItem = (a: PortalAppointment) => {
     const s = STATUS[a.status];
-    const joinable = !past && canJoin(a);
-    const changeable = !past && canChange(a);
+    const color = practitionerColor.get(a.practitionerId) ?? SERVICE_COLOR_SLOTS[0].hex;
+    const muted = a.status === "cancelled" || a.status === "completed" || a.status === "no_show";
     return (
-      <ListRow
+      <button
         key={a.id}
-        stackTrailing={joinable || changeable}
-        leading={<IconSquare name={a.videoRoom ? "video" : "calendar-check"} />}
-        title={
-          <>
-            {a.serviceName}
-            <Badge variant={s.variant}>{s.label}</Badge>
-          </>
-        }
-        meta={
-          <>
-            {formatDateLong(a.startsAt)} · {formatTime(a.startsAt)}–{formatTime(a.endsAt)} · {a.practitionerName}
-            {a.locationName ? ` · ${a.locationName}` : ""}
-          </>
-        }
-        trailing={
-          joinable || changeable ? (
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              {changeable && (
-                <>
-                  <Button size="sm" variant="secondary" onClick={() => setRescheduling(a)}>
-                    Reschedule
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setCancelling(a)}>
-                    Cancel
-                  </Button>
-                </>
-              )}
-              {joinable && (
-                <Link href={`/portal/call/${a.videoRoom}`}>
-                  <Button size="sm" leftIcon="video">Join video call</Button>
-                </Link>
-              )}
-            </div>
-          ) : undefined
-        }
-      />
+        type="button"
+        onClick={() => setDetailId(a.id)}
+        className={`flex w-full items-stretch gap-2.5 rounded-field px-2 py-2 text-left transition-colors hover:bg-canvas ${
+          muted ? "opacity-70" : ""
+        }`}
+      >
+        <span className="w-1 shrink-0 rounded-full" style={{ background: color }} />
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2">
+            <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-text">{a.serviceName}</span>
+            <Badge variant={s.variant} className="shrink-0">
+              {s.label}
+            </Badge>
+          </span>
+          <span className="mt-0.5 flex items-center gap-1.5 text-[13px] text-text-muted">
+            <Icon name={a.videoRoom ? "video" : "map-pin"} size={14} className="shrink-0 text-text-muted" />
+            <span className="truncate">
+              {formatTime(a.startsAt)}–{formatTime(a.endsAt)} · {a.practitionerName}
+            </span>
+          </span>
+        </span>
+      </button>
     );
   };
 
@@ -299,8 +312,13 @@ export function AppointmentsList({
           subtext={tab === "upcoming" ? "Book a time that works for you — no phone tag required." : undefined}
         />
       ) : (
-        <div className="min-h-0 flex-1 space-y-2.5 lg:overflow-y-auto">
-          {visible.map((a) => appointmentRow(a, tab === "past"))}
+        <div className="min-h-0 flex-1 space-y-3 lg:overflow-y-auto">
+          {grouped.map((group) => (
+            <div key={group.key}>
+              <p className="mb-1 text-[13px] font-semibold text-text-muted">{group.label}</p>
+              <div className="space-y-0.5">{group.items.map(agendaItem)}</div>
+            </div>
+          ))}
         </div>
       )}
     </div>
