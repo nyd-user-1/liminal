@@ -184,34 +184,28 @@ export function InvoicePane({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* Pane header — back to the overview, who owes what */}
-      <div className="shrink-0 border-b border-border px-4 py-4 sm:px-6">
-        <div className="flex items-center gap-3">
-          <IconButton
-            icon="arrow-left"
-            label="Back to billing overview"
-            className="-ml-1.5"
-            onClick={() => router.push("/billing")}
-          />
-          <Avatar name={invoice.clientName} />
-          <div className="min-w-0 flex-1">
-            <p className="flex flex-wrap items-center gap-2 text-[17px] font-semibold text-text">
-              {invoice.clientName}
-              <InvoiceStatusBadge status={invoice.status} />
-            </p>
-            <p className="text-[13px] text-text-muted">
-              {invoice.number}
-              {invoice.issuedOn ? ` · issued ${dateOnly(invoice.issuedOn)}` : ""}
-            </p>
-          </div>
-          <div className="shrink-0 text-right">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
-              {collectable ? "Balance due" : "Total"}
-            </p>
-            <p className={`text-[19px] font-bold sm:text-[22px] ${invoice.status === "paid" ? "text-success" : "text-text"}`}>
-              {formatCents(collectable ? invoice.balanceCents : invoice.totalCents)}
-            </p>
-          </div>
+      {/* Pane header — single row at a fixed height so its bottom border lines
+          up with the list pane's; the invoice number + issued date live in the
+          document body below, not here */}
+      <div className="flex h-[68px] shrink-0 items-center gap-3 border-b border-border px-4 sm:px-6">
+        <IconButton
+          icon="arrow-left"
+          label="Back to billing overview"
+          className="-ml-1.5"
+          onClick={() => router.push("/billing")}
+        />
+        <Avatar name={invoice.clientName} size="sm" />
+        <p className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-[17px] font-semibold text-text">
+          <span className="truncate">{invoice.clientName}</span>
+          <InvoiceStatusBadge status={invoice.status} />
+        </p>
+        <div className="shrink-0 text-right">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
+            {collectable ? "Balance due" : "Total"}
+          </p>
+          <p className={`text-[19px] font-bold sm:text-[22px] ${invoice.status === "paid" ? "text-success" : "text-text"}`}>
+            {formatCents(collectable ? invoice.balanceCents : invoice.totalCents)}
+          </p>
         </div>
       </div>
 
@@ -266,6 +260,9 @@ export function InvoicePane({
 
         {/* The “paper” — mirrors /billing/[id]/print */}
         <div className="rounded-card border border-border bg-surface p-5 sm:p-6">
+          <p className="mb-4 text-[13px] font-semibold uppercase tracking-wide text-text-muted">
+            Invoice {invoice.number}
+          </p>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-[12px] font-medium uppercase tracking-wide text-text-muted">Bill to</p>

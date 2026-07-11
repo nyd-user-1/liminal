@@ -170,6 +170,11 @@ export function BillingShell({
             activeId ? "hidden" : "flex"
           }`}
         >
+          {/* Pane header — matches the right pane's header height so the two
+              bottom borders meet in one horizontal line across the container */}
+          <div className="flex h-[68px] shrink-0 items-center border-b border-border px-4">
+            <h2 className="text-[17px] font-semibold text-text">{tab === "payers" ? "Payers" : "Invoices"}</h2>
+          </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
             {tab === "payers" ? (
               visiblePayers.length === 0 ? (

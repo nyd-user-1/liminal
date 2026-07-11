@@ -23,13 +23,19 @@ export default async function BillingPage() {
     .slice(0, 8);
 
   return (
-    <div className="h-full overflow-y-auto p-6 pr-7">
-      <h2 className="mb-3 text-[19px] font-semibold text-text">Needs attention</h2>
-      {attention.length === 0 ? (
-        <EmptyState icon="circle-check" title="All caught up" subtext="No open invoices need action right now." />
-      ) : (
-        <AttentionTable invoices={attention} />
-      )}
+    <div className="flex h-full min-h-0 flex-col">
+      {/* Header band — same height as the list pane's header so their bottom
+          borders meet in one line across the container */}
+      <div className="flex h-[68px] shrink-0 items-center border-b border-border px-6">
+        <h2 className="text-[17px] font-semibold text-text">Needs attention</h2>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto p-6 pr-7">
+        {attention.length === 0 ? (
+          <EmptyState icon="circle-check" title="All caught up" subtext="No open invoices need action right now." />
+        ) : (
+          <AttentionTable invoices={attention} />
+        )}
+      </div>
     </div>
   );
 }
