@@ -11,8 +11,8 @@ import { Nav } from "@/components/marketing/nav";
 
 export default function SiteLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col bg-surface">
-      <Nav />
+    <div className="flex min-h-screen flex-col bg-page">
+      <Nav ground="bg-page" />
       <main className="flex-1">{children}</main>
       <MarketingFooter />
     </div>

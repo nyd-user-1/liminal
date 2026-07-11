@@ -11,7 +11,6 @@ export function CareDetailsCard({
   topSpecialties,
   moreSpecialties,
   therapyMethods,
-  careTypes,
   agesServed,
   languages,
   locationLabel,
@@ -19,7 +18,6 @@ export function CareDetailsCard({
   topSpecialties?: string[];
   moreSpecialties?: string[];
   therapyMethods?: string[];
-  careTypes?: string[];
   agesServed?: string[];
   languages?: string[];
   locationLabel?: string | null;
@@ -28,7 +26,6 @@ export function CareDetailsCard({
     (topSpecialties?.length ?? 0) > 0 ||
     (moreSpecialties?.length ?? 0) > 0 ||
     (therapyMethods?.length ?? 0) > 0 ||
-    (careTypes?.length ?? 0) > 0 ||
     (agesServed?.length ?? 0) > 0 ||
     (languages?.length ?? 0) > 0 ||
     Boolean(locationLabel);
@@ -48,9 +45,6 @@ export function CareDetailsCard({
         )}
         {therapyMethods && therapyMethods.length > 0 && (
           <InfoRow icon="users" label="Methods" value={<ClampText text={therapyMethods.join(", ")} lines={3} />} />
-        )}
-        {careTypes && careTypes.length > 0 && (
-          <InfoRow icon="hand-heart" label="Care types" value={careTypes.join(", ")} />
         )}
         {agesServed && agesServed.length > 0 && (
           <InfoRow icon="users-round" label="Ages served" value={agesServed.join(", ")} />

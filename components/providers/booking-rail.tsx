@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { BookingModal } from "@/components/booking/booking-modal";
 import { BookingSheet } from "@/components/providers/booking-sheet";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -136,6 +136,9 @@ export function BookingRail({
   className?: string;
 }) {
   const service = services[0];
+  // Directory (inactive) rail: "Book with Liminal" opens the wizard in a dialog
+  // rather than navigating to /book/liminal.
+  const [bookOpen, setBookOpen] = useState(false);
 
   // Bookable days: tomorrow..DAYS_AHEAD whose weekday has an availability rule.
   const enabledDates = useMemo(() => {
@@ -193,7 +196,7 @@ export function BookingRail({
         active ? "" : "flex flex-col"
       } ${className}`}
     >
-      <h2 className="text-[17px] font-semibold text-text">Book an appointment</h2>
+      {active && <h2 className="text-[17px] font-semibold text-text">Book an appointment</h2>}
 
       {active && service && (
         <>
@@ -252,6 +255,21 @@ export function BookingRail({
 
       {!active && (
         <div className="mt-3 flex flex-1 flex-col gap-3">
+          <div className="rounded-field border border-border bg-canvas p-3">
+            <Logo size="sm" className="mb-2" />
+            <p className="text-[13px] text-text-body">
+              We can connect you with a Liminal mental-health professional who works with similar needs — in-person or
+              telehealth, usually within a week.
+            </p>
+            <button
+              type="button"
+              onClick={() => setBookOpen(true)}
+              className="mt-2.5 inline-flex h-8 items-center justify-center rounded-field bg-primary px-3 text-sm font-medium text-white transition-colors hover:bg-primary-hover"
+            >
+              Book with Liminal
+            </button>
+          </div>
+
           <p className="text-[13px] text-text-muted">
             This is a directory listing sourced from the national provider registry — {directoryName ?? "this provider"}{" "}
             isn&apos;t on Liminal&apos;s booking platform yet.
@@ -259,25 +277,12 @@ export function BookingRail({
 
           <RequestAppointmentForm providerId={practitionerId} />
 
-          <div className="rounded-field border border-border bg-canvas p-3">
-            <Logo size="sm" className="mb-2" />
-            <p className="text-[13px] text-text-body">
-              We can connect you with a Liminal mental-health professional who works with similar needs — in-person or
-              telehealth, usually within a week.
-            </p>
-            <Link
-              href="/book/liminal"
-              className="mt-2.5 inline-flex h-8 items-center justify-center rounded-field bg-primary px-3 text-sm font-medium text-white transition-colors hover:bg-primary-hover"
-            >
-              Book with Liminal
-            </Link>
-          </div>
-
           {claimHref && (
             <TextLink href={claimHref} className="mt-auto pt-2 text-[13px]">
               Is this you? Claim this profile
             </TextLink>
           )}
+          <BookingModal open={bookOpen} onClose={() => setBookOpen(false)} />
         </div>
       )}
     </div>

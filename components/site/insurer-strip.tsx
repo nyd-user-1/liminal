@@ -30,7 +30,7 @@ export function InsurerStrip({
               key={p.slug}
               src={`${LOGO_BASE}/${p.slug}.avif`}
               alt={`${p.name} — accepted insurance`}
-              className="h-6 w-auto opacity-70 grayscale transition hover:opacity-100 hover:grayscale-0 sm:h-7"
+              className="h-10 w-auto opacity-70 grayscale transition hover:opacity-100 hover:grayscale-0 sm:h-12"
               loading="lazy"
             />
           ))}

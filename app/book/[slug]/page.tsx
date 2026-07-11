@@ -1,7 +1,8 @@
-import { Logo } from "@/components/ui/logo";
 import { listPayers } from "@/lib/repos/policies";
 import { listPractitioners, listServices } from "@/lib/repos/services";
 import { BookClient } from "./book-client";
+
+const LOGO = "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-dark.png";
 
 // Public booking page (no auth). Slug = a practitioner id (their personal
 // booking link) or anything else ("liminal") → the demo practice, where the
@@ -20,21 +21,21 @@ export default async function BookPage({
   const locked = practitioners.find((p) => p.id === slug) ?? null;
 
   return (
-    <div className="flex min-h-screen flex-col bg-canvas">
-      {/* Liminal-branded navy header */}
-      <header className="bg-navy-900 px-6 py-5">
-        <div className="mx-auto flex max-w-3xl items-center gap-4">
-          <Logo variant="onNavy" size="sm" />
+    <div className="flex min-h-screen flex-col bg-page">
+      {/* Minimal warm header — matches the home paper ground, focused-flow chrome. */}
+      <header className="border-b border-page-edge">
+        <div className="mx-auto flex max-w-3xl items-center gap-4 px-6 py-5">
+          <img src={LOGO} alt="Liminal" className="h-8 w-auto" />
           <div className="ml-auto text-right">
-            <p className="text-[15px] font-semibold text-white">Liminal Psychiatry</p>
-            <p className="text-[13px] text-[#93A0BD]">
+            <p className="text-[15px] font-semibold text-text">Liminal Psychiatry</p>
+            <p className="text-[13px] text-text-muted">
               {locked ? `Book with ${locked.name}` : "Online booking"}
             </p>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:px-6">
+      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-10 sm:px-6 sm:py-14">
         <BookClient
           services={services.filter((s) => s.active)}
           practitioners={practitioners}
@@ -44,7 +45,7 @@ export default async function BookPage({
         />
       </main>
 
-      <footer className="px-6 pb-8 text-center text-[13px] text-text-muted">
+      <footer className="px-6 pb-10 text-center text-[13px] text-text-muted">
         Powered by Liminal · 31 E 17th St, Suite 402, New York, NY
       </footer>
     </div>

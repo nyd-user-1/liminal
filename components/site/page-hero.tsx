@@ -13,7 +13,7 @@ export function PageHero({
   lede,
   primary,
   secondary,
-  ground = "wash",
+  ground = "page",
   illo,
   aside,
   children,
@@ -23,12 +23,12 @@ export function PageHero({
   lede?: ReactNode;
   primary?: { href: string; label: string };
   secondary?: { href: string; label: string };
-  ground?: "wash" | "surface" | "canvas";
+  ground?: "wash" | "surface" | "canvas" | "page";
   illo?: { src: string; alt: string; width: number; height: number };
   aside?: ReactNode;
   children?: ReactNode;
 }) {
-  const groundCls = ground === "wash" ? "bg-primary-wash" : ground === "canvas" ? "bg-canvas" : "bg-surface";
+  const groundCls = { wash: "bg-primary-wash", canvas: "bg-canvas", surface: "bg-surface", page: "bg-page" }[ground];
   const twoCol = Boolean(illo || aside);
   return (
     <section className={groundCls}>

@@ -24,7 +24,7 @@ export default function PsychiatricNpPage() {
           />
           <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent" />
           <h1 className="absolute bottom-6 left-8 font-display text-4xl font-extrabold tracking-tight text-white sm:left-12 sm:text-5xl">
-            Find a psychiatric nurse practitioner
+            Nurse Practitioner
           </h1>
         </div>
 

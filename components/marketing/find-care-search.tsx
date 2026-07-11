@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BookingModal } from "@/components/booking/booking-modal";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -41,19 +41,30 @@ export function FindCareSearch({
   initialQ = "",
   initialCity = "",
   initialSpecialty = "",
+  initialNeed = "",
   facets,
 }: {
   initialQ?: string;
   initialCity?: string;
   initialSpecialty?: string;
+  /** Exact profession (`need`) deep-link — e.g. "Psychiatrist" from /specialty.
+      Applied to the search but not surfaced as a dropdown (there's no profession
+      control in the group); it stays fixed for the session. */
+  initialNeed?: string;
   facets: CareFacets;
 }) {
-  const router = useRouter();
+  const [bookOpen, setBookOpen] = useState(false);
   const [filters, setFilters] = useState<CareFilters>({
     ...EMPTY_FILTERS,
     q: initialQ,
     city: initialCity,
     specialty: initialSpecialty,
+    // "Talk Therapy" is the default when someone arrives cold, but a specialty
+    // or profession deep-link means they've already narrowed the discipline —
+    // and that default (which excludes psychiatrists) would zero out any
+    // psychiatry sub-specialty or the Psychiatrist/NP professions. Widen to
+    // "Any care type" so the deep-linked filter alone governs.
+    type: initialSpecialty || initialNeed ? "" : EMPTY_FILTERS.type,
   });
 
   const [results, setResults] = useState<PublicResult[]>([]);
@@ -144,6 +155,9 @@ export function FindCareSearch({
       if (f.specialty) params.set("specialty", f.specialty);
       if (f.type) params.set("type", f.type);
       if (f.insurance) params.set("insurance", f.insurance);
+      // Fixed exact-profession deep-link (no dropdown drives it), so it rides
+      // along on every page fetch rather than living in `filters`.
+      if (initialNeed) params.set("need", initialNeed);
 
       try {
         const res = await fetch(`/api/directory/public-search?${params.toString()}`);
@@ -164,7 +178,7 @@ export function FindCareSearch({
         }
       }
     },
-    [],
+    [initialNeed],
   );
 
   // Page 1 on mount (the whole directory when no query/filter came in on the
@@ -259,7 +273,7 @@ export function FindCareSearch({
                       Liminal clinicians offer in-person and telehealth visits, usually within a week.
                     </p>
                   </div>
-                  <Button fullWidth onClick={() => router.push("/book/liminal")}>
+                  <Button fullWidth onClick={() => setBookOpen(true)}>
                     Book with Liminal
                   </Button>
                 </div>
@@ -274,6 +288,7 @@ export function FindCareSearch({
           </>
         )}
       </div>
+      <BookingModal open={bookOpen} onClose={() => setBookOpen(false)} />
     </div>
   );
 }
