@@ -12,6 +12,7 @@ import { NearbyAreas } from "@/components/providers/nearby-areas";
 import { BookingRail } from "@/components/providers/booking-rail";
 import { ProviderDirectoryRail } from "@/components/providers/provider-directory-rail";
 import { ProviderPageSearch } from "@/components/providers/provider-page-search";
+import { BASE_INSURANCE_OPTIONS } from "@/lib/insurance-options";
 import { ProviderPanel } from "@/components/providers/provider-panel";
 import { StickyBookBar } from "@/components/providers/sticky-book-bar";
 import { RevealFx } from "@/components/providers/reveal-fx";
@@ -20,7 +21,7 @@ import { getProfileByUserId, nextAvailableLabel, spotlightRatingFor } from "@/li
 import { silhouetteUrl } from "@/components/providers/provider-illustration";
 import { headshotFor } from "@/lib/headshots";
 import { getProviderBySlug, nearbyCities, providerFacets } from "@/lib/repos/directory";
-import { networkSummaryForNpi } from "@/lib/repos/networks";
+import { listPayerFacets, networkSummaryForNpi } from "@/lib/repos/networks";
 import { listPayers } from "@/lib/repos/policies";
 
 // The public provider profile — our version of Headway's provider page.
@@ -167,11 +168,16 @@ export default async function ProviderProfilePage({ params }: { params: Promise<
   if (!directory) notFound();
 
   // Real nearby cities from the same county (not fabricated neighboring towns).
-  const [nearby, facets, networkSummary] = await Promise.all([
+  const [nearby, facets, networkSummary, payerFacets] = await Promise.all([
     nearbyCities(directory.county, directory.city),
     providerFacets(),
     networkSummaryForNpi(directory.npi),
+    listPayerFacets(),
   ]);
+  const insuranceOptions = [
+    ...BASE_INSURANCE_OPTIONS,
+    ...payerFacets.map((f) => ({ value: f.slug, label: f.name })),
+  ];
   const claimHref = `/join?claim=1&name=${encodeURIComponent(directory.name)}${
     directory.npi ? `&npi=${encodeURIComponent(directory.npi)}` : ""
   }${directory.licenseState ? `&state=${encodeURIComponent(directory.licenseState)}` : ""}`;
@@ -222,7 +228,7 @@ export default async function ProviderProfilePage({ params }: { params: Promise<
           </RevealFx>
 
           <div className="sticky top-[70px] z-30 bg-page pb-4 pt-[30px]">
-            <ProviderPageSearch facets={facets} />
+            <ProviderPageSearch facets={facets} insuranceOptions={insuranceOptions} />
           </div>
 
           <ProviderDirectoryRail excludeId={directory.id} />

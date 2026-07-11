@@ -15,7 +15,13 @@ import {
 // the filters applied. An untouched group carries no query string at all, so a
 // bare Search lands on the unfiltered directory.
 
-export function ProviderPageSearch({ facets }: { facets: CareFacets }) {
+export function ProviderPageSearch({
+  facets,
+  insuranceOptions,
+}: {
+  facets: CareFacets;
+  insuranceOptions?: Array<{ value: string; label: string }>;
+}) {
   const router = useRouter();
   const [filters, setFilters] = useState<CareFilters>(EMPTY_FILTERS);
 
@@ -33,6 +39,7 @@ export function ProviderPageSearch({ facets }: { facets: CareFacets }) {
     <CareSearchGroup
       facets={facets}
       filters={filters}
+      insuranceOptions={insuranceOptions}
       onChange={(next) => {
         setFilters(next);
         // A dropdown commits immediately; typing in the query field doesn't.

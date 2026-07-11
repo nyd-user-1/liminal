@@ -2,6 +2,7 @@ import { hasDb, sql } from "@/lib/db";
 import { isoDateOnly, isoDateTime } from "@/lib/format";
 import { mockId, mockStore } from "@/lib/mock";
 import "@/lib/mock/directory";
+import { mockParticipation } from "@/lib/mock/networks";
 import type {
   DirectoryProgram,
   DirectoryProvider,
@@ -151,6 +152,9 @@ export async function searchProviders(opts: {
   providerType?: string; // "therapist" | "psychiatrist" | "prescriber"
   prescribersOnly?: boolean;
   includeInactive?: boolean; // default false → deactivated NPIs hidden
+  /** payer_sources.slug — keep only providers with a FULL-quality participation
+      row for that payer (the ingested insurance-network data). */
+  insurancePayer?: string;
   page?: number;
   pageSize?: number;
 }): Promise<Page<DirectoryProvider>> {
@@ -204,6 +208,14 @@ export async function searchProviders(opts: {
       where.push(`profession = ANY($${p++})`);
       params.push(THERAPIST_PROFS);
     }
+    if (opts.insurancePayer) {
+      where.push(
+        `npi IN (SELECT pnp.npi FROM provider_network_participation pnp ` +
+          `JOIN payer_sources ps ON ps.id = pnp.payer_source_id ` +
+          `WHERE ps.slug = $${p++} AND pnp.data_completeness = 'full')`,
+      );
+      params.push(opts.insurancePayer);
+    }
     const clause = where.length ? `WHERE ${where.join(" AND ")}` : "";
     // A provider can exist as both a medicaid and an nppes row (same NPI).
     // Dedupe at query time to one row per NPI, preferring the medicaid row (it
@@ -237,7 +249,13 @@ export async function searchProviders(opts: {
     return { items: rows.map(toProvider), total, page, pageSize };
   }
 
-  const all = filterProviders([...mockStore().directoryProviders.values()], opts);
+  let all = filterProviders([...mockStore().directoryProviders.values()], opts);
+  if (opts.insurancePayer) {
+    const inPayer = new Set(
+      mockParticipation.filter((m) => m.payerSlug === opts.insurancePayer).map((m) => m.npi),
+    );
+    all = all.filter((r) => r.npi && inPayer.has(r.npi));
+  }
   return paginate(all, page, pageSize);
 }
 

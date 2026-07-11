@@ -2,6 +2,8 @@ import { FindCareSearch } from "@/components/marketing/find-care-search";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Nav } from "@/components/marketing/nav";
 import { providerFacets } from "@/lib/repos/directory";
+import { BASE_INSURANCE_OPTIONS } from "@/lib/insurance-options";
+import { listPayerFacets } from "@/lib/repos/networks";
 
 export const dynamic = "force-dynamic";
 
@@ -28,10 +30,17 @@ const HERO_IMAGE = "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illu
 export default async function ProvidersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; city?: string; specialty?: string; need?: string }>;
+  searchParams: Promise<{ q?: string; city?: string; specialty?: string; need?: string; insurance?: string }>;
 }) {
-  const { q, city, specialty, need } = await searchParams;
-  const facets = await providerFacets();
+  const { q, city, specialty, need, insurance } = await searchParams;
+  const [facets, payers] = await Promise.all([providerFacets(), listPayerFacets()]);
+  // Insurance dropdown = Any/Medicaid + only payers with real ingested network
+  // data (value is the payer slug the search API filters on). Payers we hold
+  // nothing for simply don't appear — no option is better than a false one.
+  const insuranceOptions = [
+    ...BASE_INSURANCE_OPTIONS,
+    ...payers.map((p) => ({ value: p.slug, label: p.name })),
+  ];
   return (
     <div className="flex min-h-screen flex-col bg-page">
       <Nav ground="bg-page" />
@@ -55,7 +64,9 @@ export default async function ProvidersPage({
           initialCity={city ?? ""}
           initialSpecialty={specialty ?? ""}
           initialNeed={need ?? ""}
+          initialInsurance={insurance ?? ""}
           facets={facets}
+          insuranceOptions={insuranceOptions}
         />
       </main>
 

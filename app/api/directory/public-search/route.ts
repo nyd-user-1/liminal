@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { searchPrograms, searchProviders } from "@/lib/repos/directory";
-import { networkSummariesByNpi } from "@/lib/repos/networks";
+import { listPayerFacets, networkSummariesByNpi } from "@/lib/repos/networks";
 import {
   listBookableProfiles,
   nextAvailableLabel,
@@ -126,6 +126,14 @@ export async function GET(req: NextRequest) {
   const type = p.get("type") ?? undefined; // therapist | psychiatrist | prescriber
   const insurance = p.get("insurance") ?? undefined;
   const kind = p.get("kind") ?? "all"; // all | providers | programs
+  // Payers we hold FULL-quality network data for (Cigna, Humana today; grows as
+  // harvests land). An `insurance` value matching one of these slugs filters the
+  // NY directory for real; "Medicaid" stays the by-construction pass-through;
+  // anything else (legacy display-name values) still matches Liminal's own
+  // practitioners only — the directory holds no data for it, so it's excluded
+  // rather than guessed.
+  const payerFacets = await listPayerFacets();
+  const coveredPayer = insurance ? payerFacets.find((f) => f.slug === insurance) : undefined;
   // The provider page's A–Z rail wants the raw directory ordering, so it opts
   // out of the Liminal-practitioners-first merge that /providers relies on.
   const bookableFirst = p.get("bookableFirst") !== "0";
@@ -144,7 +152,9 @@ export async function GET(req: NextRequest) {
       if (type && !matchesType(prac, type)) return false;
       if (need && !matchesNeed(prac, need)) return false;
       if (specialty && !matchesSpecialty(prac, specialty)) return false;
-      if (insurance && !matchesInsurance(prac, insurance)) return false;
+      // Covered payers arrive as slugs ("cigna") — match profiles on the payer's
+      // display name; legacy values are display names already.
+      if (insurance && !matchesInsurance(prac, coveredPayer?.name ?? insurance)) return false;
       return true;
     });
     bookableTotal = matched.length;
@@ -153,17 +163,24 @@ export async function GET(req: NextRequest) {
 
   let directoryTotal = 0;
   if (kind !== "programs") {
-    // Selecting a specific non-Medicaid payer has no honest answer for the NY
-    // directory (it carries no insurance data at all — every row is Medicaid-
-    // enrolled by construction) — exclude directory rows rather than guess.
-    if (!insurance || insurance === MEDICAID) {
+    // Directory rows answer an insurance filter honestly in exactly two cases:
+    // a payer we've ingested (filter by real participation rows), or Medicaid
+    // (true of every row by construction). Any other payer value excludes the
+    // directory rather than guessing.
+    if (!insurance || insurance === MEDICAID || coveredPayer) {
       const providers = await searchProviders({
         q, zip, city, county, profession: need, subspecialty: specialty, gender, providerType: type, page, pageSize,
+        insurancePayer: coveredPayer?.slug,
       });
       directoryTotal = providers.total;
       // One batched insurance lookup for the whole page — never per card. NPIs
       // with no network data are simply absent from the map (no flag rendered).
-      const summaries = await networkSummariesByNpi(providers.items.map((r) => r.npi));
+      // With a payer filter active the summary is restricted to THAT payer —
+      // the accepting flag is a per-source claim, never cross-payer.
+      const summaries = await networkSummariesByNpi(
+        providers.items.map((r) => r.npi),
+        { payerSlug: coveredPayer?.slug },
+      );
       for (const r of providers.items) {
         const accepting = r.npi ? summaries.get(r.npi)?.accepting === true : false;
         results.push({

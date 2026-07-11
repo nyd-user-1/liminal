@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
+import { BASE_INSURANCE_OPTIONS } from "@/lib/insurance-options";
 
 // The find-care search control, as one grouped unit: query field + Search
 // button, the four filter dropdowns beneath it, and the insurance footnote.
@@ -25,19 +26,10 @@ export const TYPE_OPTIONS = [
   { value: "therapist", label: "Talk Therapy" },
 ];
 
-// The payers Liminal's own practitioners actually carry, plus Medicaid — true
-// of every NY directory row by construction (see the note below the filters).
-export const INSURANCE_OPTIONS = [
-  { value: "", label: "Any insurance" },
-  { value: "Medicaid", label: "Medicaid" },
-  { value: "Aetna", label: "Aetna" },
-  { value: "Cigna", label: "Cigna" },
-  { value: "UnitedHealthcare", label: "UnitedHealthcare" },
-  { value: "Empire BCBS", label: "Empire BCBS" },
-  { value: "Fidelis Care", label: "Fidelis Care" },
-  { value: "Healthfirst", label: "Healthfirst" },
-  { value: "Oxford", label: "Oxford" },
-];
+// Insurance options are DATA-DRIVEN: server pages build them from
+// listPayerFacets() (payers with real ingested network rows — value is the
+// payer slug) on top of BASE_INSURANCE_OPTIONS (lib/insurance-options.ts,
+// shared here as the no-prop default).
 
 export type CareFilters = {
   q: string;
@@ -69,6 +61,7 @@ export function CareSearchGroup({
   onSubmit,
   collapsed = false,
   className = "",
+  insuranceOptions = BASE_INSURANCE_OPTIONS,
 }: {
   facets: CareFacets;
   filters: CareFilters;
@@ -80,6 +73,8 @@ export function CareSearchGroup({
       Driven by scroll direction in find-care-search.tsx. */
   collapsed?: boolean;
   className?: string;
+  /** Data-driven payer options (see BASE_INSURANCE_OPTIONS note above). */
+  insuranceOptions?: Array<{ value: string; label: string }>;
 }) {
   const set = <K extends keyof CareFilters>(key: K, value: CareFilters[K]) =>
     onChange({ ...filters, [key]: value });
@@ -148,7 +143,7 @@ export function CareSearchGroup({
             />
             <Select
               tone="primary"
-              options={INSURANCE_OPTIONS}
+              options={insuranceOptions}
               value={filters.insurance}
               onValueChange={(v) => set("insurance", v)}
               placeholder="Insurance"
@@ -157,7 +152,12 @@ export function CareSearchGroup({
           </div>
 
           <p className="mt-2 text-xs text-text-muted">
-            Insurance shown for Liminal providers; New York directory providers are Medicaid-enrolled.
+            In-network status comes from each insurer&apos;s published directory
+            {(() => {
+              const payers = insuranceOptions.filter((o) => o.value && o.value !== "Medicaid").map((o) => o.label);
+              return payers.length ? ` (${payers.join(", ")} so far)` : "";
+            })()}
+            ; every New York directory provider is Medicaid-enrolled.
           </p>
         </div>
       </div>

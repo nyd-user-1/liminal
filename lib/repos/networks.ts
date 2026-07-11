@@ -45,9 +45,14 @@ export interface NetworkFacet {
  * Insurance summaries for a batch of NPIs → Map keyed by npi. NPIs with no
  * network data are simply absent from the map (render nothing — absence is NOT
  * "out of network"). Pass the NPIs on the current page; never call per-card.
+ *
+ * `payerSlug` restricts the rollup to ONE payer's rows. Pass it whenever an
+ * insurance filter is active: the accepting flag is a per-source claim, and
+ * showing Humana's "accepting" on a Cigna-filtered list would be a lie.
  */
 export async function networkSummariesByNpi(
   npis: Array<string | null | undefined>,
+  opts: { payerSlug?: string } = {},
 ): Promise<Map<string, ProviderNetworkSummary>> {
   const ids = [...new Set(npis.filter((n): n is string => !!n))];
   if (!ids.length) return new Map();
@@ -63,6 +68,7 @@ export async function networkSummariesByNpi(
       JOIN payer_networks n ON n.id = p.network_id
       JOIN payer_sources  s ON s.id = p.payer_source_id
       WHERE p.npi = ANY(${ids})
+        AND (${opts.payerSlug ?? null}::text IS NULL OR s.slug = ${opts.payerSlug ?? null})
       GROUP BY p.npi
     `) as Array<{
       npi: string;
@@ -88,7 +94,9 @@ export async function networkSummariesByNpi(
   // mock
   const out = new Map<string, ProviderNetworkSummary>();
   for (const id of ids) {
-    const rows = mockParticipation.filter((m) => m.npi === id);
+    const rows = mockParticipation.filter(
+      (m) => m.npi === id && (!opts.payerSlug || m.payerSlug === opts.payerSlug),
+    );
     if (!rows.length) continue;
     out.set(id, {
       npi: id,
@@ -107,6 +115,45 @@ export async function networkSummaryForNpi(
 ): Promise<ProviderNetworkSummary | null> {
   if (!npi) return null;
   return (await networkSummariesByNpi([npi])).get(npi) ?? null;
+}
+
+// ── (b′) payer facets (drives the insurance dropdown) ────────────────────────
+
+/** One payer we hold FULL-quality participation data for, with matched count. */
+export interface PayerFacet {
+  slug: string;
+  name: string;
+  providerCount: number;
+}
+
+/**
+ * Payers with at least one full-quality (`data_completeness = 'full'`) row
+ * matched to our directory — the honest option list for an insurance filter.
+ * Coarse-only payers (Healthfirst) are deliberately excluded: presence-in-
+ * directory can't back an "in-network" filter claim.
+ */
+export async function listPayerFacets(): Promise<PayerFacet[]> {
+  if (hasDb) {
+    const rows = (await sql`
+      SELECT s.slug, s.name, count(DISTINCT d.npi)::int AS provider_count
+      FROM payer_sources s
+      JOIN provider_network_participation p ON p.payer_source_id = s.id
+      JOIN directory_providers d ON d.npi = p.npi
+      WHERE p.data_completeness = 'full'
+      GROUP BY s.slug, s.name
+      ORDER BY provider_count DESC
+    `) as Array<{ slug: string; name: string; provider_count: number }>;
+    return rows.map((r) => ({ slug: r.slug, name: r.name, providerCount: Number(r.provider_count ?? 0) }));
+  }
+
+  // mock — aggregate the fixture by payer
+  const byPayer = new Map<string, PayerFacet>();
+  for (const m of mockParticipation) {
+    const cur = byPayer.get(m.payerSlug) ?? { slug: m.payerSlug, name: m.payerName, providerCount: 0 };
+    cur.providerCount += 1;
+    byPayer.set(m.payerSlug, cur);
+  }
+  return [...byPayer.values()].sort((a, b) => b.providerCount - a.providerCount);
 }
 
 // ── (b) facet list (drives a real insurance filter/dropdown) ─────────────────

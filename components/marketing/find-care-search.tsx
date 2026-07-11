@@ -42,7 +42,9 @@ export function FindCareSearch({
   initialCity = "",
   initialSpecialty = "",
   initialNeed = "",
+  initialInsurance = "",
   facets,
+  insuranceOptions,
 }: {
   initialQ?: string;
   initialCity?: string;
@@ -51,7 +53,11 @@ export function FindCareSearch({
       Applied to the search but not surfaced as a dropdown (there's no profession
       control in the group); it stays fixed for the session. */
   initialNeed?: string;
+  /** Payer slug deep-link (?insurance=cigna) — preselects the dropdown. */
+  initialInsurance?: string;
   facets: CareFacets;
+  /** Data-driven payer options from the server (listPayerFacets). */
+  insuranceOptions?: Array<{ value: string; label: string }>;
 }) {
   const [bookOpen, setBookOpen] = useState(false);
   const [filters, setFilters] = useState<CareFilters>({
@@ -59,6 +65,7 @@ export function FindCareSearch({
     q: initialQ,
     city: initialCity,
     specialty: initialSpecialty,
+    insurance: initialInsurance,
     // "Talk Therapy" is the default when someone arrives cold, but a specialty
     // or profession deep-link means they've already narrowed the discipline —
     // and that default (which excludes psychiatrists) would zero out any
@@ -210,6 +217,7 @@ export function FindCareSearch({
         <CareSearchGroup
           facets={facets}
           filters={filters}
+          insuranceOptions={insuranceOptions}
           onChange={setFilters}
           onSubmit={() => {
             if (filters.q === committedQ) fetchPage(1, filters, filters.q);
