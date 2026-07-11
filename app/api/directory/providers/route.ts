@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { AuthError, requireRole } from "@/lib/auth";
 import { searchProviders } from "@/lib/repos/directory";
+import { networkSummariesByNpi } from "@/lib/repos/networks";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,10 @@ export async function GET(req: NextRequest) {
       providerType: p.get("type") ?? undefined, // therapist | psychiatrist | prescriber
       page: Number(p.get("page")) || 1,
     });
-    return NextResponse.json(page);
+    // Batch the payer-network summary for just this page's NPIs (absent = no
+    // data, which the UI renders as nothing — absence is NOT out-of-network).
+    const networks = Object.fromEntries(await networkSummariesByNpi(page.items.map((i) => i.npi)));
+    return NextResponse.json({ ...page, networks });
   } catch (e) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
     throw e;
