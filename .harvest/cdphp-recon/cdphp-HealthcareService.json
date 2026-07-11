@@ -1,0 +1,208 @@
+{
+  "resourceType": "Bundle",
+  "id": "0",
+  "type": "searchset",
+  "total": 174610,
+  "link": [ {
+    "relation": "self",
+    "url": "/v1/fhir/HealthcareService?_count=2"
+  }, {
+    "relation": "next",
+    "url": "/v1/fhir/HealthcareService?_count=2&_getpagesoffset=2"
+  } ],
+  "entry": [ {
+    "fullUrl": "/v1/fhir/HealthcareService/healthcareservice-2746467365638082-4571957866092132-default",
+    "resource": {
+      "resourceType": "HealthcareService",
+      "id": "healthcareservice-2746467365638082-4571957866092132-default",
+      "meta": {
+        "versionId": "1.0",
+        "lastUpdated": "2026-07-11T02:49:26.000+00:00",
+        "profile": [ "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/plannet-HealthcareService" ]
+      },
+      "identifier": [ {
+        "use": "official",
+        "type": {
+          "coding": [ {
+            "code": "provider_location_key",
+            "display": "Healthsparq Provider Location key"
+          } ]
+        },
+        "value": "2746467365638082-4571957866092132"
+      }, {
+        "use": "official",
+        "type": {
+          "coding": [ {
+            "code": "source_provider_location_key",
+            "display": "Source Provider Location key"
+          } ]
+        },
+        "value": "200451013001-017DD7EA7814BD82FDA49CE4847AD18D"
+      } ],
+      "active": true,
+      "providedBy": {
+        "extension": [ {
+          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+          "valueCode": "unknown"
+        } ]
+      },
+      "category": [ {
+        "coding": [ {
+          "system": "http://hl7.org/fhir/us/davinci-pdex-plan-net/CodeSystem/HealthcareServiceCategoryCS",
+          "code": "other",
+          "display": "Other"
+        } ]
+      } ],
+      "type": [ {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/service-type",
+          "code": "382",
+          "display": "Medical Services"
+        } ]
+      } ],
+      "specialty": [ {
+        "coding": [ {
+          "system": "http://healthsparq.com/codesystems/custom-specialty-codes",
+          "code": "41",
+          "display": "Optometry"
+        } ],
+        "text": "Optometry"
+      }, {
+        "coding": [ {
+          "system": "http://healthsparq.com/codesystems/custom-specialty-codes",
+          "code": "49",
+          "display": "Optometry"
+        } ],
+        "text": "Optometry"
+      }, {
+        "coding": [ {
+          "system": "http://nucc.org/provider-taxonomy",
+          "code": "152W00000X",
+          "display": "Optometry"
+        } ],
+        "text": "Optometry"
+      } ],
+      "location": [ {
+        "reference": "Location/location-2746467365638082-4571957866092132"
+      } ],
+      "name": "Healthcare Service",
+      "telecom": [ {
+        "system": "phone",
+        "value": "6074369200",
+        "use": "work"
+      } ],
+      "coverageArea": [ {
+        "reference": "Location/location-2746467365638082-4571957866092132-NY"
+      } ],
+      "communication": [ {
+        "coding": [ {
+          "code": "ENG",
+          "display": "English"
+        } ]
+      } ],
+      "endpoint": [ {
+        "extension": [ {
+          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+          "valueCode": "unknown"
+        } ]
+      } ]
+    }
+  }, {
+    "fullUrl": "/v1/fhir/HealthcareService/healthcareservice-2746467365638082-4780214702805816-default",
+    "resource": {
+      "resourceType": "HealthcareService",
+      "id": "healthcareservice-2746467365638082-4780214702805816-default",
+      "meta": {
+        "versionId": "1.0",
+        "lastUpdated": "2026-07-11T02:49:26.000+00:00",
+        "profile": [ "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/plannet-HealthcareService" ]
+      },
+      "identifier": [ {
+        "use": "official",
+        "type": {
+          "coding": [ {
+            "code": "provider_location_key",
+            "display": "Healthsparq Provider Location key"
+          } ]
+        },
+        "value": "2746467365638082-4780214702805816"
+      }, {
+        "use": "official",
+        "type": {
+          "coding": [ {
+            "code": "source_provider_location_key",
+            "display": "Source Provider Location key"
+          } ]
+        },
+        "value": "200451013001-E72A6CACE68308D992EAC94F276872E3"
+      } ],
+      "active": true,
+      "providedBy": {
+        "extension": [ {
+          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+          "valueCode": "unknown"
+        } ]
+      },
+      "category": [ {
+        "coding": [ {
+          "system": "http://hl7.org/fhir/us/davinci-pdex-plan-net/CodeSystem/HealthcareServiceCategoryCS",
+          "code": "other",
+          "display": "Other"
+        } ]
+      } ],
+      "type": [ {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/service-type",
+          "code": "382",
+          "display": "Medical Services"
+        } ]
+      } ],
+      "specialty": [ {
+        "coding": [ {
+          "system": "http://healthsparq.com/codesystems/custom-specialty-codes",
+          "code": "41",
+          "display": "Optometry"
+        } ],
+        "text": "Optometry"
+      }, {
+        "coding": [ {
+          "system": "http://healthsparq.com/codesystems/custom-specialty-codes",
+          "code": "49",
+          "display": "Optometry"
+        } ],
+        "text": "Optometry"
+      }, {
+        "coding": [ {
+          "system": "http://nucc.org/provider-taxonomy",
+          "code": "152W00000X",
+          "display": "Optometry"
+        } ],
+        "text": "Optometry"
+      } ],
+      "location": [ {
+        "reference": "Location/location-2746467365638082-4780214702805816"
+      } ],
+      "name": "Healthcare Service",
+      "telecom": [ {
+        "system": "phone",
+        "value": "3154465120",
+        "use": "work"
+      } ],
+      "coverageArea": [ {
+        "reference": "Location/location-2746467365638082-4780214702805816-NY"
+      } ],
+      "communication": [ {
+        "coding": [ {
+          "code": "ENG",
+          "display": "English"
+        } ]
+      } ],
+      "endpoint": [ {
+        "extension": [ {
+          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+          "valueCode": "unknown"
+        } ]
+      } ]
+    }
+  } ]
+}

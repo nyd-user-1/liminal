@@ -1,6 +1,48 @@
 # Payer Insurance-Network Harvest — Handoff
 
-_Last updated 2026-07-11. A fresh session should be able to resume from this file alone._
+_Last updated 2026-07-11 (overnight harvest session). A fresh session should be able to resume from this file alone._
+
+## RUN STATE (updated 2026-07-11 ~14:55 ET) — read this first
+
+**HEADLINE: 15,562 of 99,105 providers (15.7%) have ≥1 in-network record across 4
+payers** (500 of those are Healthfirst coarse rows; full-quality = Cigna+Humana+UHC).
+Was 2,148 / 2.2% / 1 payer at session start.
+
+- **✅ CIGNA COMPLETE (14:49 ET, finished clean, 0 errors).** All 99,105 NPIs probed:
+  12,907 hits (13.0%) → **12,752 distinct NPIs · 115,900 rows · 226 networks ·
+  97.7% accepting**. **EVERNORTH/EBH = 11,922 NPIs (93.5% of matched)** — the
+  Evernorth thesis fully confirmed at scale. `status='live'`.
+- **✅ Humana Path B COMPLETE (11:08 ET).** 4,524 NPIs · 86,339 rows · 135 networks ·
+  98.2% accepting · 808 unmatched parked. `status='live'`.
+- **▶ UHC — RUNNING** (open public API, no registration; base
+  `flex.optum.com/fhirpublic/R4/`) — **19% hit rate**, projects ~18-19k matched
+  (would become our biggest payer). Two-step enrich driver; log
+  `.harvest/uhc-full.log`, checkpoint `.harvest/uhc-enrich.json`. ~1 day.
+  **See PAYER-RESEARCH.md "★ THE CENTRAL FINDING"** — UHC publishes Behavioral
+  Commercial/Medicaid as EMPTY SHELLS; re-verify at completion with
+  `node --env-file=.env.local .harvest/uhc-shell-check.mjs`.
+- **▶ Healthfirst coarse — RESUMED** into Cigna's freed lane (from checkpoint
+  25,546; 3.3% hit rate). Coarse rows only; report separately.
+- **CDPHP + Molina: probed and parked** (no deterministic join key; evidence in
+  `.harvest/cdphp-recon/` + research-doc registry). **Aetna + Anthem: submitted,
+  awaiting approval emails** (see payer-registration-checklist.md).
+
+Babysitters: `.harvest/babysit.sh` (auto-`--resume` on crash, halt for good on
+KILL SWITCH). Resume commands: `.harvest/RESUME.md`. Neon conn-blips: flush
+retries once then crashes for restart; next recurrence → drop that job to
+concurrency 2 (Brendan's rule).
+
+**Two hard-won bug fixes (both in `scripts/ingest-payers.mjs`, uncommitted):**
+1. **Cigna 0-rows root cause found**: Node fetch (WHATWG URL) leaves `|`
+   unencoded in query strings and Cigna hard-400s a raw pipe. Every prior Cigna
+   run failed on 100% of requests because of this. `roleQuery` now sends `%7C`.
+   (curl encodes it, which is why manual probes measured 12.9%.)
+2. **Humana location OR-list limit is 50, not ≥100**: 50 ids (3.3k URL) → 200
+   JSON; 75+ ids (≥5k URL) → HTTP 200 **Firely Auth HTML page**; POST `_search`
+   → Akamai 403. `--loc-batch` defaults to 50.
+
+**Status check:** `node --env-file=.env.local .harvest/status.mjs --networks`
+**Resume by hand if dead:** relaunch the same babysit lines (see `.harvest/RESUME.md`).
 
 Adds insurance-network data (which plans a provider is in + accepting-new-patients status) to
 our ~99k NY behavioral-health providers, by harvesting payer FHIR **Da Vinci PDex Plan-Net**

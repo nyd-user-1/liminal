@@ -1,0 +1,11 @@
+# Runtime state (logs, checkpoints, id caches) stays local; operational tooling
+# and the CDPHP recon evidence (cited by docs/PAYER-RESEARCH.md) are committed.
+*
+!.gitignore
+!RESUME.md
+!babysit.sh
+!status.mjs
+!uhc-shell-check.mjs
+!uhc-valve.sh
+!cdphp-recon/
+!cdphp-recon/**

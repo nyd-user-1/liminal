@@ -1,0 +1,10 @@
+{
+  "resourceType": "Bundle",
+  "id": "0",
+  "type": "searchset",
+  "total": 0,
+  "link": [ {
+    "relation": "self",
+    "url": "/v1/fhir/Endpoint?_count=2"
+  } ]
+}

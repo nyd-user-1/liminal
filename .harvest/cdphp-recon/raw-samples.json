@@ -1,0 +1,830 @@
+{
+ "Practitioner": {
+  "resourceType": "Practitioner",
+  "id": "practitioner-2746467365638082",
+  "meta": {
+   "versionId": "1.0",
+   "lastUpdated": "2026-07-11T02:49:26.000+00:00",
+   "profile": [
+    "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/plannet-Practitioner"
+   ]
+  },
+  "identifier": [
+   {
+    "use": "official",
+    "type": {
+     "coding": [
+      {
+       "code": "provider_id",
+       "display": "Healthsparq Provider ID"
+      }
+     ]
+    },
+    "value": "2746467365638082"
+   },
+   {
+    "use": "official",
+    "type": {
+     "coding": [
+      {
+       "code": "source_provider_key",
+       "display": "Source Provider key"
+      }
+     ]
+    },
+    "value": "200451013001"
+   }
+  ],
+  "active": true,
+  "name": [
+   {
+    "use": "official",
+    "text": "D'Orazio-Brafman, Stephanie",
+    "family": "D'Orazio-Brafman",
+    "given": [
+     "Stephanie",
+     "L"
+    ]
+   }
+  ],
+  "telecom": [
+   {
+    "system": "phone",
+    "value": "6074369200",
+    "use": "work"
+   }
+  ],
+  "address": [
+   {
+    "use": "work",
+    "type": "physical",
+    "text": "5006 State Highway 23 Address(address1=5006 State Highway 23, address2=null, city=Oneonta, state=NY, zip=13820, postalSubCode=null, county=Otsego, country=US, point=Point(latitude=42.44684, longitude=-75.04633), distance=0.0)",
+    "line": [
+     "5006 State Highway 23"
+    ],
+    "city": "Oneonta",
+    "district": "Otsego",
+    "state": "NY",
+    "postalCode": "13820",
+    "country": "US"
+   }
+  ],
+  "gender": "female",
+  "qualification": [
+   {
+    "code": {
+     "coding": [
+      {
+       "code": "OD",
+       "display": "OD"
+      }
+     ]
+    }
+   }
+  ],
+  "communication": [
+   {
+    "coding": [
+     {
+      "code": "ENG",
+      "display": "English"
+     }
+    ]
+   }
+  ]
+ },
+ "PractitionerRole": {
+  "resourceType": "PractitionerRole",
+  "id": "practitionerrole-2746467365638082-4571957866092132",
+  "meta": {
+   "versionId": "1.0",
+   "lastUpdated": "2026-07-11T02:49:26.000+00:00",
+   "profile": [
+    "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/plannet-PractitionerRole"
+   ]
+  },
+  "extension": [
+   {
+    "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/network-reference",
+    "valueReference": {
+     "id": "CDPHP_I-MHM1C002",
+     "reference": "Organization/network-MHM1C002",
+     "display": "Medicare HMO Network"
+    }
+   },
+   {
+    "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/network-reference",
+    "valueReference": {
+     "id": "CDPHP_I-MCD1C003",
+     "reference": "Organization/network-MCD1C003",
+     "display": "Medicaid Network"
+    }
+   },
+   {
+    "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/network-reference",
+    "valueReference": {
+     "id": "CDPHP_I-MPP1U002",
+     "reference": "Organization/network-MPP1U002",
+     "display": "Medicare PPO Network"
+    }
+   },
+   {
+    "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/network-reference",
+    "valueReference": {
+     "id": "CDPHP_I-MCH1C003",
+     "reference": "Organization/network-MCH1C003",
+     "display": "Medicaid HARP Network"
+    }
+   },
+   {
+    "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/network-reference",
+    "valueReference": {
+     "id": "CDPHP_I-CHP1C005",
+     "reference": "Organization/network-CHP1C005",
+     "display": "Child Health Plus Network"
+    }
+   }
+  ],
+  "identifier": [
+   {
+    "use": "official",
+    "type": {
+     "coding": [
+      {
+       "code": "provider_location_key",
+       "display": "Healthsparq Provider Location key"
+      }
+     ]
+    },
+    "value": "2746467365638082-4571957866092132"
+   },
+   {
+    "use": "official",
+    "type": {
+     "coding": [
+      {
+       "code": "source_provider_location_key",
+       "display": "Source Provider Location key"
+      }
+     ]
+    },
+    "value": "200451013001-017DD7EA7814BD82FDA49CE4847AD18D"
+   }
+  ],
+  "active": true,
+  "practitioner": {
+   "reference": "Practitioner/practitioner-2746467365638082"
+  },
+  "organization": {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+     "valueCode": "unknown"
+    }
+   ]
+  },
+  "code": [
+   {
+    "coding": [
+     {
+      "system": "http://hl7.org/fhir/us/davinci-pdex-plan-net/CodeSystem/ProviderRoleCS",
+      "code": "oo",
+      "display": "Optometrist"
+     }
+    ]
+   }
+  ],
+  "specialty": [
+   {
+    "coding": [
+     {
+      "system": "http://healthsparq.com/codesystems/custom-specialty-codes",
+      "code": "41",
+      "display": "Optometry"
+     }
+    ],
+    "text": "Optometry"
+   },
+   {
+    "coding": [
+     {
+      "system": "http://healthsparq.com/codesystems/custom-specialty-codes",
+      "code": "49",
+      "display": "Optometry"
+     }
+    ],
+    "text": "Optometry"
+   },
+   {
+    "coding": [
+     {
+      "system": "http://nucc.org/provider-taxonomy",
+      "code": "152W00000X",
+      "display": "Optometry"
+     }
+    ],
+    "text": "Optometry"
+   }
+  ],
+  "location": [
+   {
+    "reference": "Location/location-2746467365638082-4571957866092132"
+   }
+  ],
+  "healthcareService": [
+   {
+    "reference": "HealthcareService/healthcareservice-2746467365638082-4571957866092132-default"
+   }
+  ],
+  "telecom": [
+   {
+    "system": "phone",
+    "value": "6074369200",
+    "use": "work"
+   }
+  ],
+  "endpoint": [
+   {
+    "extension": [
+     {
+      "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+      "valueCode": "unknown"
+     }
+    ]
+   }
+  ]
+ },
+ "Organization": {
+  "resourceType": "Organization",
+  "id": "organization-8451352933505760",
+  "meta": {
+   "versionId": "1.0",
+   "lastUpdated": "2026-07-11T02:49:26.000+00:00",
+   "profile": [
+    "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/plannet-Organization"
+   ]
+  },
+  "identifier": [
+   {
+    "use": "official",
+    "type": {
+     "coding": [
+      {
+       "code": "provider_id",
+       "display": "Healthsparq Provider ID"
+      }
+     ]
+    },
+    "value": "8451352933505760"
+   },
+   {
+    "use": "official",
+    "type": {
+     "coding": [
+      {
+       "code": "source_provider_key",
+       "display": "Source Provider key"
+      }
+     ]
+    },
+    "value": "C10054871001"
+   }
+  ],
+  "active": true,
+  "type": [
+   {
+    "coding": [
+     {
+      "code": "fac",
+      "display": "Facility"
+     }
+    ]
+   }
+  ],
+  "name": "CVS Pharmacy",
+  "telecom": [
+   {
+    "system": "phone",
+    "value": "6304065904",
+    "use": "work"
+   }
+  ],
+  "address": [
+   {
+    "use": "work",
+    "type": "physical",
+    "text": "115 N Randall Rd Address(address1=115 N Randall Rd, address2=null, city=Batavia, state=IL, zip=60510, postalSubCode=null, county=Kane, country=US, point=Point(latitude=41.852356, longitude=-88.34291), distance=0.0)",
+    "line": [
+     "115 N Randall Rd"
+    ],
+    "city": "Batavia",
+    "district": "Kane",
+    "state": "IL",
+    "postalCode": "60510",
+    "country": "US"
+   }
+  ],
+  "partOf": {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+     "valueCode": "unknown"
+    }
+   ]
+  },
+  "endpoint": [
+   {
+    "extension": [
+     {
+      "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+      "valueCode": "unknown"
+     }
+    ]
+   }
+  ]
+ },
+ "OrganizationAffiliation": {
+  "resourceType": "OrganizationAffiliation",
+  "id": "organizationaffiliation-8451352933505760-6227832216303811",
+  "meta": {
+   "versionId": "1.0",
+   "lastUpdated": "2026-07-11T02:49:26.000+00:00",
+   "profile": [
+    "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/plannet-OrganizationAffiliation"
+   ]
+  },
+  "identifier": [
+   {
+    "use": "official",
+    "type": {
+     "coding": [
+      {
+       "code": "provider_location_key",
+       "display": "Healthsparq Provider Location key"
+      }
+     ]
+    },
+    "value": "8451352933505760-6227832216303811"
+   },
+   {
+    "use": "official",
+    "type": {
+     "coding": [
+      {
+       "code": "source_provider_location_key",
+       "display": "Source Provider Location key"
+      }
+     ]
+    },
+    "value": "C10054871001-C10054871001001"
+   }
+  ],
+  "active": true,
+  "organization": {
+   "reference": "Organization/organization-8451352933505760"
+  },
+  "participatingOrganization": {
+   "reference": "Organization/organization-8451352933505760"
+  },
+  "network": [
+   {
+    "id": "CDPHP_I-MHM1CMKM",
+    "reference": "Organization/network-MHM1CMKM",
+    "display": "Medicare HMO Pharmacy Network"
+   },
+   {
+    "id": "CDPHP_I-CHP1CMKC",
+    "reference": "Organization/network-CHP1CMKC",
+    "display": "Child Health Plus Pharmacy Network"
+   },
+   {
+    "id": "CDPHP_I-MPP1CMKM",
+    "reference": "Organization/network-MPP1CMKM",
+    "display": "Medicare PPO Pharmacy Network"
+   }
+  ],
+  "code": [
+   {
+    "coding": [
+     {
+      "system": "http://hl7.org/fhir/us/davinci-pdex-plan-net/CodeSystem/OrganizationAffiliationRoleCS",
+      "code": "pharmacy",
+      "display": "Pharmacy"
+     }
+    ]
+   }
+  ],
+  "specialty": [
+   {
+    "coding": [
+     {
+      "system": "http://healthsparq.com/codesystems/custom-specialty-codes",
+      "code": "49",
+      "display": "Pharmacy"
+     }
+    ],
+    "text": "Pharmacy"
+   },
+   {
+    "coding": [
+     {
+      "system": "http://nucc.org/provider-taxonomy",
+      "code": "333600000X",
+      "display": "Pharmacy"
+     }
+    ],
+    "text": "Pharmacy"
+   },
+   {
+    "coding": [
+     {
+      "system": "http://healthsparq.com/codesystems/custom-specialty-codes",
+      "code": "QK",
+      "display": "Pharmacy"
+     }
+    ],
+    "text": "Pharmacy"
+   },
+   {
+    "coding": [
+     {
+      "system": "http://healthsparq.com/codesystems/custom-specialty-codes",
+      "code": "VR",
+      "display": "Pharmacy"
+     }
+    ],
+    "text": "Pharmacy"
+   },
+   {
+    "coding": [
+     {
+      "system": "http://healthsparq.com/codesystems/custom-specialty-codes",
+      "code": "-364",
+      "display": "Extended Day Supply"
+     }
+    ],
+    "text": "Extended Day Supply"
+   },
+   {
+    "coding": [
+     {
+      "system": "http://nucc.org/provider-taxonomy",
+      "code": "3336C0003X",
+      "display": "Community/Retail Pharmacy"
+     }
+    ],
+    "text": "Community/Retail Pharmacy"
+   }
+  ],
+  "location": [
+   {
+    "reference": "Location/location-8451352933505760-6227832216303811"
+   }
+  ],
+  "healthcareService": [
+   {
+    "reference": "HealthcareService/healthcareservice-8451352933505760-6227832216303811-3995"
+   },
+   {
+    "reference": "HealthcareService/healthcareservice-8451352933505760-6227832216303811-328"
+   },
+   {
+    "reference": "HealthcareService/healthcareservice-8451352933505760-6227832216303811-3993"
+   }
+  ],
+  "telecom": [
+   {
+    "system": "phone",
+    "value": "6304065904",
+    "use": "work"
+   }
+  ],
+  "endpoint": [
+   {
+    "extension": [
+     {
+      "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+      "valueCode": "unknown"
+     }
+    ]
+   }
+  ]
+ },
+ "Location": {
+  "resourceType": "Location",
+  "id": "location-2746467365638082-4571957866092132",
+  "meta": {
+   "versionId": "1.0",
+   "lastUpdated": "2026-07-11T02:49:26.000+00:00",
+   "profile": [
+    "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/plannet-Location"
+   ]
+  },
+  "identifier": [
+   {
+    "use": "official",
+    "type": {
+     "coding": [
+      {
+       "code": "provider_location_key",
+       "display": "Healthsparq Provider Location key"
+      }
+     ]
+    },
+    "value": "2746467365638082-4571957866092132"
+   }
+  ],
+  "status": "active",
+  "name": "Empire Vision Center Inc",
+  "alias": [
+   "Stephanie L D'Orazio-Brafman",
+   "Empire Vision Center Inc"
+  ],
+  "type": [
+   {
+    "coding": [
+     {
+      "system": "http://terminology.hl7.org/CodeSystem/v3-RoleCode",
+      "code": "PROFF",
+      "display": "Provider's Office"
+     }
+    ]
+   }
+  ],
+  "telecom": [
+   {
+    "system": "phone",
+    "value": "6074369200",
+    "use": "work"
+   }
+  ],
+  "address": {
+   "use": "work",
+   "type": "physical",
+   "text": "5006 State Highway 23 Address(address1=5006 State Highway 23, address2=null, city=Oneonta, state=NY, zip=13820, postalSubCode=null, county=Otsego, country=US, point=Point(latitude=42.44684, longitude=-75.04633), distance=0.0)",
+   "line": [
+    "5006 State Highway 23"
+   ],
+   "city": "Oneonta",
+   "district": "Otsego",
+   "state": "NY",
+   "postalCode": "13820",
+   "country": "US"
+  },
+  "position": {
+   "longitude": 42.44684,
+   "latitude": -75.04633
+  },
+  "managingOrganization": {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+     "valueCode": "unknown"
+    }
+   ]
+  },
+  "partOf": {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+     "valueCode": "unknown"
+    }
+   ]
+  },
+  "endpoint": [
+   {
+    "extension": [
+     {
+      "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+      "valueCode": "unknown"
+     }
+    ]
+   }
+  ]
+ },
+ "HealthcareService": {
+  "resourceType": "HealthcareService",
+  "id": "healthcareservice-2746467365638082-4571957866092132-default",
+  "meta": {
+   "versionId": "1.0",
+   "lastUpdated": "2026-07-11T02:49:26.000+00:00",
+   "profile": [
+    "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/plannet-HealthcareService"
+   ]
+  },
+  "identifier": [
+   {
+    "use": "official",
+    "type": {
+     "coding": [
+      {
+       "code": "provider_location_key",
+       "display": "Healthsparq Provider Location key"
+      }
+     ]
+    },
+    "value": "2746467365638082-4571957866092132"
+   },
+   {
+    "use": "official",
+    "type": {
+     "coding": [
+      {
+       "code": "source_provider_location_key",
+       "display": "Source Provider Location key"
+      }
+     ]
+    },
+    "value": "200451013001-017DD7EA7814BD82FDA49CE4847AD18D"
+   }
+  ],
+  "active": true,
+  "providedBy": {
+   "extension": [
+    {
+     "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+     "valueCode": "unknown"
+    }
+   ]
+  },
+  "category": [
+   {
+    "coding": [
+     {
+      "system": "http://hl7.org/fhir/us/davinci-pdex-plan-net/CodeSystem/HealthcareServiceCategoryCS",
+      "code": "other",
+      "display": "Other"
+     }
+    ]
+   }
+  ],
+  "type": [
+   {
+    "coding": [
+     {
+      "system": "http://terminology.hl7.org/CodeSystem/service-type",
+      "code": "382",
+      "display": "Medical Services"
+     }
+    ]
+   }
+  ],
+  "specialty": [
+   {
+    "coding": [
+     {
+      "system": "http://healthsparq.com/codesystems/custom-specialty-codes",
+      "code": "41",
+      "display": "Optometry"
+     }
+    ],
+    "text": "Optometry"
+   },
+   {
+    "coding": [
+     {
+      "system": "http://healthsparq.com/codesystems/custom-specialty-codes",
+      "code": "49",
+      "display": "Optometry"
+     }
+    ],
+    "text": "Optometry"
+   },
+   {
+    "coding": [
+     {
+      "system": "http://nucc.org/provider-taxonomy",
+      "code": "152W00000X",
+      "display": "Optometry"
+     }
+    ],
+    "text": "Optometry"
+   }
+  ],
+  "location": [
+   {
+    "reference": "Location/location-2746467365638082-4571957866092132"
+   }
+  ],
+  "name": "Healthcare Service",
+  "telecom": [
+   {
+    "system": "phone",
+    "value": "6074369200",
+    "use": "work"
+   }
+  ],
+  "coverageArea": [
+   {
+    "reference": "Location/location-2746467365638082-4571957866092132-NY"
+   }
+  ],
+  "communication": [
+   {
+    "coding": [
+     {
+      "code": "ENG",
+      "display": "English"
+     }
+    ]
+   }
+  ],
+  "endpoint": [
+   {
+    "extension": [
+     {
+      "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+      "valueCode": "unknown"
+     }
+    ]
+   }
+  ]
+ },
+ "InsurancePlan": {
+  "resourceType": "InsurancePlan",
+  "id": "insuranceplan-MPP1",
+  "meta": {
+   "versionId": "1.0",
+   "lastUpdated": "2026-07-11T02:49:26.000+00:00",
+   "profile": [
+    "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/plannet-InsurancePlan"
+   ]
+  },
+  "identifier": [
+   {
+    "use": "official",
+    "type": {
+     "coding": [
+      {
+       "code": "product_code",
+       "display": "Healthsparq Product Code"
+      }
+     ]
+    },
+    "value": "MPP1"
+   }
+  ],
+  "status": "active",
+  "type": [
+   {
+    "extension": [
+     {
+      "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+      "valueCode": "unknown"
+     }
+    ]
+   }
+  ],
+  "name": "Medicare PPO Network",
+  "period": {
+   "start": "1900-01-01T00:00:00+00:00",
+   "end": "9999-12-31T00:00:00+00:00"
+  },
+  "ownedBy": {
+   "reference": "Organization/insurer-CDPHP_I"
+  },
+  "administeredBy": {
+   "reference": "Organization/insurer-CDPHP_I"
+  },
+  "coverageArea": [
+   {
+    "extension": [
+     {
+      "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+      "valueCode": "unknown"
+     }
+    ]
+   }
+  ],
+  "endpoint": [
+   {
+    "extension": [
+     {
+      "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+      "valueCode": "unknown"
+     }
+    ]
+   }
+  ],
+  "network": [
+   {
+    "reference": "Organization/network-MPP1CMKM",
+    "display": "Medicare PPO Pharmacy Network"
+   },
+   {
+    "reference": "Organization/network-MPP1U002",
+    "display": "Medicare PPO Network"
+   }
+  ],
+  "plan": [
+   {
+    "extension": [
+     {
+      "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+      "valueCode": "unknown"
+     }
+    ]
+   }
+  ]
+ }
+}

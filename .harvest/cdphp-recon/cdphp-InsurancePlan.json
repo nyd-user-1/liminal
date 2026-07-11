@@ -1,0 +1,145 @@
+{
+  "resourceType": "Bundle",
+  "id": "0",
+  "type": "searchset",
+  "total": 5,
+  "link": [ {
+    "relation": "self",
+    "url": "/v1/fhir/InsurancePlan?_count=2"
+  }, {
+    "relation": "next",
+    "url": "/v1/fhir/InsurancePlan?_count=2&_getpagesoffset=2"
+  } ],
+  "entry": [ {
+    "fullUrl": "/v1/fhir/InsurancePlan/insuranceplan-MPP1",
+    "resource": {
+      "resourceType": "InsurancePlan",
+      "id": "insuranceplan-MPP1",
+      "meta": {
+        "versionId": "1.0",
+        "lastUpdated": "2026-07-11T02:49:26.000+00:00",
+        "profile": [ "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/plannet-InsurancePlan" ]
+      },
+      "identifier": [ {
+        "use": "official",
+        "type": {
+          "coding": [ {
+            "code": "product_code",
+            "display": "Healthsparq Product Code"
+          } ]
+        },
+        "value": "MPP1"
+      } ],
+      "status": "active",
+      "type": [ {
+        "extension": [ {
+          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+          "valueCode": "unknown"
+        } ]
+      } ],
+      "name": "Medicare PPO Network",
+      "period": {
+        "start": "1900-01-01T00:00:00+00:00",
+        "end": "9999-12-31T00:00:00+00:00"
+      },
+      "ownedBy": {
+        "reference": "Organization/insurer-CDPHP_I"
+      },
+      "administeredBy": {
+        "reference": "Organization/insurer-CDPHP_I"
+      },
+      "coverageArea": [ {
+        "extension": [ {
+          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+          "valueCode": "unknown"
+        } ]
+      } ],
+      "endpoint": [ {
+        "extension": [ {
+          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+          "valueCode": "unknown"
+        } ]
+      } ],
+      "network": [ {
+        "reference": "Organization/network-MPP1CMKM",
+        "display": "Medicare PPO Pharmacy Network"
+      }, {
+        "reference": "Organization/network-MPP1U002",
+        "display": "Medicare PPO Network"
+      } ],
+      "plan": [ {
+        "extension": [ {
+          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+          "valueCode": "unknown"
+        } ]
+      } ]
+    }
+  }, {
+    "fullUrl": "/v1/fhir/InsurancePlan/insuranceplan-CHP1",
+    "resource": {
+      "resourceType": "InsurancePlan",
+      "id": "insuranceplan-CHP1",
+      "meta": {
+        "versionId": "1.0",
+        "lastUpdated": "2026-07-11T02:49:26.000+00:00",
+        "profile": [ "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/plannet-InsurancePlan" ]
+      },
+      "identifier": [ {
+        "use": "official",
+        "type": {
+          "coding": [ {
+            "code": "product_code",
+            "display": "Healthsparq Product Code"
+          } ]
+        },
+        "value": "CHP1"
+      } ],
+      "status": "active",
+      "type": [ {
+        "extension": [ {
+          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+          "valueCode": "unknown"
+        } ]
+      } ],
+      "name": "Child Health Plus Network",
+      "period": {
+        "start": "1900-01-01T00:00:00+00:00",
+        "end": "9999-12-31T00:00:00+00:00"
+      },
+      "ownedBy": {
+        "reference": "Organization/insurer-CDPHP_I"
+      },
+      "administeredBy": {
+        "reference": "Organization/insurer-CDPHP_I"
+      },
+      "coverageArea": [ {
+        "extension": [ {
+          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+          "valueCode": "unknown"
+        } ]
+      } ],
+      "endpoint": [ {
+        "extension": [ {
+          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+          "valueCode": "unknown"
+        } ]
+      } ],
+      "network": [ {
+        "reference": "Organization/network-CHP1C005",
+        "display": "Child Health Plus Network"
+      }, {
+        "reference": "Organization/network-CHP1CMKC",
+        "display": "Child Health Plus Pharmacy Network"
+      }, {
+        "reference": "Organization/network-CHP1DTCH",
+        "display": "Child Health Plus Dental Network"
+      } ],
+      "plan": [ {
+        "extension": [ {
+          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+          "valueCode": "unknown"
+        } ]
+      } ]
+    }
+  } ]
+}

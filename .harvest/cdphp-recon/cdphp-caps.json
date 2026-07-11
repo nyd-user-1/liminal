@@ -1,0 +1,497 @@
+{
+  "resourceType": "CapabilityStatement",
+  "status": "active",
+  "date": "2026-06-05T05:01:53+00:00",
+  "publisher": "Healthsparq",
+  "kind": "instance",
+  "software": {
+    "name": "provider-fhir-service",
+    "version": "v1"
+  },
+  "implementation": {
+    "description": "HAPI FHIR",
+    "url": "/v1/fhir"
+  },
+  "fhirVersion": "4.4.0",
+  "format": [ "application/fhir+xml", "application/fhir+json" ],
+  "rest": [ {
+    "mode": "server",
+    "resource": [ {
+      "type": "Endpoint",
+      "profile": "http://hl7.org/fhir/StructureDefinition/Endpoint",
+      "interaction": [ {
+        "code": "read"
+      }, {
+        "code": "vread"
+      }, {
+        "code": "search-type"
+      } ],
+      "searchInclude": [ "Endpoint:organization" ],
+      "searchParam": [ {
+        "name": "_count",
+        "type": "number"
+      }, {
+        "name": "_getpagesoffset",
+        "type": "number"
+      }, {
+        "name": "_has",
+        "type": "string"
+      }, {
+        "name": "_id",
+        "type": "token",
+        "documentation": "The ID of the resource"
+      }, {
+        "name": "_lastUpdated",
+        "type": "date"
+      }, {
+        "name": "organization",
+        "type": "reference",
+        "documentation": "organization given"
+      } ]
+    }, {
+      "type": "HealthcareService",
+      "profile": "http://hl7.org/fhir/StructureDefinition/HealthcareService",
+      "interaction": [ {
+        "code": "read"
+      }, {
+        "code": "vread"
+      }, {
+        "code": "search-type"
+      } ],
+      "searchInclude": [ "HealthcareService:coverage-area", "HealthcareService:endpoint", "HealthcareService:location", "HealthcareService:organization", "OrganizationAffiliation:service", "PractitionerRole:service" ],
+      "searchParam": [ {
+        "name": "_count",
+        "type": "number"
+      }, {
+        "name": "_getpagesoffset",
+        "type": "number"
+      }, {
+        "name": "_has",
+        "type": "string"
+      }, {
+        "name": "_id",
+        "type": "token",
+        "documentation": "The ID of the resource"
+      }, {
+        "name": "_lastUpdated",
+        "type": "date"
+      }, {
+        "name": "coverage-area",
+        "type": "reference",
+        "documentation": "Location(s) service is intended for/available to"
+      }, {
+        "name": "endpoint",
+        "type": "reference",
+        "documentation": "Technical endpoints providing access to electronic services operated for the healthcare service"
+      }, {
+        "name": "location",
+        "type": "reference",
+        "documentation": "The location of the Healthcare Service"
+      }, {
+        "name": "name",
+        "type": "string",
+        "documentation": "A portion of the Healthcare service name"
+      }, {
+        "name": "organization",
+        "type": "reference",
+        "documentation": "The organization that provides this Healthcare Service"
+      }, {
+        "name": "service-category",
+        "type": "token",
+        "documentation": "Service Category of the Healthcare Service"
+      }, {
+        "name": "service-type",
+        "type": "token",
+        "documentation": "The type of service provided by this healthcare service"
+      }, {
+        "name": "specialty",
+        "type": "token",
+        "documentation": "The specialty of the service provided by this healthcare service"
+      } ]
+    }, {
+      "type": "InsurancePlan",
+      "profile": "http://hl7.org/fhir/StructureDefinition/InsurancePlan",
+      "interaction": [ {
+        "code": "read"
+      }, {
+        "code": "vread"
+      }, {
+        "code": "search-type"
+      } ],
+      "searchInclude": [ "InsurancePlan:administered-by", "InsurancePlan:coverage-area", "InsurancePlan:owned-by" ],
+      "searchParam": [ {
+        "name": "_count",
+        "type": "number"
+      }, {
+        "name": "_getpagesoffset",
+        "type": "number"
+      }, {
+        "name": "_has",
+        "type": "string"
+      }, {
+        "name": "_id",
+        "type": "token",
+        "documentation": "ID given"
+      }, {
+        "name": "_lastUpdated",
+        "type": "date"
+      }, {
+        "name": "administered-by",
+        "type": "reference",
+        "documentation": "administered-by given"
+      }, {
+        "name": "coverage-area",
+        "type": "reference",
+        "documentation": "coverage-area given"
+      }, {
+        "name": "name",
+        "type": "string",
+        "documentation": "name given"
+      }, {
+        "name": "network",
+        "type": "reference",
+        "documentation": "networks given"
+      }, {
+        "name": "npi",
+        "type": "string",
+        "documentation": "NPI given"
+      }, {
+        "name": "owned-by",
+        "type": "reference",
+        "documentation": "owned-by given"
+      }, {
+        "name": "plan-type",
+        "type": "token",
+        "documentation": "plan-type given (not supported)"
+      }, {
+        "name": "type",
+        "type": "token",
+        "documentation": "type given (not supported)"
+      } ]
+    }, {
+      "type": "Location",
+      "profile": "http://hl7.org/fhir/StructureDefinition/Location",
+      "interaction": [ {
+        "code": "read"
+      }, {
+        "code": "vread"
+      }, {
+        "code": "search-type"
+      } ],
+      "searchInclude": [ "HealthcareService:location", "InsurancePlan:coverage-area", "Location:endpoint", "Location:organization", "Location:partof", "OrganizationAffiliation:location", "PractitionerRole:location" ],
+      "searchParam": [ {
+        "name": "_count",
+        "type": "number"
+      }, {
+        "name": "_getpagesoffset",
+        "type": "number"
+      }, {
+        "name": "_has",
+        "type": "string"
+      }, {
+        "name": "_id",
+        "type": "token",
+        "documentation": "ID given"
+      }, {
+        "name": "_lastUpdated",
+        "type": "date"
+      }, {
+        "name": "address",
+        "type": "string",
+        "documentation": "address given"
+      }, {
+        "name": "address-city",
+        "type": "string",
+        "documentation": "address-city given"
+      }, {
+        "name": "address-postalcode",
+        "type": "string",
+        "documentation": "address-postalcode given"
+      }, {
+        "name": "address-state",
+        "type": "string",
+        "documentation": "address-state given"
+      }, {
+        "name": "endpoint",
+        "type": "reference",
+        "documentation": "endpoint given"
+      }, {
+        "name": "specialty",
+        "type": "token",
+        "documentation": "specialty given"
+      }, {
+        "name": "type",
+        "type": "token",
+        "documentation": "type given"
+      } ]
+    }, {
+      "type": "OperationDefinition",
+      "profile": "http://hl7.org/fhir/StructureDefinition/OperationDefinition",
+      "interaction": [ {
+        "code": "read"
+      } ]
+    }, {
+      "type": "Organization",
+      "profile": "http://hl7.org/fhir/StructureDefinition/Organization",
+      "interaction": [ {
+        "code": "read"
+      }, {
+        "code": "vread"
+      }, {
+        "code": "search-type"
+      } ],
+      "searchInclude": [ "Endpoint:organization", "HealthcareService:organization", "InsurancePlan:administered-by", "InsurancePlan:owned-by", "Organization:endpoint", "Organization:partof", "OrganizationAffiliation:participating-organization", "OrganizationAffiliation:primary-organization", "PractitionerRole:network", "PractitionerRole:organization" ],
+      "searchParam": [ {
+        "name": "_count",
+        "type": "number"
+      }, {
+        "name": "_getpagesoffset",
+        "type": "number"
+      }, {
+        "name": "_has",
+        "type": "string"
+      }, {
+        "name": "_id",
+        "type": "token",
+        "documentation": "ID given"
+      }, {
+        "name": "_lastUpdated",
+        "type": "date"
+      }, {
+        "name": "address",
+        "type": "string",
+        "documentation": "address component(s) given"
+      }, {
+        "name": "address-postalcode",
+        "type": "string",
+        "documentation": "address-postalcode given"
+      }, {
+        "name": "endpoint",
+        "type": "reference",
+        "documentation": "endpoint given"
+      }, {
+        "name": "name",
+        "type": "string",
+        "documentation": "name given"
+      }, {
+        "name": "npi",
+        "type": "string",
+        "documentation": "npi given"
+      }, {
+        "name": "partof",
+        "type": "reference",
+        "documentation": "partof given (only applicable to networks)"
+      }, {
+        "name": "specialty",
+        "type": "token",
+        "documentation": "specialty given"
+      }, {
+        "name": "type",
+        "type": "string",
+        "documentation": "type given"
+      } ]
+    }, {
+      "type": "OrganizationAffiliation",
+      "profile": "http://hl7.org/fhir/StructureDefinition/OrganizationAffiliation",
+      "interaction": [ {
+        "code": "read"
+      }, {
+        "code": "vread"
+      }, {
+        "code": "search-type"
+      } ],
+      "searchInclude": [ "OrganizationAffiliation:endpoint", "OrganizationAffiliation:location", "OrganizationAffiliation:participating-organization", "OrganizationAffiliation:primary-organization", "OrganizationAffiliation:service" ],
+      "searchParam": [ {
+        "name": "_count",
+        "type": "number"
+      }, {
+        "name": "_getpagesoffset",
+        "type": "number"
+      }, {
+        "name": "_has",
+        "type": "string"
+      }, {
+        "name": "_id",
+        "type": "token",
+        "documentation": "ID given"
+      }, {
+        "name": "_lastUpdated",
+        "type": "date"
+      }, {
+        "name": "endpoint",
+        "type": "reference",
+        "documentation": "endpoint reference given"
+      }, {
+        "name": "location",
+        "type": "reference",
+        "documentation": "location reference given"
+      }, {
+        "name": "network",
+        "type": "reference",
+        "documentation": "network references given"
+      }, {
+        "name": "participating-organization",
+        "type": "reference",
+        "documentation": "participating-organization given"
+      }, {
+        "name": "primary-organization",
+        "type": "reference",
+        "documentation": "primary-organization given"
+      }, {
+        "name": "role",
+        "type": "token",
+        "documentation": "role given"
+      }, {
+        "name": "service",
+        "type": "reference",
+        "documentation": "service reference given"
+      }, {
+        "name": "specialty",
+        "type": "token",
+        "documentation": "specialty code given"
+      } ]
+    }, {
+      "type": "Practitioner",
+      "profile": "http://hl7.org/fhir/StructureDefinition/Practitioner",
+      "interaction": [ {
+        "code": "read"
+      }, {
+        "code": "vread"
+      }, {
+        "code": "search-type"
+      } ],
+      "searchInclude": [ "PractitionerRole:practitioner" ],
+      "searchParam": [ {
+        "name": "_count",
+        "type": "number"
+      }, {
+        "name": "_getpagesoffset",
+        "type": "number"
+      }, {
+        "name": "_has",
+        "type": "string"
+      }, {
+        "name": "_id",
+        "type": "token",
+        "documentation": "ID given"
+      }, {
+        "name": "_lastUpdated",
+        "type": "date"
+      }, {
+        "name": "affiliated-organization",
+        "type": "string",
+        "documentation": "affiliated-organization given"
+      }, {
+        "name": "available-days",
+        "type": "string",
+        "documentation": "available-days given"
+      }, {
+        "name": "communication",
+        "type": "string",
+        "documentation": "Language given"
+      }, {
+        "name": "family",
+        "type": "string",
+        "documentation": "practitioner family name"
+      }, {
+        "name": "gender",
+        "type": "string",
+        "documentation": "gender given"
+      }, {
+        "name": "given",
+        "type": "string",
+        "documentation": "practitioner given name"
+      }, {
+        "name": "in-network",
+        "type": "string",
+        "documentation": "networks given"
+      }, {
+        "name": "name",
+        "type": "string",
+        "documentation": "practitioner name"
+      }, {
+        "name": "npi",
+        "type": "string",
+        "documentation": "npi given"
+      }, {
+        "name": "out-network",
+        "type": "string",
+        "documentation": "networks to exclude given"
+      }, {
+        "name": "specialty",
+        "type": "token",
+        "documentation": "specialty given"
+      }, {
+        "name": "zip",
+        "type": "string",
+        "documentation": "zip given"
+      } ]
+    }, {
+      "type": "PractitionerRole",
+      "interaction": [ {
+        "code": "read"
+      }, {
+        "code": "vread"
+      }, {
+        "code": "search-type"
+      } ],
+      "searchInclude": [ "PractitionerRole:endpoint", "PractitionerRole:location", "PractitionerRole:network", "PractitionerRole:organization", "PractitionerRole:practitioner", "PractitionerRole:service" ],
+      "searchParam": [ {
+        "name": "_count",
+        "type": "number"
+      }, {
+        "name": "_getpagesoffset",
+        "type": "number"
+      }, {
+        "name": "_has",
+        "type": "string"
+      }, {
+        "name": "_id",
+        "type": "token",
+        "documentation": "ID given"
+      }, {
+        "name": "_lastUpdated",
+        "type": "date"
+      }, {
+        "name": "endpoint",
+        "type": "reference",
+        "documentation": "Technical endpoints providing access to services operated for the practitioner with this role"
+      }, {
+        "name": "family",
+        "type": "string",
+        "documentation": "Last or family name of the PractitionerRole resource"
+      }, {
+        "name": "location",
+        "type": "reference",
+        "documentation": "One of the locations at which this practitioner provides care"
+      }, {
+        "name": "network",
+        "type": "reference"
+      }, {
+        "name": "practitioner",
+        "type": "reference",
+        "documentation": "Practitioner that is able to provide the defined services for the organization"
+      }, {
+        "name": "role",
+        "type": "token",
+        "documentation": "The practitioner can perform this role at for the organization"
+      }, {
+        "name": "service",
+        "type": "reference",
+        "documentation": "The list of healthcare services that this worker provides for this role's Organization/Location(s)"
+      }, {
+        "name": "specialty",
+        "type": "token",
+        "documentation": "The practitioner has this specialty at an organization"
+      } ]
+    }, {
+      "type": "StructureDefinition",
+      "profile": "http://hl7.org/fhir/StructureDefinition/StructureDefinition",
+      "interaction": [ {
+        "code": "read"
+      }, {
+        "code": "search-type"
+      } ]
+    } ]
+  } ]
+}

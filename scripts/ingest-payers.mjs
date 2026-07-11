@@ -106,7 +106,39 @@ const PAYER_REGISTRY = {
     defaultMode: "reverse", completeness: "coarse",
     roleQuery: (npi) => `PractitionerRole?practitioner.id=${npi}`,
   },
-  // aetna: gated (token) — see docs/payer-registration-checklist.md
+  uhc: {
+    slug: "uhc", name: "UnitedHealthcare", fhirBaseUrl: "https://flex.optum.com/fhirpublic/R4/",
+    authType: "none", planNetProfile: true, buildHeaders: FHIR_HEADERS,
+    // UHC public provider directory (probed 2026-07-11): production, anonymous —
+    // CMS requires directory endpoints be open; registration is only for Patient
+    // Access. Practitioner carries a real us-npi identifier. Chained
+    // practitioner.identifier returns 0 (silently unsupported) → two-step enrich
+    // (Practitioner?identifier → PractitionerRole?practitioner=<id>). Roles carry
+    // newpatients + network-reference WITHOUT display → resolve the network
+    // Organization via _include (roleByPractitioner below). Full Plan-Net.
+    // Sandbox = flex.optum.com/fhir/sandbox/ (NEVER harvest); /fhirpublic2025
+    // returned 502 on probe day. DO NOT start a UHC run while Cigna is running.
+    defaultMode: "enrich", completeness: "full",
+    roleByPractitioner: (id, count) =>
+      `PractitionerRole?practitioner=Practitioner/${encodeURIComponent(id)}` +
+      `&_include=${encodeURIComponent("PractitionerRole:network")}&_count=${count}`,
+  },
+  mvp: {
+    slug: "mvp", name: "MVP Health Care", fhirBaseUrl: "https://api.mvphealthcare.com/provdirfhirapi/",
+    authType: "none", planNetProfile: true, buildHeaders: FHIR_HEADERS,
+    // Probed 2026-07-11: public production (their own docs point here; the
+    // ClientID flow is Patient-Access-only). us-npi identifiers present; chained
+    // practitioner.identifier works → single-request reverse-lookup; roles carry
+    // network-reference + newpatients + NUCC specialty. _include never populates
+    // → preload the 17 ntwk Organizations once and resolve names from that cache.
+    // specialty= search times out (>15s) → no walk. Random-sample hit rate 18.3%.
+    // Carelon-carve-out plan that DOES publish BH under commercial EPO/PPO (the
+    // control datapoint — see PAYER-RESEARCH.md central finding). Queue behind UHC.
+    defaultMode: "reverse", completeness: "full",
+    roleQuery: (npi) => `PractitionerRole?practitioner.identifier=${encodeURIComponent(`${NPI_SYSTEM}|${npi}`)}&_count=50`,
+    preloadNetworkIncludes: true,
+  },
+  // aetna: gated (token) — see docs/payer-registration-checklist.md + TASK-AETNA.md
 };
 
 const source = PAYER_REGISTRY[PAYER];
@@ -302,8 +334,13 @@ async function networkId(payerSourceId, name, rawId) {
   networkIdCache.set(name, rows[0].id);
   return rows[0].id;
 }
-// Kill switch: on ANY DB write error we throw immediately (no tight retry loop
+// Kill switch: on a DB write REJECTION we throw immediately (no tight retry loop
 // against a struggling 1-CU Neon). The throw halts the whole run and reports.
+// Connection-layer failures (laptop/Neon network blips — observed 3× on
+// 2026-07-11 as `fetch failed`/UND_ERR_CONNECT_TIMEOUT while the DB was healthy
+// seconds later) are NOT write rejections: retry once after 30s, then crash
+// plainly so the babysitter restarts with --resume instead of halting for good.
+const isConnError = (msg) => /fetch failed|CONNECT_TIMEOUT|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|Error connecting to database/i.test(msg);
 async function upsertChunked(table, cols, conflictCols, updateCols, records, conflictSuffix = "") {
   if (!records.length || DRY_RUN) return records.length;
   // Postgres rejects a single INSERT that hits the same conflict key twice
@@ -324,7 +361,16 @@ async function upsertChunked(table, cols, conflictCols, updateCols, records, con
     const set = updateCols.map((c) => `${c} = EXCLUDED.${c}`).join(", ");
     const text = `INSERT INTO ${table} (${cols.join(",")}) VALUES ${values.join(",")} ON CONFLICT (${conflictCols.join(",")})${conflictSuffix} DO UPDATE SET ${set}`;
     try { await sql.query(text, params); }
-    catch (err) { throw new Error(`KILL SWITCH — ${table} write failed, halting: ${err.message}`); }
+    catch (err) {
+      if (!isConnError(err.message)) throw new Error(`KILL SWITCH — ${table} write failed, halting: ${err.message}`);
+      console.log(`\n  ⚠ DB connection blip on ${table} write — retrying once in 30s…`);
+      await sleep(30000);
+      try { await sql.query(text, params); }
+      catch (err2) {
+        if (!isConnError(err2.message)) throw new Error(`KILL SWITCH — ${table} write failed, halting: ${err2.message}`);
+        throw new Error(`DB CONNECTION LOST — ${table} write failed twice (${err2.message}); crashing for babysitter restart`);
+      }
+    }
   }
   return records.length;
 }
@@ -387,7 +433,11 @@ async function participationRows(payerSourceId, npi, pr, includes) {
 
 // ── driver: enrich (default) — reverse-lookup our own NPIs ───────────────────
 async function runEnrich(payerSourceId, headers) {
-  const npis = await loadOurNpis(LIMIT);
+  // md5-random order (matches the reverse driver): a --limit sample is spread
+  // across the full NPI range — low NPIs skew old/inactive and once produced a
+  // misleading zero — and a partial run stays representative. Stable order, so
+  // --resume still works and a sample is a strict prefix of the full run.
+  const npis = await loadOurNpis(LIMIT, "random");
   console.log(`• ${source.name} enrich — probing ${npis.length} of our NPIs (directory is already NY + behavioral-health)`);
   const cp = RESUME ? readCheckpoint() : null;
   let start = cp?.index ?? 0;
@@ -412,17 +462,28 @@ async function runEnrich(payerSourceId, headers) {
     stats.hits++;
     for (const prac of pracs) {
       let roleBundle;
-      try { roleBundle = await fetchJson(source.fhirBaseUrl, `PractitionerRole?practitioner=Practitioner/${prac.id}&_count=${PAGE_COUNT}`, headers); }
+      // Per-source role query (UHC needs _include=PractitionerRole:network —
+      // its network-reference carries no display); default is the bare lookup.
+      const roleRef = source.roleByPractitioner
+        ? source.roleByPractitioner(prac.id, PAGE_COUNT)
+        : `PractitionerRole?practitioner=Practitioner/${prac.id}&_count=${PAGE_COUNT}`;
+      try { roleBundle = await fetchJson(source.fhirBaseUrl, roleRef, headers); }
       catch (err) { process.stdout.write(`\n  ! ${npi} role lookup: ${err.message}`); continue; }
       let url = null;
       do {
         if (url) roleBundle = await fetchJson(source.fhirBaseUrl, url, headers);
         stats.pages++;
+        const includes = new Map();
+        for (const e of roleBundle.entry || []) {
+          const r = e.resource; if (!r) continue;
+          if (r.resourceType && r.id) includes.set(`${r.resourceType}/${r.id}`, r);
+          if (e.fullUrl) includes.set(e.fullUrl, r);
+        }
         for (const e of roleBundle.entry || []) {
           const pr = e.resource;
-          if (pr?.resourceType !== "PractitionerRole") continue;
+          if (e.search?.mode === "include" || pr?.resourceType !== "PractitionerRole") continue;
           stats.matched++;
-          await participationRows(payerSourceId, npi, pr);
+          await participationRows(payerSourceId, npi, pr, includes);
         }
         url = (roleBundle.link || []).find((l) => l.relation === "next")?.url || null;
       } while (url);
@@ -548,12 +609,14 @@ async function runWalk(payerSourceId, headers, known) {
 
 // ── driver: locbatch — Path B: NY-location-scoped walk (Humana) ──────────────
 // Phase 1: enumerate Location?address-state=NY (ids cached to <checkpoint>.locations).
-// Phase 2: batch ids into location= OR-lists (--loc-batch, default 100), walk
+// Phase 2: batch ids into location= OR-lists (--loc-batch, default 50 — measured
+// 2026-07-11: 50 ids (3.3k URL) OK, 75+ (≥5k URL) gets bounced to a Firely Auth
+// HTML page with HTTP 200; POST _search is Akamai-403'd, so GET only), walk
 // PractitionerRole?location=<batch> following link.next per batch. NY-bounded by
 // construction (no client-side state filter needed); BH-filtered client-side.
 // Matched NPIs → participation rows; unmatched BH NPIs → payer_unmatched_npis.
 async function runLocBatch(payerSourceId, headers, known) {
-  const BATCH = Number(arg("loc-batch", 100));
+  const BATCH = Number(arg("loc-batch", 50));
   const LOC_PAGES = Number(arg("loc-pages", Infinity)); // bounded-slice: cap phase-1 pages
   const LOC_FILE = CHECKPOINT + ".locations";
   const cp = RESUME ? readCheckpoint() : null;
@@ -657,6 +720,18 @@ async function runLocBatch(payerSourceId, headers, known) {
 async function runReverseLookup(payerSourceId, headers) {
   const npis = await loadOurNpis(LIMIT, "random");
   const coarse = source.completeness === "coarse";
+  // Some payers (MVP) never populate _include — but publish a small, stable set
+  // of network Organizations. Fetch them once; every page's includes map starts
+  // from this cache so networksOf() resolves names without per-role fetches.
+  const preloaded = new Map();
+  if (source.preloadNetworkIncludes) {
+    const bundle = await fetchJson(source.fhirBaseUrl, "Organization?type=ntwk&_count=200", headers);
+    for (const e of bundle.entry || []) {
+      const r = e.resource;
+      if (r?.resourceType === "Organization" && r.id) preloaded.set(`Organization/${r.id}`, r);
+    }
+    console.log(`  preloaded ${preloaded.size} network organizations`);
+  }
   console.log(`• ${source.name} reverse-lookup — ${npis.length} of our NPIs (${coarse ? "coarse presence" : "full network+accepting"}); no enumeration → no cap/truncation`);
   const cp = RESUME ? readCheckpoint() : null;
   let start = cp?.index ?? 0;
@@ -669,7 +744,7 @@ async function runReverseLookup(payerSourceId, headers) {
     try { bundle = await fetchJson(source.fhirBaseUrl, source.roleQuery(npi), headers, { tries: isRetry ? 6 : 3 }); }
     catch (err) { process.stdout.write(`\n  ! ${npi}: ${err.message}`); failedNpis.add(npi); return; }
     failedNpis.delete(npi);
-    const includes = new Map();
+    const includes = new Map(preloaded);
     for (const e of bundle.entry || []) {
       const r = e.resource; if (!r) continue;
       if (r.resourceType && r.id) includes.set(`${r.resourceType}/${r.id}`, r);
