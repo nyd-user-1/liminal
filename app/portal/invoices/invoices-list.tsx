@@ -3,8 +3,11 @@
 import { useEffect, useState } from "react";
 import { PortalInvoiceSheet, PORTAL_STATUS, type PortalInvoice } from "@/components/billing/portal-invoice-sheet";
 import { Badge } from "@/components/ui/badge";
+import { Banner } from "@/components/ui/banner";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatCard } from "@/components/ui/stat-card";
+import { Table, Td, Tr } from "@/components/ui/table";
 import { Tabs } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/toast";
 import { formatCents, formatDate } from "@/lib/format";
@@ -18,6 +21,7 @@ import { formatCents, formatDate } from "@/lib/format";
 
 const dateOnly = (d: string) => formatDate(`${d}T00:00:00`);
 const isSettled = (s: PortalInvoice["status"]) => s === "paid" || s === "void";
+const METHOD_LABEL: Record<string, string> = { card: "Card", cash: "Cash", insurance: "Insurance", other: "Other" };
 
 export function InvoicesList({
   invoices,
@@ -52,6 +56,19 @@ export function InvoicesList({
   const unpaid = invoices.filter((i) => !isSettled(i.status));
   const paid = invoices.filter((i) => isSettled(i.status));
   const visible = tab === "paid" ? paid : unpaid;
+
+  const currentYear = new Date().getFullYear();
+  const paidThisYear = invoices
+    .flatMap((i) => i.payments)
+    .filter((p) => new Date(p.paidAt).getFullYear() === currentYear)
+    .reduce((sum, p) => sum + p.amountCents, 0);
+  // Flat payment ledger (newest first), each tagged with its invoice so a row
+  // can open that invoice's sheet.
+  const allPayments = invoices
+    .flatMap((i) => i.payments.map((p) => ({ ...p, invoiceNumber: i.number, invoiceId: i.id })))
+    .sort((a, b) => b.paidAt.localeCompare(a.paidAt));
+  // Soonest-due unpaid invoice — drives the "next payment due" callout.
+  const nextDue = unpaid.filter((i) => i.dueOn).sort((a, b) => (a.dueOn! < b.dueOn! ? -1 : 1))[0] ?? null;
 
   if (invoices.length === 0) {
     return (
@@ -100,9 +117,11 @@ export function InvoicesList({
       />
 
       {tab === "overview" ? (
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="grid grid-cols-2 gap-4">
+        <div className="no-scrollbar min-h-0 flex-1 space-y-6 overflow-y-auto">
+          <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
             <StatCard label="Outstanding balance" value={formatCents(outstanding)} />
+            <StatCard label="Open invoices" value={unpaid.length} />
+            <StatCard label={`Paid in ${currentYear}`} value={formatCents(paidThisYear)} />
             <StatCard
               label="Last payment"
               value={lastPayment ? formatCents(lastPayment.amountCents) : "—"}
@@ -110,6 +129,43 @@ export function InvoicesList({
                 lastPayment ? <span className="text-sm text-text-muted">{formatDate(lastPayment.paidAt)}</span> : undefined
               }
             />
+          </div>
+
+          {nextDue && (
+            <Banner
+              variant={nextDue.status === "overdue" ? "warning" : "info"}
+              action={
+                <Button size="sm" onClick={() => setOpenId(nextDue.id)}>
+                  {nextDue.balanceCents > 0 && (nextDue.status === "sent" || nextDue.status === "overdue")
+                    ? "Pay now"
+                    : "View"}
+                </Button>
+              }
+            >
+              {nextDue.status === "overdue" ? "Payment overdue — " : "Next payment due — "}
+              <span className="font-semibold">{formatCents(nextDue.balanceCents)}</span> on {nextDue.number}
+              {nextDue.dueOn ? `, due ${dateOnly(nextDue.dueOn)}` : ""}.
+            </Banner>
+          )}
+
+          <div>
+            <h2 className="mb-3 text-[15px] font-semibold text-text">Payment history</h2>
+            {allPayments.length === 0 ? (
+              <div className="rounded-card border border-border bg-surface shadow-card">
+                <EmptyState icon="credit-card" title="No payments yet" subtext="Your payments will appear here." />
+              </div>
+            ) : (
+              <Table head={["Date", "Method", "Invoice", "Amount"]}>
+                {allPayments.map((p) => (
+                  <Tr key={p.id} onClick={() => setOpenId(p.invoiceId)}>
+                    <Td className="whitespace-nowrap text-text-muted">{formatDate(p.paidAt)}</Td>
+                    <Td>{METHOD_LABEL[p.method] ?? p.method}</Td>
+                    <Td className="font-medium text-text">{p.invoiceNumber}</Td>
+                    <Td className="whitespace-nowrap font-semibold">{formatCents(p.amountCents)}</Td>
+                  </Tr>
+                ))}
+              </Table>
+            )}
           </div>
         </div>
       ) : (

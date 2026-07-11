@@ -12,67 +12,137 @@ import { TextLink } from "@/components/ui/text-link";
 import { Toolbar } from "@/components/ui/toolbar";
 import type { DirectoryProgram } from "@/lib/types";
 
-// Portal Resources — the NYC mental-health directory, laid out like the
-// provider Library: category tabs over a persistent search toolbar and a
-// uniform card grid. Categories are long, so (Library-style) a handful are
-// primary tabs and the rest tuck behind a "View More" overflow. Cards stay
-// non-clickable — the phone number is the only interactive element.
+// Portal Resources — the NYC mental-health directory (OMH data). The raw OMH
+// program types are many and unwieldy, so we collapse them into four plain
+// buckets — Housing / Social Services / Rehab / Outpatient — each backed by the
+// highest-volume categories that fall under it. Anything outside the buckets
+// still shows under "All", and every card carries its own category Tag so
+// nothing is lost. Cards stay non-clickable — the phone is the only action.
 
-// First few categories become primary tabs; the rest go to the overflow menu.
-const PRIMARY_COUNT = 4;
+type BucketKey = "housing" | "social" | "rehab" | "outpatient";
+
+// Highest-volume OMH categories mapped into each bucket. A bucket tab fetches
+// these categories and merges them; categories outside every bucket live on All.
+const BUCKETS: Array<{ key: BucketKey; label: string; cats: string[] }> = [
+  {
+    key: "housing",
+    label: "Housing",
+    cats: [
+      "Supportive Housing",
+      "Supportive Single Room Occupancy (SP-SRO)",
+      "Congregate/Treatment",
+      "Apartment/Treatment",
+      "SRO Community Residence",
+      "Children & Youth Community Residence",
+    ],
+  },
+  {
+    key: "social",
+    label: "Social Services",
+    cats: [
+      "Specialty Mental Health Care Management",
+      "Advocacy/Support Services",
+      "Assertive Community Treatment (ACT)",
+      "Health Home Care Management",
+      "Intensive Mobile Treatment for AOT",
+      "Non-Medicaid Care Coordination",
+    ],
+  },
+  {
+    key: "rehab",
+    label: "Rehab",
+    cats: [
+      "Comprehensive PROS with Clinical Treatment",
+      "CFTSS: Psychosocial Rehabilitation (PSR)",
+      "CORE Psychosocial Rehabilitation (PSR)",
+      "Partial Hospitalization",
+      "Day Treatment",
+      "Psychosocial Club",
+    ],
+  },
+  {
+    key: "outpatient",
+    label: "Outpatient",
+    cats: [
+      "Mental Health Outpatient Treatment and Rehabilitative Services (MHOTRS)",
+      "Certified Community Behavioral Health Clinic (CCBHC)",
+      "School Mental Health Program",
+      "CPEP Crisis Intervention",
+    ],
+  },
+];
+
+// Trailing "(MHOTRS)" / "(SP-SRO)" / "(ACT)" → the abbreviation; else the raw
+// category. Keeps the per-card category Tag compact.
+function shortCategory(cat: string | null): string | null {
+  if (!cat) return null;
+  const m = cat.match(/\(([^)]+)\)\s*$/);
+  return m ? m[1] : cat;
+}
 
 export function ResourcesList({
   initial,
-  categories,
 }: {
   initial: DirectoryProgram[];
+  // Kept for the page's call signature; buckets are curated, not raw categories.
   categories: string[];
 }) {
   const [q, setQ] = useState("");
-  const [category, setCategory] = useState("");
+  const [active, setActive] = useState<"all" | BucketKey>("all");
   const [programs, setPrograms] = useState<DirectoryProgram[]>(initial);
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (q.trim()) params.set("q", q.trim());
-    if (category) params.set("category", category);
+    // "All" fetches broadly (one call, no category); a bucket fetches each of
+    // its categories in parallel and merges + dedupes by id.
+    const bucket = BUCKETS.find((b) => b.key === active);
+    const cats: Array<string | null> = bucket ? bucket.cats : [null];
     try {
-      const res = await fetch(`/api/directory/portal-programs?${params.toString()}`);
-      const data = await res.json();
-      setPrograms(data.programs ?? []);
+      const results = await Promise.all(
+        cats.map(async (c) => {
+          const params = new URLSearchParams();
+          if (q.trim()) params.set("q", q.trim());
+          if (c) params.set("category", c);
+          const res = await fetch(`/api/directory/portal-programs?${params.toString()}`);
+          return ((await res.json()).programs ?? []) as DirectoryProgram[];
+        }),
+      );
+      const seen = new Set<string>();
+      const merged: DirectoryProgram[] = [];
+      for (const arr of results) {
+        for (const p of arr) {
+          if (!seen.has(p.id)) {
+            seen.add(p.id);
+            merged.push(p);
+          }
+        }
+      }
+      merged.sort((a, b) => a.programName.localeCompare(b.programName));
+      setPrograms(merged);
     } finally {
       setLoading(false);
     }
-  }, [q, category]);
+  }, [q, active]);
 
-  // Re-query when the category tab changes; debounce free-text search.
+  // Re-query when the bucket changes; debounce free-text search.
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category]);
+  }, [active]);
   useEffect(() => {
     const t = setTimeout(load, 300);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
 
-  const primaryItems = [
-    { key: "all", label: "All" },
-    ...categories.slice(0, PRIMARY_COUNT).map((c) => ({ key: c, label: c })),
-  ];
-  const overflowItems = categories.slice(PRIMARY_COUNT).map((c) => ({ key: c, label: c }));
-
   return (
     <div className="flex h-full min-h-0 flex-col">
       <Tabs
         className="mb-4 shrink-0"
-        active={category === "" ? "all" : category}
-        onChange={(k) => setCategory(k === "all" ? "" : k)}
-        items={primaryItems}
-        overflow={overflowItems}
-        overflowLabel="View More"
+        active={active}
+        onChange={(k) => setActive(k as "all" | BucketKey)}
+        items={[{ key: "all", label: "All" }, ...BUCKETS.map((b) => ({ key: b.key, label: b.label }))]}
       />
 
       <Toolbar className="mb-4 shrink-0 flex-wrap">
@@ -100,14 +170,15 @@ export function ResourcesList({
               // OMH stores "Not Available" / "N/A" for missing phones — treat any
               // value without a real 7+ digit number as absent.
               const phone = p.phone && (p.phone.replace(/\D/g, "").length >= 7 ? p.phone : null);
+              const cat = shortCategory(p.programType);
               return (
                 <Card key={p.id}>
                   <div className="flex h-full flex-col gap-2">
                     <h3 className="font-semibold text-text">{p.programName}</h3>
                     {p.agency && <p className="text-sm text-text-muted">{p.agency}</p>}
-                    {p.programType && (
+                    {cat && (
                       <Tag hue="teal" className="w-fit">
-                        {p.programType}
+                        {cat}
                       </Tag>
                     )}
                     <div className="mt-auto flex flex-col gap-1.5 pt-2 text-sm text-text-body">
