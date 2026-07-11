@@ -17,11 +17,14 @@ const INSURERS = [
 
 export function InsurerStrip({
   caption = "In-network with the plans New Yorkers already carry.",
+  ground = "surface",
 }: {
   caption?: string;
+  /** Band ground — "surface" (white, home page) or "page" (warm paper, care pages). */
+  ground?: "surface" | "page";
 }) {
   return (
-    <section className="bg-surface">
+    <section className={ground === "page" ? "bg-page" : "bg-surface"}>
       <div className="mx-auto w-full max-w-6xl px-6 py-12">
         <p className="text-center text-sm text-text-muted">{caption}</p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-x-12 gap-y-6">

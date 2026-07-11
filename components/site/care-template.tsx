@@ -63,14 +63,9 @@ export function CareTemplate({
         illo={heroIllo}
       />
 
-      {/* Trust strip → providers block: both sit on the same white ground with no
-          divider between them, so the "in-network + ready to book" content reads
-          as one block right under the hero. */}
-      <InsurerStrip />
-
-      {/* Matching providers — the real homepage spotlight rail (full-bleed
-          horizontal scroll) + a link into the full directory. */}
-      <section className="bg-surface pb-20 pt-4 sm:pb-24">
+      {/* Matching providers — section 2: the real homepage spotlight rail
+          (full-bleed horizontal scroll) + a link into the full directory. */}
+      <section className="bg-page pb-16 pt-10 sm:pb-20 sm:pt-14">
         <div className="mx-auto w-full max-w-6xl px-6">
           <SectionHeading
             eyebrow="Book this week"
@@ -94,6 +89,9 @@ export function CareTemplate({
           </Link>
         </div>
       </section>
+
+      {/* Trust strip — section 3, on the warm-paper ground like the rest. */}
+      <InsurerStrip ground="page" />
 
       {/* What care looks like here */}
       <Section ground="page">
