@@ -429,63 +429,74 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
   );
 }
 
-// Profession filters (left rail). `value` is the exact profession string the
-// directory search matches; `label` is the short chip/label shown in the UI.
-const SEARCH_FILTERS: Array<{ label: string; value: string; icon: IconName }> = [
-  { label: "Psychiatric NP", value: "Psychiatric Nurse Practitioner", icon: "sparkle" },
-  { label: "Psychiatrist", value: "Psychiatrist", icon: "clipboard" },
-  { label: "Psychologist", value: "Psychologist", icon: "book-heart" },
-  { label: "Therapist", value: "Marriage & Family Therapist", icon: "person-circle" },
-];
-
 // Mocked "Recent results" shown before a query is entered.
-const RECENT_RESULTS: Array<{ name: string; line: string }> = [
-  { name: "MAYA PATEL, MD", line: "151 E 80th St, New York 10075 · (212) 737-2055" },
-  { name: "DEVON WRIGHT, LCSW", line: "62 Whitman Dr, Brooklyn 11234 · (917) 704-8148" },
-  { name: "ADELANTE COUNSELING PLLC", line: "39 E 78th St Ste 501, New York 10021 · (212) 362-2820" },
-  { name: "SANDRA LEONG, PsyD", line: "1200 Waters Pl, Bronx 10461 · (718) 918-5000" },
-  { name: "RIVERSIDE MENTAL HEALTH", line: "410 Amsterdam Ave, New York 10024 · (212) 555-0142" },
+const RECENT_RESULTS: string[] = [
+  "Maya Patel, MD",
+  "Devon Wright, LCSW",
+  "Adelante Counseling PLLC",
+  "Sandra Leong, PsyD",
+  "Riverside Mental Health",
 ];
 
-const fmtPhone = (p: string | null) => {
-  const d = (p ?? "").replace(/\D/g, "");
-  return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : (p ?? "");
-};
-const resultLine = (r: PublicResult) => {
-  const addr = [r.address && titleCase(r.address), r.city && titleCase(r.city), r.zip?.slice(0, 5)]
-    .filter(Boolean)
-    .join(", ");
-  return [addr, fmtPhone(r.phone)].filter(Boolean).join(" · ") || r.county || "New York";
-};
+// Directory rows (not the handful of bookable Liminal practitioners) come out
+// of NPPES in ALL CAPS, so their names get the same titleCase pass as the
+// city/address fix.
+const resultName = (r: PublicResult) => (r.bookable ? r.name : titleCase(r.name));
 
-// A single result / recent-result row: two-tone person icon + name + address·phone.
-function ResultRow({ name, line, onClick }: { name: string; line: string; onClick: () => void }) {
+// A single result / recent-result row: two-tone person icon + name only.
+function ResultRow({ name, onClick }: { name: string; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-start gap-3 rounded-field px-2 py-2 text-left transition-colors hover:bg-canvas"
+      className="flex w-full items-center gap-3 rounded-field px-2 py-2 text-left transition-colors hover:bg-canvas"
     >
-      <Icon name="person-circle" size={20} className="mt-0.5 shrink-0 fill-primary-wash text-text" />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[15px] font-medium text-text">{name}</span>
-        <span className="block truncate text-sm text-text-muted">{line}</span>
-      </span>
+      <Icon name="person-circle" size={20} className="shrink-0 fill-primary-wash text-text" />
+      <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-text">{name}</span>
     </button>
   );
 }
 
-// Live directory search in the morphing panel: search bar + filter rail (adds
-// chips) on the left, results / "Recent results" on the right. Results are
+type PayerOption = { slug: string; name: string; providerCount: number };
+
+// Real insurer marks we hold — same blob assets/convention as
+// lib/insurance-options.ts's LOGOS (kept local, not imported, since that
+// module is under active concurrent edit). Payers without a mark here (e.g.
+// Humana, no logo in the blob store yet) fall back to the two-tone id-card icon.
+const PAYER_LOGOS: Record<string, string> = {
+  Cigna: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/insurance/cigna.avif",
+  UnitedHealthcare: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/insurance/united.avif",
+  Healthfirst: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/insurance/healthfirst.svg",
+};
+
+// Live directory search in the morphing panel: search bar + insurance filter
+// rail on the left, results / "Recent results" on the right. Results are
 // capped so the panel stays within the Find-care menu height.
 function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
   const [q, setQ] = useState("");
-  const [filters, setFilters] = useState<string[]>([]);
+  const [insurance, setInsurance] = useState<string | null>(null);
+  const [payers, setPayers] = useState<PayerOption[]>([]);
   const [results, setResults] = useState<PublicResult[]>([]);
   const [loading, setLoading] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const active = q.trim().length > 0 || filters.length > 0;
+  // Fires once, the first time this panel mounts — real harvested payers only
+  // (Cigna, Humana, ...); the full list incl. carriers we hold nothing for
+  // lives on /providers, reached via "View more".
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/insurance-options")
+      .then((r) => r.json())
+      .then((d) => {
+        if (alive) setPayers(d.payers ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const active = q.trim().length > 0 || insurance !== null;
 
   useEffect(() => {
     if (timer.current) clearTimeout(timer.current);
@@ -499,11 +510,10 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
       try {
         const params = new URLSearchParams();
         if (q.trim()) params.set("q", q.trim());
+        if (insurance) params.set("insurance", insurance);
         const res = await fetch(`/api/directory/public-search?${params.toString()}`);
         const data = await res.json();
-        let items: PublicResult[] = data.results ?? [];
-        if (filters.length) items = items.filter((r) => r.subtitle && filters.includes(r.subtitle));
-        setResults(items);
+        setResults(data.results ?? []);
       } finally {
         setLoading(false);
       }
@@ -511,13 +521,13 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [q, filters, active]);
+  }, [q, insurance, active]);
 
-  const toggleFilter = (v: string) => setFilters((fs) => (fs.includes(v) ? fs.filter((x) => x !== v) : [...fs, v]));
+  const selectInsurance = (slug: string) => setInsurance((cur) => (cur === slug ? null : slug));
   const go = () => {
     const p = new URLSearchParams();
     if (q.trim()) p.set("q", q.trim());
-    if (filters[0]) p.set("need", filters[0]);
+    if (insurance) p.set("insurance", insurance);
     onNavigate(`/providers${p.toString() ? `?${p.toString()}` : ""}`);
   };
 
@@ -525,7 +535,7 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
 
   return (
     <div>
-      {/* search bar + active filter chips */}
+      {/* search bar + active filter chip */}
       <div className="p-3">
         <SearchInput
           autoFocus
@@ -536,13 +546,11 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && go()}
         />
-        {filters.length > 0 && (
+        {insurance && (
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {filters.map((v) => (
-              <Tag key={v} hue="teal" onDismiss={() => toggleFilter(v)}>
-                {SEARCH_FILTERS.find((f) => f.value === v)?.label ?? v}
-              </Tag>
-            ))}
+            <Tag hue="teal" onDismiss={() => setInsurance(null)}>
+              {payers.find((p) => p.slug === insurance)?.name ?? insurance}
+            </Tag>
           </div>
         )}
       </div>
@@ -551,30 +559,38 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
       <div className="flex border-t border-border">
         <div className="w-1/3 bg-canvas p-2">
           <p className="px-2.5 pb-1 pt-1 text-[13px] font-semibold text-primary">Filter</p>
-          {SEARCH_FILTERS.map((f) => {
-            const on = filters.includes(f.value);
+          {payers.map((p) => {
+            const on = insurance === p.slug;
             return (
               <button
-                key={f.value}
+                key={p.slug}
                 type="button"
-                onClick={() => toggleFilter(f.value)}
+                onClick={() => selectInsurance(p.slug)}
                 className={`group flex w-full items-center gap-3 rounded-field px-3 py-2.5 text-left transition-colors ${
                   on ? "bg-surface shadow-sm" : "hover:bg-surface hover:shadow-sm"
                 }`}
               >
-                <Icon
-                  name={f.icon}
-                  size={20}
-                  className={`shrink-0 transition-colors ${
-                    on
-                      ? "fill-primary-wash text-text"
-                      : "text-text-muted group-hover:fill-primary-wash group-hover:text-text"
-                  }`}
-                />
+                {PAYER_LOGOS[p.name] ? (
+                  <img
+                    src={PAYER_LOGOS[p.name]}
+                    alt=""
+                    className="h-5 w-5 shrink-0 rounded-sm object-contain"
+                  />
+                ) : (
+                  <Icon
+                    name="id-card"
+                    size={20}
+                    className={`shrink-0 transition-colors ${
+                      on
+                        ? "fill-primary-wash text-text"
+                        : "text-text-muted group-hover:fill-primary-wash group-hover:text-text"
+                    }`}
+                  />
+                )}
                 <span
                   className={`text-[15px] font-medium ${on ? "text-text" : "text-text-body group-hover:text-text"}`}
                 >
-                  {f.label}
+                  {p.name}
                 </span>
               </button>
             );
@@ -589,13 +605,13 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
               size={20}
               className="shrink-0 text-text-muted transition-colors group-hover:fill-primary-wash group-hover:text-text"
             />
-            <span className="text-[15px] font-medium text-text-body group-hover:text-text">View all</span>
+            <span className="text-[15px] font-medium text-text-body group-hover:text-text">View more</span>
           </button>
         </div>
 
         <div className="w-2/3 p-3">
           <p className="px-1 pb-1 text-[13px] font-semibold text-primary">{active ? "Results" : "Search"}</p>
-          {!active && RECENT_RESULTS.map((r) => <ResultRow key={r.name} name={r.name} line={r.line} onClick={go} />)}
+          {!active && RECENT_RESULTS.map((name) => <ResultRow key={name} name={name} onClick={go} />)}
           {active && loading && <p className="px-1 py-3 text-sm text-text-muted">Searching…</p>}
           {active && !loading && shown.length === 0 && (
             <p className="px-1 py-3 text-sm text-text-muted">No matches. Try a broader term.</p>
@@ -603,7 +619,7 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
           {active &&
             !loading &&
             shown.map((r) => (
-              <ResultRow key={`${r.kind}-${r.id}`} name={r.name} line={resultLine(r)} onClick={go} />
+              <ResultRow key={`${r.kind}-${r.id}`} name={resultName(r)} onClick={go} />
             ))}
           <button type="button" onClick={go} className="group mt-1 flex px-1 py-2 text-[15px] font-medium text-primary">
             <span className="link-wipe">Browse 116,185 providers</span>
