@@ -21,7 +21,7 @@ export function InsurerStrip({
   caption?: string;
 }) {
   return (
-    <section className="border-y border-border bg-surface">
+    <section className="bg-surface">
       <div className="mx-auto w-full max-w-6xl px-6 py-12">
         <p className="text-center text-sm text-text-muted">{caption}</p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-x-12 gap-y-6">

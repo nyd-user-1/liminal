@@ -63,8 +63,37 @@ export function CareTemplate({
         illo={heroIllo}
       />
 
-      {/* Trust strip — splits the hero from the first content section */}
+      {/* Trust strip → providers block: both sit on the same white ground with no
+          divider between them, so the "in-network + ready to book" content reads
+          as one block right under the hero. */}
       <InsurerStrip />
+
+      {/* Matching providers — the real homepage spotlight rail (full-bleed
+          horizontal scroll) + a link into the full directory. */}
+      <section className="bg-surface pb-20 pt-4 sm:pb-24">
+        <div className="mx-auto w-full max-w-6xl px-6">
+          <SectionHeading
+            eyebrow="Book this week"
+            title="Providers ready to help"
+            lede={
+              providerCount
+                ? `${providerCount.toLocaleString()}+ licensed providers across New York. Book a Liminal provider now, or browse the full directory.`
+                : "Book a Liminal provider now, or browse the full directory of New York providers."
+            }
+          />
+        </div>
+        <div className="mt-10">
+          <ProviderSpotlightRail providers={spotlightProviders} />
+        </div>
+        <div className="mx-auto mt-6 w-full max-w-6xl px-6">
+          <Link href={browseHref} className="group inline-flex items-center gap-1 text-[15px] font-semibold text-primary">
+            <span className="link-wipe">Browse all New York {topic.label.toLowerCase()} providers</span>
+            <span aria-hidden className="inline-block transition-transform group-hover:translate-x-0.5">
+              →
+            </span>
+          </Link>
+        </div>
+      </section>
 
       {/* What care looks like here */}
       <Section ground="page">
@@ -89,33 +118,6 @@ export function CareTemplate({
           </ul>
         </div>
       </Section>
-
-      {/* Matching providers — the real homepage spotlight rail (full-bleed
-          horizontal scroll) + a link into the full directory. */}
-      <section className="bg-page py-24 sm:py-32">
-        <div className="mx-auto w-full max-w-6xl px-6">
-          <SectionHeading
-            eyebrow="Book this week"
-            title="Providers ready to help"
-            lede={
-              providerCount
-                ? `${providerCount.toLocaleString()}+ licensed providers across New York. Book a Liminal provider now, or browse the full directory.`
-                : "Book a Liminal provider now, or browse the full directory of New York providers."
-            }
-          />
-        </div>
-        <div className="mt-10">
-          <ProviderSpotlightRail providers={spotlightProviders} />
-        </div>
-        <div className="mx-auto mt-6 w-full max-w-6xl px-6">
-          <Link href={browseHref} className="group inline-flex items-center gap-1 text-[15px] font-semibold text-primary">
-            <span className="link-wipe">Browse all New York {topic.label.toLowerCase()} providers</span>
-            <span aria-hidden className="inline-block transition-transform group-hover:translate-x-0.5">
-              →
-            </span>
-          </Link>
-        </div>
-      </section>
 
       {/* Cost & insurance */}
       <Section ground="page">
