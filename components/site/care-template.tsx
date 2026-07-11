@@ -15,13 +15,23 @@ import { PLACEHOLDER_PRACTITIONERS, HOME_FAQS, BOOK_HREF, type Topic } from "@/l
 // matching providers → cost/insurance → first-visit → FAQ → CTA. Reuses the
 // homepage building blocks; invents nothing new. NEW (public marketing site).
 
-// Home-hero watercolour, reused so the care hero reads as the same surface as
-// the front page (warm-paper ground, painting bleeding off the right).
-const HERO_ILLO = {
+// Care hero watercolours — background-removed "cut" illustrations that bleed off
+// the right on the warm-paper ground, matching the home hero. Per-topic where we
+// have a fitting scene; the lakeside default otherwise.
+const DEFAULT_HERO_ILLO = {
   src: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/cut/lakeside.avif",
   alt: "A watercolour illustration — a person wrapped in a shawl sits on a bench by a still lake at dawn, holding a warm mug.",
   width: 1600,
   height: 1200,
+};
+
+const HERO_ILLO_BY_SLUG: Record<string, { src: string; alt: string; width: number; height: number }> = {
+  anxiety: {
+    src: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/cut/garden-twilight.avif",
+    alt: "A watercolour illustration — a formal garden at twilight, hedged paths lit by lanterns winding toward a distant gazebo under a deep violet sky.",
+    width: 1024,
+    height: 559,
+  },
 };
 
 function matchedProviders(topic: Topic) {
@@ -35,6 +45,7 @@ function matchedProviders(topic: Topic) {
 export function CareTemplate({ topic, providerCount }: { topic: Topic; providerCount?: number }) {
   const providers = matchedProviders(topic);
   const browseHref = `/providers?q=${encodeURIComponent(topic.matchQuery)}`;
+  const heroIllo = HERO_ILLO_BY_SLUG[topic.slug] ?? DEFAULT_HERO_ILLO;
 
   return (
     <>
@@ -44,7 +55,7 @@ export function CareTemplate({ topic, providerCount }: { topic: Topic; providerC
         lede={topic.lede}
         primary={{ href: BOOK_HREF, label: "Book a session" }}
         secondary={{ href: browseHref, label: "Browse providers" }}
-        illo={HERO_ILLO}
+        illo={heroIllo}
       />
 
       {/* Trust strip — splits the hero from the first content section */}
