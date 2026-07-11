@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { Icon, type IconName } from "@/components/ui/icons";
 import { CareCarousel } from "@/components/marketing/care-carousel";
+import { InsurerStrip } from "@/components/site/insurer-strip";
 import { HeroSearch } from "@/components/marketing/hero-search";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Nav } from "@/components/marketing/nav";
 import { ProviderSpotlightRail, type ProviderSpotlight } from "@/components/marketing/provider-spotlight-card";
 import { silhouetteUrl } from "@/components/providers/provider-illustration";
+import { headshotFor } from "@/lib/headshots";
 import { Reveal } from "@/components/marketing/reveal";
 import { ReviewsCarousel, type Review } from "@/components/marketing/reviews-carousel";
 import { ScrollCue } from "@/components/marketing/scroll-cue";
@@ -224,16 +226,6 @@ const FICTIONAL_SPOTLIGHT: ProviderSpotlight[] = [
   },
 ];
 
-// Section 4 — NY-focused insurance plans (colours approximate each brand).
-const INSURERS: Array<{ name: string; color: string }> = [
-  { name: "Aetna", color: "text-[#7d3f98]" },
-  { name: "Cigna", color: "text-[#00799e]" },
-  { name: "UnitedHealthcare", color: "text-[#0067b9]" },
-  { name: "Empire BCBS", color: "text-[#0079c1]" },
-  { name: "Fidelis Care", color: "text-[#00843d]" },
-  { name: "Healthfirst", color: "text-[#003a70]" },
-];
-
 // Section 2 — the getting-started steps.
 const HOW_IT_WORKS: Array<{ title: string; body: string }> = [
   {
@@ -318,7 +310,7 @@ export default async function Home() {
   ).filter((p): p is ProviderSpotlight => p !== null && p.quote !== "");
   const spotlightProviders = [...realSpotlights, ...FICTIONAL_SPOTLIGHT].map((p) => ({
     ...p,
-    photoUrl: silhouetteUrl(p.id),
+    photoUrl: headshotFor(p.id) ?? silhouetteUrl(p.id),
   }));
 
   return (
@@ -332,7 +324,7 @@ export default async function Home() {
 
         {/* large hero painting, bleeding off the right (desktop) — pointer events
             enabled so the watercolour bloom can track the cursor over it */}
-        <div className="absolute top-1/2 right-0 z-0 hidden w-[58vw] max-w-[960px] -translate-y-1/2 lg:block">
+        <div className="absolute top-1/2 right-0 z-0 hidden w-[72vw] max-w-[1280px] -translate-y-1/2 lg:block">
           <WatercolorHover>
             <img
               src={`${CUT}/lakeside.avif`}
@@ -349,7 +341,7 @@ export default async function Home() {
           {/* mobile painting — leads the page below lg; pointer-events-auto
               re-enables hover inside the pointer-events-none overlay so the
               watercolour bloom works here like everywhere else */}
-          <div className="pointer-events-auto mkt-develop mb-10 lg:hidden">
+          <div className="pointer-events-auto mkt-develop -mx-6 mb-10 w-[calc(100%+3rem)] lg:hidden">
             <WatercolorHover>
               <img
                 src={`${CUT}/lakeside.avif`}
@@ -394,9 +386,9 @@ export default async function Home() {
         <div className="mx-auto w-full max-w-6xl px-6 pt-10 sm:pt-12">
           {/* heading lives in the grid: below lg it stacks image → heading →
               steps; at lg it spans the top row via order-first + col-span-2 */}
-          <div className="grid items-center gap-6 lg:grid-cols-[1.5fr_1fr] lg:gap-10">
-            <Reveal className="lg:-ml-10 xl:-ml-20" delay={80}>
-              <WatercolorHover className="mx-auto block w-full max-w-2xl lg:max-w-none">
+          <div className="grid items-center gap-6 lg:grid-cols-[1.9fr_1fr] lg:gap-10">
+            <Reveal className="-ml-6 -mr-6 w-[calc(100%+3rem)] lg:-ml-16 lg:mr-0 lg:w-auto xl:-ml-28" delay={80}>
+              <WatercolorHover>
                 <img
                   src={`${ILLO}/maya10.avif`}
                   alt="A watercolour illustration — two people walk a small dog along a path through a meadow at dawn, soft light on the horizon."
@@ -449,9 +441,9 @@ export default async function Home() {
       {/* ── 4 · Use your insurance — the savings claim + the plans behind it ── */}
       <section className="bg-page py-16 sm:py-20">
         <div className="mx-auto w-full max-w-6xl px-6">
-          <div className="grid items-center gap-10 lg:grid-cols-[1.4fr_1fr] lg:gap-12">
-            <Reveal>
-              <WatercolorHover className="mx-auto block w-full max-w-2xl">
+          <div className="grid items-center gap-10 lg:grid-cols-[1.7fr_1fr] lg:gap-12">
+            <Reveal className="-ml-6 -mr-6 w-[calc(100%+3rem)] lg:mx-0 lg:w-auto">
+              <WatercolorHover>
                 <img
                   src={`${ILLO}/maya10.avif`}
                   alt="A watercolour illustration — two people walk a small dog along a path through a meadow at dawn, soft light on the horizon."
@@ -481,33 +473,45 @@ export default async function Home() {
               </Link>
             </Reveal>
           </div>
-          <Reveal
-            delay={120}
-            className="mt-14 grid grid-cols-2 items-center justify-items-center gap-x-8 gap-y-8 sm:grid-cols-3 lg:grid-cols-6"
-          >
-            {INSURERS.map((ins) => (
-              <span key={ins.name} className={`font-display text-xl font-semibold sm:text-2xl ${ins.color}`}>
-                {ins.name}
-              </span>
-            ))}
-          </Reveal>
         </div>
       </section>
+
+      {/* In-network logo strip — real payer marks in place of the coloured
+          insurer wordmarks (components/site/insurer-strip.tsx). */}
+      <InsurerStrip />
 
       {/* ── 5 · Trusted across New York — stats + the reviews rail ─────────── */}
       <section className="relative overflow-hidden bg-page">
         <div className="mx-auto w-full max-w-6xl px-6 pt-10 sm:pt-12">
-          <Reveal className="text-center">
-            <p className="font-display text-[13px] font-semibold uppercase tracking-[0.16em] text-primary-deep">
-              Through Liminal
-            </p>
-            <h2 className="mt-3 text-balance font-display text-4xl font-bold tracking-tight text-primary sm:text-5xl">
-              Trusted across New York
-            </h2>
-          </Reveal>
+          {/* image leads below lg (DOM order: image, header, stats); at lg the
+              header returns to a full-width top row via explicit grid placement */}
+          <div className="grid items-center gap-6 lg:grid-cols-[1fr_1.9fr] lg:gap-10">
+            <Reveal
+              className="-ml-6 -mr-6 w-[calc(100%+3rem)] lg:ml-0 lg:w-auto lg:col-start-2 lg:row-start-2 lg:-mr-16 xl:-mr-28"
+              delay={80}
+            >
+              <WatercolorHover>
+                <img
+                  src={`${CUT}/tending-seedling.avif`}
+                  alt="A watercolour illustration — a person kneels in a garden bed, planting a seedling, a watering can beside them."
+                  width={1600}
+                  height={1120}
+                  className="mkt-soft block w-full"
+                  loading="lazy"
+                />
+              </WatercolorHover>
+            </Reveal>
 
-          <div className="mt-8 grid items-center gap-6 lg:grid-cols-[1fr_1.55fr] lg:gap-10">
-            <Reveal delay={220}>
+            <Reveal className="text-center lg:col-span-2 lg:row-start-1">
+              <p className="font-display text-[13px] font-semibold uppercase tracking-[0.16em] text-primary-deep">
+                Through Liminal
+              </p>
+              <h2 className="mt-3 text-balance font-display text-4xl font-bold tracking-tight text-primary sm:text-5xl">
+                Trusted across New York
+              </h2>
+            </Reveal>
+
+            <Reveal delay={220} className="lg:col-start-1 lg:row-start-2">
               <dl className="flex flex-col justify-center">
                 {STATS.map((s, i) => (
                   <div key={s.n} className={`py-5 ${i > 0 ? "border-t border-page-edge" : ""}`}>
@@ -519,18 +523,6 @@ export default async function Home() {
                   </div>
                 ))}
               </dl>
-            </Reveal>
-            <Reveal className="lg:-mr-10 xl:-mr-20" delay={80}>
-              <WatercolorHover className="mx-auto block w-full max-w-2xl lg:max-w-none">
-                <img
-                  src={`${CUT}/tending-seedling.avif`}
-                  alt="A watercolour illustration — a person kneels in a garden bed, planting a seedling, a watering can beside them."
-                  width={1600}
-                  height={1120}
-                  className="mkt-soft block w-full"
-                  loading="lazy"
-                />
-              </WatercolorHover>
             </Reveal>
           </div>
         </div>
