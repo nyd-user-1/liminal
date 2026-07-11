@@ -3,6 +3,7 @@ import { Icon } from "@/components/ui/icons";
 import { Badge } from "@/components/ui/badge";
 import { ProviderSpotlightRail, type ProviderSpotlight } from "@/components/marketing/provider-spotlight-card";
 import { WatercolorHover } from "@/components/marketing/watercolor-hover";
+import { HeroSearch } from "@/components/marketing/hero-search";
 import { CtaLink } from "./cta-link";
 import { Section, SectionHeading } from "./section";
 import { InsurerStrip } from "./insurer-strip";
@@ -99,6 +100,24 @@ const HERO_ILLO_BY_SLUG: Record<string, { src: string; alt: string; width: numbe
     width: 1024,
     height: 559,
   },
+  addiction: {
+    src: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/cut/campsite.avif",
+    alt: "A watercolour illustration — a campfire tripod and a stacked woodpile in a quiet forest clearing, an axe resting on a stump beside a handwritten note.",
+    width: 1024,
+    height: 559,
+  },
+  ocd: {
+    src: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/cut/movie.avif",
+    alt: "A watercolour illustration — a softly lit theater lobby, a concession counter with neatly stacked cups beside a patterned carpet.",
+    width: 1024,
+    height: 559,
+  },
+  maternal: {
+    src: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/cut/playground.avif",
+    alt: "A watercolour illustration — an empty swing set and slide in a park clearing, golden light through the trees at the end of the day.",
+    width: 1024,
+    height: 559,
+  },
 };
 
 export function CareTemplate({
@@ -168,7 +187,10 @@ export function CareTemplate({
             <p className="mkt-rise mkt-d2 mt-5 max-w-xl text-pretty text-lg leading-relaxed text-text-body sm:text-xl">
               {topic.lede}
             </p>
-            <div className="mkt-rise mkt-d3 mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="mkt-rise mkt-d3 mt-8 max-w-[577px]">
+              <HeroSearch />
+            </div>
+            <div className="mkt-rise mkt-d4 mt-4 flex flex-col gap-3 sm:flex-row">
               <CtaLink href={BOOK_HREF} arrow>
                 Book a session
               </CtaLink>

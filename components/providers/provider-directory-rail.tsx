@@ -6,6 +6,7 @@ import { Banner } from "@/components/ui/banner";
 import { Spinner } from "@/components/ui/spinner";
 import { ProviderPanel, type ProviderPanelData } from "@/components/providers/provider-panel";
 import type { PublicResult } from "@/app/api/directory/public-search/route";
+import { titleCase } from "@/lib/format";
 
 // Everything after this provider: the rest of the New York directory, a→z, in
 // the same folded panel the profile above uses. The public-search route already
@@ -26,7 +27,9 @@ function toPanel(r: PublicResult): ProviderPanelData {
     profession: r.subtitle,
     credential: r.credential ?? null,
     specialties: [...new Set(specialties)],
-    locationLabel: [r.address, r.city, r.zip].filter(Boolean).join(", ") || null,
+    locationLabel:
+      [r.address ? titleCase(r.address) : null, r.city ? titleCase(r.city) : null, r.zip].filter(Boolean).join(", ") ||
+      null,
     gender: r.gender ?? null,
   };
 }

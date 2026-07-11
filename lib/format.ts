@@ -59,6 +59,14 @@ export function formatCents(cents: number): string {
   return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
 
+/** "OAKDALE" / "1200 MONTAUK HWY" → "Oakdale" / "1200 Montauk Hwy" — directory address/city columns come out of NPPES all-caps. */
+export function titleCase(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .replace(/\bMhotrs\b/i, "MHOTRS");
+}
+
 /** "Casey Morgan" → "CM" */
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);

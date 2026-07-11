@@ -6,6 +6,7 @@ import { ProviderIllustration } from "@/components/providers/provider-illustrati
 import { RatingAvailability } from "@/components/providers/rating-availability";
 import type { PublicResult } from "@/app/api/directory/public-search/route";
 import { directoryRatingFor, directoryYearsFor } from "@/lib/directory-rating";
+import { titleCase } from "@/lib/format";
 import type { AvatarHue } from "@/lib/types";
 
 // Homepage "meet a few providers" card — the old testimonial rail's
@@ -137,13 +138,6 @@ export function ProviderSpotlightRail({ providers }: { providers: ProviderSpotli
 //     convention), and real CTAs: tel: "Call the program" + /programs/[id].
 // Programs use real <a> pills, so their card root is a div (no nested anchors).
 
-function titleCase(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/\b\w/g, (c) => c.toUpperCase())
-    .replace(/\bMhotrs\b/i, "MHOTRS");
-}
-
 // `@container` + `@xl:` below key these breakpoints off the card's own
 // rendered width, not the viewport — required now that the card can render
 // either full-width (1-col) or half-width (2-col) at the same viewport size.
@@ -155,22 +149,30 @@ const findCareArtClass =
 const findCareTitleClass =
   "text-balance font-display text-[1.375rem] font-bold tracking-tight leading-tight text-primary @xl:text-[1.75rem]";
 
+// Corner chip on search cards: the two-tone insurance mark (shield-plus — the
+// same icon the profile page's In-network row uses), bare per design (no
+// border/shadow circle). Programs keep hand-heart.
 function findCareChip(r: PublicResult): { icon: IconName; label: string } {
   if (r.kind === "program") return { icon: "hand-heart", label: "Program" };
-  return /psychiatr|nurse|np\b/i.test(r.subtitle ?? "") ? CARE_TYPE_META.medication : CARE_TYPE_META.therapy;
+  return {
+    icon: "shield-plus",
+    label: r.payerCount
+      ? `Accepts ${r.payerCount} insurance carrier${r.payerCount === 1 ? "" : "s"}`
+      : "Insurance",
+  };
 }
 
 export function FindCareSpotlightCard({ r }: { r: PublicResult }) {
   const chip = findCareChip(r);
   const isProgram = r.kind === "program";
   const seeded = directoryRatingFor(r.id);
-  const locationLine = [r.city ?? r.address, r.county].filter(Boolean).join(", ");
+  const locationLine = [r.city ? titleCase(r.city) : r.address, r.county].filter(Boolean).join(", ");
 
   const chipEl = (
     <div className="absolute right-3 top-3 z-10">
       <Tooltip label={chip.label} placement="top">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-surface shadow-card">
-          <Icon name={chip.icon} size={18} className="fill-primary-wash text-text" />
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center">
+          <Icon name={chip.icon} size={20} className="fill-primary-wash text-text" />
         </span>
       </Tooltip>
     </div>
@@ -193,6 +195,12 @@ export function FindCareSpotlightCard({ r }: { r: PublicResult }) {
         <div className="flex min-w-0 flex-1 flex-col">
           <h3 className={findCareTitleClass}>{r.name}</h3>
           {subline && <p className="mt-0.5 text-[14px] text-text-body">{subline}</p>}
+          {(r.specialties?.length ?? 0) > 0 && (
+            <p className="mt-0.5 truncate text-[14px] text-text-muted">
+              {r.specialties!.slice(0, 2).join(", ")}
+              {r.specialties!.length > 2 ? "\u2026" : ""}
+            </p>
+          )}
           <RatingAvailability
             rating={rating.rating}
             reviewCount={rating.reviewCount}
@@ -202,8 +210,14 @@ export function FindCareSpotlightCard({ r }: { r: PublicResult }) {
             }
             className="mt-2"
           />
-          {/* Only rendered when we hold network data AND they're accepting —
-              absence is never surfaced as "not accepting". */}
+          {/* Only rendered when we HOLD data — absence is never surfaced as
+              "not accepting" / "no insurance". */}
+          {(r.payerCount ?? 0) > 0 && (
+            <p className="mt-2 flex items-center gap-1.5 text-[14px] text-text-body">
+              <Icon name="shield-plus" size={16} className="shrink-0 fill-primary-wash text-text" />
+              Accepts {r.payerCount} insurance carrier{r.payerCount === 1 ? "" : "s"}
+            </p>
+          )}
           {r.acceptingNewPatients && (
             <div className="mt-2">
               <Badge variant="success">Accepting new patients</Badge>

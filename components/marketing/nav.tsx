@@ -13,6 +13,7 @@ import { SearchInput } from "@/components/ui/search-input";
 import { Tag } from "@/components/ui/tag";
 import { ThemeToggle } from "@/components/marketing/theme-toggle";
 import type { PublicResult } from "@/app/api/directory/public-search/route";
+import { titleCase } from "@/lib/format";
 
 // Public marketing nav (Headway pattern, Liminal brand). One shared dropdown
 // panel whose caret + width morph under the active trigger — Search lives in
@@ -72,44 +73,56 @@ type FindCategory = {
   icon: IconName;
   sections: Array<{ header?: string; links: Array<{ label: string; href: string; icon: IconName }> }>;
   viewAll: { label: string; href: string };
+  /** Present only for the three location-driven categories (therapist/psychiatrist/
+      nurse practitioner) — lets the panel splice in a "Near you" section when
+      geolocation resolves. The exact filter each category searches by. */
+  baseParams?: Record<string, string>;
 };
 
-function locationSections(type: string, icon: IconName) {
-  return [
-    {
-      header: "Borough",
-      links: BOROUGHS.map(([label, county]) => ({
-        label,
-        href: `/providers?type=${type}&county=${encodeURIComponent(county)}`,
-        icon,
-      })),
-    },
-    {
-      header: "City",
-      // `q` searches the directory's `city` column, so these filter for real.
-      links: CITIES.map((c) => ({
-        label: c,
-        href: `/providers?type=${type}&q=${encodeURIComponent(c)}`,
-        icon: "globe" as IconName,
-      })),
-    },
-  ];
+const qs = (params: Record<string, string>) => new URLSearchParams(params).toString();
+
+// Boroughs use `county=` (exact match); the Queens-neighborhood cities use
+// `q=` (searches the directory's `city` column). Merged into one flat "By
+// city" list — see FindCarePanel for the "Near you" section spliced on top
+// when IP geolocation resolves the visitor to a NY city.
+function locationSections(baseParams: Record<string, string>, icon: IconName) {
+  const boroughLinks = BOROUGHS.map(([label, county]) => ({
+    label,
+    href: `/providers?${qs({ ...baseParams, county })}`,
+    icon,
+  }));
+  const cityLinks = CITIES.map((c) => ({
+    label: c,
+    href: `/providers?${qs({ ...baseParams, q: c })}`,
+    icon: "globe" as IconName,
+  }));
+  return [{ header: "By city", links: [...boroughLinks, ...cityLinks] }];
 }
 
 const FIND_CATEGORIES: FindCategory[] = [
   {
     key: "therapists",
-    label: "Therapists",
+    label: "Therapist",
     icon: "users",
-    sections: locationSections("therapist", "person-circle"),
+    baseParams: { type: "therapist" },
+    sections: locationSections({ type: "therapist" }, "person-circle"),
     viewAll: { label: "View all", href: "/providers?type=therapist" },
   },
   {
     key: "psychiatrists",
-    label: "Psychiatrists",
+    label: "Psychiatrist",
     icon: "book-heart",
-    sections: locationSections("psychiatrist", "book-heart"),
-    viewAll: { label: "View all", href: "/providers?type=psychiatrist" },
+    baseParams: { need: "Psychiatrist" },
+    sections: locationSections({ need: "Psychiatrist" }, "book-heart"),
+    viewAll: { label: "View all", href: `/providers?${qs({ need: "Psychiatrist" })}` },
+  },
+  {
+    key: "nurse-practitioner",
+    label: "Nurse Practitioner",
+    icon: "shield-plus",
+    baseParams: { need: "Psychiatric Nurse Practitioner" },
+    sections: locationSections({ need: "Psychiatric Nurse Practitioner" }, "shield-plus"),
+    viewAll: { label: "View all", href: `/providers?${qs({ need: "Psychiatric Nurse Practitioner" })}` },
   },
   {
     key: "specialty",
@@ -128,24 +141,8 @@ const FIND_CATEGORIES: FindCategory[] = [
     viewAll: { label: "+20 more", href: "/providers" },
   },
   {
-    key: "specialty2",
-    label: "Specialty 2",
-    icon: "grid",
-    sections: [
-      {
-        header: "By specialty",
-        links: SPECIALTIES.map((s) => ({
-          label: s,
-          href: `/providers?specialty=${encodeURIComponent(s)}`,
-          icon: "sparkle" as IconName,
-        })),
-      },
-    ],
-    viewAll: { label: "+20 more", href: "/providers" },
-  },
-  {
     key: "virtual",
-    label: "Virtual",
+    label: "Virtual therapy",
     icon: "video",
     sections: [
       {
@@ -160,7 +157,7 @@ const FIND_CATEGORIES: FindCategory[] = [
   },
   {
     key: "resources",
-    label: "Therapy",
+    label: "Therapy resources",
     icon: "file-text",
     sections: [
       {
@@ -334,14 +331,51 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
   // (falling back to `cat` when nothing is hovered). Clicking a rail item pins it;
   // the links out (with a teal ↗ on hover) live on the content options.
   const [hovered, setHovered] = useState<string | null>(null);
+  const [geo, setGeo] = useState<{ city: string | null; region: string | null } | null>(null);
+
+  // Fires once, the first time this panel mounts (i.e. the first time someone
+  // opens the Care menu) — not on every page load. IP geolocation via Vercel's
+  // edge headers (see app/api/geo); resolves to nulls in local dev, where
+  // there's no edge in front of the request, so "Near you" just never appears.
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/geo")
+      .then((r) => r.json())
+      .then((d) => {
+        if (alive) setGeo(d);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const highlight = hovered ?? cat;
   const active = FIND_CATEGORIES.find((c) => c.key === highlight) ?? FIND_CATEGORIES[0];
+  // The directory is NY-only, so "near you" only makes sense once geolocation
+  // resolves the visitor to a NY city — otherwise it'd point at an empty search.
+  const nearYou =
+    active.baseParams && geo?.city && geo.region === "NY"
+      ? [
+          {
+            header: "Near you",
+            links: [
+              {
+                label: `${geo.city}, NY`,
+                href: `/providers?${qs({ ...active.baseParams, q: geo.city })}`,
+                icon: active.icon,
+              },
+            ],
+          },
+        ]
+      : [];
+  const sections = [...nearYou, ...active.sections];
   return (
     <div className="flex">
       {/* left third — category rail (grey comes from the panel gradient) */}
       <div className="w-1/3 p-2" onMouseLeave={() => setHovered(null)}>
         <p className="px-3 pb-1 pt-1 text-[13px] font-semibold text-primary">Services</p>
-        {[...FIND_CATEGORIES].sort((a, b) => a.label.localeCompare(b.label)).map((c) => {
+        {FIND_CATEGORIES.map((c) => {
           const on = c.key === highlight;
           return (
             <button
@@ -369,8 +403,8 @@ function FindCarePanel({ cat, setCat }: { cat: string; setCat: (k: string) => vo
 
       {/* right two-thirds — content; View all is the last grid cell */}
       <div className="w-2/3 p-4">
-        {active.sections.map((s, i) => {
-          const isLast = i === active.sections.length - 1;
+        {sections.map((s, i) => {
+          const isLast = i === sections.length - 1;
           return (
             <div key={i} className="mb-4 last:mb-0">
               {s.header && <p className="px-3 pb-1 text-[13px] font-semibold text-primary">{s.header}</p>}
@@ -413,13 +447,12 @@ const RECENT_RESULTS: Array<{ name: string; line: string }> = [
   { name: "RIVERSIDE MENTAL HEALTH", line: "410 Amsterdam Ave, New York 10024 · (212) 555-0142" },
 ];
 
-const titleCaseStr = (s: string) => s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 const fmtPhone = (p: string | null) => {
   const d = (p ?? "").replace(/\D/g, "");
   return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : (p ?? "");
 };
 const resultLine = (r: PublicResult) => {
-  const addr = [r.address && titleCaseStr(r.address), r.city && titleCaseStr(r.city), r.zip?.slice(0, 5)]
+  const addr = [r.address && titleCase(r.address), r.city && titleCase(r.city), r.zip?.slice(0, 5)]
     .filter(Boolean)
     .join(", ");
   return [addr, fmtPhone(r.phone)].filter(Boolean).join(" · ") || r.county || "New York";

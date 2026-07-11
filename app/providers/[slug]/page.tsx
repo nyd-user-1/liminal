@@ -23,6 +23,7 @@ import { headshotFor } from "@/lib/headshots";
 import { getProviderBySlug, nearbyCities, providerFacets } from "@/lib/repos/directory";
 import { listPayerFacets, networkSummaryForNpi } from "@/lib/repos/networks";
 import { listPayers } from "@/lib/repos/policies";
+import { titleCase } from "@/lib/format";
 
 // The public provider profile — our version of Headway's provider page.
 // Resolves BOTH sources through one dynamic segment, and they no longer share
@@ -189,7 +190,10 @@ export default async function ProviderProfilePage({ params }: { params: Promise<
     credential: directory.credential ?? directory.taxonomy,
     licensedIn: directory.licenseState ? [directory.licenseState] : undefined,
     specialties: [...new Set([directory.subspecialty, directory.profession].filter((v): v is string => Boolean(v)))],
-    locationLabel: [directory.address, directory.city, directory.zip].filter(Boolean).join(", ") || null,
+    locationLabel:
+      [directory.address ? titleCase(directory.address) : null, directory.city ? titleCase(directory.city) : null, directory.zip]
+        .filter(Boolean)
+        .join(", ") || null,
     gender: directory.gender,
   };
 

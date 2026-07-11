@@ -331,6 +331,78 @@ const CONDITIONS: Topic[] = [
     metaDescription:
       "LGBTQIA+ affirming therapy and psychiatry in New York. Providers who center who you are. In-network with major plans.",
   },
+  {
+    slug: "addiction",
+    kind: "condition",
+    label: "Addiction & recovery",
+    eyebrow: "Addiction & recovery",
+    firstPerson: "I keep telling myself I'll stop tomorrow.",
+    lede: "Recovery isn't a single decision you make once — it's care you can return to, without judgment, for as long as it takes.",
+    intro:
+      "Addiction care starts with an honest conversation, not an intervention. Whether it's alcohol, a prescription, or something else, your provider works with where you actually are — cutting back, quitting, or just understanding the pull — and builds from there.",
+    looksLike: [
+      "A first conversation with no judgment and no ultimatums",
+      "Therapy focused on the patterns underneath, not just the substance",
+      "Medication-assisted options when they genuinely help",
+      "Care that plans for setbacks instead of treating them as failure",
+    ],
+    careOffered: ["Therapy", "Medication", "Both"],
+    matchQuery: "Addiction",
+    providerType: "therapist",
+    firstVisit:
+      "The first session is about understanding your relationship to it — how it started, what it's doing for you, what you want instead. You don't have to have quit already to walk in the door.",
+    metaTitle: "Addiction & recovery care in New York — Liminal",
+    metaDescription:
+      "Addiction and substance use treatment in New York — therapy, medication-assisted options, or both, without judgment. In-network with major plans.",
+  },
+  {
+    slug: "ocd",
+    kind: "condition",
+    label: "OCD",
+    eyebrow: "OCD",
+    firstPerson: "I know the thought isn't rational. I still can't let it go.",
+    lede: "The intrusive thoughts, the checking, the rituals that eat your day — OCD responds to specific, well-studied treatment, not willpower.",
+    intro:
+      "OCD care centers on ERP (exposure and response prevention), the treatment with the strongest evidence behind it, delivered by clinicians who specialize in it specifically. Medication can help too, especially alongside therapy.",
+    looksLike: [
+      "Clinicians trained specifically in ERP, not general talk therapy",
+      "A pace that builds gradually — never thrown into the deep end",
+      "Medication considered when it supports the therapy, not instead of it",
+      "Care that treats the thoughts as symptoms, not truths about you",
+    ],
+    careOffered: ["Therapy", "Medication", "Both"],
+    matchQuery: "OCD",
+    providerType: "therapist",
+    firstVisit:
+      "The first session maps your specific obsessions and compulsions — everyone's OCD looks different. Naming the specifics out loud is often the hardest part, and it gets easier from there.",
+    metaTitle: "OCD treatment in New York — Liminal",
+    metaDescription:
+      "OCD treatment in New York — ERP therapy with specialists, plus medication when it helps. Evidence-based care for intrusive thoughts and compulsions.",
+  },
+  {
+    slug: "maternal",
+    kind: "condition",
+    label: "Maternal mental health",
+    eyebrow: "Maternal mental health",
+    firstPerson: "I'm supposed to feel joy right now. Mostly I feel like I'm drowning.",
+    lede: "Pregnancy and the first year after can bring anxiety and depression that have nothing to do with how much you love your baby. It's common, it's real, and it's treatable.",
+    intro:
+      "Maternal mental health care covers pregnancy through the postpartum year — the mood swings, the intrusive worry, the exhaustion that feels like more than tiredness. Providers in this space know the difference between a hard adjustment and something that needs treatment, and take both seriously.",
+    looksLike: [
+      "Screening and care during pregnancy and the postpartum year",
+      "Providers who know what's typical and what's not, without alarming you",
+      "Medication guidance that accounts for pregnancy and breastfeeding",
+      "A space to say the hard, unfilterable things out loud",
+    ],
+    careOffered: ["Therapy", "Medication", "Both"],
+    matchQuery: "Maternal Mental Health",
+    providerType: "therapist",
+    firstVisit:
+      "You'll talk through how you've been feeling since pregnancy or birth, including the parts that feel embarrassing to say. Providers in this space have heard it before — nothing you share will be a surprise to them.",
+    metaTitle: "Maternal mental health care in New York — Liminal",
+    metaDescription:
+      "Pregnancy and postpartum mental health care in New York — therapy and medication guidance for the anxiety and depression that can come with it.",
+  },
 ];
 
 export const TOPICS: Topic[] = [...CARE_TYPES, ...CONDITIONS];
