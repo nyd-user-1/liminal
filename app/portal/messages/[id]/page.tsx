@@ -5,8 +5,9 @@ import { logEvent } from "@/lib/audit";
 import { getThread, markRead } from "@/lib/repos/threads";
 import { requirePortalClient } from "../../data";
 
-// Portal thread view — same bubbles as the practitioner inbox, no
-// Close/Reopen. Scoped to the signed-in client's own threads.
+// Portal thread view — fills the right pane of the messages split view
+// (messages/layout.tsx). Same bubbles as the practitioner inbox, no
+// Close/Reopen. Below lg it takes the whole screen, so it carries a back link.
 
 export const dynamic = "force-dynamic";
 
@@ -20,12 +21,14 @@ export default async function PortalThreadPage({ params }: { params: Promise<{ i
   await logEvent({ actorId: user.id, action: "thread.view", entity: "thread", entityId: id });
 
   return (
-    <div className="mx-auto flex h-full max-w-3xl flex-col">
-      <TextLink href="/portal/messages" icon="arrow-left" className="mb-4">
-        Back to messages
-      </TextLink>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0 border-b border-border px-4 py-2.5 lg:hidden">
+        <TextLink href="/portal/messages" icon="arrow-left">
+          All conversations
+        </TextLink>
+      </div>
       <div className="min-h-0 flex-1">
-        <ThreadView thread={detail.thread} messages={detail.messages} senders={detail.senders} meId={user.id} />
+        <ThreadView thread={detail.thread} messages={detail.messages} senders={detail.senders} meId={user.id} frameless />
       </div>
     </div>
   );

@@ -75,13 +75,17 @@ export function WeekGrid({
   onSlotClick,
   onDragCreate,
   onMove,
+  readOnly = false,
 }: {
   days: string[];
   events: CalEvent[];
   onChipClick: (id: string) => void;
-  onSlotClick: (date: string, startMin: number) => void;
-  onDragCreate: (date: string, startMin: number, endMin: number) => void;
-  onMove: (id: string, date: string, startMin: number) => void;
+  /** Create/move handlers are omitted in read-only mode (e.g. the client portal). */
+  onSlotClick?: (date: string, startMin: number) => void;
+  onDragCreate?: (date: string, startMin: number, endMin: number) => void;
+  onMove?: (id: string, date: string, startMin: number) => void;
+  /** Read-only surface: no click-to-create, drag-create, or drag-to-move. */
+  readOnly?: boolean;
 }) {
   const [nowTick, setNowTick] = useState(() => new Date());
   const [sel, setSel] = useState<{ date: string; a: number; b: number } | null>(null);
@@ -106,7 +110,7 @@ export function WeekGrid({
 
   // ── drag-on-empty-grid to create (mouse events) ─────────────────────────────
   const startSelect = (e: ReactMouseEvent<HTMLDivElement>, date: string) => {
-    if (e.button !== 0) return;
+    if (readOnly || e.button !== 0) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const rectTop = rect.top;
     const rectHeight = rect.height;
@@ -131,10 +135,10 @@ export function WeekGrid({
       setSel(null);
       if (!d) return;
       if (!d.moved) {
-        onSlotClick(d.date, d.start);
+        onSlotClick?.(d.date, d.start);
       } else {
         const m = minFromY(ev.clientY, d.rectTop, d.rectHeight);
-        onDragCreate(d.date, Math.min(d.start, m), Math.max(d.start + 15, m));
+        onDragCreate?.(d.date, Math.min(d.start, m), Math.max(d.start + 15, m));
       }
     };
     window.addEventListener("mousemove", onMouseMove);
@@ -193,24 +197,32 @@ export function WeekGrid({
             return (
               <div
                 key={day}
-                className="relative flex-1 cursor-pointer border-l border-border"
-                onMouseDown={(e) => startSelect(e, day)}
-                onDragOver={(e) => {
-                  if (!e.dataTransfer.types.includes("text/appointment")) return;
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = "move";
-                  const r = e.currentTarget.getBoundingClientRect();
-                  setDropHint({ date: day, min: minFromY(e.clientY, r.top, r.height) });
-                }}
-                onDragLeave={() => setDropHint((h) => (h?.date === day ? null : h))}
-                onDrop={(e) => {
-                  const id = e.dataTransfer.getData("text/appointment");
-                  if (!id) return;
-                  e.preventDefault();
-                  const r = e.currentTarget.getBoundingClientRect();
-                  setDropHint(null);
-                  onMove(id, day, minFromY(e.clientY, r.top, r.height));
-                }}
+                className={`relative flex-1 border-l border-border ${readOnly ? "" : "cursor-pointer"}`}
+                onMouseDown={readOnly ? undefined : (e) => startSelect(e, day)}
+                onDragOver={
+                  readOnly
+                    ? undefined
+                    : (e) => {
+                        if (!e.dataTransfer.types.includes("text/appointment")) return;
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                        const r = e.currentTarget.getBoundingClientRect();
+                        setDropHint({ date: day, min: minFromY(e.clientY, r.top, r.height) });
+                      }
+                }
+                onDragLeave={readOnly ? undefined : () => setDropHint((h) => (h?.date === day ? null : h))}
+                onDrop={
+                  readOnly
+                    ? undefined
+                    : (e) => {
+                        const id = e.dataTransfer.getData("text/appointment");
+                        if (!id) return;
+                        e.preventDefault();
+                        const r = e.currentTarget.getBoundingClientRect();
+                        setDropHint(null);
+                        onMove?.(id, day, minFromY(e.clientY, r.top, r.height));
+                      }
+                }
               >
                 {/* hairline hour rules */}
                 {hours.slice(1).map((m) => (
@@ -253,12 +265,16 @@ export function WeekGrid({
                     <button
                       key={ev.id}
                       type="button"
-                      draggable
+                      draggable={!readOnly}
                       onMouseDown={(e) => e.stopPropagation()}
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData("text/appointment", ev.id);
-                        e.dataTransfer.effectAllowed = "move";
-                      }}
+                      onDragStart={
+                        readOnly
+                          ? undefined
+                          : (e) => {
+                              e.dataTransfer.setData("text/appointment", ev.id);
+                              e.dataTransfer.effectAllowed = "move";
+                            }
+                      }
                       onClick={() => onChipClick(ev.id)}
                       className="absolute z-10 flex min-h-0 flex-col overflow-hidden rounded-[6px] px-1.5 py-0.5 text-left text-white shadow-card transition-opacity hover:opacity-90"
                       style={{
