@@ -19,7 +19,7 @@ export function Table({
   children: ReactNode;
 }) {
   return (
-    <div className={`overflow-auto rounded-card border border-border bg-surface shadow-card ${className}`}>
+    <div className={`no-scrollbar overflow-auto rounded-card border border-border bg-surface shadow-card ${className}`}>
       <table className="w-full border-collapse text-left">
         <thead className={stickyHeader ? "sticky top-0 z-10" : ""}>
           <tr>

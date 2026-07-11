@@ -12,12 +12,12 @@ import { Divider } from "@/components/ui/divider";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icons";
 import { Modal } from "@/components/ui/modal";
+import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/toast";
 import { formatDateLong, formatTime } from "@/lib/format";
-import { SERVICE_COLOR_SLOTS } from "@/lib/service-colors";
 import type { AppointmentStatus } from "@/lib/types";
 import { addDays, dateKey, minutesOfDay, parseKey, startOfWorkWeek } from "@/app/(app)/calendar/calendar-utils";
 import { MonthGrid } from "@/app/(app)/calendar/month-grid";
@@ -54,6 +54,11 @@ const STATUS: Record<AppointmentStatus, { label: string; variant: "neutral" | "s
 };
 
 const todayKey = () => dateKey(new Date());
+
+// Colour appointments by visit type — telehealth vs in-person — not by
+// practitioner. Both hexes are dark enough for the white calendar-chip label.
+const VISIT_COLOR = { telehealth: "#3F8290", inPerson: "#E07B3C" } as const;
+const visitColorFor = (a: { videoRoom: string | null }) => (a.videoRoom ? VISIT_COLOR.telehealth : VISIT_COLOR.inPerson);
 
 /** Reschedule dialog: pick a day, then a free slot (live from /api/book). */
 function RescheduleModal({
@@ -169,6 +174,7 @@ export function AppointmentsList({
   const [view, setView] = useState<"week" | "month">("week");
   const [anchor, setAnchor] = useState(() => dateKey(new Date()));
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   const now = Date.now();
 
   // Deep link: /portal/appointments?appointment=<id> opens that appointment's
@@ -178,22 +184,20 @@ export function AppointmentsList({
     if (id) setDetailId(id);
   }, []);
 
+  const q = search.trim().toLowerCase();
+  const matchAppt = (a: PortalAppointment) =>
+    !q || a.serviceName.toLowerCase().includes(q) || a.practitionerName.toLowerCase().includes(q);
+
   const upcoming = appointments.filter((a) => new Date(a.endsAt).getTime() >= now);
   const past = appointments.filter((a) => new Date(a.endsAt).getTime() < now).reverse();
-  const visible = tab === "upcoming" ? upcoming : past;
+  const visible = (tab === "upcoming" ? upcoming : past).filter(matchAppt);
 
-  // Colour each practitioner distinctly (stable slot by first-seen order).
-  const practitionerColor = useMemo(() => {
-    const ids = [...new Set(appointments.map((a) => a.practitionerId))];
-    return new Map(ids.map((id, i) => [id, SERVICE_COLOR_SLOTS[i % SERVICE_COLOR_SLOTS.length].hex]));
-  }, [appointments]);
-
-  // Calendar events — every non-cancelled session; the chip title is the
-  // practitioner (who the client is seeing), past sessions render dimmed.
+  // Calendar events — every non-cancelled session matching the search, coloured
+  // by visit type (telehealth vs in-person). Past sessions render dimmed.
   const events: CalEvent[] = useMemo(
     () =>
       appointments
-        .filter((a) => a.status !== "cancelled")
+        .filter((a) => a.status !== "cancelled" && matchAppt(a))
         .map((a) => ({
           id: a.id,
           date: dateKey(new Date(a.startsAt)),
@@ -201,13 +205,14 @@ export function AppointmentsList({
           endMin: Math.max(minutesOfDay(a.startsAt) + 15, minutesOfDay(a.endsAt)),
           title: a.practitionerName,
           timeLabel: `${formatTime(a.startsAt)} – ${formatTime(a.endsAt)}`,
-          color: practitionerColor.get(a.practitionerId) ?? SERVICE_COLOR_SLOTS[0].hex,
+          color: visitColorFor(a),
           telehealth: !!a.videoRoom,
           icon: a.videoRoom ? ("video" as const) : undefined,
           status: a.status,
           muted: a.status === "completed" || a.status === "no_show",
         })),
-    [appointments, practitionerColor],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [appointments, q],
   );
 
   const days = useMemo(() => {
@@ -291,7 +296,7 @@ export function AppointmentsList({
   // opens the shared detail modal, where Reschedule / Cancel / Join live.
   const agendaItem = (a: PortalAppointment) => {
     const s = STATUS[a.status];
-    const color = practitionerColor.get(a.practitionerId) ?? SERVICE_COLOR_SLOTS[0].hex;
+    const color = visitColorFor(a);
     const muted = a.status === "cancelled" || a.status === "completed" || a.status === "no_show";
     return (
       <button
@@ -339,7 +344,7 @@ export function AppointmentsList({
           subtext={tab === "upcoming" ? "Book a time that works for you — no phone tag required." : undefined}
         />
       ) : (
-        <div className="min-h-0 flex-1 space-y-3 lg:overflow-y-auto">
+        <div className="no-scrollbar min-h-0 flex-1 space-y-3 lg:overflow-y-auto">
           {grouped.map((group) => (
             <div key={group.key}>
               <p className="mb-1 text-[13px] font-semibold text-text-muted">{group.label}</p>
@@ -361,26 +366,38 @@ export function AppointmentsList({
         </Link>
       </TopBarActions>
 
-      {/* Grid controls — only relevant to the calendar, hidden below lg */}
-      <div className="mb-4 hidden items-center justify-end gap-2 lg:flex">
-        <Button variant="secondary" onClick={() => setAnchor(dateKey(new Date()))}>
-          Today
-        </Button>
-        <Select
-          aria-label="Calendar view"
-          className="w-28"
-          options={[
-            { value: "week", label: "Week" },
-            { value: "month", label: "Month" },
-          ]}
-          value={view}
-          onValueChange={(v) => setView(v as "week" | "month")}
-        />
+      {/* Toolbar — search over the rail (left), Today + view aligned to the grid
+          (right). Below lg the grid is hidden, so only the search shows. */}
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="flex items-center gap-2 lg:w-80 lg:shrink-0">
+          <SearchInput
+            aria-label="Search appointments"
+            placeholder="Search appointments…"
+            className="w-full"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="hidden flex-1 flex-wrap items-center gap-2 lg:flex">
+          <Button variant="secondary" onClick={() => setAnchor(dateKey(new Date()))}>
+            Today
+          </Button>
+          <Select
+            aria-label="Calendar view"
+            className="w-28"
+            options={[
+              { value: "week", label: "Week" },
+              { value: "month", label: "Month" },
+            ]}
+            value={view}
+            onValueChange={(v) => setView(v as "week" | "month")}
+          />
+        </div>
       </div>
 
       <div className="flex min-h-0 flex-1 gap-4">
         {/* Left — my appointments (full width below lg; a rail with mini-month at lg) */}
-        <aside className="flex min-h-0 w-full flex-col gap-4 lg:w-80 lg:shrink-0 lg:overflow-y-auto lg:rounded-card lg:border lg:border-border lg:bg-surface lg:p-4 lg:shadow-card">
+        <aside className="no-scrollbar flex min-h-0 w-full flex-col gap-4 lg:w-80 lg:shrink-0 lg:overflow-y-auto lg:rounded-card lg:border lg:border-border lg:bg-surface lg:p-4 lg:shadow-card">
           <div className="hidden lg:block">
             <DatePicker key={anchor.slice(0, 7)} value={anchor} onChange={setAnchor} />
             <Divider className="mt-4" />
