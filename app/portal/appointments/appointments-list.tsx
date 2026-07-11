@@ -171,6 +171,13 @@ export function AppointmentsList({
   const [detailId, setDetailId] = useState<string | null>(null);
   const now = Date.now();
 
+  // Deep link: /portal/appointments?appointment=<id> opens that appointment's
+  // detail (shared links, confirmation emails).
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("appointment");
+    if (id) setDetailId(id);
+  }, []);
+
   const upcoming = appointments.filter((a) => new Date(a.endsAt).getTime() >= now);
   const past = appointments.filter((a) => new Date(a.endsAt).getTime() < now).reverse();
   const visible = tab === "upcoming" ? upcoming : past;
@@ -258,6 +265,26 @@ export function AppointmentsList({
   const canChange = (a: PortalAppointment) =>
     (a.status === "scheduled" || a.status === "confirmed") && new Date(a.startsAt).getTime() > now;
   const canJoin = (a: PortalAppointment) => !!a.videoRoom && a.status !== "cancelled" && a.status !== "no_show";
+
+  // Share — the OS share sheet on mobile, clipboard copy (with toast) elsewhere.
+  // The link deep-opens this appointment's detail (see the effect above).
+  const shareAppointment = async (a: PortalAppointment) => {
+    const url = `${window.location.origin}/portal/appointments?appointment=${a.id}`;
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ title: a.serviceName, text: `${a.serviceName} · ${formatDateLong(a.startsAt)}`, url });
+      } catch {
+        /* user dismissed the share sheet — nothing to do */
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast("Appointment link copied", "success");
+    } catch {
+      toast("Could not copy the link.", "danger");
+    }
+  };
 
   // Agenda-style row (matches the provider calendar rail): a practitioner
   // colour bar, service + status, and a time · practitioner meta line. Clicking
@@ -387,50 +414,66 @@ export function AppointmentsList({
           title={detail.serviceName}
           icon={detail.videoRoom ? "video" : "calendar-check"}
           footer={
-            canChange(detail) || canJoin(detail) ? (
-              <>
-                {canChange(detail) && (
-                  <>
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        setRescheduling(detail);
-                        setDetailId(null);
-                      }}
-                    >
-                      Reschedule
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      onClick={() => {
-                        setCancelling(detail);
-                        setDetailId(null);
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </>
-                )}
-                {canJoin(detail) && (
-                  <Link href={`/portal/call/${detail.videoRoom}`}>
-                    <Button leftIcon="video">Join video call</Button>
-                  </Link>
-                )}
-              </>
-            ) : undefined
+            <>
+              <div className="mr-auto">
+                <Button variant="ghost" leftIcon="link" onClick={() => shareAppointment(detail)}>
+                  Share
+                </Button>
+              </div>
+              {canChange(detail) && (
+                <>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setRescheduling(detail);
+                      setDetailId(null);
+                    }}
+                  >
+                    Reschedule
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setCancelling(detail);
+                      setDetailId(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </>
+              )}
+              {canJoin(detail) && (
+                <Link href={`/portal/call/${detail.videoRoom}`}>
+                  <Button leftIcon="video">Join video call</Button>
+                </Link>
+              )}
+            </>
           }
         >
-          <div className="space-y-1.5 text-[15px] text-text-body">
-            <p className="flex items-center gap-2">
-              <Badge variant={STATUS[detail.status].variant}>{STATUS[detail.status].label}</Badge>
-            </p>
-            <p>
-              {formatDateLong(detail.startsAt)} · {formatTime(detail.startsAt)}–{formatTime(detail.endsAt)}
-            </p>
-            <p>
-              with {detail.practitionerName}
-              {detail.locationName ? ` · ${detail.locationName}` : ""}
-            </p>
+          <div className="space-y-4">
+            <Badge variant={STATUS[detail.status].variant}>{STATUS[detail.status].label}</Badge>
+            <dl className="space-y-2.5 text-[15px] text-text-body">
+              <div className="flex items-start gap-2.5">
+                <Icon name="calendar-check" size={18} className="mt-0.5 shrink-0 text-text-muted" />
+                <span>
+                  {formatDateLong(detail.startsAt)}
+                  <span className="text-text-muted"> · </span>
+                  {formatTime(detail.startsAt)}–{formatTime(detail.endsAt)}
+                </span>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <Icon name="person-circle" size={18} className="mt-0.5 shrink-0 text-text-muted" />
+                <span>{detail.practitionerName}</span>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <Icon
+                  name={detail.videoRoom ? "video" : "map-pin"}
+                  size={18}
+                  className="mt-0.5 shrink-0 text-text-muted"
+                />
+                <span>{detail.videoRoom ? "Telehealth" : detail.locationName ?? "In person"}</span>
+              </div>
+            </dl>
           </div>
         </Modal>
       )}
