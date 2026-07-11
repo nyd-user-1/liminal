@@ -3,6 +3,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Icon } from "@/components/ui/icons";
 import { LibraryCard } from "@/components/ui/library-card";
 import { Modal } from "@/components/ui/modal";
 import { SearchInput } from "@/components/ui/search-input";
@@ -39,6 +40,13 @@ interface FileItem {
 function formatSize(bytes: number): string {
   if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
   return `${Math.max(1, Math.round(bytes / 1000))} KB`;
+}
+
+// Parse an ISO/display date to epoch ms for sorting; unknown ("—") → null,
+// which we always sort to the bottom regardless of direction.
+function toMs(d: string): number | null {
+  const t = Date.parse(d);
+  return Number.isNaN(t) ? null : t;
 }
 
 // ── markdown renderer for the note-view Modal (## headings, - lists, **bold**) ──
@@ -117,10 +125,15 @@ type RecordCard = {
   title: string;
   description: string;
   date: ReactNode;
+  dateMs: number | null;
   tag: ReactNode;
+  typeLabel: string;
+  createdBy: string;
   sample: boolean;
   onOpen: () => void;
 };
+
+type SortCol = "name" | "date" | "type" | "createdBy";
 
 const cardGrid = (children: ReactNode) => (
   <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">{children}</div>
@@ -131,7 +144,12 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
   const [tab, setTab] = useState("all");
   const [view, setView] = useState<"table" | "cards">("table");
   const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<{ col: SortCol; dir: "asc" | "desc" }>({ col: "date", dir: "desc" });
   const [openNote, setOpenNote] = useState<NoteItem | null>(null);
+
+  // Click a header to sort by it; click again to flip direction.
+  const toggleSort = (col: SortCol) =>
+    setSort((s) => (s.col === col ? { col, dir: s.dir === "asc" ? "desc" : "asc" } : { col, dir: "asc" }));
 
   const comingSoon = () => toast("This record isn't available yet.", "info");
 
@@ -142,7 +160,10 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
         title: n.title,
         description: `Signed by ${n.authorName}`,
         date: n.signedAt ? formatDate(n.signedAt) : "—",
+        dateMs: n.signedAt ? toMs(n.signedAt) : null,
         tag: <Tag hue="pink">Clinical note</Tag>,
+        typeLabel: "Clinical note",
+        createdBy: n.authorName,
         sample: false,
         onOpen: () => setOpenNote(n),
       })),
@@ -151,7 +172,10 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
         title: s.title,
         description: "Appears here once your practitioner signs it.",
         date: s.date,
+        dateMs: toMs(s.date),
         tag: <Tag hue="pink">Clinical note</Tag>,
+        typeLabel: "Clinical note",
+        createdBy: "—",
         sample: true,
         onOpen: comingSoon,
       })),
@@ -169,7 +193,10 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
           title: f.name,
           description: formatSize(f.sizeBytes),
           date: formatDate(f.createdAt),
+          dateMs: toMs(f.createdAt),
           tag: <Tag hue={t.hue}>{t.label}</Tag>,
+          typeLabel: t.label,
+          createdBy: "Care team",
           sample: false,
           onOpen: () => {
             window.location.href = `/api/files/download?id=${f.id}`;
@@ -183,7 +210,10 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
           title: s.title,
           description: s.meta,
           date: "—",
+          dateMs: null,
           tag: <Tag hue={t.hue}>{t.label}</Tag>,
+          typeLabel: t.label,
+          createdBy: "Care team",
           sample: true,
           onOpen: comingSoon,
         };
@@ -255,10 +285,46 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
   const active = SECTIONS.find((s) => s.key === tab);
 
   // Flat row list for the Table view — every record for the active tab (All =
-  // notes + documents), filtered by the search box.
+  // notes + documents), filtered by the search box, then sorted by the header.
   const tableItems = (
     tab === "notes" ? noteCards : tab === "documents" ? docCards : [...noteCards, ...docCards]
   ).filter(matches);
+
+  const sorted = [...tableItems].sort((a, b) => {
+    const dir = sort.dir === "asc" ? 1 : -1;
+    if (sort.col === "date") {
+      // Missing dates ("—") always sink to the bottom, regardless of direction.
+      if (a.dateMs == null || b.dateMs == null) {
+        if (a.dateMs == null && b.dateMs == null) return a.title.localeCompare(b.title);
+        return a.dateMs == null ? 1 : -1;
+      }
+      return (a.dateMs - b.dateMs) * dir || a.title.localeCompare(b.title);
+    }
+    const cmp =
+      sort.col === "name"
+        ? a.title.localeCompare(b.title)
+        : sort.col === "type"
+          ? a.typeLabel.localeCompare(b.typeLabel) || a.title.localeCompare(b.title)
+          : a.createdBy.localeCompare(b.createdBy) || a.title.localeCompare(b.title);
+    return cmp * dir;
+  });
+
+  // Clickable, sort-aware column header — faint chevron hints sortability,
+  // solid chevron shows the active column + direction.
+  const sortHead = (label: string, col: SortCol) => (
+    <button
+      type="button"
+      onClick={() => toggleSort(col)}
+      className="-mx-1 flex items-center gap-1 rounded px-1 transition-colors hover:text-text"
+    >
+      {label}
+      <Icon
+        name={sort.col === col && sort.dir === "asc" ? "chevron-up" : "chevron-down"}
+        size={14}
+        className={sort.col === col ? "text-text" : "text-text-muted/40"}
+      />
+    </button>
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -288,15 +354,21 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
         />
       </Toolbar>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {view === "table" ? (
-          tableItems.length === 0 ? (
+      {view === "table" ? (
+        // Height-bounded so the card ends above the viewport (with the shell's
+        // bottom padding as margin) and the rows scroll under the sticky header.
+        <div className="flex min-h-0 flex-1 flex-col">
+          {sorted.length === 0 ? (
             <div className="rounded-card border border-border bg-surface shadow-card">
               <EmptyState icon="file-text" title={q ? "No matches" : "No records yet"} />
             </div>
           ) : (
-            <Table head={["Name", "Type", "Details", "Date"]}>
-              {tableItems.map((c) => (
+            <Table
+              stickyHeader
+              className="min-h-0 flex-1"
+              head={[sortHead("Name", "name"), sortHead("Date", "date"), sortHead("Type", "type"), sortHead("Created by", "createdBy")]}
+            >
+              {sorted.map((c) => (
                 <Tr key={c.id} onClick={c.onOpen}>
                   <Td className="font-medium text-text">
                     <span className="flex items-center gap-2">
@@ -304,19 +376,23 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
                       {c.sample && <Badge variant="neutral">Sample</Badge>}
                     </span>
                   </Td>
-                  <Td>{c.tag}</Td>
-                  <Td className="text-text-muted">{c.description}</Td>
                   <Td className="whitespace-nowrap text-text-muted">{c.date}</Td>
+                  <Td>{c.tag}</Td>
+                  <Td className="whitespace-nowrap text-text-muted">{c.createdBy}</Td>
                 </Tr>
               ))}
             </Table>
-          )
-        ) : tab === "all" ? (
-          <div className="space-y-12">{SECTIONS.map((s) => renderSection(s, false))}</div>
-        ) : active ? (
-          renderSection(active, true)
-        ) : null}
-      </div>
+          )}
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {tab === "all" ? (
+            <div className="space-y-12">{SECTIONS.map((s) => renderSection(s, false))}</div>
+          ) : active ? (
+            renderSection(active, true)
+          ) : null}
+        </div>
+      )}
 
       {openNote && (
         <Modal open onClose={() => setOpenNote(null)} title={openNote.title} icon="note" width="max-w-2xl">
