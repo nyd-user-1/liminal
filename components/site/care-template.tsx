@@ -51,6 +51,12 @@ const HERO_ILLO_BY_SLUG: Record<string, { src: string; alt: string; width: numbe
     width: 1024,
     height: 559,
   },
+  bipolar: {
+    src: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/cut/laundry.avif",
+    alt: "A watercolour illustration — a sunlit laundry room, an unfolded pile beside neatly folded stacks on a counter by a garden window.",
+    width: 1024,
+    height: 559,
+  },
 };
 
 export function CareTemplate({
