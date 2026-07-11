@@ -6,17 +6,20 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { LibraryCard } from "@/components/ui/library-card";
 import { Modal } from "@/components/ui/modal";
 import { SearchInput } from "@/components/ui/search-input";
+import { Select } from "@/components/ui/select";
+import { Table, Td, Tr } from "@/components/ui/table";
 import { Tabs } from "@/components/ui/tabs";
 import { Tag, type TagHue } from "@/components/ui/tag";
 import { Toolbar } from "@/components/ui/toolbar";
 import { useToast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/format";
 
-// Portal Records — mirrors the provider Library layout: content tabs
-// (All / Clinical notes / Documents) over a shared LibraryCard grid with a
-// persistent search toolbar. Real notes open a view-only Modal; real files
-// download. The grid is padded with "Sample" cards for the record types we
-// know will land over time — so the page shows its eventual shape today.
+// Portal Records — content tabs (All / Clinical notes / Documents) over a
+// records list, with a Table view (default) and the original Card grid kept
+// behind a view toggle so we can unify them later. A row opens the record:
+// real notes → a view-only Modal, real files → download. Both views are
+// padded with "Sample" rows for the record types we know will land over time,
+// so the page reads at its eventual density today.
 
 interface NoteItem {
   id: string;
@@ -126,6 +129,7 @@ const cardGrid = (children: ReactNode) => (
 export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileItem[] }) {
   const toast = useToast();
   const [tab, setTab] = useState("all");
+  const [view, setView] = useState<"table" | "cards">("table");
   const [search, setSearch] = useState("");
   const [openNote, setOpenNote] = useState<NoteItem | null>(null);
 
@@ -250,6 +254,12 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
 
   const active = SECTIONS.find((s) => s.key === tab);
 
+  // Flat row list for the Table view — every record for the active tab (All =
+  // notes + documents), filtered by the search box.
+  const tableItems = (
+    tab === "notes" ? noteCards : tab === "documents" ? docCards : [...noteCards, ...docCards]
+  ).filter(matches);
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <Tabs
@@ -266,10 +276,42 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
           placeholder="Search records…"
           className="max-w-md flex-1"
         />
+        <Select
+          aria-label="Records view"
+          className="w-28"
+          options={[
+            { value: "table", label: "Table" },
+            { value: "cards", label: "Cards" },
+          ]}
+          value={view}
+          onValueChange={(v) => setView(v as "table" | "cards")}
+        />
       </Toolbar>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {tab === "all" ? (
+        {view === "table" ? (
+          tableItems.length === 0 ? (
+            <div className="rounded-card border border-border bg-surface shadow-card">
+              <EmptyState icon="file-text" title={q ? "No matches" : "No records yet"} />
+            </div>
+          ) : (
+            <Table head={["Name", "Type", "Details", "Date"]}>
+              {tableItems.map((c) => (
+                <Tr key={c.id} onClick={c.onOpen}>
+                  <Td className="font-medium text-text">
+                    <span className="flex items-center gap-2">
+                      {c.title}
+                      {c.sample && <Badge variant="neutral">Sample</Badge>}
+                    </span>
+                  </Td>
+                  <Td>{c.tag}</Td>
+                  <Td className="text-text-muted">{c.description}</Td>
+                  <Td className="whitespace-nowrap text-text-muted">{c.date}</Td>
+                </Tr>
+              ))}
+            </Table>
+          )
+        ) : tab === "all" ? (
           <div className="space-y-12">{SECTIONS.map((s) => renderSection(s, false))}</div>
         ) : active ? (
           renderSection(active, true)
