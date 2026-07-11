@@ -27,8 +27,8 @@ const DEFAULT_HERO_ILLO = {
 
 const HERO_ILLO_BY_SLUG: Record<string, { src: string; alt: string; width: number; height: number }> = {
   anxiety: {
-    src: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/cut/garden-twilight.avif",
-    alt: "A watercolour illustration — a formal garden at twilight, hedged paths lit by lanterns winding toward a distant gazebo under a deep violet sky.",
+    src: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/cut/moonlit-dock.avif",
+    alt: "A watercolour illustration — a wooden dock reaching into a still lake at night, a full moon and its soft reflection on the dark water.",
     width: 1024,
     height: 559,
   },
