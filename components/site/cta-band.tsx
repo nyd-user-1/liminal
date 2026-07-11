@@ -19,7 +19,7 @@ export function CtaBand({
   lede?: string;
   primary: { href: string; label: string };
   secondary?: { href: string; label: string };
-  ground?: "surface" | "canvas" | "wash";
+  ground?: "surface" | "canvas" | "wash" | "page";
   illo?: { src: string; alt: string; width: number; height: number };
 }) {
   return (

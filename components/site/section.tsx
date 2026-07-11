@@ -6,12 +6,13 @@ import type { ReactNode } from "react";
 // grounds) into one reusable wrapper. NEW (public marketing site) — flagged for
 // review; if the team prefers, this could graduate into components/ui.
 
-type Ground = "surface" | "canvas" | "wash";
+type Ground = "surface" | "canvas" | "wash" | "page";
 
 const GROUND: Record<Ground, string> = {
   surface: "bg-surface",
   canvas: "bg-canvas",
   wash: "bg-primary-wash",
+  page: "bg-page",
 };
 
 export function Section({

@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { Icon } from "@/components/ui/icons";
 import { Badge } from "@/components/ui/badge";
+import { ProviderSpotlightRail, type ProviderSpotlight } from "@/components/marketing/provider-spotlight-card";
 import { PageHero } from "./page-hero";
 import { Section, SectionHeading } from "./section";
-import { ProviderStrip } from "./provider-card";
 import { InsurerStrip } from "./insurer-strip";
 import { FaqList } from "./faq";
 import { CtaBand } from "./cta-band";
 import { Placeholder } from "./placeholder";
-import { PLACEHOLDER_PRACTITIONERS, HOME_FAQS, BOOK_HREF, type Topic } from "@/lib/site-content";
+import { HOME_FAQS, BOOK_HREF, type Topic } from "@/lib/site-content";
 
 // Shared template for every /care/[topic] page — condition and care-type alike.
 // Section order per the brief: first-person hero → what care looks like →
@@ -40,16 +40,15 @@ const HERO_ILLO_BY_SLUG: Record<string, { src: string; alt: string; width: numbe
   },
 };
 
-function matchedProviders(topic: Topic) {
-  const wants = new Set(topic.careOffered);
-  const list = PLACEHOLDER_PRACTITIONERS.filter((p) =>
-    p.care === "Therapy" ? wants.has("Therapy") : p.care === "Medication" ? wants.has("Medication") : true,
-  );
-  return (list.length ? list : PLACEHOLDER_PRACTITIONERS).slice(0, 3);
-}
-
-export function CareTemplate({ topic, providerCount }: { topic: Topic; providerCount?: number }) {
-  const providers = matchedProviders(topic);
+export function CareTemplate({
+  topic,
+  providerCount,
+  spotlightProviders,
+}: {
+  topic: Topic;
+  providerCount?: number;
+  spotlightProviders: ProviderSpotlight[];
+}) {
   const browseHref = `/providers?q=${encodeURIComponent(topic.matchQuery)}`;
   const heroIllo = HERO_ILLO_BY_SLUG[topic.slug] ?? DEFAULT_HERO_ILLO;
 
@@ -68,7 +67,7 @@ export function CareTemplate({ topic, providerCount }: { topic: Topic; providerC
       <InsurerStrip />
 
       {/* What care looks like here */}
-      <Section>
+      <Section ground="page">
         <div className="grid gap-12 lg:grid-cols-2 lg:gap-20">
           <div className="max-w-md">
             <SectionHeading title="What care looks like here" lede={topic.intro} />
@@ -91,19 +90,24 @@ export function CareTemplate({ topic, providerCount }: { topic: Topic; providerC
         </div>
       </Section>
 
-      {/* Matching providers — placeholder bookable strip + real directory link */}
-      <Section ground="canvas">
-        <SectionHeading
-          eyebrow="Book this week"
-          title="Providers ready to help"
-          lede={
-            providerCount
-              ? `${providerCount.toLocaleString()}+ licensed providers across New York. Book a Liminal provider now, or browse the full directory.`
-              : "Book a Liminal provider now, or browse the full directory of New York providers."
-          }
-        />
-        <ProviderStrip items={providers} />
-        <div className="mt-8">
+      {/* Matching providers — the real homepage spotlight rail (full-bleed
+          horizontal scroll) + a link into the full directory. */}
+      <section className="bg-page py-24 sm:py-32">
+        <div className="mx-auto w-full max-w-6xl px-6">
+          <SectionHeading
+            eyebrow="Book this week"
+            title="Providers ready to help"
+            lede={
+              providerCount
+                ? `${providerCount.toLocaleString()}+ licensed providers across New York. Book a Liminal provider now, or browse the full directory.`
+                : "Book a Liminal provider now, or browse the full directory of New York providers."
+            }
+          />
+        </div>
+        <div className="mt-10">
+          <ProviderSpotlightRail providers={spotlightProviders} />
+        </div>
+        <div className="mx-auto mt-6 w-full max-w-6xl px-6">
           <Link href={browseHref} className="group inline-flex items-center gap-1 text-[15px] font-semibold text-primary">
             <span className="link-wipe">Browse all New York {topic.label.toLowerCase()} providers</span>
             <span aria-hidden className="inline-block transition-transform group-hover:translate-x-0.5">
@@ -111,10 +115,10 @@ export function CareTemplate({ topic, providerCount }: { topic: Topic; providerC
             </span>
           </Link>
         </div>
-      </Section>
+      </section>
 
       {/* Cost & insurance */}
-      <Section>
+      <Section ground="page">
         <div className="max-w-2xl">
           <SectionHeading
             title="See your cost before you book."
@@ -127,7 +131,7 @@ export function CareTemplate({ topic, providerCount }: { topic: Topic; providerC
       </Section>
 
       {/* First visit */}
-      <Section ground="canvas">
+      <Section ground="page">
         <div className="max-w-3xl">
           <SectionHeading eyebrow="Your first visit" title="What the first appointment is like" />
           <p className="mt-5 text-pretty text-lg leading-relaxed text-text-body">{topic.firstVisit}</p>
@@ -135,7 +139,7 @@ export function CareTemplate({ topic, providerCount }: { topic: Topic; providerC
       </Section>
 
       {/* FAQ */}
-      <Section>
+      <Section ground="page">
         <SectionHeading title="Questions people ask first" />
         <FaqList items={HOME_FAQS} />
       </Section>
@@ -143,7 +147,7 @@ export function CareTemplate({ topic, providerCount }: { topic: Topic; providerC
       <CtaBand
         title="Take the first step this week."
         lede="Search by specialty, borough, and coverage — and book when you're ready."
-        ground="canvas"
+        ground="page"
         primary={{ href: BOOK_HREF, label: "Book a session" }}
         secondary={{ href: browseHref, label: "Browse providers" }}
       />

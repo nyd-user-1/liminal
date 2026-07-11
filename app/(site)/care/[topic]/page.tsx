@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { CareTemplate } from "@/components/site/care-template";
 import { getTopic } from "@/lib/site-content";
 import { searchProviders } from "@/lib/repos/directory";
+import { getSpotlightProviders } from "@/lib/spotlight";
 
 // /care/[topic] — one template drives every condition and care-type page,
 // content-driven from lib/site-content/topics.ts. NEW (public marketing site).
@@ -31,6 +32,9 @@ export default async function CarePage({ params }: { params: Promise<{ topic: st
   const topic = getTopic(slug);
   if (!topic) notFound();
 
-  const providerCount = await getCount(topic.providerType);
-  return <CareTemplate topic={topic} providerCount={providerCount} />;
+  const [providerCount, spotlightProviders] = await Promise.all([
+    getCount(topic.providerType),
+    getSpotlightProviders(),
+  ]);
+  return <CareTemplate topic={topic} providerCount={providerCount} spotlightProviders={spotlightProviders} />;
 }
