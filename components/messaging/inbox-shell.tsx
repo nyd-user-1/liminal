@@ -232,7 +232,7 @@ export function InboxShell({
             activeId ? "max-lg:hidden" : ""
           }`}
         >
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto">
             {tab === "drafts" ? (
               visibleDrafts.length === 0 ? (
                 <EmptyState
