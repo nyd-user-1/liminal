@@ -153,3 +153,18 @@ carry the file's own truth. Plus `--refs=scan`: byte-scanned provider_references
 
 Full BCBS redo running detached: 719 Empire + 519 Highmark files (4 lanes) +
 the 10 05C0 chunks (own lane). Every row that lands is entity-true.
+
+### Retroactive entity audit (~14:50) — pre-fix loads verified clean
+
+Re-fetched the header of all 20 loaded source files and compared
+`reporting_entity_name` against the DB payer label: **20/20 match.** The
+host-sharing trap is BCBS-specific (30+ licensees on shared infrastructure);
+every single-corporate-entity payer (UHC, Oxford, CDPHP, Cigna, Centene,
+Carelon, MetroPlus) labels truthfully. Standing rule going forward: **trust
+file content over URL/manifest** — the scanner's --payer=auto/--network=auto
+is now the default posture for any multi-licensee platform.
+
+BlueCard semantics note for the 05C0 lane: national-file presence means
+"reachable via BlueCard while traveling", NOT NY-plan membership. Rows carry
+the file's own entity + network names, so the rollup buckets other-state
+entities and national networks separately — never folded into NY coverage.
