@@ -1,0 +1,337 @@
+#!/usr/bin/env node
+// MRF PoC — FAST single-pass TiC scanner. Same contract as
+// stream-uhc-behavioral.mjs (the reference implementation it is validated
+// against), but ~50x faster on UHC files by exploiting their layout:
+//
+//   - top-level header is pretty-printed; `provider_references` is front-loaded
+//     and small (~67 MB) -> parsed with stream-json, bounded by our NPI list;
+//   - each `in_network` item is ONE physical line (`\n\t{...},`), with
+//     `billing_code` in the first few hundred bytes, before the multi-MB
+//     `negotiated_rates` array -> we skip line-to-line with Buffer.indexOf
+//     (SIMD memchr) and JSON.parse only the handful of matching lines.
+//
+// Defensive: any line that looks like an item but has no billing_code in its
+// head window, or a matched line that fails to parse, aborts loudly (exit 3)
+// rather than silently under-reporting. Fall back to the reference script if
+// that ever fires.
+//
+//   curl -sL <url> | gunzip -c | node scripts/mrf/scan-tic.mjs \
+//     --npis=.harvest/mrf/npis.txt --out=.harvest/mrf/out.csv \
+//     --payer="..." --network="..." --source-file=<name> --file-date=YYYY-MM-DD
+
+import fs from "node:fs";
+import path from "node:path";
+import chain from "stream-chain";
+import { parser } from "stream-json";
+import { pick } from "stream-json/filters/pick.js";
+import { streamArray } from "stream-json/streamers/stream-array.js";
+
+const arg = (name, dflt) => {
+  const a = process.argv.find((x) => x.startsWith(`--${name}=`));
+  return a ? a.slice(name.length + 3) : dflt;
+};
+
+const NPIS_PATH = arg("npis");
+const OUT_PATH = arg("out");
+const PAYER = arg("payer", "UnitedHealthcare");
+const NETWORK = arg("network", "");
+const SOURCE_FILE = arg("source-file", "");
+const FILE_DATE = arg("file-date", "");
+const CPTS = new Set((arg("codes", "90791,90834,90837,99214,90853")).split(","));
+
+if (!NPIS_PATH || !OUT_PATH) {
+  console.error("Usage: ... --npis=<file> --out=<csv> [--codes=a,b,c]");
+  process.exit(1);
+}
+
+const ourNpis = new Set(
+  fs.readFileSync(NPIS_PATH, "utf8").split("\n").map((s) => s.trim()).filter(Boolean)
+);
+const retained = new Map(); // group_id -> [{tin, npis:[matched]}]
+
+fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true });
+const out = fs.createWriteStream(OUT_PATH);
+out.write(
+  "npi,payer,plan_or_network,billing_code,negotiated_rate,negotiated_type,billing_class,place_of_service,tin,source_file,file_date\n"
+);
+const csv = (v) => {
+  const s = String(v ?? "");
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+const writeOut = (line) =>
+  out.write(line) || new Promise((res) => out.once("drain", res));
+
+const stats = {
+  bytes: 0,
+  refsSeen: 0,
+  refsRetained: 0,
+  itemsSeen: 0,
+  itemsMatchedCode: 0,
+  rows: 0,
+  byCode: Object.fromEntries([...CPTS].map((c) => [c, 0])),
+  start: Date.now(),
+};
+const logStatus = () => {
+  const mb = (stats.bytes / 1e6).toFixed(0);
+  const mins = ((Date.now() - stats.start) / 60000).toFixed(1);
+  console.error(
+    `[${mins}m] ${mb} MB uncompressed | refs ${stats.refsSeen} (retained ${stats.refsRetained}) | items ${stats.itemsSeen} (cpt-hit ${stats.itemsMatchedCode}) | rows ${stats.rows}`
+  );
+};
+const ticker = setInterval(logStatus, 15000);
+
+function handleProviderReference(ref) {
+  stats.refsSeen++;
+  const groups = ref?.provider_groups;
+  if (!Array.isArray(groups)) return;
+  let kept = null;
+  for (const g of groups) {
+    if (!Array.isArray(g?.npi)) continue;
+    let matched = null;
+    for (const n of g.npi) {
+      const s = String(n);
+      if (ourNpis.has(s)) (matched ??= []).push(s);
+    }
+    if (matched) {
+      (kept ??= []).push({
+        tin: g.tin ? `${g.tin.type ?? ""}:${g.tin.value ?? ""}` : "",
+        npis: matched,
+      });
+    }
+  }
+  if (kept) {
+    retained.set(ref.provider_group_id, kept);
+    stats.refsRetained++;
+  }
+}
+
+async function emitRows(item) {
+  for (const nr of item.negotiated_rates ?? []) {
+    let sides = null;
+    if (Array.isArray(nr.provider_references)) {
+      for (const gid of nr.provider_references) {
+        const kept = retained.get(gid);
+        if (kept) (sides ??= []).push(...kept);
+      }
+    } else if (Array.isArray(nr.provider_groups)) {
+      for (const g of nr.provider_groups) {
+        if (!Array.isArray(g?.npi)) continue;
+        const matched = g.npi.map(String).filter((s) => ourNpis.has(s));
+        if (matched.length)
+          (sides ??= []).push({
+            tin: g.tin ? `${g.tin.type ?? ""}:${g.tin.value ?? ""}` : "",
+            npis: matched,
+          });
+      }
+    }
+    if (!sides) continue;
+    for (const price of nr.negotiated_prices ?? []) {
+      const pos = Array.isArray(price.service_code) ? price.service_code.join("|") : "";
+      for (const side of sides) {
+        for (const npi of side.npis) {
+          const w = writeOut(
+            [
+              npi,
+              csv(PAYER),
+              csv(NETWORK),
+              item.billing_code,
+              price.negotiated_rate,
+              price.negotiated_type ?? "",
+              price.billing_class ?? "",
+              pos,
+              csv(side.tin),
+              csv(SOURCE_FILE),
+              FILE_DATE,
+            ].join(",") + "\n"
+          );
+          if (w !== true) await w;
+          stats.rows++;
+          if (stats.byCode[item.billing_code] !== undefined) stats.byCode[item.billing_code]++;
+        }
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Phase R: stream-json over the header until `"in_network":` appears.
+// ---------------------------------------------------------------------------
+const MARKER = Buffer.from('"in_network":');
+const NL = 0x0a;
+const CODE_RE = new RegExp(`"billing_code":"(${[...CPTS].join("|")})"`);
+const HEAD_WINDOW = 4096;
+
+let refsChain = chain([parser(), pick({ filter: "provider_references" }), streamArray()]);
+refsChain.on("data", ({ value }) => handleProviderReference(value));
+let refsDone = false;
+const refsWrite = async (buf) => {
+  if (refsChain.write(buf) !== true)
+    await new Promise((res) => refsChain.once("drain", res));
+};
+const finishRefs = async (tail) => {
+  refsDone = true;
+  if (tail?.length) await refsWrite(tail);
+  // end + flush so trailing provider_references still in the pipeline land in
+  // `retained`; the parser then errors on the truncated root — expected.
+  await new Promise((res) => {
+    refsChain.on("error", res);
+    refsChain.on("end", res);
+    refsChain.on("close", res);
+    refsChain.end();
+  });
+  refsChain = null;
+};
+
+// ---------------------------------------------------------------------------
+// Phase N: line scanner over in_network. Modes: TEST (accumulate head window,
+// decide) -> CAPTURE (matched line, buffer whole) | SKIP (drop to next \n).
+// ---------------------------------------------------------------------------
+let mode = "SKIP"; // right after the marker: skip past the `[` to the first \n
+let headParts = [];
+let headLen = 0;
+let captureParts = null;
+
+function abort(why, sample) {
+  clearInterval(ticker);
+  console.error(`SCANNER ASSUMPTION BROKEN: ${why}`);
+  if (sample) console.error("sample:", sample.toString("utf8", 0, 200));
+  process.exit(3);
+}
+
+async function finishLine() {
+  // full matched line assembled in captureParts
+  let text = Buffer.concat(captureParts).toString("utf8").trim();
+  captureParts = null;
+  if (text.endsWith(",")) text = text.slice(0, -1);
+  let item = null;
+  for (let chop = 0; chop < 6; chop++) {
+    try {
+      item = JSON.parse(text);
+      break;
+    } catch {
+      const last = text[text.length - 1];
+      if (last === "]" || last === "}" || last === ",") text = text.slice(0, -1).trimEnd();
+      else break;
+    }
+  }
+  if (!item) abort("matched line failed to parse after trims");
+  // head-window regex can false-positive (code text inside description) —
+  // re-check the parsed item so behavior matches the reference implementation
+  if (!CPTS.has(String(item.billing_code))) return;
+  stats.itemsMatchedCode++;
+  await emitRows(item);
+}
+
+function testHead() {
+  const head = Buffer.concat(headParts, headLen).toString("utf8");
+  const isItem = head.includes('"negotiation_arrangement"');
+  if (isItem) stats.itemsSeen++;
+  if (CODE_RE.test(head)) return "CAPTURE";
+  if (isItem && !head.includes('"billing_code":"')) {
+    // an item line whose billing_code escaped the head window — never silent
+    abort(`item line without billing_code in first ${HEAD_WINDOW} bytes`, Buffer.from(head));
+  }
+  return "SKIP";
+}
+
+async function scanChunk(buf) {
+  let i = 0;
+  const n = buf.length;
+  while (i < n) {
+    if (mode === "SKIP") {
+      const nl = buf.indexOf(NL, i);
+      if (nl === -1) return; // rest of chunk is mid-line noise
+      i = nl + 1;
+      mode = "TEST";
+      headParts = [];
+      headLen = 0;
+    } else if (mode === "TEST") {
+      const nl = buf.indexOf(NL, i);
+      const end = nl === -1 ? n : nl;
+      const take = Math.min(end - i, HEAD_WINDOW - headLen);
+      if (take > 0) {
+        headParts.push(buf.subarray(i, i + take));
+        headLen += take;
+      }
+      if (headLen >= HEAD_WINDOW || nl !== -1) {
+        // enough head (or the whole line) to decide
+        const decision = testHead();
+        if (decision === "CAPTURE") {
+          captureParts = [Buffer.concat(headParts, headLen)];
+          // include rest of line beyond the head window
+          if (nl !== -1) {
+            if (end > i + take) captureParts.push(Buffer.from(buf.subarray(i + take, end)));
+            i = nl + 1;
+            await finishLine();
+            mode = "TEST";
+            headParts = [];
+            headLen = 0;
+          } else {
+            if (n > i + take) captureParts.push(Buffer.from(buf.subarray(i + take)));
+            mode = "CAPTURE";
+            return;
+          }
+        } else {
+          headParts = [];
+          headLen = 0;
+          if (nl !== -1) {
+            i = nl + 1; // next line starts fresh in TEST
+          } else {
+            mode = "SKIP"; // drop the rest of this long line
+            return;
+          }
+        }
+      } else {
+        return; // chunk exhausted while still filling head window
+      }
+    } else if (mode === "CAPTURE") {
+      const nl = buf.indexOf(NL, i);
+      if (nl === -1) {
+        captureParts.push(Buffer.from(buf.subarray(i)));
+        return;
+      }
+      captureParts.push(Buffer.from(buf.subarray(i, nl)));
+      i = nl + 1;
+      await finishLine();
+      mode = "TEST";
+      headParts = [];
+      headLen = 0;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Drive: stdin chunks -> refs chain until MARKER, then the scanner.
+// ---------------------------------------------------------------------------
+let overlap = Buffer.alloc(0); // carry MARKER.length-1 bytes across chunks
+
+for await (const chunk of process.stdin) {
+  stats.bytes += chunk.length;
+  if (!refsDone) {
+    const probe = overlap.length ? Buffer.concat([overlap, chunk]) : chunk;
+    const at = probe.indexOf(MARKER);
+    if (at === -1) {
+      await refsWrite(chunk);
+      overlap = probe.subarray(Math.max(0, probe.length - MARKER.length + 1));
+      continue;
+    }
+    // found the in_network key: flush the refs tail (bytes of this chunk that
+    // precede the marker were never written yet), then switch to the scanner
+    await finishRefs(chunk.subarray(0, Math.max(0, at - overlap.length)));
+    mode = "SKIP";
+    await scanChunk(probe.subarray(at + MARKER.length));
+  } else {
+    await scanChunk(chunk);
+  }
+}
+// flush a trailing captured line with no final newline
+if (mode === "CAPTURE" && captureParts?.length) await finishLine();
+
+clearInterval(ticker);
+logStatus();
+out.end(() => {
+  console.error(
+    "DONE",
+    JSON.stringify({ ...stats, elapsedMin: (Date.now() - stats.start) / 60000 })
+  );
+});
