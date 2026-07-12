@@ -8,9 +8,9 @@ insurance-accepted signal. Enrich-only: rates attach to NPIs we already hold._
 
 | | value |
 |---|---|
-| Distinct NPIs with a rate signal | **14,657** (baseline: UHC P3 + Oxford) |
-| provider_rate_signals rows | 125,251 |
-| Payers completed | 2/13 (UHC, Oxford — pre-run baseline) |
+| Distinct NPIs with a rate signal | **21,928** (as of ~03:45) |
+| provider_rate_signals rows | 506,237 |
+| Payers completed | 5 loaded (UHC, Oxford, CDPHP, Fidelis, Emblem/Carelon) + Empire streaming |
 
 ## Baseline (before tonight, from the PoC sessions)
 
@@ -52,3 +52,19 @@ insurance-accepted signal. Enrich-only: rates attach to NPIs we already hold._
   pretty-printed with CRLF inside items — the original opener needle missed
   EVERY item silently (caught by the new exit-5 zero-items guard, verified vs
   reference parser byte-identical after the boundary rewrite).
+
+### 3. EmblemHealth (Carelon/Beacon behavioral) — ✅ big (2026-07-12 ~03:45)
+
+- **7,282 distinct NPIs · 89,609 rows** from ONE 2.26 GB file
+  (`Beacon_EmblemHealth-EHIC-Comm`): Carelon's commercial behavioral roster
+  for EmblemHealth (HIP/GHI/EPO/PPO group lines). 12,760 of Carelon's 64,160
+  groups intersect our directory.
+- File is MALFORMED JSON: unescaped quotes in business_name nicknames
+  (`"TAMELA "TAMMY" ROBY LMFT"`). Streaming repair filter
+  (`repair-carelon.mjs`) fixes in-flight; parse then clean.
+- Also on the Emblem portal: HCP (Heritage NY IPA) file = VERIFIED ZERO
+  (11,649 items scanned, no NPIs anywhere in file — no provider identifiers).
+  eviCore + QualCare + medical COM/GHI index zips left for a follow-up pass
+  (medical 99214 rates live there; behavioral is what Beacon carries).
+- Fidelis actual: **8,353 distinct NPIs** — the "Medicaid-trap sliver"
+  outperformed expectations; exchange book is behavioral-rich.
