@@ -25,9 +25,9 @@ export default async function BookPage({
       {/* Minimal warm header — matches the home paper ground, focused-flow chrome. */}
       <header className="border-b border-page-edge">
         <div className="mx-auto flex max-w-3xl items-center gap-4 px-6 py-5">
-          <img src={LOGO} alt="Liminal" className="h-8 w-auto" />
+          <img src={LOGO} alt="Leuk" className="h-8 w-auto" />
           <div className="ml-auto text-right">
-            <p className="text-[15px] font-semibold text-text">Liminal Psychiatry</p>
+            <p className="text-[15px] font-semibold text-text">Leuk Psychiatry</p>
             <p className="text-[13px] text-text-muted">
               {locked ? `Book with ${locked.name}` : "Online booking"}
             </p>
@@ -46,7 +46,7 @@ export default async function BookPage({
       </main>
 
       <footer className="px-6 pb-10 text-center text-[13px] text-text-muted">
-        Powered by Liminal · 31 E 17th St, Suite 402, New York, NY
+        Powered by Leuk · 31 E 17th St, Suite 402, New York, NY
       </footer>
     </div>
   );

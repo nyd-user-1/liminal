@@ -282,7 +282,7 @@ export function FindCareSearch({
               </div>
             )}
 
-            {/* Nobody in this search is bookable on Liminal — offer the direct
+            {/* Nobody in this search is bookable on Leuk — offer the direct
                 route once the list has run out, not partway down it. */}
             {!hasMore && !loadingMore && !results.some((r) => r.bookable) && (
               <Card className="mt-4 border-primary/30 bg-teal-100/40">
@@ -290,11 +290,11 @@ export function FindCareSearch({
                   <div>
                     <h3 className="font-semibold text-text">Prefer to book directly?</h3>
                     <p className="mt-1 text-sm text-text-body">
-                      Liminal clinicians offer in-person and telehealth visits, usually within a week.
+                      Leuk clinicians offer in-person and telehealth visits, usually within a week.
                     </p>
                   </div>
                   <Button fullWidth onClick={() => setBookOpen(true)}>
-                    Book with Liminal
+                    Book with Leuk
                   </Button>
                 </div>
               </Card>

@@ -59,7 +59,7 @@ const CARE_TYPES: Topic[] = [
     providerType: "therapist",
     firstVisit:
       "The first session is mostly listening. Your therapist asks what brought you in and what you're hoping for — there's no test to pass and nothing you have to have figured out first.",
-    metaTitle: "Therapy in New York — Liminal",
+    metaTitle: "Therapy in New York — Leuk",
     metaDescription:
       "Match with a licensed therapist in New York. Weekly or biweekly sessions, virtual or in person, in-network with major plans.",
   },
@@ -83,7 +83,7 @@ const CARE_TYPES: Topic[] = [
     providerType: "prescriber",
     firstVisit:
       "The first visit is a longer evaluation — your history, what you've tried, how you're feeling now. You leave understanding the plan and why, not just holding a prescription.",
-    metaTitle: "Medication management in New York — Liminal",
+    metaTitle: "Medication management in New York — Leuk",
     metaDescription:
       "Psychiatric medication management in New York with psychiatrists and PMHNPs. Careful evaluation, plain-language options, ongoing follow-up.",
   },
@@ -107,7 +107,7 @@ const CARE_TYPES: Topic[] = [
     providerType: "psychiatrist",
     firstVisit:
       "You start with whichever visit is booked first; the other provider is looped in from the start. Nothing has to be explained twice — the people caring for you already share the story.",
-    metaTitle: "Therapy and medication, coordinated — Liminal",
+    metaTitle: "Therapy and medication, coordinated — Leuk",
     metaDescription:
       "Therapy and psychiatric medication in one coordinated place in New York. Your therapist and prescriber share the same picture of your care.",
   },
@@ -135,7 +135,7 @@ const CONDITIONS: Topic[] = [
     providerType: "therapist",
     firstVisit:
       "You'll talk through what anxiety looks like for you and when it started. It's normal to feel nervous walking in — that's exactly the kind of thing your provider is there for.",
-    metaTitle: "Anxiety & stress care in New York — Liminal",
+    metaTitle: "Anxiety & stress care in New York — Leuk",
     metaDescription:
       "Treatment for anxiety and stress in New York — therapy, medication, or both, with clinicians who specialize in it. In-network with major plans.",
   },
@@ -159,7 +159,7 @@ const CONDITIONS: Topic[] = [
     providerType: "psychiatrist",
     firstVisit:
       "The first session asks how long it's been like this and how it's showing up. You don't need the right words — describing an ordinary day is enough to start.",
-    metaTitle: "Depression & mood care in New York — Liminal",
+    metaTitle: "Depression & mood care in New York — Leuk",
     metaDescription:
       "Treatment for depression and mood in New York — therapy, medication, or both. Providers who take it seriously and follow up. In-network with major plans.",
   },
@@ -183,7 +183,7 @@ const CONDITIONS: Topic[] = [
     providerType: "prescriber",
     firstVisit:
       "The evaluation looks at your history going back to childhood and how attention affects you now. Bring examples from real life — that's the most useful thing you can share.",
-    metaTitle: "ADHD evaluation & care in New York — Liminal",
+    metaTitle: "ADHD evaluation & care in New York — Leuk",
     metaDescription:
       "ADHD evaluation, medication management, and coaching in New York. A proper assessment and a plan built around how your attention works.",
   },
@@ -207,7 +207,7 @@ const CONDITIONS: Topic[] = [
     providerType: "therapist",
     firstVisit:
       "The first session is about safety and fit — not the trauma itself. You share only what you want to; a good trauma therapist will never push you past your pace.",
-    metaTitle: "Trauma & PTSD care in New York — Liminal",
+    metaTitle: "Trauma & PTSD care in New York — Leuk",
     metaDescription:
       "Trauma-informed therapy in New York — EMDR, CPT, and clinicians trained to move at your pace. In-network with major plans.",
   },
@@ -231,7 +231,7 @@ const CONDITIONS: Topic[] = [
     providerType: "therapist",
     firstVisit:
       "The first session maps what's happening and what each person wants. It's normal to disagree in the room — that's useful information, not a bad start.",
-    metaTitle: "Relationship & family therapy in New York — Liminal",
+    metaTitle: "Relationship & family therapy in New York — Leuk",
     metaDescription:
       "Couples, family, and individual relationship therapy in New York. A neutral space to work on the patterns underneath. In-network with major plans.",
   },
@@ -255,7 +255,7 @@ const CONDITIONS: Topic[] = [
     providerType: "therapist",
     firstVisit:
       "You talk about who or what you lost, and what the days have been like since. Tears are welcome and so is numbness — there's no right way to arrive.",
-    metaTitle: "Grief & loss support in New York — Liminal",
+    metaTitle: "Grief & loss support in New York — Leuk",
     metaDescription:
       "Grief and bereavement counseling in New York. Care that moves at your pace, for loss of every kind. In-network with major plans.",
   },
@@ -279,7 +279,7 @@ const CONDITIONS: Topic[] = [
     providerType: "therapist",
     firstVisit:
       "You'll walk through your nights and what you've already tried. Keeping a rough sleep log beforehand helps, but it's not required to begin.",
-    metaTitle: "Sleep & insomnia care in New York — Liminal",
+    metaTitle: "Sleep & insomnia care in New York — Leuk",
     metaDescription:
       "Insomnia and sleep treatment in New York — CBT-I and careful medication when needed. Treat the cause, not just the symptom.",
   },
@@ -303,7 +303,7 @@ const CONDITIONS: Topic[] = [
     providerType: "psychiatrist",
     firstVisit:
       "The first evaluation traces your mood history over time — the ups as much as the downs. Family members' observations can help, if you have them to share.",
-    metaTitle: "Bipolar disorder care in New York — Liminal",
+    metaTitle: "Bipolar disorder care in New York — Leuk",
     metaDescription:
       "Bipolar disorder treatment in New York — experienced psychiatric management plus therapy. Consistent follow-up for the long run.",
   },
@@ -327,7 +327,7 @@ const CONDITIONS: Topic[] = [
     providerType: "therapist",
     firstVisit:
       "You set the terms of what you share and when. An affirming provider follows your lead on language and identity from the very first minute.",
-    metaTitle: "LGBTQIA+ affirming care in New York — Liminal",
+    metaTitle: "LGBTQIA+ affirming care in New York — Leuk",
     metaDescription:
       "LGBTQIA+ affirming therapy and psychiatry in New York. Providers who center who you are. In-network with major plans.",
   },
@@ -351,7 +351,7 @@ const CONDITIONS: Topic[] = [
     providerType: "therapist",
     firstVisit:
       "The first session is about understanding your relationship to it — how it started, what it's doing for you, what you want instead. You don't have to have quit already to walk in the door.",
-    metaTitle: "Addiction & recovery care in New York — Liminal",
+    metaTitle: "Addiction & recovery care in New York — Leuk",
     metaDescription:
       "Addiction and substance use treatment in New York — therapy, medication-assisted options, or both, without judgment. In-network with major plans.",
   },
@@ -375,7 +375,7 @@ const CONDITIONS: Topic[] = [
     providerType: "therapist",
     firstVisit:
       "The first session maps your specific obsessions and compulsions — everyone's OCD looks different. Naming the specifics out loud is often the hardest part, and it gets easier from there.",
-    metaTitle: "OCD treatment in New York — Liminal",
+    metaTitle: "OCD treatment in New York — Leuk",
     metaDescription:
       "OCD treatment in New York — ERP therapy with specialists, plus medication when it helps. Evidence-based care for intrusive thoughts and compulsions.",
   },
@@ -399,7 +399,7 @@ const CONDITIONS: Topic[] = [
     providerType: "therapist",
     firstVisit:
       "You'll talk through how you've been feeling since pregnancy or birth, including the parts that feel embarrassing to say. Providers in this space have heard it before — nothing you share will be a surprise to them.",
-    metaTitle: "Maternal mental health care in New York — Liminal",
+    metaTitle: "Maternal mental health care in New York — Leuk",
     metaDescription:
       "Pregnancy and postpartum mental health care in New York — therapy and medication guidance for the anxiety and depression that can come with it.",
   },

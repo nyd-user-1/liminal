@@ -1,4 +1,4 @@
-// Liminal brand mark — a standalone amber rising-arch icon (filled with a pale
+// Leuk brand mark — a standalone amber rising-arch icon (filled with a pale
 // amber) next to the lowercase "liminal" wordmark, both resting on an amber
 // baseline rule. Variants: onNavy (sidebar, auth) · onLight (white surfaces).
 
@@ -28,7 +28,7 @@ export function Logo({
       <span
         className={`font-bold lowercase tracking-tight ${sizes[size]} ${variant === "onNavy" ? "text-white" : "text-text"}`}
       >
-        liminal
+        leuk
       </span>
       {/* amber rising-arch mark (flat bottom flush with the text baseline) */}
       <svg viewBox="0 -0.5 28 13.5" className={`${archSizes[size]} h-auto shrink-0`} aria-hidden>

@@ -72,7 +72,7 @@ export function Sidebar({
     >
       <div className={`flex items-center py-5 ${collapsed ? "justify-center px-2" : "justify-between pl-5 pr-3"}`}>
         {!collapsed && (
-          <Link href={homeHref} aria-label="Liminal home" onClick={onNavigate}>
+          <Link href={homeHref} aria-label="Leuk home" onClick={onNavigate}>
             <Logo variant="onNavy" size="sm" />
           </Link>
         )}

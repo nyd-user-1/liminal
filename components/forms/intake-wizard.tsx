@@ -42,7 +42,7 @@ function toSections(schema: FormBlock[]): Section[] {
   return sections.filter((s) => s.heading !== null || s.blocks.length > 0);
 }
 
-/** Short Stepper label from a section heading ("Welcome to Liminal…"). */
+/** Short Stepper label from a section heading ("Welcome to Leuk…"). */
 function stepLabel(s: Section, i: number): string {
   if (!s.heading) return `Step ${i + 1}`;
   const words = s.heading.split(/\s+/);

@@ -1,7 +1,7 @@
 // PLACEHOLDER bookable practitioners for the homepage "book this week" strip.
 // These are intentionally obvious placeholders — classic John/Jane Doe names —
 // so no one mistakes them for real clinicians. They are NOT written to the
-// database; they render straight from this file. Swap for real Liminal
+// database; they render straight from this file. Swap for real Leuk
 // practitioners + live availability before launch. NEW (public marketing site).
 //
 // Avatars are initials only (design-system rule: never photos).

@@ -8,7 +8,7 @@ import type { PractitionerLite } from "@/lib/repos/services";
 import type { Payer, Service } from "@/lib/types";
 
 // The booking wizard as a dialog — the same BookingWizard the /book page renders,
-// hosted in the catalog Modal so "Book with Liminal" opens in-context instead of
+// hosted in the catalog Modal so "Book with Leuk" opens in-context instead of
 // navigating away. Booking options (services/practitioners/payers) load once on
 // first open via /api/book/options; the page loads them server-side instead.
 
@@ -44,7 +44,7 @@ export function BookingModal({
   if (!open) return null;
 
   return (
-    <Modal open={open} onClose={onClose} title="Book with Liminal" icon="calendar-check" width="max-w-2xl">
+    <Modal open={open} onClose={onClose} title="Book with Leuk" icon="calendar-check" width="max-w-2xl">
       {!opts && !error && (
         <div className="flex justify-center py-16">
           <Spinner size={24} className="text-primary" />

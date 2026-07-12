@@ -8,7 +8,7 @@ import { listPayerFacets } from "@/lib/repos/networks";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Providers · Liminal",
+  title: "Providers · Leuk",
   description: "Search licensed mental-health providers and programs across New York.",
 };
 
@@ -20,7 +20,7 @@ const HERO_IMAGE = "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illu
 // pattern (image + gradient + overlaid H1), crossroads-signpost art standing
 // in for "choosing where to start." Individual profiles live one level down
 // at /providers/[slug] (unrelated route file, same directory); the
-// clinician-facing "join Liminal" pitch is /for-providers.
+// clinician-facing "join Leuk" pitch is /for-providers.
 //
 // The hero is ordinary flow content — it scrolls up and away. The search group
 // beneath it is what sticks (below the nav; see FindCareSearch), so the

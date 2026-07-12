@@ -1,7 +1,7 @@
 import type { AvatarHue } from "@/lib/types";
 import { initials } from "@/lib/format";
 
-// Catalog `Avatar` — initials on a per-user hue circle (Liminal seeds:
+// Catalog `Avatar` — initials on a per-user hue circle (Leuk seeds:
 // teal + amber pairs, plus pink/blue). Sizes: sm 28px · md 36px · lg 96px.
 
 const hues: Record<AvatarHue, { bg: string; text: string }> = {

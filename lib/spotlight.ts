@@ -4,7 +4,7 @@ import { headshotFor } from "@/lib/headshots";
 import { getProfileByUserId, nextAvailableLabel, spotlightRatingFor } from "@/lib/repos/provider-profiles";
 import { listAvailability, listPractitioners } from "@/lib/repos/services";
 
-// The "meet a few providers" rail data — Liminal's real bookable practitioners
+// The "meet a few providers" rail data — Leuk's real bookable practitioners
 // (those with a spotlight rating + profile) plus authored placeholder cards to
 // keep the rail full. Mirrors the home page's spotlight build so /care/[topic]
 // shows the same real cards as the front page instead of the fake John/Jane Doe

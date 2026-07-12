@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: Promise<{ topic: string }> }): Promise<Metadata> {
   const { topic: slug } = await params;
   const topic = getTopic(slug);
-  if (!topic) return { title: "Care — Liminal" };
+  if (!topic) return { title: "Care — Leuk" };
   return { title: topic.metaTitle, description: topic.metaDescription };
 }
 

@@ -48,9 +48,9 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { UserChip } from "@/components/ui/user-chip";
 import { ProviderCta } from "@/components/marketing/provider-cta";
 import { TherapistSearchCta } from "@/components/marketing/therapist-search-cta";
-import { TrustBand } from "@/components/marketing/trust-band";
+import { InsurerStrip } from "@/components/site/insurer-strip";
 
-// Design System — Liminal foundations + the full shared UI kit, plus a
+// Design System — Leuk foundations + the full shared UI kit, plus a
 // reference index of the feature components.
 //
 // Kept deliberately light:
@@ -630,7 +630,7 @@ const ASSET_GROUPS: Array<{ label: string; tile: "light" | "navy"; items: string
       "illustrations/liminal-landscape_b69909b69909b699.avif",
       "illustrations/liminal-landscape_rhjb16rhjb16rhjb.avif",
       "illustrations/liminal-landscape_w68hevw68hevw68h.avif",
-      "illustrations/Liminal-life_law6m9law6m9law6.avif",
+      "illustrations/Leuk-life_law6m9law6m9law6.avif",
     ],
   },
   {
@@ -643,7 +643,7 @@ const ASSET_GROUPS: Array<{ label: string; tile: "light" | "navy"; items: string
       "illustrations/Gemini_Generated_Image_gandqagandqagand.avif",
       "illustrations/Gemini_Generated_Image_m17ugum17ugum17u.avif",
       "illustrations/Gemini_Generated_Image_q35ecjq35ecjq35e.avif",
-      "illustrations/Liminal-dusk-landscape-5-July-07-2026-12_33AM.avif",
+      "illustrations/Leuk-dusk-landscape-5-July-07-2026-12_33AM.avif",
       "illustrations/dusk-7.avif",
       "illustrations/liminal-dusk-landscape_4ijehh4ijehh4ije.avif",
       "illustrations/liminal-dusk-landscape_vu9yc6vu9yc6vu9y.avif",
@@ -705,7 +705,7 @@ const DEMO_ICONS: IconName[] = [
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-const DESIGN_RULES = `Liminal design system — start here (read before you build)
+const DESIGN_RULES = `Leuk design system — start here (read before you build)
 
 REUSE FIRST. ~44 UI primitives in components/ui/* and ~30 feature components. Compose what exists; if no primitive fits, compose several. Adding a genuinely new primitive requires saying so explicitly in your report. Never duplicate a feature component.
 
@@ -922,7 +922,7 @@ export default function DesignSystemPage() {
                 <div className="w-40 overflow-hidden rounded-card border border-border shadow-card">
                   <img
                     src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/illustrations/liminal_w5kx7ww5kx7ww5kx.avif"
-                    alt="Liminal watercolour illustration — a still life of a lamp, book, and reading glasses on a side table."
+                    alt="Leuk watercolour illustration — a still life of a lamp, book, and reading glasses on a side table."
                     width={1407}
                     height={768}
                     className="block w-full"
@@ -1063,13 +1063,13 @@ export default function DesignSystemPage() {
             <SectionHead title="Insurance logos" />
             <Card className="space-y-5">
               <p className="text-[15px] text-text-body">
-                Payer marks are normalized to a uniform box and stored in two variants:{" "}
-                <code className="rounded bg-canvas px-1 py-0.5">logos/insurance/*</code> (colour, for light fields) and{" "}
-                <code className="rounded bg-canvas px-1 py-0.5">logos/insurance-white/*</code> (monochrome, for the navy
-                trust band). The live band:
+                Payer marks are stored as colour AVIF/SVG in{" "}
+                <code className="rounded bg-canvas px-1 py-0.5">logos/insurance/*</code>, for light fields. Tightly-cropped
+                marks (Humana, Healthfirst) get a per-logo height so every row reads evenly. The live band
+                (<code className="rounded bg-canvas px-1 py-0.5">InsurerStrip</code>):
               </p>
               <div className="-mx-5 -mb-5 overflow-hidden rounded-b-card">
-                <TrustBand />
+                <InsurerStrip ground="page" />
               </div>
             </Card>
           </section>
@@ -1237,7 +1237,7 @@ export default function DesignSystemPage() {
                 <ChoiceChip key={c} label={c} selected={cadence === c} onSelect={() => setCadence(c)} />
               ))}
             </Spec>
-            <Spec name="ColorSwatch" desc="Calendar-color chip; the Liminal palette.">
+            <Spec name="ColorSwatch" desc="Calendar-color chip; the Leuk palette.">
               {EVENT_COLORS.map((c) => (
                 <ColorSwatch key={c} color={c} selected={color === c} onSelect={() => setColor(c)} />
               ))}

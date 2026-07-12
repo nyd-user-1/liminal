@@ -15,7 +15,7 @@ import { searchProviders } from "@/lib/repos/directory";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "For health plans — Liminal network partnership",
+  title: "For health plans — Leuk network partnership",
   description:
     "A statewide network of verified mental health providers with measured outcomes, clean claims, and reporting your clinical team can act on.",
 };
@@ -40,14 +40,14 @@ export default async function HealthPlansPage() {
       <PageHero
         eyebrow="For health plans"
         title="A network built for access and outcomes."
-        lede="Liminal connects your members to verified mental health providers across New York — with the measurement, integration, and reporting a modern plan expects."
+        lede="Leuk connects your members to verified mental health providers across New York — with the measurement, integration, and reporting a modern plan expects."
         primary={{ href: PARTNER_EMAIL, label: "Explore a partnership" }}
         secondary={{ href: "#offer", label: "What we offer" }}
       />
 
       <Section id="offer">
         <SectionHeading
-          title="What Liminal offers plans."
+          title="What Leuk offers plans."
           lede="Four things a plan cares about — access, quality, integration, and reporting — in one network."
         />
         <FeatureGrid
@@ -87,7 +87,7 @@ export default async function HealthPlansPage() {
             {
               value: sizeLabel ?? <Placeholder token="{{STAT:network_size}}" />,
               label: "Providers in the New York network",
-              note: sizeLabel ? "Live from the Liminal directory" : undefined,
+              note: sizeLabel ? "Live from the Leuk directory" : undefined,
             },
             { value: <Placeholder token="{{STAT:time_to_first_visit}}" />, label: "Median time to first visit" },
             { value: <Placeholder token="{{STAT:measured_improvement}}" />, label: "Members showing measurable improvement" },
@@ -101,7 +101,7 @@ export default async function HealthPlansPage() {
           <div className="max-w-md">
             <SectionHeading
               title="Integration & compliance posture."
-              lede="How the platform is built. This describes Liminal's safeguards — it isn't legal or compliance advice."
+              lede="How the platform is built. This describes Leuk's safeguards — it isn't legal or compliance advice."
             />
           </div>
           <ul className="space-y-4">

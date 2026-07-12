@@ -28,7 +28,7 @@ import { titleCase } from "@/lib/format";
 // The public provider profile — our version of Headway's provider page.
 // Resolves BOTH sources through one dynamic segment, and they no longer share
 // a layout, because they never really shared a shape:
-//   - a bookable Liminal practitioner (users + provider_profiles) has an intro,
+//   - a bookable Leuk practitioner (users + provider_profiles) has an intro,
 //     an approach, real availability. Card per section, sticky booking rail.
 //   - a sparse NY directory row (directory_providers) has a name, a profession,
 //     a license code and an address. Four facts across three cards read as an
@@ -49,10 +49,10 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const practitioner = await getPractitionerBySlug(slug);
-  if (practitioner) return { title: `${practitioner.name} · Liminal` };
+  if (practitioner) return { title: `${practitioner.name} · Leuk` };
   const directory = await getProviderBySlug(slug);
-  if (directory) return { title: `${directory.name} · Liminal` };
-  return { title: "Provider · Liminal" };
+  if (directory) return { title: `${directory.name} · Leuk` };
+  return { title: "Provider · Leuk" };
 }
 
 export default async function ProviderProfilePage({ params }: { params: Promise<{ slug: string }> }) {

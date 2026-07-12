@@ -6,7 +6,7 @@
 // DEMO MODE (Brendan, 2026-07-11): the dropdown lists every carrier discussed
 // in the payer research, with real insurer marks where the blob store has one
 // and the two-tone `id-card` icon as the placeholder elsewhere. Carriers we
-// hold no data for route through the API's legacy path (Liminal practitioners
+// hold no data for route through the API's legacy path (Leuk practitioners
 // only, directory honestly excluded) — which carriers stay is a later call.
 
 const LOGO_BASE = "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/insurance";

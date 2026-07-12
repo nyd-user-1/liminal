@@ -60,7 +60,7 @@ const SPECIALTIES: Array<{ name: string; note: string; q: string }> = [
   { name: "Addiction & recovery", note: "Judgment-free care, at your own pace", q: "Addiction" },
 ];
 
-// Reach stats (Headway "found support" layout, Liminal content). Provider count
+// Reach stats (Headway "found support" layout, Leuk content). Provider count
 // held at 116,000+ to match the hero rather than Headway's 70K+.
 const STATS: Array<{ n: string; label: string; body: string }> = [
   {
@@ -71,7 +71,7 @@ const STATS: Array<{ n: string; label: string; body: string }> = [
   {
     n: "116,000+",
     label: "licensed providers",
-    body: "No matter what you’re facing, Liminal helps you find a therapist or psychiatrist who’s ready to help.",
+    body: "No matter what you’re facing, Leuk helps you find a therapist or psychiatrist who’s ready to help.",
   },
 ];
 
@@ -82,17 +82,17 @@ const REVIEWS: Review[] = [
   {
     name: "Rachel Bouton",
     title: "It just works",
-    text: "You plug in your insurance and Liminal lists therapists who take it — then handles all the payment and billing for you.",
+    text: "You plug in your insurance and Leuk lists therapists who take it — then handles all the payment and billing for you.",
   },
   {
     name: "Caiti Donovan",
     title: "Found the right fit",
-    text: "I found my therapist through Liminal and love her. It takes the hassle out of insurance and payment so you focus on fit.",
+    text: "I found my therapist through Leuk and love her. It takes the hassle out of insurance and payment so you focus on fit.",
   },
   {
     name: "tikh",
     title: "Highly recommend",
-    text: "Woah, def recommend this for anyone looking for a therapist — Liminal made the whole thing painless.",
+    text: "Woah, def recommend this for anyone looking for a therapist — Leuk made the whole thing painless.",
   },
   {
     name: "Marcus Lee",
@@ -117,7 +117,7 @@ const REVIEWS: Review[] = [
   {
     name: "Hannah K.",
     title: "No more phone tag",
-    text: "My old routine was calling ten offices to ask if they took my plan. Liminal just showed me the ones that did.",
+    text: "My old routine was calling ten offices to ask if they took my plan. Leuk just showed me the ones that did.",
   },
   {
     name: "Andre T.",
@@ -224,8 +224,43 @@ const HOW_IT_WORKS: Array<{ title: string; body: string }> = [
   },
 ];
 
-// #for-providers — the feature grid inside the provider band; one line per
-// pillar of the platform, icons from the kit's Icon set.
+// #for-patients — the feature grid inside the band, written to the person
+// looking for care; one line per pillar, icons from the kit's Icon set.
+const PATIENT_FEATURES: Array<{ title: string; body: string; icon: IconName }> = [
+  {
+    title: "Book online",
+    body: "See real openings, pick a time that works, and get reminders so nothing slips.",
+    icon: "calendar-check",
+  },
+  {
+    title: "Meet from anywhere",
+    body: "Secure video visits from home — no new app to download, no links to chase.",
+    icon: "monitor-check",
+  },
+  {
+    title: "Undivided attention",
+    body: "Your clinician stays present with you, not buried in paperwork — the notes take care of themselves.",
+    icon: "wand-sparkles",
+  },
+  {
+    title: "Clear costs",
+    body: "See what you'll owe, pay from your phone, and get superbills for out-of-network reimbursement.",
+    icon: "credit-card",
+  },
+  {
+    title: "Your private portal",
+    body: "Book, message your provider, pay, and find your documents in one secure place.",
+    icon: "users-round",
+  },
+  {
+    title: "Find the right fit",
+    body: "Search by specialty, borough, and the insurance you carry to reach someone who takes your plan.",
+    icon: "search",
+  },
+];
+
+// Provider band features (section 9, #for-providers) — the practice-management
+// pitch. Distinct from PATIENT_FEATURES (section 2, the client-side band).
 const PROVIDER_FEATURES: Array<{ title: string; body: string; icon: IconName }> = [
   {
     title: "Scheduling",
@@ -254,7 +289,7 @@ const PROVIDER_FEATURES: Array<{ title: string; body: string; icon: IconName }> 
   },
   {
     title: "Directory referrals",
-    body: "A profile in the Liminal directory that puts you in front of clients searching by specialty, borough, and plan.",
+    body: "A profile in the Leuk directory that puts you in front of clients searching by specialty, borough, and plan.",
     icon: "search",
   },
 ];
@@ -359,7 +394,7 @@ export default async function Home() {
         </div>
 
         {/* scroll cue — fades/rises in after load, out on first scroll (client) */}
-        <ScrollCue targetId="section-2" label="Scroll to run your New York practice on Liminal" />
+        <ScrollCue targetId="section-2" label="Scroll to run your New York practice on Leuk" />
       </section>
 
       {/* ── 2 · Provider band (duplicate) — same content as the #for-providers
@@ -371,10 +406,10 @@ export default async function Home() {
           <Reveal className="lg:order-last lg:mr-0 lg:w-auto lg:-mr-16 xl:-mr-28">
             <WatercolorHover>
               <img
-                src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/Gemini_Generated_Image_tep72ltep72ltep7-Photoroom.avif"
-                alt="A watercolour illustration — a doctor's office desk with a stethoscope on a clipboard, a succulent, and a sweater draped over a chair."
-                width={2400}
-                height={1309}
+                src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/car.png"
+                alt="A watercolour illustration of a sunlit car interior — dashboard, steering wheel, and a warm cup resting in the console."
+                width={1024}
+                height={559}
                 className="block w-full"
                 loading="lazy"
               />
@@ -382,21 +417,21 @@ export default async function Home() {
           </Reveal>
           <div className="max-w-md">
             <p className="font-display text-[13px] font-semibold uppercase tracking-[0.14em] text-primary-deep">
-              For providers
+              For you
             </p>
             <h2 className="mt-3 text-balance font-display text-3xl font-bold tracking-tight text-primary sm:text-[40px] sm:leading-[1.08]">
-              Run your New York practice on Liminal.
+              Care that fits your life.
             </h2>
             <p className="mt-5 text-pretty text-lg leading-relaxed text-text-body">
-              Scheduling, telehealth, AI progress notes, and billing on one platform — plus a directory that sends you
-              clients. The practice behind the care can go home on time.
+              Search by specialty, borough, and the plan you carry, book in a few taps, and meet by secure
+              video or in person — with everything you need in one private portal.
             </p>
             <div className="mt-8">
               <Link
-                href="/join"
+                href="/providers"
                 className="group inline-flex h-12 items-center justify-center gap-1.5 rounded-field bg-primary px-7 text-[15px] font-semibold text-white transition-colors hover:bg-primary-hover"
               >
-                Join as a provider
+                Find a provider
               </Link>
             </div>
           </div>
@@ -404,7 +439,7 @@ export default async function Home() {
         <div className="mx-auto w-full max-w-6xl px-6 pt-14 pb-24 sm:pb-28">
           <Reveal>
             <ul className="grid gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
-              {PROVIDER_FEATURES.map((f) => (
+              {PATIENT_FEATURES.map((f) => (
                 <li key={f.title} className="flex gap-4">
                   <Icon name={f.icon} size={22} className="mt-0.5 shrink-0 fill-[#f7f3e8] text-text" />
                   <div>
@@ -499,7 +534,7 @@ export default async function Home() {
                 See how much you save on sessions
               </h2>
               <p className="mt-5 text-pretty text-lg leading-relaxed text-text-body">
-                Our clients save an average of 60% on sessions through Liminal. We partner with 100+ of New
+                Our clients save an average of 60% on sessions through Leuk. We partner with 100+ of New
                 York&apos;s top insurance plans — in-person and virtual care, across 40+ languages.
               </p>
               <Link
@@ -515,7 +550,7 @@ export default async function Home() {
 
       {/* In-network logo strip — real payer marks in place of the coloured
           insurer wordmarks (components/site/insurer-strip.tsx). */}
-      <InsurerStrip ground="wash" caption="" />
+      <InsurerStrip ground="page" caption="" />
 
       {/* ── 5 · Trusted across New York — stats + the reviews rail ─────────── */}
       <section className="relative overflow-hidden bg-page">
@@ -541,7 +576,7 @@ export default async function Home() {
 
             <Reveal className="text-center lg:col-span-2 lg:row-start-1">
               <p className="font-display text-[13px] font-semibold uppercase tracking-[0.16em] text-primary-deep">
-                Through Liminal
+                Through Leuk
               </p>
               <h2 className="mt-3 text-balance font-display text-4xl font-bold tracking-tight text-primary sm:text-5xl">
                 Trusted across New York
@@ -633,33 +668,6 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ── Human proof — one quote, in the serif voice ────────────────────── */}
-      <section className="bg-page">
-        <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-6 py-24 sm:py-28 lg:grid-cols-2 lg:gap-16">
-          <Reveal>
-            <WatercolorHover>
-              <img
-                src={`${CUT}/resting-meadow.avif`}
-                alt="A watercolour illustration — a person lies back in tall grass, hands behind their head, eyes closed, at ease."
-                width={1600}
-                height={1120}
-                className="block w-full"
-                loading="lazy"
-              />
-            </WatercolorHover>
-          </Reveal>
-          <figure className="lg:pr-6">
-            <blockquote className="text-balance font-display text-[26px] font-semibold leading-[1.3] tracking-tight text-text sm:text-[32px]">
-              “I filtered to Brooklyn, teletherapy, and my insurance — and booked a first session for the same week. No
-              phone tag, no waitlist.”
-            </blockquote>
-            <figcaption className="mt-6 font-display text-[15px] font-medium text-text-body">
-              Dana R. <span className="text-text-body/60">— client in Brooklyn</span>
-            </figcaption>
-          </figure>
-        </div>
-      </section>
-
       {/* ── Provider band — the single provider moment, on the mint wash ───── */}
       <section id="for-providers" className="scroll-mt-20 bg-primary-wash">
         <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-6 pt-24 sm:pt-28 lg:grid-cols-[1fr_1.3fr] lg:gap-16">
@@ -680,7 +688,7 @@ export default async function Home() {
               For providers
             </p>
             <h2 className="mt-3 text-balance font-display text-3xl font-bold tracking-tight text-primary sm:text-[40px] sm:leading-[1.08]">
-              Run your New York practice on Liminal.
+              Run your New York practice on Leuk.
             </h2>
             <p className="mt-5 text-pretty text-lg leading-relaxed text-text-body">
               Scheduling, telehealth, AI progress notes, and billing on one platform — plus a directory that sends you
@@ -710,40 +718,6 @@ export default async function Home() {
               ))}
             </ul>
           </Reveal>
-        </div>
-      </section>
-
-      {/* ── Closing patient CTA — two-col: painting, then the invitation ───── */}
-      <section className="bg-page">
-        <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-6 py-24 sm:py-28 lg:grid-cols-2 lg:gap-16">
-          <Reveal>
-            <WatercolorHover>
-              <img
-                src={`${CUT}/walking-together.avif`}
-                alt="A watercolour illustration — two people walk a small dog along a stream toward soft morning light."
-                width={1600}
-                height={1000}
-                className="block w-full"
-                loading="lazy"
-              />
-            </WatercolorHover>
-          </Reveal>
-          <div className="max-w-md lg:pr-6">
-            <h2 className="text-balance font-display text-4xl font-bold tracking-tight text-primary sm:text-5xl">
-              Find care without the guesswork.
-            </h2>
-            <p className="mt-5 text-pretty text-lg leading-relaxed text-text-body">
-              Search by specialty, borough, and coverage — and take the first step this week.
-            </p>
-            <div className="mt-8">
-              <Link
-                href="/providers"
-                className="group inline-flex h-12 items-center justify-center gap-1.5 rounded-field bg-primary px-7 text-[15px] font-semibold text-white transition-colors hover:bg-primary-hover"
-              >
-                Find your provider
-              </Link>
-            </div>
-          </div>
         </div>
       </section>
 

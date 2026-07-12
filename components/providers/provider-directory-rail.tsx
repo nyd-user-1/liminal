@@ -11,7 +11,7 @@ import { titleCase } from "@/lib/format";
 // Everything after this provider: the rest of the New York directory, a→z, in
 // the same folded panel the profile above uses. The public-search route already
 // orders by name when there's no query, so page N is simply the next slice of
-// the alphabet; `bookableFirst=0` keeps Liminal's own practitioners from being
+// the alphabet; `bookableFirst=0` keeps Leuk's own practitioners from being
 // hoisted to the top of it and breaking that order.
 //
 // Pages append as the sentinel nears the viewport. The provider whose page this

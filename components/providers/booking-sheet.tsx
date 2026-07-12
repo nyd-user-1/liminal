@@ -200,7 +200,7 @@ export function BookingSheet({
 
               <p className="mt-4 text-[13px] text-text-muted">
                 When you enter your info, we&apos;ll use it to verify your insurance coverage. By continuing you agree
-                to Liminal&apos;s cancellation policy and terms of service.
+                to Leuk&apos;s cancellation policy and terms of service.
               </p>
 
               {error && <p className="mt-3 text-sm text-danger">{error}</p>}

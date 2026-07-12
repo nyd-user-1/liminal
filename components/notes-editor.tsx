@@ -24,7 +24,7 @@ import { gapCursor } from "prosemirror-gapcursor";
 
 // Clinical-notes writing engine — ProseMirror configured as a WYSIWYG
 // *markdown* editor (adapted from hq/app/ui/prosemirror-editor.tsx, restyled
-// for the Liminal light theme). Value in and out is a markdown string, so
+// for the Leuk light theme). Value in and out is a markdown string, so
 // notes.body_md stays plain markdown. Linear-style affordances: markdown
 // input rules ("## " → heading, "- " → list, "**b**" → bold as you type) and
 // a "/" slash menu for block insertion.

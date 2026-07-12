@@ -13,9 +13,9 @@ export const dynamic = "force-dynamic";
 const PRESS_EMAIL = "mailto:press@liminal.demo";
 
 export const metadata: Metadata = {
-  title: "Press · Liminal",
+  title: "Press · Leuk",
   description:
-    "Media inquiries, brand assets, and background on Liminal's New York mental-health directory and practice-management platform.",
+    "Media inquiries, brand assets, and background on Leuk's New York mental-health directory and practice-management platform.",
 };
 
 export default function PressPage() {
@@ -44,12 +44,12 @@ export default function PressPage() {
               {
                 icon: "message-circle-heart",
                 title: "Founder & clinician interviews",
-                body: "Perspective from the team and from Liminal-network clinicians on what's actually broken in finding care.",
+                body: "Perspective from the team and from Leuk-network clinicians on what's actually broken in finding care.",
               },
               {
                 icon: "download",
                 title: "Brand & logo assets",
-                body: "Logo files and usage guidelines for anyone writing about Liminal.",
+                body: "Logo files and usage guidelines for anyone writing about Leuk.",
               },
             ]}
           />
@@ -57,7 +57,7 @@ export default function PressPage() {
 
         <Section ground="canvas" innerClassName="text-center">
           <p className="mx-auto max-w-xl text-pretty text-[15px] leading-relaxed text-text-body">
-            We haven't been covered yet — Liminal is early. If that changes, we'll list it here.
+            We haven't been covered yet — Leuk is early. If that changes, we'll list it here.
           </p>
         </Section>
 

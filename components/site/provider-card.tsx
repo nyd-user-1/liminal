@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icons";
 import { BOOK_HREF, type PlaceholderPractitioner } from "@/lib/site-content";
 
-// Provider card for the "book this week" strip. Renders Liminal's own bookable
+// Provider card for the "book this week" strip. Renders Leuk's own bookable
 // practitioners — here, obvious PLACEHOLDER profiles (John/Jane Doe) with
 // example availability. Avatar is initials only (design-system rule). Composed
 // entirely from primitives (Avatar, Badge, Icon). NEW (public marketing site).
@@ -57,7 +57,7 @@ export function ProviderCard({ p }: { p: PlaceholderPractitioner }) {
 
 export function ProviderStrip({
   items,
-  note = "Example providers — placeholder profiles shown for preview. Real Liminal practitioners and live availability appear here at launch.",
+  note = "Example providers — placeholder profiles shown for preview. Real Leuk practitioners and live availability appear here at launch.",
 }: {
   items: PlaceholderPractitioner[];
   note?: string;

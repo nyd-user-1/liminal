@@ -39,7 +39,7 @@ const ROUTE_TITLES: Array<[prefix: string, icon: IconName, title: string]> = [
 function routeTitle(pathname: string, user: SessionUser): { icon: IconName; title: string } {
   if (pathname === "/portal") return { icon: "grid", title: `Welcome back, ${user.name.split(" ")[0]}` };
   const hit = ROUTE_TITLES.find(([p]) => pathname === p || pathname.startsWith(`${p}/`));
-  return hit ? { icon: hit[1], title: hit[2] } : { icon: "grid", title: "Liminal" };
+  return hit ? { icon: hit[1], title: hit[2] } : { icon: "grid", title: "Leuk" };
 }
 
 export function TopBar({

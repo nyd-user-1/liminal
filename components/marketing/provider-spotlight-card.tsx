@@ -129,7 +129,7 @@ export function ProviderSpotlightRail({ providers }: { providers: ProviderSpotli
 // ── find-care variant ─────────────────────────────────────────────────────────
 // Same card, same layout, driven by the live PublicResult search shape instead
 // of authored content, keyed on `bookable`:
-//   - bookable Liminal practitioners: identical to the homepage card — rating,
+//   - bookable Leuk practitioners: identical to the homepage card — rating,
 //     next availability, View profile + Book session, whole card → /providers/[slug].
 //   - the ~116k directory rows: same shape, swapped content. People keep their
 //     profession line + whole-card profile link; programs/facilities show
@@ -179,7 +179,7 @@ export function FindCareSpotlightCard({ r }: { r: PublicResult }) {
   );
 
   if (!isProgram) {
-    // A person — bookable Liminal practitioner or directory (NPI) provider.
+    // A person — bookable Leuk practitioner or directory (NPI) provider.
     const href = r.slug ? `/providers/${r.slug}` : undefined;
     const rating = r.bookable
       ? { rating: r.rating ?? 5.0, reviewCount: r.reviewCount ?? 0 }

@@ -13,7 +13,7 @@ import { formatCents, formatDateLong, formatTime } from "@/lib/format";
 // default is Resend's shared dev sender, which only delivers to the account
 // owner's inbox — fine for development, set the env var in production.
 
-export const EMAIL_FROM = process.env.LIMINAL_EMAIL_FROM ?? "Liminal <onboarding@resend.dev>";
+export const EMAIL_FROM = process.env.LIMINAL_EMAIL_FROM ?? "Leuk <onboarding@resend.dev>";
 
 let client: Resend | null = null;
 export function resend(): Resend | null {
@@ -62,7 +62,7 @@ function shell(opts: { heading: string; bodyHtml: string; cta?: { label: string;
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${PAPER};padding:32px 16px;"><tr><td align="center">
     <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;">
       <tr><td style="background:${NAVY};border-radius:12px 12px 0 0;padding:20px 32px;">
-        <span style="font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:.3px;">Liminal</span>
+        <span style="font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:.3px;">Leuk</span>
       </td></tr>
       <tr><td style="background:#ffffff;border-radius:0 0 12px 12px;padding:32px;">
         <h1 style="margin:0 0 14px;font-family:Inter,Helvetica,Arial,sans-serif;font-size:20px;font-weight:700;color:${INK};">${opts.heading}</h1>
@@ -70,7 +70,7 @@ function shell(opts: { heading: string; bodyHtml: string; cta?: { label: string;
         ${cta}
       </td></tr>
       <tr><td style="padding:18px 8px 0;text-align:center;font-family:Inter,Helvetica,Arial,sans-serif;font-size:12px;color:#8A8F9E;">
-        Liminal · 31 E 17th St, Suite 402, New York, NY
+        Leuk · 31 E 17th St, Suite 402, New York, NY
       </td></tr>
     </table>
   </td></tr></table></body></html>`;
@@ -130,7 +130,7 @@ export async function sendPasswordEmail(opts: {
   const isNew = opts.purpose === "set";
   return sendEmail({
     to: opts.to,
-    subject: isNew ? "Set up your Liminal client portal" : "Reset your Liminal password",
+    subject: isNew ? "Set up your Leuk client portal" : "Reset your Leuk password",
     html: shell({
       heading: isNew ? `Welcome, ${esc(opts.firstName)}` : `Reset your password`,
       bodyHtml: isNew
@@ -187,11 +187,11 @@ export async function sendInvoiceEmail(opts: {
   </table>`;
   return sendEmail({
     to: opts.to,
-    subject: `Invoice ${opts.number} from Liminal Psychiatry — ${formatCents(opts.balanceCents)} due`,
+    subject: `Invoice ${opts.number} from Leuk Psychiatry — ${formatCents(opts.balanceCents)} due`,
     html: shell({
       heading: `Your invoice, ${esc(opts.firstName)}`,
       bodyHtml:
-        `<p style="margin:0;">Here's your invoice from Liminal Psychiatry. You can review it and pay securely from your client portal.</p>` +
+        `<p style="margin:0;">Here's your invoice from Leuk Psychiatry. You can review it and pay securely from your client portal.</p>` +
         itemsTable(opts.items) +
         totals,
       cta: { label: "View & pay invoice", href: `${appBaseUrl()}/portal/invoices?invoice=${opts.invoiceId}` },

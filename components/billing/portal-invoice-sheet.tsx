@@ -151,7 +151,7 @@ export function PortalInvoiceSheet({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <Logo size="sm" />
-                <p className="mt-1 text-[13px] text-text-muted">Liminal Psychiatry · hello@liminal.demo</p>
+                <p className="mt-1 text-[13px] text-text-muted">Leuk Psychiatry · hello@liminal.demo</p>
               </div>
               {s && <Badge variant={s.variant}>{s.label}</Badge>}
             </div>

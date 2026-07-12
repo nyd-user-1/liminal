@@ -33,10 +33,10 @@ export const CONDITION_LINKS: NavLink[] = CONDITION_TOPICS.map((t) => ({
 
 // Providers — the clinician-facing paths.
 export const PROVIDER_LINKS: NavLink[] = [
-  { label: "Why Liminal", href: "/for-providers", note: "Be present, not buried in paperwork" },
+  { label: "Why Leuk", href: "/for-providers", note: "Be present, not buried in paperwork" },
   { label: "For prescribers", href: "/for-providers/prescribers", note: "Psychiatrists & PMHNPs" },
   { label: "For therapists", href: "/for-providers/therapists", note: "Counselors & clinical social workers" },
-  { label: "Join Liminal", href: "/join", note: "Apply or book a walkthrough" },
+  { label: "Join Leuk", href: "/join", note: "Apply or book a walkthrough" },
 ];
 
 // Partners — the three secondary audiences that get a real page but no
@@ -63,7 +63,7 @@ export const FOOTER_COLUMNS: NavGroup[] = [
       { label: "Therapy", href: "/care/therapy" },
       { label: "Medication management", href: "/care/medication" },
       { label: "Therapy + medication", href: "/care/both" },
-      { label: "Book with Liminal", href: "/book/liminal" },
+      { label: "Book with Leuk", href: "/book/liminal" },
     ],
   },
   {

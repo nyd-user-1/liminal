@@ -77,7 +77,7 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
           <div>
             <Logo size="md" />
             <p className="mt-3 text-sm leading-relaxed text-text-muted">
-              Liminal Psychiatry
+              Leuk Psychiatry
               <br />
               hello@liminal.demo · (555) 010-3010
             </p>
@@ -192,14 +192,14 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
               ))}
             </div>
             <p className="mt-3 text-[13px] leading-relaxed text-text-muted">
-              This statement may be submitted to your insurance payer for reimbursement. Liminal Psychiatry does not
+              This statement may be submitted to your insurance payer for reimbursement. Leuk Psychiatry does not
               guarantee coverage; contact your payer with questions about your benefits.
             </p>
           </div>
         )}
 
         <p className="mt-10 border-t border-border pt-4 text-center text-[13px] text-text-muted">
-          Thank you — {invoice.number} · Liminal Psychiatry · hello@liminal.demo
+          Thank you — {invoice.number} · Leuk Psychiatry · hello@liminal.demo
         </p>
       </div>
     </div>

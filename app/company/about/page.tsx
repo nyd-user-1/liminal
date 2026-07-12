@@ -13,9 +13,9 @@ import { Placeholder } from "@/components/site/placeholder";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "About us · Liminal",
+  title: "About us · Leuk",
   description:
-    "Liminal is a directory of licensed New York mental-health providers, and the practice-management system they run on — built so finding real, covered care doesn't take weeks.",
+    "Leuk is a directory of licensed New York mental-health providers, and the practice-management system they run on — built so finding real, covered care doesn't take weeks.",
 };
 
 export default function AboutPage() {
@@ -24,9 +24,9 @@ export default function AboutPage() {
       <Nav />
       <main className="flex-1">
         <PageHero
-          eyebrow="About Liminal"
+          eyebrow="About Leuk"
           title="Care shouldn't be this hard to find."
-          lede="Liminal started from a simple frustration: New Yorkers looking for a therapist or psychiatrist spend weeks on hold, calling offices that never call back, before they even learn who takes their insurance. We built the directory we wished existed — and the practice software behind it, so the providers on the other end can actually keep up."
+          lede="Leuk started from a simple frustration: New Yorkers looking for a therapist or psychiatrist spend weeks on hold, calling offices that never call back, before they even learn who takes their insurance. We built the directory we wished existed — and the practice software behind it, so the providers on the other end can actually keep up."
           primary={{ href: "/providers", label: "Find a provider" }}
           secondary={{ href: "/join", label: "For providers" }}
         />
@@ -69,7 +69,7 @@ export default function AboutPage() {
         </Section>
 
         <CtaBand
-          title="Find care, or bring your practice to Liminal."
+          title="Find care, or bring your practice to Leuk."
           lede="One system for the person looking for help, and the provider ready to see them."
           primary={{ href: "/providers", label: "Find a provider" }}
           secondary={{ href: "/join", label: "Join as a provider" }}

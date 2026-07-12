@@ -4,7 +4,7 @@ import { SetPasswordForm } from "./set-password-form";
 // Set/reset password via a one-time emailed token (?token=…). Same navy
 // backdrop + white AuthCard as sign-in.
 
-export const metadata = { title: "Set your password · Liminal" };
+export const metadata = { title: "Set your password · Leuk" };
 
 export default async function SetPasswordPage({
   searchParams,
@@ -18,7 +18,7 @@ export default async function SetPasswordPage({
       <div className="w-full max-w-md rounded-card bg-surface p-8 shadow-menu">
         <h1 className="text-center text-[28px] font-bold text-text">Choose a password</h1>
         <p className="mt-1 text-center text-[15px] text-text-muted">
-          Set a password for your Liminal client portal
+          Set a password for your Leuk client portal
         </p>
         <SetPasswordForm token={token ?? ""} />
       </div>

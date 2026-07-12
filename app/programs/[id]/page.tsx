@@ -16,7 +16,7 @@ import { getProgram, nearbyCities } from "@/lib/repos/directory";
 // ~116k OMH/NPPES program rows in find-care results. Mirrors the directory
 // branch of /providers/[slug]: same shell, same cards, blocks with no data
 // simply omitted. Programs aren't bookable people, so the rail runs in its
-// inactive state (closest real Liminal practitioner + no claim link — a
+// inactive state (closest real Leuk practitioner + no claim link — a
 // facility isn't a claimable personal profile).
 
 function titleCase(s: string): string {
@@ -26,9 +26,9 @@ function titleCase(s: string): string {
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const program = await getProgram(id);
-  if (!program) return { title: "Program not found · Liminal" };
+  if (!program) return { title: "Program not found · Leuk" };
   return {
-    title: `${titleCase(program.programName)} · Liminal`,
+    title: `${titleCase(program.programName)} · Leuk`,
     description: `${titleCase(program.programName)}${program.city ? ` in ${titleCase(program.city)}` : ""} — contact info, services, and how to get connected to care.`,
   };
 }

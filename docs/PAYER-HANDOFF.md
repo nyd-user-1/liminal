@@ -21,8 +21,11 @@ Was 2,148 / 2.2% / 1 payer at session start.
   **See PAYER-RESEARCH.md "★ THE CENTRAL FINDING"** — UHC publishes Behavioral
   Commercial/Medicaid as EMPTY SHELLS; re-verify at completion with
   `node --env-file=.env.local .harvest/uhc-shell-check.mjs`.
-- **▶ Healthfirst coarse — RESUMED** into Cigna's freed lane (from checkpoint
-  25,546; 3.3% hit rate). Coarse rows only; report separately.
+- **✅ MVP COMPLETE (23:19 ET 07-11, zero errors).** 20,675 NPIs (20.9% — LARGEST
+  payer) · 638,561 rows · 18 networks · 95.6% accepting · **MVP EPO/PPO commercial
+  = 99.7% of matched roster** (the Carelon control, full scale). status='live'.
+- **✅ Healthfirst coarse COMPLETE** (rerun recaptured all 3,286 listings; coarse
+  rows count in the filter per Brendan, accepting stays unrendered). status='live'.
 - **CDPHP + Molina: probed and parked** (no deterministic join key; evidence in
   `.harvest/cdphp-recon/` + research-doc registry). **Aetna + Anthem: submitted,
   awaiting approval emails** (see payer-registration-checklist.md).

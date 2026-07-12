@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
             currency: "usd",
             unit_amount: invoice.balanceCents,
             product_data: {
-              name: `${invoice.number} — Liminal Psychiatry`,
+              name: `${invoice.number} — Leuk Psychiatry`,
               description: invoice.items.map((it) => it.description).join(" · ").slice(0, 500) || undefined,
             },
           },

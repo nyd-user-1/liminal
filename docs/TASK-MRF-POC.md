@@ -7,25 +7,39 @@ directory harvest, different tooling, no overlap with the payer crawls._
 
 ## The evidence model (read first — it's the point of the whole thing)
 
-A negotiated rate is **not weaker than a directory listing — it's a different
-kind of evidence, arguably stronger.**
+A rate row in a payer's MRF is **the payer's own federally-mandated disclosure
+that a negotiated contract exists with that provider.** It is not a third-party
+inference and it is not a flaky single observation — it is the payer attesting
+its own network. Treat it as such.
 
-- **Rate = the contract exists.** Someone agreed to pay this provider this amount
-  for this code. That's money, not paperwork. **Strong.**
-- **Directory listing = an administrative assertion.** The thing HHS-OIG found
-  wrong 55% of the time for behavioral health. **Weak, per the audits.**
-- **Accepting-new-patients = the panel is open.** Only available from the
-  directory, and itself unverified.
-- **Rate + listed-as-accepting = the strongest claim available anywhere.** Two
-  independent kinds of evidence stacked.
+**Separate the two claims — this is where a past session went wrong:**
 
-The real limitation of a rate is **LIVENESS, not reliability**: it says nothing
-about whether the panel is open, whether the provider still practices, or whether
-they ever billed the plan. "Zombie rates" are real (CMS's Dec 2025 proposed rule
-adds a Utilization File specifically to filter them). Present rates as *"UHC has
-a negotiated behavioral rate for this provider"* — a contract signal — never as a
-bare "in-network" badge, and never with accepting-status unless the directory
-also supplies it.
+- **MEMBERSHIP — "this provider takes [payer]." UNCONDITIONAL, on the rate
+  alone.** A rate row is direct payer attestation of a contract. This is the
+  correct headline for every matched NPI, full stop. It is NEVER gated, NEVER
+  hedged, NEVER labeled "standalone" or "single signal." A rate is the strongest
+  single membership evidence we have; a payer with no public directory (Oxford)
+  is not weaker on membership — it just has nothing to add on top.
+- **ACCEPTING-NEW-PATIENTS + LIVENESS — gated, directory-sourced.** The rate file
+  carries neither: it can't tell us the panel is open, the provider still bills
+  the plan, or the listing is current. "Zombie rates" are real (CMS's Dec 2025
+  proposed rule adds a Utilization File for exactly this). So accepting-status
+  and any recency claim stay directory-sourced; a rate-only payer simply has no
+  accepting-status to show. **That's all a false `directoryListed` means — no
+  accepting data, not weak membership.**
+
+**API shape (already built in `lib/repos/rate-signals.ts`):** `directoryListed:
+boolean`; membership is never gated; accepting-new-patients is directory-gated.
+Corroboration is **same-payer only** — a payer's rate + that same payer's
+directory-listed-as-accepting = the strongest claim available. Absence of a
+directory is not a corroboration failure; it's just no second dimension.
+
+**Data-quality nuance (present rates accordingly):** MRF behavioral rates are
+often **fee-schedule-shaped, not individually negotiated** — a handful of
+license-tier rates cover most of the panel (Oxford: 90853 @ $40.00 across 9,043
+NPIs). So a rate differentiates **panel membership and tier, not per-provider
+pricing.** Show it as an in-network network/rate signal, never as a precise
+provider-specific price.
 
 ## Why this one file
 

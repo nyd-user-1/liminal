@@ -15,7 +15,7 @@ import type { PractitionerLite } from "@/lib/repos/services";
 import { serviceColorHex } from "@/lib/service-colors";
 import type { Payer, Service } from "@/lib/types";
 
-// The Liminal booking wizard — chrome-light so it drops into both the /book
+// The Leuk booking wizard — chrome-light so it drops into both the /book
 // page (wrapped in a card) and the BookingModal (wrapped in the Modal surface).
 // Flow: service → date + free slot → contact details → confirm → done. Slots
 // come from GET /api/book (availability minus booked); POST /api/book creates

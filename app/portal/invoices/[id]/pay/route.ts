@@ -69,7 +69,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           price_data: {
             currency: "usd",
             unit_amount: invoice.balanceCents,
-            product_data: { name: `${invoice.number} — Liminal Psychiatry` },
+            product_data: { name: `${invoice.number} — Leuk Psychiatry` },
           },
         },
       ],

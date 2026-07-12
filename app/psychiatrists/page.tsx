@@ -29,7 +29,7 @@ export default function PsychiatristsPage() {
         </div>
 
         <p className="mt-6 max-w-3xl text-pretty leading-relaxed text-text-body">
-          Liminal simplifies finding{" "}
+          Leuk simplifies finding{" "}
           <Link href="/providers?need=Psychiatrist" className="text-primary underline underline-offset-2">
             psychiatrists who accept insurance
           </Link>{" "}

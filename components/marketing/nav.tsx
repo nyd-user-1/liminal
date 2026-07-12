@@ -12,10 +12,11 @@ import { IconButton } from "@/components/ui/icon-button";
 import { SearchInput } from "@/components/ui/search-input";
 import { Tag } from "@/components/ui/tag";
 import { ThemeToggle } from "@/components/marketing/theme-toggle";
+import { BRANDS, useBrand } from "@/lib/brand";
 import type { PublicResult } from "@/app/api/directory/public-search/route";
 import { titleCase } from "@/lib/format";
 
-// Public marketing nav (Headway pattern, Liminal brand). One shared dropdown
+// Public marketing nav (Headway pattern, Leuk brand). One shared dropdown
 // panel whose caret + width morph under the active trigger — Search lives in
 // the panel too (live directory results). "My portal" is the secondary Button
 // + a left-aligned menu. Below md, the centered links collapse into a
@@ -162,19 +163,19 @@ const FIND_CATEGORIES: FindCategory[] = [
     sections: [
       {
         links: [
-          { label: "Mental health programs", href: "/portal/resources", icon: "globe" },
-          { label: "Crisis support", href: "/providers?type=crisis", icon: "phone" },
+          { label: "Mental health programs", href: "/programs", icon: "globe" },
+          { label: "Crisis support", href: "/programs/family/crisis", icon: "phone" },
           { label: "What to expect", href: "/#for-providers", icon: "note" },
         ],
       },
     ],
-    viewAll: { label: "Explore resources", href: "/portal/resources" },
+    viewAll: { label: "Explore resources", href: "/programs" },
   },
 ];
 
 const PROVIDER_LINKS: Array<{ label: string; href: string; icon: IconName }> = [
   { label: "Learn more", href: "/#for-providers", icon: "sparkle" },
-  { label: "Join Liminal", href: "/join", icon: "plus" },
+  { label: "Join Leuk", href: "/join", icon: "plus" },
   { label: "Refer a provider", href: "/join?ref=1", icon: "send" },
   { label: "Provider portal", href: "/sign-in", icon: "lock" },
   { label: "Resource center", href: "/join#faq", icon: "file-text" },
@@ -438,7 +439,7 @@ const RECENT_RESULTS: string[] = [
   "Riverside Mental Health",
 ];
 
-// Directory rows (not the handful of bookable Liminal practitioners) come out
+// Directory rows (not the handful of bookable Leuk practitioners) come out
 // of NPPES in ALL CAPS, so their names get the same titleCase pass as the
 // city/address fix.
 const resultName = (r: PublicResult) => (r.bookable ? r.name : titleCase(r.name));
@@ -622,7 +623,7 @@ function ProvidersPanel() {
 function CompanyPanel() {
   return (
     <div className="p-2">
-      <p className="px-3 pb-1 pt-1 text-[13px] font-semibold text-primary">Liminal</p>
+      <p className="px-3 pb-1 pt-1 text-[13px] font-semibold text-primary">Leuk</p>
       {COMPANY_LINKS.map((l) => (
         <PanelRow key={l.href} {...l} />
       ))}
@@ -703,6 +704,7 @@ function MyPortalMenu() {
 // Mobile menu — full-screen sheet with collapsible sections (Headway pattern).
 function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
+  const brand = useBrand();
   if (!open || typeof document === "undefined") return null;
   const link = (href: string, label: string) => (
     <Link
@@ -717,12 +719,8 @@ function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
   return createPortal(
     <div className="fixed inset-0 z-50 flex flex-col bg-surface md:hidden">
       <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-6">
-        <Link href="/" aria-label="Liminal home" onClick={onClose}>
-          <img
-            src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-dark.png"
-            alt="Liminal"
-            className="h-11 w-auto"
-          />
+        <Link href="/" aria-label={`${BRANDS[brand.id].name} home`} onClick={onClose}>
+          <img src={BRANDS[brand.id].logoDark} alt={BRANDS[brand.id].name} className="h-11 w-auto" />
         </Link>
         <IconButton icon="x" label="Close menu" onClick={onClose} />
       </div>
@@ -759,6 +757,7 @@ export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
   const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
   const [dark, setDark] = useState(false);
+  const brand = useBrand();
   const [open, setOpen] = useState<MenuKey | null>(null);
   const [cat, setCat] = useState("therapists");
   const [caretX, setCaretX] = useState(0);
@@ -903,26 +902,18 @@ export function Nav({ ground = "bg-primary-wash" }: { ground?: string } = {}) {
           }`}
           onMouseLeave={scheduleClose}
         >
-          <Link href="/" aria-label="Liminal home" className="group relative shrink-0">
+          <Link href="/" aria-label="Leuk home" className="group relative shrink-0">
             {/* Sunrise wipe: a brightened copy of the mark is stacked on top and
                 revealed bottom→top via an animating clip-path, so the "dawn"
                 (brighter/warmer pigment) rises up through the watercolor on hover.
                 No motion — the base mark stays put. */}
             <img
-              src={
-                dark
-                  ? "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-light.png"
-                  : "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-dark.png"
-              }
-              alt="Liminal"
+              src={dark ? BRANDS[brand.id].logoLight : BRANDS[brand.id].logoDark}
+              alt={BRANDS[brand.id].name}
               className={`block h-11 w-auto transition-all duration-200 ${dark ? "brightness-125" : ""}`}
             />
             <img
-              src={
-                dark
-                  ? "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-light.png"
-                  : "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-dark.png"
-              }
+              src={dark ? BRANDS[brand.id].logoLight : BRANDS[brand.id].logoDark}
               alt=""
               aria-hidden
               className={`pointer-events-none absolute left-0 top-0 block h-11 w-auto saturate-[1.25] ${dark ? "brightness-125" : "brightness-110"} [clip-path:inset(100%_0_0_0)] transition-[clip-path] duration-[600ms] ease-out group-hover:[clip-path:inset(0_0_0_0)]`}

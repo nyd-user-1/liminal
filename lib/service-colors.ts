@@ -1,6 +1,6 @@
 // Service color slots — the DB stores a named categorical slot
 // (services.color: 'teal' | 'blue' | …); the calendar/EventChips render the
-// mapped hex from the Liminal categorical palette (EVENT_COLORS order).
+// mapped hex from the Leuk categorical palette (EVENT_COLORS order).
 // Pure constants: safe to import from server and client components.
 // NOTE (integration): new scheduling-owned module, flagged in the build report.
 

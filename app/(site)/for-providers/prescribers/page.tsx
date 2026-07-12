@@ -15,7 +15,7 @@ import { PROVIDER_FAQS } from "@/lib/site-content";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "For prescribers — psychiatry on Liminal",
+  title: "For prescribers — psychiatry on Leuk",
   description:
     "For psychiatrists and PMHNPs: a medication-management workflow, a caseload that fills itself, and compensation built for prescribers.",
 };
@@ -83,7 +83,7 @@ export default function PrescribersPage() {
             {[
               "E-prescribing and controlled-substance workflows in the record",
               "Coordination with the client's therapist on shared cases",
-              "Panel that fills from Liminal's public directory",
+              "Panel that fills from Leuk's public directory",
               "Structured follow-up so no one falls through the cracks",
             ].map((f) => (
               <li key={f} className="flex items-start gap-3">
@@ -101,7 +101,7 @@ export default function PrescribersPage() {
       </Section>
 
       <CtaBand
-        title="Bring your panel to Liminal."
+        title="Bring your panel to Leuk."
         lede="Apply to prescribe, or book a walkthrough to see the medication-management workflow end to end."
         primary={{ href: "/join?role=prescriber", label: "Apply to prescribe" }}
         secondary={{ href: "/join?walkthrough=1", label: "Book a walkthrough" }}

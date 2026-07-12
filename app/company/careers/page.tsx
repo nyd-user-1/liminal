@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 const CAREERS_EMAIL = "mailto:careers@liminal.demo";
 
 export const metadata: Metadata = {
-  title: "Careers · Liminal",
+  title: "Careers · Leuk",
   description: "Join the team building New York's mental-health directory and the practice-management platform behind it.",
 };
 
@@ -40,7 +40,7 @@ export default function CareersPage() {
         />
 
         <Section>
-          <SectionHeading eyebrow="Why Liminal" title="What it's like to work here." />
+          <SectionHeading eyebrow="Why Leuk" title="What it's like to work here." />
           <FeatureGrid
             className="mt-12"
             columns={3}

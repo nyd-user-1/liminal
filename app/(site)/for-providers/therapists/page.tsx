@@ -16,7 +16,7 @@ import { PROVIDER_FAQS } from "@/lib/site-content";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "For therapists — build your practice on Liminal",
+  title: "For therapists — build your practice on Leuk",
   description:
     "For counselors and clinical social workers: a caseload that fills from the directory, documentation relief, and the therapy-side value — minus the busywork.",
 };
@@ -83,7 +83,7 @@ export default function TherapistsPage() {
           <ul className="space-y-4">
             {[
               "SOAP, DAP, and progress-note templates with an AI first draft",
-              "A steady caseload from Liminal's public directory",
+              "A steady caseload from Leuk's public directory",
               "Secure client messaging and shared documents",
               "Coordination with a prescriber on shared cases",
             ].map((f) => (
@@ -102,7 +102,7 @@ export default function TherapistsPage() {
       </Section>
 
       <CtaBand
-        title="Grow your practice on Liminal."
+        title="Grow your practice on Leuk."
         lede="Apply as a therapist, or book a walkthrough to see the documentation and booking flow end to end."
         primary={{ href: "/join?role=therapist", label: "Apply as a therapist" }}
         secondary={{ href: "/join?walkthrough=1", label: "Book a walkthrough" }}

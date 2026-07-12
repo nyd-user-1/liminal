@@ -14,7 +14,7 @@ import { CONDITION_TOPICS } from "@/lib/site-content";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "For physicians — refer to Liminal with confidence",
+  title: "For physicians — refer to Leuk with confidence",
   description:
     "Refer your patients to verified New York mental health providers — no portal login, no fax. Closed-loop communication back to you.",
 };

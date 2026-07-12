@@ -27,7 +27,7 @@ export default function TherapistsPage() {
         </div>
 
         <p className="mt-6 max-w-3xl text-pretty leading-relaxed text-text-body">
-          Liminal simplifies finding{" "}
+          Leuk simplifies finding{" "}
           <Link href="/providers" className="text-primary underline underline-offset-2">
             mental health providers who accept insurance
           </Link>{" "}

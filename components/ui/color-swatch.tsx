@@ -1,9 +1,9 @@
 // Catalog `ColorSwatch` — ~16px rounded color chip; keys a service to its
-// calendar EventChip color. EVENT_COLORS = the Liminal categorical palette
+// calendar EventChip color. EVENT_COLORS = the Leuk categorical palette
 // (Carepatron's, violet slot swapped for teal-600).
 
 export const EVENT_COLORS = [
-  "#3F8290", // teal (first slot — Liminal swap)
+  "#3F8290", // teal (first slot — Leuk swap)
   "#3BA55C", // green
   "#E0447C", // magenta
   "#8A8F3C", // olive

@@ -4,7 +4,7 @@ import { ForgotPasswordForm } from "./forgot-password-form";
 // Request a reset link by email. Always confirms — never reveals whether an
 // account exists.
 
-export const metadata = { title: "Reset your password · Liminal" };
+export const metadata = { title: "Reset your password · Leuk" };
 
 export default function ForgotPasswordPage() {
   return (

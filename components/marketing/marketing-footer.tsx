@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Icon, type IconName } from "@/components/ui/icons";
+import { BrandToggleLink } from "@/lib/brand";
 import { CONDITION_LINKS, PARTNER_LINKS, PROVIDER_LINKS } from "@/lib/site-content";
+import { PROGRAM_FAMILIES } from "@/lib/program-taxonomy";
 
 // Public marketing footer — navy brand block: link columns, a crisis-support
 // note (a mental-health site should always surface these), practice contact,
@@ -16,6 +18,8 @@ type FooterColumn = {
   href?: string;
   note?: string;
   links: Array<{ label: string; href: string }>;
+  /** Appends a quiet brand-name toggle link after the column's links. */
+  brandToggle?: boolean;
 };
 
 // Row 1 — the care-discovery columns.
@@ -27,7 +31,7 @@ const TOP_COLUMNS: FooterColumn[] = [
       { label: "Therapists", href: "/therapists" },
       { label: "Psychiatrists", href: "/psychiatrists" },
       { label: "Psychiatric NP", href: "/psychiatric-np" },
-      { label: "Book with Liminal", href: "/book/liminal" },
+      { label: "Book with Leuk", href: "/book/liminal" },
       { label: "Virtual therapy", href: "/providers?type=virtual" },
     ],
   },
@@ -70,6 +74,14 @@ const BOTTOM_COLUMNS: FooterColumn[] = [
     ],
   },
   {
+    heading: "Programs",
+    href: "/programs",
+    links: [
+      ...PROGRAM_FAMILIES.slice(0, 5).map((f) => ({ label: f.label, href: `/programs/family/${f.slug}` })),
+      { label: "View more", href: "/programs" },
+    ],
+  },
+  {
     heading: "Partners",
     links: PARTNER_LINKS,
   },
@@ -77,6 +89,7 @@ const BOTTOM_COLUMNS: FooterColumn[] = [
     heading: "Other",
     note: "Exists — not decided yet",
     links: [{ label: "Home v2 (WIP)", href: "/home-2" }],
+    brandToggle: true,
   },
 ];
 
@@ -111,6 +124,11 @@ function FooterColumn({ col }: { col: FooterColumn }) {
             </Link>
           </li>
         ))}
+        {col.brandToggle && (
+          <li>
+            <BrandToggleLink className="group -mx-2 flex w-full items-center justify-between rounded-field px-2 py-1.5 text-left text-sidebar-text/80 transition-colors hover:bg-white/[0.06] hover:text-white" />
+          </li>
+        )}
       </ul>
     </div>
   );
@@ -134,10 +152,10 @@ export function MarketingFooter() {
       <div className="mx-auto max-w-6xl px-6 py-14">
         <div className="grid gap-10 border-b border-white/10 pb-10 lg:grid-cols-[12rem_1fr]">
           <div>
-            <Link href="/" aria-label="Liminal home" className="inline-block">
+            <Link href="/" aria-label="Leuk home" className="inline-block">
               <img
                 src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/brand/liminal-light.png"
-                alt="Liminal"
+                alt="Leuk"
                 className="h-8 w-auto"
               />
             </Link>
@@ -150,7 +168,7 @@ export function MarketingFooter() {
           </div>
         </div>
 
-        <div className="mt-10 grid grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-3">
+        <div className="mt-10 grid grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-4">
           {BOTTOM_COLUMNS.map((col) => (
             <FooterColumn key={col.heading} col={col} />
           ))}
@@ -183,7 +201,7 @@ export function MarketingFooter() {
 
       <div className="border-t border-white/10">
         <p className="mx-auto max-w-6xl px-6 py-5 text-xs text-sidebar-text/60">
-          © 2026 Liminal. Provider directory data sourced from NY State (OMH) and NY Medicaid open data.
+          © 2026 Leuk. Provider directory data sourced from NY State (OMH) and NY Medicaid open data.
         </p>
       </div>
     </footer>

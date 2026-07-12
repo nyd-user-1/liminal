@@ -126,7 +126,7 @@ export default async function NotePrintPage({ params }: { params: Promise<{ id: 
           <div>
             <Logo size="md" />
             <p className="mt-3 text-sm leading-relaxed text-text-muted">
-              Liminal Psychiatry
+              Leuk Psychiatry
               <br />
               hello@liminal.demo · (555) 010-3010
             </p>

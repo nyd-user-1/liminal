@@ -44,7 +44,7 @@ export function JoinForm() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [message, setMessage] = useState(
-    claiming ? "I'd like to claim my directory listing on Liminal and turn on online booking." : "",
+    claiming ? "I'd like to claim my directory listing on Leuk and turn on online booking." : "",
   );
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);

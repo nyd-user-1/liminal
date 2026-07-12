@@ -118,7 +118,7 @@ function toBookable(r: BookableRow): BookableProfile {
   };
 }
 
-/** Liminal's bookable practitioners + their authored profiles — for search merging (find-care). Small (a handful of rows); no pagination. */
+/** Leuk's bookable practitioners + their authored profiles — for search merging (find-care). Small (a handful of rows); no pagination. */
 export async function listBookableProfiles(): Promise<BookableProfile[]> {
   if (hasDb) {
     const rows = (await sql`

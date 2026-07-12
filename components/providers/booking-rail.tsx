@@ -12,7 +12,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { TextLink } from "@/components/ui/text-link";
 import type { Payer, Service } from "@/lib/types";
 
-// The universal booking widget — active for bookable Liminal practitioners,
+// The universal booking widget — active for bookable Leuk practitioners,
 // a graceful stopgap for directory providers (NPI-sourced, unclaimed, no
 // availability yet). Same card, same chrome.
 //
@@ -23,11 +23,11 @@ import type { Payer, Service } from "@/lib/types";
 // time doesn't navigate away: it lifts the BookingSheet (time-confirm →
 // details+insurance → cost estimate), keeping the user on the provider page.
 //
-// Inactive state: rather than a dead "coming soon", this offers Liminal itself
+// Inactive state: rather than a dead "coming soon", this offers Leuk itself
 // — deliberately not a named clinician. Naming one made a promise the booking
 // flow doesn't keep (/book/liminal lets the client pick), and it read as though
 // we'd matched this specific provider to that specific therapist. The generic
-// hand-off plus the brand mark says what's true: Liminal will route you.
+// hand-off plus the brand mark says what's true: Leuk will route you.
 // A "claim this profile" link is offered to the actual provider alongside it.
 
 const DAYS_AHEAD = 28;
@@ -104,7 +104,7 @@ function RequestAppointmentForm({ providerId }: { providerId: string }) {
         Request appointment
       </Button>
       <p className="text-[12px] leading-relaxed text-text-muted">
-        Liminal will contact this provider on your behalf and follow up with you by email.
+        Leuk will contact this provider on your behalf and follow up with you by email.
       </p>
     </form>
   );
@@ -121,13 +121,13 @@ export function BookingRail({
   className = "",
 }: {
   practitionerId: string;
-  /** Active Liminal services — ignored (never fetched against) when `active` is false. */
+  /** Active Leuk services — ignored (never fetched against) when `active` is false. */
   services: Service[];
   /** Insurance options for the BookingSheet's details step. */
   payers?: Payer[];
   /** Weekdays (0–6) with availability rules — non-matching calendar days render struck through. */
   availableWeekdays?: number[];
-  /** True for a bookable Liminal practitioner; false for a directory provider. */
+  /** True for a bookable Leuk practitioner; false for a directory provider. */
   active: boolean;
   /** Directory provider's display name — inactive state only. */
   directoryName?: string;
@@ -136,7 +136,7 @@ export function BookingRail({
   className?: string;
 }) {
   const service = services[0];
-  // Directory (inactive) rail: "Book with Liminal" opens the wizard in a dialog
+  // Directory (inactive) rail: "Book with Leuk" opens the wizard in a dialog
   // rather than navigating to /book/liminal.
   const [bookOpen, setBookOpen] = useState(false);
 
@@ -258,7 +258,7 @@ export function BookingRail({
           <div className="rounded-field border border-border bg-canvas p-3">
             <Logo size="sm" className="mb-2" />
             <p className="text-[13px] text-text-body">
-              We can connect you with a Liminal mental-health professional who works with similar needs — in-person or
+              We can connect you with a Leuk mental-health professional who works with similar needs — in-person or
               telehealth, usually within a week.
             </p>
             <button
@@ -266,13 +266,13 @@ export function BookingRail({
               onClick={() => setBookOpen(true)}
               className="mt-2.5 inline-flex h-8 items-center justify-center rounded-field bg-primary px-3 text-sm font-medium text-white transition-colors hover:bg-primary-hover"
             >
-              Book with Liminal
+              Book with Leuk
             </button>
           </div>
 
           <p className="text-[13px] text-text-muted">
             This is a directory listing sourced from the national provider registry — {directoryName ?? "this provider"}{" "}
-            isn&apos;t on Liminal&apos;s booking platform yet.
+            isn&apos;t on Leuk&apos;s booking platform yet.
           </p>
 
           <RequestAppointmentForm providerId={practitionerId} />

@@ -9,7 +9,7 @@ import { Icon } from "@/components/ui/icons";
 import { Logo } from "@/components/ui/logo";
 import { TextLink } from "@/components/ui/text-link";
 
-// Sign-in screen (catalog §4 "Welcome back", Liminal branding): navy
+// Sign-in screen (catalog §4 "Welcome back", Leuk branding): navy
 // backdrop, white AuthCard, teal CTA, amber links, demo credentials hint.
 
 // Click-to-copy demo credential (same affordance vocabulary as the
@@ -81,7 +81,7 @@ export default function SignInPage() {
       <Logo variant="onNavy" size="lg" className="mb-8" />
       <div className="w-full max-w-md rounded-card bg-surface p-8 shadow-menu">
         <h1 className="text-center text-[28px] font-bold text-text">Welcome back</h1>
-        <p className="mt-1 text-center text-[15px] text-text-muted">Sign in to your Liminal workspace</p>
+        <p className="mt-1 text-center text-[15px] text-text-muted">Sign in to your Leuk workspace</p>
 
         <form onSubmit={submit} className="mt-7 space-y-4">
           <Field

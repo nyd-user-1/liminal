@@ -6,8 +6,8 @@ import { Icon, type IconName } from "@/components/ui/icons";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Join as a provider · Liminal",
-  description: "Grow your practice with Liminal — scheduling, telehealth, AI notes, and billing in one place.",
+  title: "Join as a provider · Leuk",
+  description: "Grow your practice with Leuk — scheduling, telehealth, AI notes, and billing in one place.",
 };
 
 const PERKS: { icon: IconName; label: string }[] = [
@@ -25,7 +25,7 @@ export default function JoinPage() {
           <div className="mx-auto grid max-w-6xl gap-10 px-6 py-16 lg:grid-cols-2 lg:items-center">
             <div>
               <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                Grow your practice with Liminal
+                Grow your practice with Leuk
               </h1>
               <p className="mt-4 max-w-md text-lg text-sidebar-text/85">
                 Join a network built for behavioral-health clinicians. Spend less time on admin and more with clients.

@@ -211,8 +211,8 @@ export function CareTemplate({
             title="Providers ready to help"
             lede={
               providerCount
-                ? `${providerCount.toLocaleString()}+ licensed providers across New York. Book a Liminal provider now, or browse the full directory.`
-                : "Book a Liminal provider now, or browse the full directory of New York providers."
+                ? `${providerCount.toLocaleString()}+ licensed providers across New York. Book a Leuk provider now, or browse the full directory.`
+                : "Book a Leuk provider now, or browse the full directory of New York providers."
             }
           />
         </div>

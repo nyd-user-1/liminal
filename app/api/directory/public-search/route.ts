@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 // Public, anon-allowed directory search for the marketing front door — the
 // "search → provider → booking" spine. Two very different sources merge into
 // one result list:
-//   - Liminal's own bookable practitioners (users + provider_profiles) — only
+//   - Leuk's own bookable practitioners (users + provider_profiles) — only
 //     a handful of rows, matched in-memory, always shown first on page 1 only
 //     (never repeated on page 2+) with `bookable: true` and a real `slug`.
 //   - The NY directory (directory_providers, ~116k rows) — paginated for real
@@ -27,7 +27,7 @@ const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
 const PROGRAM_CAP = 6;
 
-// Insurance payers Liminal's own practitioners actually carry (Task 1 content) +
+// Insurance payers Leuk's own practitioners actually carry (Task 1 content) +
 // "Medicaid", which is true of every directory row by construction (source is
 // CHECK-constrained to 'medicaid') rather than a real per-row fact we have.
 const MEDICAID = "Medicaid";
@@ -82,10 +82,10 @@ function matchesType(p: BookableProfile, type: string): boolean {
 }
 
 // `need` is an exact profession string (e.g. "Psychiatrist", "Psychiatric
-// Nurse Practitioner") from the directory-page browse links — Liminal's own
+// Nurse Practitioner") from the directory-page browse links — Leuk's own
 // roster only ever carries "Therapist" or "Psychiatrist" as a roleTitle, so a
-// need for a profession Liminal doesn't staff (e.g. the NP page) correctly
-// yields zero Liminal matches rather than showing everyone.
+// need for a profession Leuk doesn't staff (e.g. the NP page) correctly
+// yields zero Leuk matches rather than showing everyone.
 function matchesNeed(p: BookableProfile, need: string): boolean {
   return (p.roleTitle ?? "").toLowerCase() === need.toLowerCase();
 }
@@ -129,7 +129,7 @@ export async function GET(req: NextRequest) {
   const city = p.get("city") ?? undefined;
   const county = p.get("county") ?? undefined;
   const need = p.get("need") ?? undefined; // profession (providers) / type (programs)
-  const specialty = p.get("specialty") ?? undefined; // subspecialty (providers) + Liminal topic tags
+  const specialty = p.get("specialty") ?? undefined; // subspecialty (providers) + Leuk topic tags
   const gender = p.get("gender") ?? undefined;
   const type = p.get("type") ?? undefined; // therapist | psychiatrist | prescriber
   const insurance = p.get("insurance") ?? undefined;
@@ -137,20 +137,20 @@ export async function GET(req: NextRequest) {
   // Payers we hold FULL-quality network data for (Cigna, Humana today; grows as
   // harvests land). An `insurance` value matching one of these slugs filters the
   // NY directory for real; "Medicaid" stays the by-construction pass-through;
-  // anything else (legacy display-name values) still matches Liminal's own
+  // anything else (legacy display-name values) still matches Leuk's own
   // practitioners only — the directory holds no data for it, so it's excluded
   // rather than guessed.
   const payerFacets = await listPayerFacets();
   const coveredPayer = insurance ? payerFacets.find((f) => f.slug === insurance) : undefined;
   // The provider page's A–Z rail wants the raw directory ordering, so it opts
-  // out of the Liminal-practitioners-first merge that /providers relies on.
+  // out of the Leuk-practitioners-first merge that /providers relies on.
   const bookableFirst = p.get("bookableFirst") !== "0";
   const page = Math.max(1, Number(p.get("page")) || 1);
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Number(p.get("pageSize")) || DEFAULT_PAGE_SIZE));
 
   const results: PublicResult[] = [];
 
-  // Liminal's own practitioners are matched on every page so `total` stays
+  // Leuk's own practitioners are matched on every page so `total` stays
   // honest, but only *rendered* on page 1 — never repeated on later pages.
   let bookableTotal = 0;
   if (kind !== "programs" && bookableFirst) {

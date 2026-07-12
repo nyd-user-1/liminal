@@ -47,10 +47,10 @@ export const PROVIDER_FAQS: Faq[] = [
   },
   {
     q: "Does the directory actually send me clients?",
-    a: "Yes — Liminal's public directory is how many New Yorkers find care. Listed providers receive booking requests directly, matched to the specialties and coverage they offer.",
+    a: "Yes — Leuk's public directory is how many New Yorkers find care. Listed providers receive booking requests directly, matched to the specialties and coverage they offer.",
   },
   {
     q: "Who owns the clinical record?",
-    a: "You do. The record is yours and your patient's; Liminal is the connected system it lives in. Documentation, history, and billing stay together so the record works for you instead of against you.",
+    a: "You do. The record is yours and your patient's; Leuk is the connected system it lives in. Documentation, history, and billing stay together so the record works for you instead of against you.",
   },
 ];

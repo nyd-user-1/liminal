@@ -23,7 +23,7 @@ import { searchProviders } from "@/lib/repos/directory";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Liminal — therapy & psychiatric care across New York",
+  title: "Leuk — therapy & psychiatric care across New York",
   description:
     "Therapy and medication support in one place — virtual or in person. Find the right provider, see your in-network price, and book this week.",
 };
@@ -132,7 +132,7 @@ export default async function HomeTwo() {
 
       {/* ── How it works — placed AFTER browse ──────────────────────────── */}
       <Section ground="canvas">
-        <SectionHeading eyebrow="How Liminal works" title="Three steps, no guesswork." />
+        <SectionHeading eyebrow="How Leuk works" title="Three steps, no guesswork." />
         <Steps
           className="mt-12"
           steps={[
@@ -165,9 +165,9 @@ export default async function HomeTwo() {
             {
               value: countLabel ?? <Placeholder token="{{STAT:providers_count}}" />,
               label: "Licensed providers across New York",
-              note: countLabel ? "Live from the Liminal directory" : undefined,
+              note: countLabel ? "Live from the Leuk directory" : undefined,
             },
-            { value: <Placeholder token="{{STAT:sessions_held}}" />, label: "Sessions held on Liminal" },
+            { value: <Placeholder token="{{STAT:sessions_held}}" />, label: "Sessions held on Leuk" },
             { value: <Placeholder token="{{STAT:plans_accepted}}" />, label: "Insurance plans accepted" },
           ]}
         />
