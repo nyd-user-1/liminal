@@ -8,4 +8,5 @@
 !uhc-shell-check.mjs
 !uhc-valve.sh
 !cdphp-recon/
-!cdphp-recon/**
+!cdphp-recon/raw-samples.json
+!cdphp-recon/cdphp-caps.json
