@@ -68,3 +68,29 @@ insurance-accepted signal. Enrich-only: rates attach to NPIs we already hold._
   (medical 99214 rates live there; behavioral is what Beacon carries).
 - Fidelis actual: **8,353 distinct NPIs** — the "Medicaid-trap sliver"
   outperformed expectations; exchange book is behavioral-rich.
+
+### Platform blocks + tail verdicts (~04:00)
+
+- **HealthSparq wall (Incapsula bot-guard): Excellus, Univera, MVP,
+  Independent Health** — all four tenant portals 302→JS-challenge; the MRF
+  ToC lives behind it. NOT parseable headlessly tonight. Options for later:
+  a real-browser session to mint the ToC once a month, or Payerset feed.
+  (Aetna runs the same HealthSparq software on health1.aetna.com WITHOUT the
+  wall, but its ToC API is rate-limited/paginated — parked with Healthfirst,
+  whose MRFs live INSIDE Aetna's portal: TPA entity id 14651517.)
+- **Oscar** — per-state SPA (`hioscar.com/ny_tic_2026`), links injected
+  client-side from Contentful; no crawlable ToC. Parked. (We already hold
+  Oscar networks via FHIR; only rates were at stake.)
+- **VNS Health** — VERIFIED out-of-scope: publishes only as a self-funded
+  EMPLOYER via its TPA (EIN 13-3189926 in Empire's book); its insurance lines
+  are MLTC/DSNP = no commercial TiC. Done, zero by design.
+- **MetroPlus** — 3 direct Azure-blob in-network files, STALE (2023-10 /
+  2024-02, apparently never updated — itself a compliance data point).
+  Streaming anyway; tiny commercial book expected.
+- **Cigna** — cracked via `cigna.com/static/mrf/latest.json` → signed
+  CloudFront ToC (64 MB). 133 unique in-network files; streaming the 9
+  NY-relevant (national OAP/PPO×3, metro-NY GPPO + seamless HMO, CHC-of-NY,
+  open-access HMO/POS, and localplus-with-EBH = the Evernorth-inclusive one).
+- **Highmark WNY** — open directory at mrfdata.hmhs.com; monthly URL list
+  `MRF_URL-301-202607.txt` → 524 signed bcbs.com files (same platform/layout
+  as Empire). Streaming ×2 shards.
