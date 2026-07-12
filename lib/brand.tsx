@@ -45,14 +45,9 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
     setId((prev) => {
       const next: BrandId = prev === "leuk" ? "liminal" : "leuk";
       localStorage.setItem("brand", next);
-      document.documentElement.setAttribute("data-brand", next);
       return next;
     });
   }, []);
-
-  useEffect(() => {
-    document.documentElement.setAttribute("data-brand", id);
-  }, [id]);
 
   return <BrandCtx.Provider value={{ id, toggle }}>{children}</BrandCtx.Provider>;
 }
