@@ -47,6 +47,10 @@ if (!NPIS_PATH || !OUT_PATH) {
 const ourNpis = new Set(
   fs.readFileSync(NPIS_PATH, "utf8").split("\n").map((s) => s.trim()).filter(Boolean)
 );
+// numeric twin of the set: TiC files carry npi as JSON numbers, and testing
+// the number directly avoids a String() allocation per NPI — the refs phase
+// of BlueCard-scale files (1M+ groups x ~700 NPIs) is allocation-bound.
+const ourNpisNum = new Set([...ourNpis].map(Number));
 const retained = new Map(); // group_id -> [{tin, npis:[matched]}]
 
 fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true });
@@ -89,8 +93,11 @@ function handleProviderReference(ref) {
     if (!Array.isArray(g?.npi)) continue;
     let matched = null;
     for (const n of g.npi) {
-      const s = String(n);
-      if (ourNpis.has(s)) (matched ??= []).push(s);
+      if (typeof n === "number") {
+        if (ourNpisNum.has(n)) (matched ??= []).push(String(n));
+      } else if (ourNpis.has(String(n).trim())) {
+        (matched ??= []).push(String(n).trim());
+      }
     }
     if (matched) {
       (kept ??= []).push({

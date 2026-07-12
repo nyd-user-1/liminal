@@ -120,3 +120,18 @@ insurance-accepted signal. Enrich-only: rates attach to NPIs we already hold._
   itself a TiC-compliance data point about MetroPlus.
 - The "FFS" file looks like their whole fee schedule (city-plan lines), not
   just a commercial sliver — more NPI coverage than the trap-tier prediction.
+
+### Deferral note (~04:55): the 05C0 monsters
+
+Empire and Highmark each publish a `040_05C0` in-network series (5 chunks,
+11–12 GB **compressed** per chunk ≈ 200 GB+ uncompressed each) with a
+BlueCard-scale refs section (>1M provider groups; 27,030 retained after 8.6 GB
+on the Empire one — likely the single biggest untapped NPI source). The refs
+phase runs through stream-json at ~4–15 MB/s → multi-hour per chunk; not
+viable inside tonight's window alongside everything else. KILLED both
+in-flight, dropped the 10 chunks from the shard queues, and left the rest of
+both payers streaming. Follow-up task: a refs fast-path (pattern-scan
+provider_references like in_network items) makes these ~20 min each — then
+the 05C0 series alone may add more NPIs than any payer tonight.
+Scanner change shipped meanwhile: numeric-Set NPI matching (allocation-free
+refs scanning, ~4x) — regression-verified, live for all new spawns.
