@@ -21,7 +21,7 @@ const sql = neon(process.env.DATABASE_URL);
 // Everything else (Anthem Colorado, Highmark Delaware, …) = other-state
 // entities that surfaced on shared BCBS hosts -> BlueCard/reach bucket.
 const NY_ENTITY_RE =
-  /new york|of ny|cdphp|oxford|metroplus|carelon|emblem|centene|fidelis|cigna|western new york|empire/i;
+  /new york|of ny|cdphp|oxford|metroplus|carelon|emblem|centene|fidelis|cigna|western new york|empire|excellus/i;
 
 const rows = await sql`
   SELECT payer, count(DISTINCT npi)::int AS npis, count(*)::int AS rows

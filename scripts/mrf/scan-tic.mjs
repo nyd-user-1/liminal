@@ -56,10 +56,20 @@ if (!NPIS_PATH || !OUT_PATH) {
 const ourNpis = new Set(
   fs.readFileSync(NPIS_PATH, "utf8").split("\n").map((s) => s.trim()).filter(Boolean)
 );
-// numeric twin of the set: TiC files carry npi as JSON numbers, and testing
-// the number directly avoids a String() allocation per NPI — the refs phase
-// of BlueCard-scale files (1M+ groups x ~700 NPIs) is allocation-bound.
-const ourNpisNum = new Set([...ourNpis].map(Number));
+// numeric->canonical-string map: TiC files carry npi as JSON numbers. Testing
+// the number avoids a String() allocation per NPI, and returning the CANONICAL
+// string interns matches — an NPI matched in 5,000 groups must reference one
+// string, not allocate 5,000 (Empire-NY refs OOM'd 5GB on exactly that).
+const ourNpiCanon = new Map([...ourNpis].map((s) => [Number(s), s]));
+const tinCache = new Map(); // intern tins for the same reason
+const internTin = (t) => {
+  let v = tinCache.get(t);
+  if (v === undefined) {
+    tinCache.set(t, t);
+    v = t;
+  }
+  return v;
+};
 const retained = new Map(); // group_id -> [{tin, npis:[matched]}]
 
 fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true });
@@ -103,14 +113,15 @@ function handleProviderReference(ref) {
     let matched = null;
     for (const n of g.npi) {
       if (typeof n === "number") {
-        if (ourNpisNum.has(n)) (matched ??= []).push(String(n));
+        const c = ourNpiCanon.get(n);
+        if (c !== undefined) (matched ??= []).push(c);
       } else if (ourNpis.has(String(n).trim())) {
         (matched ??= []).push(String(n).trim());
       }
     }
     if (matched) {
       (kept ??= []).push({
-        tin: g.tin ? `${g.tin.type ?? ""}:${g.tin.value ?? ""}` : "",
+        tin: internTin(g.tin ? `${g.tin.type ?? ""}:${g.tin.value ?? ""}` : ""),
         npis: matched,
       });
     }
