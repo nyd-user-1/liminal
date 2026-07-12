@@ -1,16 +1,43 @@
 # MRF overnight run — results (2026-07-12 → 07-13)
 
-_Autonomous queue run. Appended per-payer as each completes so progress
-survives. Mission: maximize NY behavioral providers carrying a rate-based
-insurance-accepted signal. Enrich-only: rates attach to NPIs we already hold._
+_Autonomous queue run, complete. Mission: maximize NY behavioral providers
+carrying a rate-based insurance-accepted signal. Enrich-only. Full per-payer
+log below; briefs spawned: TASK-TELEHEALTH-GAP.md, TASK-KNOW-YOUR-RATES.md._
 
-## Headline (updated as the run progresses)
+## FINAL NUMBERS (run closed 2026-07-12 ~18:30)
 
-| | value |
+| | |
 |---|---|
-| Distinct NPIs with a rate signal | **21,928** (as of ~03:45) |
-| provider_rate_signals rows | 506,237 |
-| Payers completed | 5 loaded (UHC, Oxford, CDPHP, Fidelis, Emblem/Carelon) + Empire streaming |
+| **NY-book NPIs with a payer-published rate signal** | **31,298** (of 99,105 directory NPIs — 31.6%) |
+| **Net-new: no directory listing under ANY payer source** | **7,532** — the rate file is their only in-network evidence |
+| Reach bucket (other-state Blues, never NY membership) | 410 NPIs across 17 entities |
+| Rows (not a coverage figure — per-plan/POS duplication) | 955,512 |
+
+Per-payer distinct NPIs (NY book): Cigna 18,314 · Oxford 14,145 (+CT 656) ·
+Fidelis 8,353 · Emblem/Carelon 7,282 · MetroPlus 4,997 · Highmark NENY 2,608 ·
+Highmark WNY 2,599 · UHC 1,249 · CDPHP 791 · Excellus 11 (side-door proven,
+full book still walled).
+
+Deduped per-CPT medians (NY book): 90791 $152.71 · 90834 $97.31 ·
+90837 $136.91 · 90853 $40.00 · 99214 $134.85. Sanity holds everywhere;
+MetroPlus's $377 median for 90837 = chargemaster-shaped stale files, caveated.
+
+**Payers with NO rows tonight + why:** Empire NY (its whole ToC presence =
+the 39-series; chunks 1–4 crash every parser round — see below — and the
+zero-yield chunk 5s imply behavioral codes sit in exactly those chunks;
+top follow-up), Aetna+Healthfirst (portal needs one browser-devtools
+session), Excellus-full/Univera/MVP/Independent Health (Incapsula wall),
+Oscar (client-side links). VNS verified out-of-scope; the provider-side
+rate-intelligence briefs and the Headway TIN findings are in the per-payer
+log and TASK-KNOW-YOUR-RATES.md.
+
+**The Empire 39-series (open engineering item):** 10 chunks, ~10 GB
+uncompressed each, refs sections with 2.4M+ groups of which 500k+ retain.
+Four rounds attempted (naive → 2GB-item streaming fix → 5GB heap → interned
+strings at 6GB); each dies SIGABRT deeper than the last (~8 min in). Fresh
+session should heap-profile a single chunk (`node --heapsnapshot-near-heap-limit`)
+or run one chunk through the constant-memory reference parser overnight to
+locate the true allocator before more scanner surgery.
 
 ## Baseline (before tonight, from the PoC sessions)
 
