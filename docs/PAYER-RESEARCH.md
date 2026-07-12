@@ -121,12 +121,15 @@ _(Sample counts; the full run will replace them — the direction is already una
 
 MVP Health Care delegates behavioral health to **Carelon** — a carve-out plan, like
 UHC-commercial/Optum-BH. Its public directory (`api.mvphealthcare.com/provdirfhirapi/`,
-production, anonymous) was probed as a control: **MVP publishes behavioral-health
-providers under its COMMERCIAL networks at full depth.** Random 60-NPI sample of our BH
-directory: 18.3% hit rate, zero errors, and **`MVP EPO / PPO` (commercial) attached to
-every hit**, alongside employer trusts (Kodak, 1199 National Benefit Fund, NY44) and
-government products. No Carelon-branded network exists in the feed (17 networks total,
-all MVP-named) — the carve-out publishes into the parent's networks, as expected.
+production, anonymous) was probed as a control, then fully harvested 2026-07-11
+(all 99,105 NPIs, zero errors): **MVP publishes behavioral-health providers under its
+COMMERCIAL networks at full depth.** Full-scale numbers: **20,675 matched NPIs (20.9%
+hit rate — our largest payer, ahead of Cigna's 12,752)**, 95.6% accepting, and
+**`MVP EPO / PPO` (commercial) carries 20,611 of them — 99.7% of the matched roster**,
+alongside employer trusts (Kodak 20,183, 1199 National Benefit Fund 20,610, NY44
+20,610) and government products (Medicaid 4,248, Essential Plans 5,103, CHP 4,259).
+No Carelon-branded network exists in the feed (18 networks, all MVP-named) — the
+carve-out publishes into the parent's networks, as expected.
 
 **So a carve-out does not force non-publication.** The UHC empty shell is a choice, not
 a structural inevitability of carve-outs.
@@ -356,6 +359,32 @@ problem demands.
   Elevance/Anthem), Turquoise Health, Serif Health, Trilliant.
 - **Legal:** must be posted free, no PII/account, non-proprietary open format, "without
   restrictions that would impede re-use." **Favorable for commercial use.**
+
+**UHC MRF — probed 2026-07-12 (facts):**
+- Index API, no auth: `GET https://transparency-in-coverage.uhc.com/api/v1/uhc/blobs`
+  returns all **86,722** blobs in one 21 MB JSON (no pagination). Downloads via
+  `.../api/v1/uhc/blobs/download/{YYYY-MM-DD}/{name}` (302 → blob store).
+- File-type tally: **7,133 in-network-rates** files (~**82 TB** total, largest single
+  ~22 GB gzipped) · 67,111 index/TOC · 12,474 allowed-amounts · 4 prescription-drug.
+- Files are per-legal-entity/employer-group, NOT per-geography. **874 are Insurer-level**
+  (network-wide rate tables, not employer-specific) — the tractable subset.
+- **A NY-insurer behavioral-specific file exists:**
+  `2026-07-01_UnitedHealthcare-Insurance-Company-of-New-York_Insurer_Behavior-Health_P3_in-network-rates.json.gz`
+  (14.6 GB). The `Behavior-Health_P3` file is byte-identical across state entities → one
+  national behavioral rate table (network id P3). This is the rate data the FHIR
+  directory's empty "Behavioral Commercial" shell does not expose.
+- **Oxford is present in the MRF** (40 in-network files, ~48 GB — e.g.
+  `Oxford-Health-Plans--CT---Inc-_Insurer_Choice-Plus` 9.1 GB, `..._Core` 8.6 GB),
+  despite having NO public FHIR directory (probed 2026-07-12: no FLEX tenant, no
+  separate endpoint, oxfordhealth.com unreachable, zero Oxford in the flex feed). MRF is
+  the only public NPI-level window into Oxford's NY commercial network.
+- Structure (confirmed on the 2 MB NY file): standard CMS TiC schema — `provider_references`
+  + inline `provider_groups`/`npi` front-loaded, then `in_network` array with `billing_code`
+  + `negotiated_rates`. Self-contained (NPI lists inline, no separate reference file needed).
+  `mrfparse` (danielchalef) targets this exact format.
+- **Job shape (not built):** stream ~5-10 Insurer-level files (NY Behavior-Health P3 + NY
+  Choice Plus/EPO + Oxford Choice-Plus/Core), each 8-15 GB gzipped, filter to our ~99k NPIs
+  × the 5 behavioral CPTs → small rates table. ~60-100 GB streamed (not stored). Not TB.
 
 ### Eligibility / clearinghouse (270/271) — the EHR moat
 The directory answers *"is she in-network?"* Eligibility answers *"what will MY visit cost?"* —
