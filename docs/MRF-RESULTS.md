@@ -94,3 +94,18 @@ insurance-accepted signal. Enrich-only: rates attach to NPIs we already hold._
 - **Highmark WNY** — open directory at mrfdata.hmhs.com; monthly URL list
   `MRF_URL-301-202607.txt` → 524 signed bcbs.com files (same platform/layout
   as Empire). Streaming ×2 shards.
+
+### 4. Cigna — ✅ biggest haul of the night (2026-07-12 ~04:15)
+
+- **18,314 distinct NPIs · 445,498 rows loaded** (~140 GB streamed across 9 NY
+  files in ~15 min). Brendan's corroboration-pair thesis confirmed at scale:
+  the national OAP + the Evernorth-behavioral-inclusive localplus each carry
+  ~1,800 NY-intersecting groups and ~50k rows per therapy CPT.
+- Dedupe-hard applied at LOAD time: national-ppo / ppo-sar-1 / ppo-sar-ii are
+  byte-equivalent republicatons of the same national table (identical byCode
+  counts) — loaded national-oap only. metro-ny-seamless = twin of
+  metro-new-york-gppo — loaded the GPPO. open-access-hmo-pos = verified zero
+  (1 provider_reference in the whole file). Skipped twins logged here, CSVs
+  kept in .harvest/mrf/cigna-*/ if ever needed.
+- Access path for the queue doc: `cigna.com/static/mrf/latest.json` → signed
+  CloudFront ToC. No wall, no rate limit at this volume.
