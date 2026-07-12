@@ -3,6 +3,7 @@ import { isoDateOnly, isoDateTime } from "@/lib/format";
 import { mockId, mockStore } from "@/lib/mock";
 import "@/lib/mock/directory";
 import { mockParticipation } from "@/lib/mock/networks";
+import { PROGRAM_FAMILIES, familyForType, typesForFamily, type ProgramFamily } from "@/lib/program-taxonomy";
 import type {
   DirectoryProgram,
   DirectoryProvider,
@@ -392,6 +393,97 @@ export async function searchPrograms(opts: {
   }
 
   const all = filterPrograms([...mockStore().directoryPrograms.values()], opts);
+  return paginate(all, page, pageSize);
+}
+
+// ── program families (patient-facing taxonomy over OMH program_type) ────────
+// See lib/program-taxonomy.ts — 94 raw types → 10 families. These two power
+// the dynamic program pages (family pages, county pages, audience filters).
+
+export interface ProgramFamilyFacet extends ProgramFamily {
+  programCount: number;
+  countyCount: number;
+}
+
+/** Family cards for the /programs index: every family with live counts. */
+export async function programFamilyFacets(): Promise<ProgramFamilyFacet[]> {
+  let typeCounts: Array<{ program_type: string | null; county: string | null; n: number }>;
+  if (hasDb) {
+    typeCounts = (await sql`
+      SELECT program_type, county, count(*)::int AS n
+      FROM directory_programs GROUP BY program_type, county
+    `) as Array<{ program_type: string | null; county: string | null; n: number }>;
+  } else {
+    const agg = new Map<string, { program_type: string | null; county: string | null; n: number }>();
+    for (const pr of mockStore().directoryPrograms.values()) {
+      const key = `${pr.programType}|${pr.county}`;
+      const cur = agg.get(key) ?? { program_type: pr.programType, county: pr.county, n: 0 };
+      cur.n += 1;
+      agg.set(key, cur);
+    }
+    typeCounts = [...agg.values()];
+  }
+  const byFamily = new Map<string, { programCount: number; counties: Set<string> }>();
+  for (const r of typeCounts) {
+    const fam = familyForType(r.program_type);
+    const cur = byFamily.get(fam) ?? { programCount: 0, counties: new Set<string>() };
+    cur.programCount += Number(r.n);
+    if (r.county) cur.counties.add(r.county);
+    byFamily.set(fam, cur);
+  }
+  return PROGRAM_FAMILIES.map((f) => ({
+    ...f,
+    programCount: byFamily.get(f.slug)?.programCount ?? 0,
+    countyCount: byFamily.get(f.slug)?.counties.size ?? 0,
+  })).filter((f) => f.programCount > 0);
+}
+
+/** Programs in one family, optionally narrowed by county and/or audience. */
+export async function listProgramsByFamily(opts: {
+  family: string;
+  county?: string;
+  /** 'children' | 'adolescents' | 'adults' — matches the populations enum. */
+  population?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<Page<DirectoryProgram>> {
+  const page = Math.max(1, opts.page ?? 1);
+  const pageSize = opts.pageSize ?? PAGE_SIZE;
+  const types = typesForFamily(opts.family);
+  if (!types.length) return { items: [], total: 0, page, pageSize };
+
+  if (hasDb) {
+    const where: string[] = [`program_type = ANY($1)`];
+    const params: unknown[] = [types];
+    let p = 2;
+    if (opts.county) {
+      where.push(`county = $${p++}`);
+      params.push(opts.county);
+    }
+    if (opts.population) {
+      // populations is a clean word-list enum ("Children Adolescents Adults");
+      // prefix-match the word so 'adolescents' also matches "Adolescents".
+      where.push(`populations ILIKE $${p++}`);
+      params.push(`%${opts.population.slice(0, 8)}%`);
+    }
+    const clause = `WHERE ${where.join(" AND ")}`;
+    const countRows = (await sql.query(`SELECT count(*)::int AS n FROM directory_programs ${clause}`, params)) as Array<{ n: number }>;
+    const total = countRows[0]?.n ?? 0;
+    const rows = (await sql.query(
+      `SELECT * FROM directory_programs ${clause} ORDER BY county NULLS LAST, program_name LIMIT $${p++} OFFSET $${p++}`,
+      [...params, pageSize, (page - 1) * pageSize],
+    )) as ProgramRow[];
+    return { items: rows.map(toProgram), total, page, pageSize };
+  }
+
+  const typeSet = new Set(types);
+  const pop = opts.population?.toLowerCase().slice(0, 8);
+  const all = [...mockStore().directoryPrograms.values()].filter(
+    (pr) =>
+      typeSet.has(pr.programType ?? "") &&
+      (!opts.county || pr.county === opts.county) &&
+      (!pop || (pr.populations ?? "").toLowerCase().includes(pop)),
+  );
   return paginate(all, page, pageSize);
 }
 
