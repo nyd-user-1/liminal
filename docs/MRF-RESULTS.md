@@ -109,3 +109,14 @@ insurance-accepted signal. Enrich-only: rates attach to NPIs we already hold._
   kept in .harvest/mrf/cigna-*/ if ever needed.
 - Access path for the queue doc: `cigna.com/static/mrf/latest.json` → signed
   CloudFront ToC. No wall, no rate limit at this volume.
+
+### 5. MetroPlus — ✅ over-delivered despite stale files (2026-07-12 ~04:40)
+
+- **71,866 rows loaded** across FFS / Gold-GoldCare / QHP-Exchange (~30 GB of
+  RAW uncompressed JSON on an Azure blob — no gzip). Inline provider_groups
+  (no refs section). Distinct NPIs in rollup.
+- The files are dated 2023-10 / 2024-02 and appear never to have been
+  re-published since — carried in `file_date` as the staleness signal, and
+  itself a TiC-compliance data point about MetroPlus.
+- The "FFS" file looks like their whole fee schedule (city-plan lines), not
+  just a commercial sliver — more NPI coverage than the trap-tier prediction.
