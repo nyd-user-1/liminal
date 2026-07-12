@@ -459,16 +459,6 @@ function ResultRow({ name, onClick }: { name: string; onClick: () => void }) {
 
 type PayerOption = { slug: string; name: string; providerCount: number };
 
-// Real insurer marks we hold — same blob assets/convention as
-// lib/insurance-options.ts's LOGOS (kept local, not imported, since that
-// module is under active concurrent edit). Payers without a mark here (e.g.
-// Humana, no logo in the blob store yet) fall back to the two-tone id-card icon.
-const PAYER_LOGOS: Record<string, string> = {
-  Cigna: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/insurance/cigna.avif",
-  UnitedHealthcare: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/insurance/united.avif",
-  Healthfirst: "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/insurance/healthfirst.svg",
-};
-
 // Live directory search in the morphing panel: search bar + insurance filter
 // rail on the left, results / "Recent results" on the right. Results are
 // capped so the panel stays within the Find-care menu height.
@@ -570,25 +560,11 @@ function SearchPanel({ onNavigate }: { onNavigate: (href: string) => void }) {
                   on ? "bg-surface shadow-sm" : "hover:bg-surface hover:shadow-sm"
                 }`}
               >
-                <span className="flex h-8 w-12 shrink-0 items-center justify-start">
-                  {PAYER_LOGOS[p.name] ? (
-                    <img
-                      src={PAYER_LOGOS[p.name]}
-                      alt=""
-                      className="max-h-8 w-12 object-contain object-left"
-                    />
-                  ) : (
-                    <Icon
-                      name="id-card"
-                      size={24}
-                      className={`transition-colors ${
-                        on
-                          ? "fill-primary-wash text-text"
-                          : "text-text-muted group-hover:fill-primary-wash group-hover:text-text"
-                      }`}
-                    />
-                  )}
-                </span>
+                <Icon
+                  name="id-card"
+                  size={20}
+                  className={`shrink-0 text-text transition-colors ${on ? "fill-primary-wash" : "group-hover:fill-primary-wash"}`}
+                />
                 <span
                   className={`text-[15px] font-medium ${on ? "text-text" : "text-text-body group-hover:text-text"}`}
                 >

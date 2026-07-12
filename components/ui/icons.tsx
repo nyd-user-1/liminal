@@ -350,8 +350,10 @@ const paths: Record<string, ReactNode> = {
   ),
   "monitor-check": (
     <>
-      <path d="m9 10 2 2 4-4" />
+      {/* Frame painted first (behind the checkmark) so a fill on the wrapper
+          reads as the screen's fill, never covering the check drawn on top. */}
       <rect width="20" height="14" x="2" y="3" rx="2" />
+      <path d="m9 10 2 2 4-4" />
       <path d="M12 17v4" />
       <path d="M8 21h8" />
     </>
@@ -384,11 +386,14 @@ const paths: Record<string, ReactNode> = {
   ),
   "id-card": (
     <>
+      {/* Painted first (behind the circle/lines) so a wash fill on the wrapper
+          reads as a soft background tint inside the card, never covering the
+          navy details drawn on top of it. */}
+      <rect x="2" y="5" width="20" height="14" rx="2" />
       <path d="M16 10h2" />
       <path d="M16 14h2" />
       <path d="M6.17 15a3 3 0 0 1 5.66 0" />
       <circle cx="9" cy="11" r="2" className="fill-text" />
-      <rect x="2" y="5" width="20" height="14" rx="2" />
     </>
   ),
   leaf: (

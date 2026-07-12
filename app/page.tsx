@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Icon, type IconName } from "@/components/ui/icons";
+import { TextLink } from "@/components/ui/text-link";
 import { CareCarousel } from "@/components/marketing/care-carousel";
 import { InsurerStrip } from "@/components/site/insurer-strip";
 import { HeroSearch } from "@/components/marketing/hero-search";
@@ -54,28 +55,9 @@ const SPECIALTIES: Array<{ name: string; note: string; q: string }> = [
   { name: "Couples & family", note: "Relationships and family dynamics", q: "Couples" },
   { name: "Grief & loss", note: "Bereavement and major life change", q: "Grief and Loss" },
   { name: "LGBTQIA+ affirming", note: "Care that centers who you are", q: "LGBTQIA+" },
-];
-
-// The find-care flow, as an honest ordered sequence (numbers earn their place).
-const STEPS: Array<{ n: string; title: string; body: string; icon: IconName }> = [
-  {
-    n: "01",
-    title: "Search & filter",
-    body: "Search 116,000+ providers by specialty, borough, and your exact insurance plan. No account needed.",
-    icon: "search",
-  },
-  {
-    n: "02",
-    title: "See your cost up front",
-    body: "Know what a visit costs before you book. In-network means no surprise bill after the session.",
-    icon: "check",
-  },
-  {
-    n: "03",
-    title: "Book the same week",
-    body: "Pick a real open slot and confirm online — many providers can see you within the week.",
-    icon: "calendar-check",
-  },
+  { name: "Bipolar disorder", note: "Psychiatric management, steady and consistent", q: "Bipolar Disorder" },
+  { name: "Sleep", note: "CBT-I and care for what's keeping you up", q: "Sleep" },
+  { name: "Addiction & recovery", note: "Judgment-free care, at your own pace", q: "Addiction" },
 ];
 
 // Reach stats (Headway "found support" layout, Liminal content). Provider count
@@ -369,16 +351,71 @@ export default async function Home() {
             <div className="mkt-rise mkt-d2 mt-8 max-w-[577px]">
               <HeroSearch autoFocus />
             </div>
-            <p className="mkt-rise mkt-d3 mt-4 flex items-center gap-2 text-sm text-text-body">
-              <Icon name="lock" size={15} className="shrink-0 text-primary" />
+            <TextLink href="/providers" icon="check" className="mkt-rise mkt-d3 mt-4">
               Free to search — no sign-up required.
-            </p>
+            </TextLink>
           </div>
 
         </div>
 
         {/* scroll cue — fades/rises in after load, out on first scroll (client) */}
-        <ScrollCue />
+        <ScrollCue targetId="section-2" label="Scroll to run your New York practice on Liminal" />
+      </section>
+
+      {/* ── 2 · Provider band (duplicate) — same content as the #for-providers
+          band further down; own id ("section-2") so /#for-providers still
+          anchors to the original instance while the hero's ScrollCue can
+          target this one. Full viewport height, same calc the hero uses. ── */}
+      <section id="section-2" className="scroll-mt-[70px] bg-primary-wash lg:min-h-[calc(100dvh-70px)]">
+        <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-6 pt-24 sm:pt-28 lg:grid-cols-[1fr_1.3fr] lg:gap-16">
+          <Reveal className="lg:order-last lg:mr-0 lg:w-auto lg:-mr-16 xl:-mr-28">
+            <WatercolorHover>
+              <img
+                src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/Gemini_Generated_Image_tep72ltep72ltep7-Photoroom.avif"
+                alt="A watercolour illustration — a doctor's office desk with a stethoscope on a clipboard, a succulent, and a sweater draped over a chair."
+                width={2400}
+                height={1309}
+                className="block w-full"
+                loading="lazy"
+              />
+            </WatercolorHover>
+          </Reveal>
+          <div className="max-w-md">
+            <p className="font-display text-[13px] font-semibold uppercase tracking-[0.14em] text-primary-deep">
+              For providers
+            </p>
+            <h2 className="mt-3 text-balance font-display text-3xl font-bold tracking-tight text-primary sm:text-[40px] sm:leading-[1.08]">
+              Run your New York practice on Liminal.
+            </h2>
+            <p className="mt-5 text-pretty text-lg leading-relaxed text-text-body">
+              Scheduling, telehealth, AI progress notes, and billing on one platform — plus a directory that sends you
+              clients. The practice behind the care can go home on time.
+            </p>
+            <div className="mt-8">
+              <Link
+                href="/join"
+                className="group inline-flex h-12 items-center justify-center gap-1.5 rounded-field bg-primary px-7 text-[15px] font-semibold text-white transition-colors hover:bg-primary-hover"
+              >
+                Join as a provider
+              </Link>
+            </div>
+          </div>
+        </div>
+        <div className="mx-auto w-full max-w-6xl px-6 pt-14 pb-24 sm:pb-28">
+          <Reveal>
+            <ul className="grid gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+              {PROVIDER_FEATURES.map((f) => (
+                <li key={f.title} className="flex gap-4">
+                  <Icon name={f.icon} size={22} className="mt-0.5 shrink-0 fill-[#f7f3e8] text-text" />
+                  <div>
+                    <h3 className="font-display text-lg font-semibold text-text">{f.title}</h3>
+                    <p className="mt-1 text-pretty leading-relaxed text-text-body">{f.body}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Reveal>
+        </div>
       </section>
 
       {/* ── Reach — stats + social proof (Headway "found support" layout) ──── */}
@@ -386,14 +423,14 @@ export default async function Home() {
         <div className="mx-auto w-full max-w-6xl px-6 pt-10 sm:pt-12">
           {/* heading lives in the grid: below lg it stacks image → heading →
               steps; at lg it spans the top row via order-first + col-span-2 */}
-          <div className="grid items-center gap-6 lg:grid-cols-[1.9fr_1fr] lg:gap-10">
-            <Reveal className="-ml-6 -mr-6 w-[calc(100%+3rem)] lg:-ml-16 lg:mr-0 lg:w-auto xl:-ml-28" delay={80}>
+          <div className="grid items-center gap-6 lg:grid-cols-[2.2fr_1fr] lg:gap-10">
+            <Reveal className="-ml-6 -mr-6 w-[calc(100%+3rem)] lg:-ml-24 lg:mr-0 lg:w-auto xl:-ml-40" delay={80}>
               <WatercolorHover>
                 <img
-                  src={`${ILLO}/maya10.avif`}
-                  alt="A watercolour illustration — two people walk a small dog along a path through a meadow at dawn, soft light on the horizon."
-                  width={2030}
-                  height={1211}
+                  src={`${CUT}/gardening.avif`}
+                  alt="A watercolour illustration — a person kneels in a garden bed, planting a seedling, a copper watering can beside them."
+                  width={1166}
+                  height={730}
                   className="mkt-soft block w-full"
                   loading="lazy"
                 />
@@ -478,7 +515,7 @@ export default async function Home() {
 
       {/* In-network logo strip — real payer marks in place of the coloured
           insurer wordmarks (components/site/insurer-strip.tsx). */}
-      <InsurerStrip />
+      <InsurerStrip ground="wash" caption="" />
 
       {/* ── 5 · Trusted across New York — stats + the reviews rail ─────────── */}
       <section className="relative overflow-hidden bg-page">
@@ -492,10 +529,10 @@ export default async function Home() {
             >
               <WatercolorHover>
                 <img
-                  src={`${CUT}/tending-seedling.avif`}
+                  src={`${CUT}/gardening.avif`}
                   alt="A watercolour illustration — a person kneels in a garden bed, planting a seedling, a watering can beside them."
-                  width={1600}
-                  height={1120}
+                  width={1166}
+                  height={730}
                   className="mkt-soft block w-full"
                   loading="lazy"
                 />
@@ -536,12 +573,9 @@ export default async function Home() {
       <section className="bg-page">
         <div className="mx-auto w-full max-w-6xl px-6 py-24 sm:py-28">
           <div className="grid gap-10 lg:grid-cols-3 lg:gap-12">
-            {/* Col 1 — heading stacked on the image */}
+            {/* Col 1 — image stacked above the heading */}
             <div>
-              <h2 className="text-balance font-display text-4xl font-bold tracking-tight text-primary sm:text-[40px] sm:leading-[1.08]">
-                Find care for whatever&apos;s on your mind.
-              </h2>
-              <Reveal className="mt-8">
+              <Reveal>
                 <WatercolorHover>
                   <img
                     src={`${CUT}/one-thing.avif`}
@@ -553,54 +587,49 @@ export default async function Home() {
                   />
                 </WatercolorHover>
               </Reveal>
-              <Link href="/providers" className="group mt-6 inline-flex items-center text-[15px] font-semibold text-primary">
-                <span className="link-wipe">Browse the full directory</span>
-              </Link>
+              <h2 className="mt-8 text-balance font-display text-4xl font-bold tracking-tight text-primary sm:text-[40px] sm:leading-[1.08]">
+                Getting care shouldn&apos;t be the hard part.
+              </h2>
+              <p className="mt-4 max-w-lg text-pretty text-lg leading-relaxed text-text-body">
+                No phone tag, no waitlists, no guessing what it&apos;ll cost. Three steps, and you&apos;re booked.
+              </p>
             </div>
 
-            {/* Cols 2–3 — care categories split across two columns */}
-            <ul className="grid gap-x-10 self-start sm:grid-cols-2 lg:col-span-2">
-              {SPECIALTIES.map((s) => (
-                <li key={s.name}>
-                  <Link
-                    href={`/providers?q=${encodeURIComponent(s.q)}`}
-                    className="group block border-b border-page-edge py-4"
-                  >
-                    <span className="font-display text-lg font-semibold text-text transition-colors group-hover:text-primary">
-                      {s.name}
+            {/* Cols 2–3 — care categories split across two columns, "View more" as
+                the 10th cell. */}
+            <div className="lg:col-span-2">
+              <ul className="grid gap-x-10 self-start sm:grid-cols-2">
+                {SPECIALTIES.map((s) => (
+                  <li key={s.name}>
+                    <Link
+                      href={`/providers?q=${encodeURIComponent(s.q)}`}
+                      className="group relative block border-b border-page-edge py-4"
+                    >
+                      <span className="font-display text-lg font-semibold text-text transition-colors group-hover:text-primary">
+                        {s.name}
+                      </span>
+                      <span className="mt-0.5 block text-sm text-text-body/80">{s.note}</span>
+                      <span
+                        aria-hidden
+                        className="absolute inset-x-0 bottom-0 h-[1.5px] w-0 bg-primary transition-[width] duration-[400ms] ease-out group-hover:w-full"
+                      />
+                    </Link>
+                  </li>
+                ))}
+                <li>
+                  <Link href="/specialty" className="group relative flex h-full items-center border-b border-page-edge py-4">
+                    <span className="font-display text-lg font-semibold text-primary transition-colors group-hover:text-primary-hover">
+                      View more →
                     </span>
-                    <span className="mt-0.5 block text-sm text-text-body/80">{s.note}</span>
+                    <span
+                      aria-hidden
+                      className="absolute inset-x-0 bottom-0 h-[1.5px] w-0 bg-primary transition-[width] duration-[400ms] ease-out group-hover:w-full"
+                    />
                   </Link>
                 </li>
-              ))}
-            </ul>
+              </ul>
+            </div>
           </div>
-        </div>
-      </section>
-
-      {/* ── How it works — three honest steps (fixes "will this actually work?") */}
-      <section className="bg-page">
-        <div className="mx-auto w-full max-w-6xl px-6 py-24 sm:py-28">
-          <h2 className="max-w-xl text-balance font-display text-4xl font-bold tracking-tight text-primary sm:text-5xl">
-            Getting care shouldn&apos;t be the hard part.
-          </h2>
-          <p className="mt-4 max-w-lg text-pretty text-lg leading-relaxed text-text-body">
-            No phone tag, no waitlists, no guessing what it&apos;ll cost. Three steps, and you&apos;re booked.
-          </p>
-
-          <ol className="mt-16 grid gap-x-12 gap-y-12 sm:grid-cols-3">
-            {STEPS.map((s) => (
-              <li key={s.n}>
-                <div className="flex items-center gap-3">
-                  <span className="font-display text-3xl font-semibold text-primary/40">{s.n}</span>
-                  <span className="h-px flex-1 bg-page-edge" />
-                  <Icon name={s.icon} size={20} className="shrink-0 text-primary" />
-                </div>
-                <h3 className="mt-5 font-display text-xl font-semibold text-text">{s.title}</h3>
-                <p className="mt-2 text-pretty leading-relaxed text-text-body">{s.body}</p>
-              </li>
-            ))}
-          </ol>
         </div>
       </section>
 
@@ -633,8 +662,8 @@ export default async function Home() {
 
       {/* ── Provider band — the single provider moment, on the mint wash ───── */}
       <section id="for-providers" className="scroll-mt-20 bg-primary-wash">
-        <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-6 pt-24 sm:pt-28 lg:grid-cols-2 lg:gap-16">
-          <Reveal className="lg:order-last">
+        <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-6 pt-24 sm:pt-28 lg:grid-cols-[1fr_1.3fr] lg:gap-16">
+          <Reveal className="lg:order-last lg:mr-0 lg:w-auto lg:-mr-16 xl:-mr-28">
             <WatercolorHover>
               <img
                 src="https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/Gemini_Generated_Image_tep72ltep72ltep7-Photoroom.avif"
@@ -672,9 +701,7 @@ export default async function Home() {
             <ul className="grid gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
               {PROVIDER_FEATURES.map((f) => (
                 <li key={f.title} className="flex gap-4">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-field bg-surface text-primary">
-                    <Icon name={f.icon} size={20} />
-                  </span>
+                  <Icon name={f.icon} size={22} className="mt-0.5 shrink-0 fill-[#f7f3e8] text-text" />
                   <div>
                     <h3 className="font-display text-lg font-semibold text-text">{f.title}</h3>
                     <p className="mt-1 text-pretty leading-relaxed text-text-body">{f.body}</p>

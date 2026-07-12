@@ -7,7 +7,13 @@ import { Icon } from "@/components/ui/icons";
 // page settles, then fades/drops OUT the instant the user starts scrolling. The
 // gentle bob (.mkt-bob) and the smooth scroll to the target are CSS; both defer
 // to prefers-reduced-motion. Desktop-only (the mobile hero isn't full-height).
-export function ScrollCue({ targetId = "reach" }: { targetId?: string }) {
+export function ScrollCue({
+  targetId = "reach",
+  label = "Scroll to see how millions have found support",
+}: {
+  targetId?: string;
+  label?: string;
+}) {
   const [entered, setEntered] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -27,7 +33,7 @@ export function ScrollCue({ targetId = "reach" }: { targetId?: string }) {
   return (
     <a
       href={`#${targetId}`}
-      aria-label="Scroll to see how millions have found support"
+      aria-label={label}
       tabIndex={visible ? 0 : -1}
       className={`group absolute inset-x-0 bottom-[66px] z-20 mx-auto hidden w-fit transition-all duration-500 ease-out lg:block ${
         visible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-4 opacity-0"
