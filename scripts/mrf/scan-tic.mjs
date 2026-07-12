@@ -125,7 +125,8 @@ async function emitRows(item) {
       }
     }
     if (!sides) continue;
-    for (const price of nr.negotiated_prices ?? []) {
+    // CDPHP publishes the singular `negotiated_price`; CMS schema says plural
+    for (const price of nr.negotiated_prices ?? nr.negotiated_price ?? []) {
       const pos = Array.isArray(price.service_code) ? price.service_code.join("|") : "";
       for (const side of sides) {
         for (const npi of side.npis) {
@@ -183,13 +184,27 @@ const finishRefs = async (tail) => {
 };
 
 // ---------------------------------------------------------------------------
-// Phase N: line scanner over in_network. Modes: TEST (accumulate head window,
-// decide) -> CAPTURE (matched line, buffer whole) | SKIP (drop to next \n).
+// Phase N: opener-delimited scanner over in_network. Every vendor generator
+// we've met (UHC one-item-per-line, CDPHP newline-inside-item) emits
+// `{"negotiation_arrangement"` as the first key of every item, so consecutive
+// occurrences of that needle delimit items exactly — no line assumptions.
+// Modes: SEEK/SKIP (searching for next opener, nothing retained) ->
+// HEAD (accumulating undecided item) -> CAPTURE (matched item, buffer whole).
 // ---------------------------------------------------------------------------
-let mode = "SKIP"; // right after the marker: skip past the `[` to the first \n
-let headParts = [];
-let headLen = 0;
-let captureParts = null;
+const OPENER = Buffer.from('{"negotiation_arrangement"');
+// cheap prefilter before the regex: longest common prefix of the target codes
+// ('"billing_code":"9' for the 5 behavioral CPTs)
+const codeList = [...CPTS];
+let lcp = codeList[0] ?? "";
+for (const c of codeList) {
+  let k = 0;
+  while (k < lcp.length && k < c.length && lcp[k] === c[k]) k++;
+  lcp = lcp.slice(0, k);
+}
+const FAST_GATE = Buffer.from(`"billing_code":"${lcp}`);
+let mode = "SEEK";
+let parts = []; // current item bytes (opener excluded; re-prepended at parse)
+let partsLen = 0;
 
 function abort(why, sample) {
   clearInterval(ticker);
@@ -198,13 +213,13 @@ function abort(why, sample) {
   process.exit(3);
 }
 
-async function finishLine() {
-  // full matched line assembled in captureParts
-  let text = Buffer.concat(captureParts).toString("utf8").trim();
-  captureParts = null;
-  if (text.endsWith(",")) text = text.slice(0, -1);
+async function finishItem() {
+  // full matched item = OPENER + accumulated parts, minus trailing junk
+  let text = OPENER + Buffer.concat(parts, partsLen).toString("utf8").trim();
+  parts = [];
+  partsLen = 0;
   let item = null;
-  for (let chop = 0; chop < 6; chop++) {
+  for (let chop = 0; chop < 10; chop++) {
     try {
       item = JSON.parse(text);
       break;
@@ -214,89 +229,68 @@ async function finishLine() {
       else break;
     }
   }
-  if (!item) abort("matched line failed to parse after trims");
-  // head-window regex can false-positive (code text inside description) —
+  if (!item) abort("matched item failed to parse after trims");
+  // head-window test can false-positive (code text inside description) —
   // re-check the parsed item so behavior matches the reference implementation
   if (!CPTS.has(String(item.billing_code))) return;
   stats.itemsMatchedCode++;
   await emitRows(item);
 }
 
-function testHead() {
-  const head = Buffer.concat(headParts, headLen).toString("utf8");
-  const isItem = head.includes('"negotiation_arrangement"');
-  if (isItem) stats.itemsSeen++;
-  if (CODE_RE.test(head)) return "CAPTURE";
-  if (isItem && !head.includes('"billing_code":"')) {
-    // an item line whose billing_code escaped the head window — never silent
-    abort(`item line without billing_code in first ${HEAD_WINDOW} bytes`, Buffer.from(head));
+// decide on the first HEAD_WINDOW bytes of the current item
+function decide() {
+  const head = Buffer.concat(parts, Math.min(partsLen, HEAD_WINDOW));
+  if (head.includes(FAST_GATE) && CODE_RE.test(head.toString("utf8"))) return "CAPTURE";
+  if (!head.includes('"billing_code":"')) {
+    // an item whose billing_code escaped the head window — never silent
+    abort(`item without billing_code in first ${HEAD_WINDOW} bytes`, head);
   }
   return "SKIP";
 }
 
+// `carry` holds a potential opener prefix straddling chunk boundaries
+let carry = Buffer.alloc(0);
+
 async function scanChunk(buf) {
-  let i = 0;
-  const n = buf.length;
-  while (i < n) {
-    if (mode === "SKIP") {
-      const nl = buf.indexOf(NL, i);
-      if (nl === -1) return; // rest of chunk is mid-line noise
-      i = nl + 1;
-      mode = "TEST";
-      headParts = [];
-      headLen = 0;
-    } else if (mode === "TEST") {
-      const nl = buf.indexOf(NL, i);
-      const end = nl === -1 ? n : nl;
-      const take = Math.min(end - i, HEAD_WINDOW - headLen);
-      if (take > 0) {
-        headParts.push(buf.subarray(i, i + take));
-        headLen += take;
-      }
-      if (headLen >= HEAD_WINDOW || nl !== -1) {
-        // enough head (or the whole line) to decide
-        const decision = testHead();
-        if (decision === "CAPTURE") {
-          captureParts = [Buffer.concat(headParts, headLen)];
-          // include rest of line beyond the head window
-          if (nl !== -1) {
-            if (end > i + take) captureParts.push(Buffer.from(buf.subarray(i + take, end)));
-            i = nl + 1;
-            await finishLine();
-            mode = "TEST";
-            headParts = [];
-            headLen = 0;
-          } else {
-            if (n > i + take) captureParts.push(Buffer.from(buf.subarray(i + take)));
-            mode = "CAPTURE";
-            return;
-          }
-        } else {
-          headParts = [];
-          headLen = 0;
-          if (nl !== -1) {
-            i = nl + 1; // next line starts fresh in TEST
-          } else {
-            mode = "SKIP"; // drop the rest of this long line
-            return;
+  const data = carry.length ? Buffer.concat([carry, buf]) : buf;
+  carry = Buffer.alloc(0);
+  let pos = 0;
+  for (;;) {
+    const q = data.indexOf(OPENER, pos);
+    if (q === -1) {
+      // no further item boundary in this chunk
+      const keep = Math.max(pos, data.length - OPENER.length + 1);
+      if (mode === "HEAD" || mode === "CAPTURE") {
+        if (keep > pos) {
+          parts.push(data.subarray(pos, keep));
+          partsLen += keep - pos;
+        }
+        if (mode === "HEAD" && partsLen >= HEAD_WINDOW) {
+          if (decide() === "CAPTURE") mode = "CAPTURE";
+          else {
+            parts = [];
+            partsLen = 0;
+            mode = "SKIP";
           }
         }
-      } else {
-        return; // chunk exhausted while still filling head window
       }
-    } else if (mode === "CAPTURE") {
-      const nl = buf.indexOf(NL, i);
-      if (nl === -1) {
-        captureParts.push(Buffer.from(buf.subarray(i)));
-        return;
-      }
-      captureParts.push(Buffer.from(buf.subarray(i, nl)));
-      i = nl + 1;
-      await finishLine();
-      mode = "TEST";
-      headParts = [];
-      headLen = 0;
+      carry = Buffer.from(data.subarray(keep)); // may hold an opener prefix
+      return;
     }
+    // opener found: close the current item (if one is open), open the next
+    if (mode === "HEAD" || mode === "CAPTURE") {
+      if (q > pos) {
+        parts.push(data.subarray(pos, q));
+        partsLen += q - pos;
+      }
+      const verdict = mode === "CAPTURE" ? "CAPTURE" : decide();
+      if (verdict === "CAPTURE") await finishItem();
+      parts = [];
+      partsLen = 0;
+    }
+    stats.itemsSeen++;
+    mode = "HEAD";
+    pos = q + OPENER.length;
   }
 }
 
@@ -318,14 +312,21 @@ for await (const chunk of process.stdin) {
     // found the in_network key: flush the refs tail (bytes of this chunk that
     // precede the marker were never written yet), then switch to the scanner
     await finishRefs(chunk.subarray(0, Math.max(0, at - overlap.length)));
-    mode = "SKIP";
+    mode = "SEEK";
     await scanChunk(probe.subarray(at + MARKER.length));
   } else {
     await scanChunk(chunk);
   }
 }
-// flush a trailing captured line with no final newline
-if (mode === "CAPTURE" && captureParts?.length) await finishLine();
+// flush the final item (its tail bytes may sit in carry)
+if (mode === "HEAD" || mode === "CAPTURE") {
+  if (carry.length) {
+    parts.push(carry);
+    partsLen += carry.length;
+  }
+  const verdict = mode === "CAPTURE" ? "CAPTURE" : decide();
+  if (verdict === "CAPTURE") await finishItem();
+}
 
 clearInterval(ticker);
 logStatus();

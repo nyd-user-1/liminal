@@ -140,7 +140,8 @@ function emitRows(item) {
       }
     }
     if (!sides) continue;
-    for (const price of nr.negotiated_prices ?? []) {
+    // CDPHP publishes the singular `negotiated_price`; CMS schema says plural
+    for (const price of nr.negotiated_prices ?? nr.negotiated_price ?? []) {
       const pos = Array.isArray(price.service_code) ? price.service_code.join("|") : "";
       for (const side of sides) {
         for (const npi of side.npis) {
