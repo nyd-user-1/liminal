@@ -168,3 +168,26 @@ BlueCard semantics note for the 05C0 lane: national-file presence means
 "reachable via BlueCard while traveling", NOT NY-plan membership. Rows carry
 the file's own entity + network names, so the rollup buckets other-state
 entities and national networks separately — never folded into NY coverage.
+
+### The BlueCard catalog decode (~16:50) — and the Excellus side door
+
+The Empire/Highmark "books" (724 + 524 files) turned out to be the FULL
+cross-licensee BlueCard catalog republished on every Blue host, keyed by
+numeric state-plan prefixes (020=Arkansas, 040=Anthem CA, 510=Alabama,
+690=CareFirst, 890=Tennessee…). Probing one file-head per prefix produced the
+complete map; the actual NY book is four prefixes:
+**254 = Empire BlueCross BlueShield · 301 = Highmark BCBS WNY ·
+302 = EXCELLUS BCBS · 800 = Highmark Blue Shield of Northeastern NY** —
+31 unique newest-month files, now streaming (vs 1,238 in the naive queue).
+
+- **Excellus resurrected via side door**: their Incapsula-walled HealthSparq
+  portal doesn't matter — their in-network files ship on the shared
+  bcbs.com host under prefix 302, no wall. (Univera may ride the same
+  platform — check prefix census on the next monthly pass.)
+- **05C0 verdict (empirically dead)**: the "monster" series = Anthem Blue
+  Cross CALIFORNIA's national par file. 3 chunks × ~28 min yielded 1,251
+  rows, all reach-bucket. Killed mid-chunk-4; the 130k retained groups were
+  real but the behavioral item yield is trivial and none of it is NY
+  membership. The refs fast-path stays (it's what made every verdict cheap).
+- Other-state chunks already completed/loaded stay as honest BlueCard-reach
+  rows (bucketed separately by the rollup, never NY coverage).
