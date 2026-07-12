@@ -152,8 +152,8 @@ export async function searchProviders(opts: {
   providerType?: string; // "therapist" | "psychiatrist" | "prescriber"
   prescribersOnly?: boolean;
   includeInactive?: boolean; // default false → deactivated NPIs hidden
-  /** payer_sources.slug — keep only providers with a FULL-quality participation
-      row for that payer (the ingested insurance-network data). */
+  /** payer_sources.slug — keep only providers with a participation row for
+      that payer (full or coarse — both mean "listed in their directory"). */
   insurancePayer?: string;
   page?: number;
   pageSize?: number;
@@ -209,10 +209,13 @@ export async function searchProviders(opts: {
       params.push(THERAPIST_PROFS);
     }
     if (opts.insurancePayer) {
+      // Any participation row counts — full (network+accepting) or coarse
+      // (presence-only, e.g. Healthfirst): both are "listed in the payer's
+      // published directory", which is the claim this filter makes.
       where.push(
         `npi IN (SELECT pnp.npi FROM provider_network_participation pnp ` +
           `JOIN payer_sources ps ON ps.id = pnp.payer_source_id ` +
-          `WHERE ps.slug = $${p++} AND pnp.data_completeness = 'full')`,
+          `WHERE ps.slug = $${p++})`,
       );
       params.push(opts.insurancePayer);
     }

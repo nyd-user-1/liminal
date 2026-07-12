@@ -20,7 +20,7 @@ export function ProviderPageSearch({
   insuranceOptions,
 }: {
   facets: CareFacets;
-  insuranceOptions?: Array<{ value: string; label: string }>;
+  insuranceOptions?: Array<{ value: string; label: string; image?: string; iconName?: string }>;
 }) {
   const router = useRouter();
   const [filters, setFilters] = useState<CareFilters>(EMPTY_FILTERS);

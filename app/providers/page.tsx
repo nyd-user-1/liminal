@@ -2,7 +2,7 @@ import { FindCareSearch } from "@/components/marketing/find-care-search";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Nav } from "@/components/marketing/nav";
 import { providerFacets } from "@/lib/repos/directory";
-import { BASE_INSURANCE_OPTIONS } from "@/lib/insurance-options";
+import { buildInsuranceOptions } from "@/lib/insurance-options";
 import { listPayerFacets } from "@/lib/repos/networks";
 
 export const dynamic = "force-dynamic";
@@ -37,10 +37,7 @@ export default async function ProvidersPage({
   // Insurance dropdown = Any/Medicaid + only payers with real ingested network
   // data (value is the payer slug the search API filters on). Payers we hold
   // nothing for simply don't appear — no option is better than a false one.
-  const insuranceOptions = [
-    ...BASE_INSURANCE_OPTIONS,
-    ...payers.map((p) => ({ value: p.slug, label: p.name })),
-  ];
+  const insuranceOptions = buildInsuranceOptions(payers);
   return (
     <div className="flex min-h-screen flex-col bg-page">
       <Nav ground="bg-page" />

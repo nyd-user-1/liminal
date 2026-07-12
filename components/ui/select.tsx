@@ -21,6 +21,10 @@ export interface SelectOption {
   color?: string;
   /** Optional leading initials Avatar (people pickers); wins over `color`. */
   avatar?: { name: string; hue?: AvatarHue; src?: string | null };
+  /** Optional leading image (e.g. an insurer mark) — contained, never cropped. */
+  image?: string;
+  /** Optional leading two-tone icon (icons.tsx name) — placeholder when no image. */
+  iconName?: string;
 }
 
 const triggerClass =
@@ -31,10 +35,14 @@ function Dot({ color }: { color?: string }) {
   return <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: color }} />;
 }
 
-// Leading slot for the trigger + each row: Avatar wins over color dot.
+// Leading slot for the trigger + each row: Avatar > image > icon > color dot.
 function OptionLead({ option }: { option?: SelectOption }) {
   if (!option) return null;
   if (option.avatar) return <Avatar name={option.avatar.name} hue={option.avatar.hue} src={option.avatar.src} size="sm" />;
+  if (option.image)
+    return <img src={option.image} alt="" aria-hidden className="h-5 w-8 shrink-0 object-contain" loading="lazy" />;
+  if (option.iconName)
+    return <Icon name={option.iconName as never} size={16} className="shrink-0 fill-primary-wash text-text" />;
   return <Dot color={option.color} />;
 }
 

@@ -12,7 +12,7 @@ import { NearbyAreas } from "@/components/providers/nearby-areas";
 import { BookingRail } from "@/components/providers/booking-rail";
 import { ProviderDirectoryRail } from "@/components/providers/provider-directory-rail";
 import { ProviderPageSearch } from "@/components/providers/provider-page-search";
-import { BASE_INSURANCE_OPTIONS } from "@/lib/insurance-options";
+import { buildInsuranceOptions } from "@/lib/insurance-options";
 import { ProviderPanel } from "@/components/providers/provider-panel";
 import { StickyBookBar } from "@/components/providers/sticky-book-bar";
 import { RevealFx } from "@/components/providers/reveal-fx";
@@ -175,10 +175,7 @@ export default async function ProviderProfilePage({ params }: { params: Promise<
     networkSummaryForNpi(directory.npi),
     listPayerFacets(),
   ]);
-  const insuranceOptions = [
-    ...BASE_INSURANCE_OPTIONS,
-    ...payerFacets.map((f) => ({ value: f.slug, label: f.name })),
-  ];
+  const insuranceOptions = buildInsuranceOptions(payerFacets);
   const claimHref = `/join?claim=1&name=${encodeURIComponent(directory.name)}${
     directory.npi ? `&npi=${encodeURIComponent(directory.npi)}` : ""
   }${directory.licenseState ? `&state=${encodeURIComponent(directory.licenseState)}` : ""}`;

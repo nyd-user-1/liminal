@@ -65,7 +65,7 @@ export async function networkSummariesByNpi(
              array_agg(DISTINCT n.network_name)              AS networks,
              array_agg(DISTINCT s.name)                      AS payers
       FROM provider_network_participation p
-      JOIN payer_networks n ON n.id = p.network_id
+      LEFT JOIN payer_networks n ON n.id = p.network_id
       JOIN payer_sources  s ON s.id = p.payer_source_id
       WHERE p.npi = ANY(${ids})
         AND (${opts.payerSlug ?? null}::text IS NULL OR s.slug = ${opts.payerSlug ?? null})
@@ -119,41 +119,67 @@ export async function networkSummaryForNpi(
 
 // ── (b′) payer facets (drives the insurance dropdown) ────────────────────────
 
-/** One payer we hold FULL-quality participation data for, with matched count. */
+/** One payer we hold participation data for, with matched count. */
 export interface PayerFacet {
   slug: string;
   name: string;
   providerCount: number;
+  /** % of matched providers flagged accepting by THIS payer (0-100, rounded). */
+  acceptingPct: number;
+  /** most recent payer-reported update across the payer's rows (ISO), or null. */
+  asOf: string | null;
+  /** true when the payer publishes presence only (no networks/accepting) —
+      e.g. Healthfirst's bare-roles feed. Listing is still a real directory claim. */
+  coarse: boolean;
 }
 
 /**
- * Payers with at least one full-quality (`data_completeness = 'full'`) row
- * matched to our directory — the honest option list for an insurance filter.
- * Coarse-only payers (Healthfirst) are deliberately excluded: presence-in-
- * directory can't back an "in-network" filter claim.
+ * Payers with at least one participation row matched to our directory — the
+ * option list for the insurance filter. Coarse-only payers (Healthfirst's
+ * bare-roles feed) are included and MARKED: "listed in their directory" is a
+ * real claim; what coarse rows can't back is a network name or accepting flag
+ * (per Brendan 2026-07-11 — surface the listing, never invent the rest).
  */
 export async function listPayerFacets(): Promise<PayerFacet[]> {
   if (hasDb) {
     const rows = (await sql`
-      SELECT s.slug, s.name, count(DISTINCT d.npi)::int AS provider_count
+      SELECT s.slug, s.name, count(DISTINCT d.npi)::int AS provider_count,
+             count(DISTINCT d.npi) FILTER (WHERE p.accepting_new_patients = 'accepting')::int AS accepting_count,
+             max(p.source_last_updated) AS as_of,
+             bool_or(p.data_completeness = 'full') AS has_full
       FROM payer_sources s
       JOIN provider_network_participation p ON p.payer_source_id = s.id
       JOIN directory_providers d ON d.npi = p.npi
-      WHERE p.data_completeness = 'full'
       GROUP BY s.slug, s.name
       ORDER BY provider_count DESC
-    `) as Array<{ slug: string; name: string; provider_count: number }>;
-    return rows.map((r) => ({ slug: r.slug, name: r.name, providerCount: Number(r.provider_count ?? 0) }));
+    `) as Array<{ slug: string; name: string; provider_count: number; accepting_count: number; as_of: string | Date | null; has_full: boolean }>;
+    return rows.map((r) => ({
+      slug: r.slug,
+      name: r.name,
+      providerCount: Number(r.provider_count ?? 0),
+      acceptingPct: r.provider_count ? Math.round((Number(r.accepting_count) / Number(r.provider_count)) * 100) : 0,
+      asOf: r.as_of ? isoDateTime(r.as_of) : null,
+      coarse: !r.has_full,
+    }));
   }
 
   // mock — aggregate the fixture by payer
-  const byPayer = new Map<string, PayerFacet>();
+  const byPayer = new Map<string, { slug: string; name: string; npis: Set<string>; accepting: Set<string>; asOf: string | null }>();
   for (const m of mockParticipation) {
-    const cur = byPayer.get(m.payerSlug) ?? { slug: m.payerSlug, name: m.payerName, providerCount: 0 };
-    cur.providerCount += 1;
+    const cur = byPayer.get(m.payerSlug) ?? { slug: m.payerSlug, name: m.payerName, npis: new Set(), accepting: new Set(), asOf: null };
+    cur.npis.add(m.npi);
+    if (m.accepting === "accepting") cur.accepting.add(m.npi);
+    if (!cur.asOf || m.asOf > cur.asOf) cur.asOf = m.asOf;
     byPayer.set(m.payerSlug, cur);
   }
-  return [...byPayer.values()].sort((a, b) => b.providerCount - a.providerCount);
+  return [...byPayer.values()]
+    .map((c) => ({
+      slug: c.slug, name: c.name, providerCount: c.npis.size,
+      acceptingPct: c.npis.size ? Math.round((c.accepting.size / c.npis.size) * 100) : 0,
+      asOf: c.asOf,
+      coarse: false,
+    }))
+    .sort((a, b) => b.providerCount - a.providerCount);
 }
 
 // ── (b) facet list (drives a real insurance filter/dropdown) ─────────────────

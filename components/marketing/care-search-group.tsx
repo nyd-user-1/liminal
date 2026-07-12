@@ -18,8 +18,8 @@ import { BASE_INSURANCE_OPTIONS } from "@/lib/insurance-options";
 
 // Care-type filter — "Medication Mgmt." ≈ psychiatrist/PMHNP roles, "Talk
 // Therapy" ≈ therapist roles (see matchesType in the public-search API route).
-// Talk Therapy is preselected, per Brendan: it's what most people arriving at
-// /providers are after. "Any care type" widens back out to the full directory.
+// No preselection — "Any care type" default, per Brendan 2026-07-11 (reverses
+// the earlier Talk-Therapy-first call).
 export const TYPE_OPTIONS = [
   { value: "", label: "Any care type" },
   { value: "psychiatrist", label: "Medication Mgmt." },
@@ -48,7 +48,7 @@ export type CareFacets = {
 
 export const EMPTY_FILTERS: CareFilters = {
   q: "",
-  type: "therapist",
+  type: "",
   city: "",
   specialty: "",
   insurance: "",
@@ -73,8 +73,9 @@ export function CareSearchGroup({
       Driven by scroll direction in find-care-search.tsx. */
   collapsed?: boolean;
   className?: string;
-  /** Data-driven payer options (see BASE_INSURANCE_OPTIONS note above). */
-  insuranceOptions?: Array<{ value: string; label: string }>;
+  /** Data-driven payer options (see BASE_INSURANCE_OPTIONS note above);
+      may carry `image` (insurer mark) / `iconName` leads for the Select. */
+  insuranceOptions?: Array<{ value: string; label: string; image?: string; iconName?: string }>;
 }) {
   const set = <K extends keyof CareFilters>(key: K, value: CareFilters[K]) =>
     onChange({ ...filters, [key]: value });
@@ -152,12 +153,7 @@ export function CareSearchGroup({
           </div>
 
           <p className="mt-2 text-xs text-text-muted">
-            In-network status comes from each insurer&apos;s published directory
-            {(() => {
-              const payers = insuranceOptions.filter((o) => o.value && o.value !== "Medicaid").map((o) => o.label);
-              return payers.length ? ` (${payers.join(", ")} so far)` : "";
-            })()}
-            ; every New York directory provider is Medicaid-enrolled.
+            In-network status comes from each insurer&apos;s published directory.
           </p>
         </div>
       </div>

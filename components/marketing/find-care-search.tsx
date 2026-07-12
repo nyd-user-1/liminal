@@ -56,8 +56,8 @@ export function FindCareSearch({
   /** Payer slug deep-link (?insurance=cigna) — preselects the dropdown. */
   initialInsurance?: string;
   facets: CareFacets;
-  /** Data-driven payer options from the server (listPayerFacets). */
-  insuranceOptions?: Array<{ value: string; label: string }>;
+  /** Data-driven payer options from the server (buildInsuranceOptions). */
+  insuranceOptions?: Array<{ value: string; label: string; image?: string; iconName?: string }>;
 }) {
   const [bookOpen, setBookOpen] = useState(false);
   const [filters, setFilters] = useState<CareFilters>({
@@ -76,6 +76,9 @@ export function FindCareSearch({
 
   const [results, setResults] = useState<PublicResult[]>([]);
   const [total, setTotal] = useState(0);
+  // Source attribution when a payer filter is active — set from the API's
+  // insuranceMeta ("listed in Cigna's directory · 97% accepting · updated …").
+  const [insuranceMeta, setInsuranceMeta] = useState<{ payerName: string; acceptingPct: number; asOf: string | null } | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -174,6 +177,7 @@ export function FindCareSearch({
         const incoming: PublicResult[] = data.results ?? [];
         setResults((prev) => (targetPage === 1 ? incoming : [...prev, ...incoming]));
         setTotal(data.total ?? 0);
+        setInsuranceMeta(data.insuranceMeta ?? null);
         setHasMore(Boolean(data.hasMore));
         setPage(targetPage);
       } catch {
@@ -254,7 +258,15 @@ export function FindCareSearch({
         {!loading && !error && results.length > 0 && (
           <>
             <p className="mb-4 text-sm text-text-muted">
-              {total.toLocaleString()} {total === 1 ? "provider" : "providers"} found
+              {insuranceMeta ? (
+                <>
+                  {total.toLocaleString()} {total === 1 ? "provider" : "providers"} listed
+                </>
+              ) : (
+                <>
+                  {total.toLocaleString()} {total === 1 ? "provider" : "providers"} found
+                </>
+              )}
             </p>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {results.map((r) => (

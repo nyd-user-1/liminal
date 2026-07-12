@@ -54,6 +54,12 @@ export type PublicResult = {
   // network row for this NPI AND it's accepting new patients; omitted otherwise —
   // absence is NOT "not accepting". See lib/repos/networks.ts.
   acceptingNewPatients?: boolean;
+  // Distinct payers we hold full-quality network rows for (card: "Accepts N
+  // insurance carriers"); omitted when we hold none — absence is never "zero".
+  payerCount?: number;
+  // Up to a handful of specialty strings (bookable: topSpecialties; directory:
+  // the single subspecialty). Card renders the first two.
+  specialties?: string[];
   // spotlight-card enrichment, bookable practitioners only (server-computed
   // so the card stays dumb): placeholder rating + next real availability.
   rating?: number;
@@ -108,6 +114,8 @@ async function toPublicResult(p: BookableProfile): Promise<PublicResult> {
     subspecialty: p.topSpecialties[0] ?? null,
     slug: p.slug,
     bookable: true,
+    payerCount: p.insuranceAccepted.length || undefined,
+    specialties: p.topSpecialties.slice(0, 5),
     rating: rating?.rating,
     reviewCount: rating?.reviewCount,
     availableLabel: nextAvailableLabel(weekdays),
@@ -181,8 +189,14 @@ export async function GET(req: NextRequest) {
         providers.items.map((r) => r.npi),
         { payerSlug: coveredPayer?.slug },
       );
+      // Carrier COUNTS are cross-payer by definition — a second, unscoped batch
+      // when a payer filter narrowed the first one (they're the same map otherwise).
+      const allSummaries = coveredPayer
+        ? await networkSummariesByNpi(providers.items.map((r) => r.npi))
+        : summaries;
       for (const r of providers.items) {
         const accepting = r.npi ? summaries.get(r.npi)?.accepting === true : false;
+        const payerCount = r.npi ? allSummaries.get(r.npi)?.payers.length : undefined;
         results.push({
           id: r.id,
           kind: "provider",
@@ -200,6 +214,8 @@ export async function GET(req: NextRequest) {
           slug: r.slug,
           bookable: false,
           acceptingNewPatients: accepting || undefined,
+          payerCount: payerCount || undefined,
+          specialties: r.subspecialty ? [r.subspecialty] : undefined,
         });
       }
     }
@@ -225,5 +241,10 @@ export async function GET(req: NextRequest) {
   // paginated), so it's what "N providers found" and the infinite scroller's
   // has-more check both read.
   const total = directoryTotal + bookableTotal;
-  return NextResponse.json({ results, total, page, pageSize, hasMore: page * pageSize < directoryTotal });
+  // Source attribution for a payer-filtered search — drives the results header
+  // ("listed in Cigna's directory · 97% accepting · per Cigna, updated …").
+  const insuranceMeta = coveredPayer
+    ? { payerName: coveredPayer.name, acceptingPct: coveredPayer.acceptingPct, asOf: coveredPayer.asOf }
+    : undefined;
+  return NextResponse.json({ results, total, page, pageSize, hasMore: page * pageSize < directoryTotal, insuranceMeta });
 }
