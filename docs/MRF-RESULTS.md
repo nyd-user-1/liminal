@@ -135,3 +135,21 @@ provider_references like in_network items) makes these ~20 min each — then
 the 05C0 series alone may add more NPIs than any payer tonight.
 Scanner change shipped meanwhile: numeric-Set NPI matching (allocation-free
 refs scanning, ~4x) — regression-verified, live for all new spawns.
+
+### Correction + redo (~14:30): BCBS host-sharing mislabel
+
+Validation on a real chunk exposed that bcbs.com per-payer hosts serve OTHER
+entities' files (a "Highmark WNY" URL delivered Highmark **Delaware** "Blue
+Choice"; an "empirebcbs" URL delivered Anthem **Colorado** "CO HMO"). The
+partial Empire (3,163 NPIs) + Highmark (807) loads carried those wrong payer
+labels → **purged from provider_rate_signals** (DELETE by payer label; table
+back to 853,974 rows / 29,989 NPIs, all correct).
+
+Fix shipped in the scanner: `--payer=auto` (reporting_entity_name from the
+file header) + `--network=auto` (per-group network_name from refs) — rows now
+carry the file's own truth. Plus `--refs=scan`: byte-scanned provider_references
+(id-first BCBS layout), validated byte-identical vs stream-json on real data,
+~6-20x faster — which also un-deferred the 05C0 monsters.
+
+Full BCBS redo running detached: 719 Empire + 519 Highmark files (4 lanes) +
+the 10 05C0 chunks (own lane). Every row that lands is entity-true.

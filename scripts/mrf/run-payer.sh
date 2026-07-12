@@ -24,17 +24,17 @@ while IFS='|' read -r url decomp payer network slug filedate; do
   i=$((i+1))
   echo "--- [$i/$n] $network ($url)" >> "$LOG"
   case "$decomp" in
-    gz)   curl -sSL "$url" | gunzip -c | node scripts/mrf/scan-tic.mjs \
+    gz)   curl -sSL "$url" | gunzip -c | node scripts/mrf/scan-tic.mjs ${EXTRA_ARGS:-} \
             --npis=.harvest/mrf/npis.txt --out="$OUTDIR/$slug.csv" \
             --payer="$payer" --network="$network" \
             --source-file="$(basename "${url%%\?*}")" --file-date="$filedate" 2>> "$LOG"
           echo "PIPESTATUS[$slug]: ${PIPESTATUS[*]}" >> "$LOG" ;;
-    zip)  curl -sSL "$url" | bsdtar -xOf - | node scripts/mrf/scan-tic.mjs \
+    zip)  curl -sSL "$url" | bsdtar -xOf - | node scripts/mrf/scan-tic.mjs ${EXTRA_ARGS:-} \
             --npis=.harvest/mrf/npis.txt --out="$OUTDIR/$slug.csv" \
             --payer="$payer" --network="$network" \
             --source-file="$(basename "${url%%\?*}")" --file-date="$filedate" 2>> "$LOG"
           echo "PIPESTATUS[$slug]: ${PIPESTATUS[*]}" >> "$LOG" ;;
-    none) curl -sSL "$url" | node scripts/mrf/scan-tic.mjs \
+    none) curl -sSL "$url" | node scripts/mrf/scan-tic.mjs ${EXTRA_ARGS:-} \
             --npis=.harvest/mrf/npis.txt --out="$OUTDIR/$slug.csv" \
             --payer="$payer" --network="$network" \
             --source-file="$(basename "${url%%\?*}")" --file-date="$filedate" 2>> "$LOG"

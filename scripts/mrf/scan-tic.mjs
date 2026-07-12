@@ -33,8 +33,17 @@ const arg = (name, dflt) => {
 
 const NPIS_PATH = arg("npis");
 const OUT_PATH = arg("out");
-const PAYER = arg("payer", "UnitedHealthcare");
+// --payer=auto -> use the file's own reporting_entity_name (captured from the
+// header) — required on BCBS hosts, which serve other states' entities under
+// one subdomain (an "empirebcbs" URL can carry Anthem-Colorado content).
+let PAYER = arg("payer", "UnitedHealthcare");
+const PAYER_AUTO = PAYER === "auto";
 const NETWORK = arg("network", "");
+// --refs=scan -> byte-scan provider_references as `{"provider_group_id"…}`
+// objects + JSON.parse each (BCBS id-first layout, ~20x faster than
+// stream-json). Default `stream` keeps the validated stream-json path (UHC
+// files are id-LAST — the scan needle would mis-delimit them; keep stream).
+const REFS_MODE = arg("refs", "stream");
 const SOURCE_FILE = arg("source-file", "");
 const FILE_DATE = arg("file-date", "");
 const CPTS = new Set((arg("codes", "90791,90834,90837,99214,90853")).split(","));
@@ -107,7 +116,10 @@ function handleProviderReference(ref) {
     }
   }
   if (kept) {
-    retained.set(ref.provider_group_id, kept);
+    // carry the ref's own network_name (BCBS refs are per-network) so rows
+    // can be labeled with the file's truth instead of the manifest guess
+    const net = Array.isArray(ref.network_name) ? ref.network_name.join(";") : "";
+    retained.set(ref.provider_group_id, { groups: kept, net });
     stats.refsRetained++;
   }
 }
@@ -117,8 +129,8 @@ async function emitRows(item) {
     let sides = null;
     if (Array.isArray(nr.provider_references)) {
       for (const gid of nr.provider_references) {
-        const kept = retained.get(gid);
-        if (kept) (sides ??= []).push(...kept);
+        const r = retained.get(gid);
+        if (r) for (const k of r.groups) (sides ??= []).push(r.net ? { ...k, net: r.net } : k);
       }
     } else if (Array.isArray(nr.provider_groups)) {
       for (const g of nr.provider_groups) {
@@ -149,7 +161,8 @@ async function emitRows(item) {
             [
               npi,
               csv(PAYER),
-              csv(NETWORK),
+              // --network=auto -> label rows with the ref's own network_name
+              csv(NETWORK === "auto" ? side.net || "" : NETWORK),
               item.billing_code,
               price.negotiated_rate,
               price.negotiated_type ?? "",
@@ -186,22 +199,125 @@ const NL = 0x0a;
 const CODE_RE = new RegExp(`"billing_code"\\s*:\\s*"(${[...CPTS].join("|")})"`);
 const HEAD_WINDOW = 4096;
 
-let refsChain = chain([parser(), pick({ filter: "provider_references" }), streamArray()]);
-refsChain.on("data", ({ value }) => handleProviderReference(value));
-// a malformed header/refs section must fail loudly, not as an unhandled event
-refsChain.on("error", (err) => {
-  if (refsDone) return; // expected truncation error during finishRefs
-  clearInterval(ticker);
-  console.error(`REFS PARSE ERROR (header/provider_references malformed): ${err.message}`);
-  process.exit(2);
-});
+let refsChain = null;
 let refsDone = false;
+
+if (REFS_MODE === "stream") {
+  refsChain = chain([parser(), pick({ filter: "provider_references" }), streamArray()]);
+  refsChain.on("data", ({ value }) => handleProviderReference(value));
+  // a malformed header/refs section must fail loudly, not as an unhandled event
+  refsChain.on("error", (err) => {
+    if (refsDone) return; // expected truncation error during finishRefs
+    clearInterval(ticker);
+    console.error(`REFS PARSE ERROR (header/provider_references malformed): ${err.message}`);
+    process.exit(2);
+  });
+}
 const refsWrite = async (buf) => {
   if (refsChain.write(buf) !== true)
     await new Promise((res) => refsChain.once("drain", res));
 };
+
+// ── refs fast path (--refs=scan): ref objects open with `{"provider_group_id"`
+// on the BCBS platform (id-first). Delimit on that key like phase N delimits
+// items, JSON.parse each object whole, feed the existing handler.
+const KEY_REF = Buffer.from('"provider_group_id"');
+const RESERVE_R = KEY_REF.length + 80;
+let modeR = "SEEK"; // SEEK before first object; OBJ while accumulating one
+let partsR = [];
+let partsRLen = 0;
+let carryR = Buffer.alloc(0);
+let refObjectsParsed = 0;
+let refFalseHits = 0; // id key seen but not at an object brace (id-last layout)
+
+function finishRefObj() {
+  let text = Buffer.concat(partsR, partsRLen).toString("utf8").trim();
+  partsR = [];
+  partsRLen = 0;
+  let obj = null;
+  for (let chop = 0; chop < 10; chop++) {
+    try {
+      obj = JSON.parse(text);
+      break;
+    } catch {
+      const last = text[text.length - 1];
+      if (last === "]" || last === "}" || last === ",") text = text.slice(0, -1).trimEnd();
+      else break;
+    }
+  }
+  if (!obj) {
+    clearInterval(ticker);
+    console.error("REFS SCAN: ref object failed to parse — wrong layout for --refs=scan");
+    console.error("sample:", text.slice(0, 200));
+    process.exit(2);
+  }
+  refObjectsParsed++;
+  handleProviderReference(obj);
+}
+
+function scanRefsChunk(buf) {
+  const data = carryR.length ? Buffer.concat([carryR, buf]) : buf;
+  carryR = Buffer.alloc(0);
+  let segStart = 0;
+  let pos = 0;
+  for (;;) {
+    const q = data.indexOf(KEY_REF, pos);
+    if (q === -1) {
+      if (modeR === "OBJ") {
+        const cut = Math.max(pos, data.length - RESERVE_R);
+        if (cut > segStart) {
+          partsR.push(data.subarray(segStart, cut));
+          partsRLen += cut - segStart;
+        }
+        carryR = Buffer.from(data.subarray(cut));
+      } else {
+        carryR = Buffer.from(data.subarray(Math.max(pos, data.length - RESERVE_R)));
+      }
+      return;
+    }
+    let j = q - 1;
+    while (j >= 0 && isWs(data[j])) j--;
+    if (j < 0 || data[j] !== 0x7b) {
+      refFalseHits++;
+      pos = q + KEY_REF.length; // id key mid-object (UHC id-last) — not a boundary here
+      continue;
+    }
+    const brace = j;
+    if (modeR === "OBJ") {
+      if (brace > segStart) {
+        partsR.push(data.subarray(segStart, brace));
+        partsRLen += brace - segStart;
+      }
+      finishRefObj();
+    }
+    modeR = "OBJ";
+    partsR = [];
+    partsRLen = 0;
+    segStart = brace;
+    pos = q + KEY_REF.length;
+  }
+}
+
 const finishRefs = async (tail) => {
   refsDone = true;
+  if (REFS_MODE === "scan") {
+    if (tail?.length) scanRefsChunk(tail);
+    if (modeR === "OBJ") {
+      if (carryR.length) {
+        partsR.push(carryR);
+        partsRLen += carryR.length;
+      }
+      finishRefObj();
+    }
+    if (refObjectsParsed === 0 && refFalseHits > 0) {
+      // the id key exists but never opens an object -> id-LAST layout;
+      // running scan mode here would silently drop every provider group
+      clearInterval(ticker);
+      console.error("REFS SCAN: id-last layout detected (0 objects, id keys mid-object) — use --refs=stream");
+      process.exit(2);
+    }
+    return;
+  }
   if (tail?.length) await refsWrite(tail);
   // end + flush so trailing provider_references still in the pipeline land in
   // `retained`; the parser then errors on the truncated root — expected.
@@ -341,9 +457,26 @@ async function scanChunk(buf) {
 // Drive: stdin chunks -> refs chain until MARKER, then the scanner.
 // ---------------------------------------------------------------------------
 let overlap = Buffer.alloc(0); // carry MARKER.length-1 bytes across chunks
+let headerScanned = false;
 
 for await (const chunk of process.stdin) {
   stats.bytes += chunk.length;
+  if (!headerScanned) {
+    headerScanned = true;
+    // capture the file's own reporting entity from the first chunk
+    const m = chunk
+      .toString("utf8", 0, Math.min(chunk.length, 4096))
+      .match(/"reporting_entity_name"\s*:\s*"([^"]*)"/);
+    if (PAYER_AUTO) {
+      if (!m) {
+        clearInterval(ticker);
+        console.error("--payer=auto but no reporting_entity_name in the first 4KB");
+        process.exit(2);
+      }
+      PAYER = m[1];
+      console.error(`payer(auto) = ${PAYER}`);
+    }
+  }
   if (!refsDone) {
     const probe = overlap.length ? Buffer.concat([overlap, chunk]) : chunk;
     let at = -1;
@@ -359,7 +492,8 @@ for await (const chunk of process.stdin) {
       s = c + 1; // matched a lookalike key (value string etc.) — keep looking
     }
     if (at === -1) {
-      await refsWrite(chunk);
+      if (REFS_MODE === "scan") scanRefsChunk(chunk);
+      else await refsWrite(chunk);
       // keep enough overlap to re-see an edge marker plus its colon window
       overlap = probe.subarray(Math.max(0, probe.length - MARKER.length - 8));
       continue;
