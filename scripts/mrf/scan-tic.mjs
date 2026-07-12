@@ -356,7 +356,56 @@ function abort(why, sample) {
   process.exit(3);
 }
 
+// items above this size can't go through Buffer.concat/JSON.parse (2GB string
+// limit -> SIGABRT); stream their negotiated_rates instead. Empire NY items
+// referencing tens of thousands of groups exceed it.
+const HUGE_ITEM = Number(process.env.HUGE_ITEM_BYTES || 200 * 1024 * 1024);
+
+async function finishItemStreaming() {
+  const head = Buffer.concat(parts, Math.min(partsLen, HEAD_WINDOW)).toString("utf8");
+  const cm = head.match(/"billing_code"\s*:\s*"([^"]+)"/);
+  const code = cm?.[1];
+  const myParts = parts;
+  parts = [];
+  partsLen = 0;
+  if (!code || !CPTS.has(code)) return; // false-positive capture — drop
+  stats.itemsMatchedCode++;
+  // right-trim inter-item junk (`,` + ws) back to the final `}` — v3's parser
+  // aborts the pipeline on trailing bytes BEFORE flushing any entries
+  while (myParts.length) {
+    let last = myParts[myParts.length - 1];
+    let e = last.length;
+    while (e > 0 && (isWs(last[e - 1]) || last[e - 1] === 0x2c)) e--;
+    if (e === 0) {
+      myParts.pop();
+      continue;
+    }
+    if (e < last.length) myParts[myParts.length - 1] = last.subarray(0, e);
+    break;
+  }
+  const c = chain([parser(), pick({ filter: "negotiated_rates" }), streamArray()]);
+  let sawEntry = false;
+  const feeder = (async () => {
+    for (const p of myParts) {
+      if (c.write(p) !== true) await new Promise((r) => c.once("drain", r));
+    }
+    c.end();
+  })();
+  try {
+    for await (const { value } of c) {
+      sawEntry = true;
+      await emitRows({ billing_code: code, negotiated_rates: [value] });
+    }
+  } catch (err) {
+    // trailing inter-item bytes (`,` + ws) after the root object are expected;
+    // anything before we saw entries is a real parse problem
+    if (!sawEntry) abort(`huge-item streaming parse failed: ${err.message}`);
+  }
+  await feeder.catch(() => {});
+}
+
 async function finishItem() {
+  if (partsLen > HUGE_ITEM) return finishItemStreaming();
   // full matched item accumulated in parts (brace onward), minus trailing junk
   let text = Buffer.concat(parts, partsLen).toString("utf8").trim();
   parts = [];
