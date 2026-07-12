@@ -125,8 +125,16 @@ async function emitRows(item) {
       }
     }
     if (!sides) continue;
-    // CDPHP publishes the singular `negotiated_price`; CMS schema says plural
-    for (const price of nr.negotiated_prices ?? nr.negotiated_price ?? []) {
+    // CDPHP publishes singular `negotiated_price` (array); HCP publishes it
+    // as a bare object; CMS schema says plural array. Normalize all three.
+    const priceList =
+      nr.negotiated_prices ??
+      (Array.isArray(nr.negotiated_price)
+        ? nr.negotiated_price
+        : nr.negotiated_price
+          ? [nr.negotiated_price]
+          : []);
+    for (const price of priceList) {
       const pos = Array.isArray(price.service_code) ? price.service_code.join("|") : "";
       for (const side of sides) {
         for (const npi of side.npis) {
@@ -157,13 +165,29 @@ async function emitRows(item) {
 // ---------------------------------------------------------------------------
 // Phase R: stream-json over the header until `"in_network":` appears.
 // ---------------------------------------------------------------------------
-const MARKER = Buffer.from('"in_network":');
+// key only — some vendors emit `"in_network" : [` with whitespace, so the
+// colon is verified separately after the match
+const MARKER = Buffer.from('"in_network"');
+const isColonAfter = (buf, at) => {
+  let j = at + MARKER.length;
+  while (j < buf.length && (buf[j] === 0x20 || buf[j] === 0x09 || buf[j] === 0x0a || buf[j] === 0x0d)) j++;
+  return j < buf.length ? buf[j] === 0x3a : null; // null = undecidable at chunk edge
+};
 const NL = 0x0a;
-const CODE_RE = new RegExp(`"billing_code":"(${[...CPTS].join("|")})"`);
+// whitespace-tolerant: vendors emit both `"billing_code":"90837"` and
+// `"billing_code": "90837"`
+const CODE_RE = new RegExp(`"billing_code"\\s*:\\s*"(${[...CPTS].join("|")})"`);
 const HEAD_WINDOW = 4096;
 
 let refsChain = chain([parser(), pick({ filter: "provider_references" }), streamArray()]);
 refsChain.on("data", ({ value }) => handleProviderReference(value));
+// a malformed header/refs section must fail loudly, not as an unhandled event
+refsChain.on("error", (err) => {
+  if (refsDone) return; // expected truncation error during finishRefs
+  clearInterval(ticker);
+  console.error(`REFS PARSE ERROR (header/provider_references malformed): ${err.message}`);
+  process.exit(2);
+});
 let refsDone = false;
 const refsWrite = async (buf) => {
   if (refsChain.write(buf) !== true)
@@ -191,19 +215,15 @@ const finishRefs = async (tail) => {
 // Modes: SEEK/SKIP (searching for next opener, nothing retained) ->
 // HEAD (accumulating undecided item) -> CAPTURE (matched item, buffer whole).
 // ---------------------------------------------------------------------------
-const OPENER = Buffer.from('{"negotiation_arrangement"');
-// cheap prefilter before the regex: longest common prefix of the target codes
-// ('"billing_code":"9' for the 5 behavioral CPTs)
-const codeList = [...CPTS];
-let lcp = codeList[0] ?? "";
-for (const c of codeList) {
-  let k = 0;
-  while (k < lcp.length && k < c.length && lcp[k] === c[k]) k++;
-  lcp = lcp.slice(0, k);
-}
-const FAST_GATE = Buffer.from(`"billing_code":"${lcp}`);
+// Item boundary = a `{` followed by (optional whitespace and) the
+// negotiation_arrangement key — compact (UHC/CDPHP/Empire) and pretty-printed
+// (Fidelis-ES: `{\r\n  "negotiation_arrangement": …`) files both match.
+const KEY = Buffer.from('"negotiation_arrangement"');
+const RESERVE = KEY.length + 80; // carry window: key prefix + brace backtrack room
+const FAST_GATE = Buffer.from('"billing_code"'); // cheap prefilter, spacing-agnostic
+const isWs = (b) => b === 0x20 || b === 0x09 || b === 0x0a || b === 0x0d;
 let mode = "SEEK";
-let parts = []; // current item bytes (opener excluded; re-prepended at parse)
+let parts = []; // current item bytes, brace onward
 let partsLen = 0;
 
 function abort(why, sample) {
@@ -214,8 +234,8 @@ function abort(why, sample) {
 }
 
 async function finishItem() {
-  // full matched item = OPENER + accumulated parts, minus trailing junk
-  let text = OPENER + Buffer.concat(parts, partsLen).toString("utf8").trim();
+  // full matched item accumulated in parts (brace onward), minus trailing junk
+  let text = Buffer.concat(parts, partsLen).toString("utf8").trim();
   parts = [];
   partsLen = 0;
   let item = null;
@@ -240,30 +260,34 @@ async function finishItem() {
 // decide on the first HEAD_WINDOW bytes of the current item
 function decide() {
   const head = Buffer.concat(parts, Math.min(partsLen, HEAD_WINDOW));
-  if (head.includes(FAST_GATE) && CODE_RE.test(head.toString("utf8"))) return "CAPTURE";
-  if (!head.includes('"billing_code":"')) {
+  if (!head.includes(FAST_GATE)) {
     // an item whose billing_code escaped the head window — never silent
     abort(`item without billing_code in first ${HEAD_WINDOW} bytes`, head);
   }
-  return "SKIP";
+  return CODE_RE.test(head.toString("utf8")) ? "CAPTURE" : "SKIP";
 }
 
-// `carry` holds a potential opener prefix straddling chunk boundaries
+// `carry` holds the reserve tail straddling chunk boundaries: a potential key
+// prefix plus enough room to backtrack to the item's opening brace
 let carry = Buffer.alloc(0);
 
 async function scanChunk(buf) {
   const data = carry.length ? Buffer.concat([carry, buf]) : buf;
   carry = Buffer.alloc(0);
-  let pos = 0;
+  let segStart = 0; // start of unpushed bytes for the open item
+  let pos = 0; // search cursor
   for (;;) {
-    const q = data.indexOf(OPENER, pos);
+    const q = data.indexOf(KEY, pos);
     if (q === -1) {
-      // no further item boundary in this chunk
-      const keep = Math.max(pos, data.length - OPENER.length + 1);
+      // No further boundary in this chunk: push all but the reserve tail.
+      // The cut is floored at `pos` (the cursor past the current item's key)
+      // so an already-processed boundary is never re-carried and re-matched
+      // in the next chunk — re-matching would close a phantom empty item.
       if (mode === "HEAD" || mode === "CAPTURE") {
-        if (keep > pos) {
-          parts.push(data.subarray(pos, keep));
-          partsLen += keep - pos;
+        const cut = Math.max(pos, data.length - RESERVE);
+        if (cut > segStart) {
+          parts.push(data.subarray(segStart, cut));
+          partsLen += cut - segStart;
         }
         if (mode === "HEAD" && partsLen >= HEAD_WINDOW) {
           if (decide() === "CAPTURE") mode = "CAPTURE";
@@ -273,24 +297,36 @@ async function scanChunk(buf) {
             mode = "SKIP";
           }
         }
+        carry = Buffer.from(data.subarray(cut));
+      } else {
+        carry = Buffer.from(data.subarray(Math.max(pos, data.length - RESERVE)));
       }
-      carry = Buffer.from(data.subarray(keep)); // may hold an opener prefix
       return;
     }
-    // opener found: close the current item (if one is open), open the next
+    // key found — an item boundary only if an opening brace precedes it
+    let j = q - 1;
+    while (j >= 0 && isWs(data[j])) j--;
+    if (j < 0 || data[j] !== 0x7b /* { */) {
+      pos = q + KEY.length; // key text inside a string value — not a boundary
+      continue;
+    }
+    const brace = j;
+    // close the open item (its bytes end at the brace)
     if (mode === "HEAD" || mode === "CAPTURE") {
-      if (q > pos) {
-        parts.push(data.subarray(pos, q));
-        partsLen += q - pos;
+      if (brace > segStart) {
+        parts.push(data.subarray(segStart, brace));
+        partsLen += brace - segStart;
       }
       const verdict = mode === "CAPTURE" ? "CAPTURE" : decide();
       if (verdict === "CAPTURE") await finishItem();
-      parts = [];
-      partsLen = 0;
     }
+    // open the next item at the brace
     stats.itemsSeen++;
     mode = "HEAD";
-    pos = q + OPENER.length;
+    parts = [];
+    partsLen = 0;
+    segStart = brace;
+    pos = q + KEY.length;
   }
 }
 
@@ -303,10 +339,22 @@ for await (const chunk of process.stdin) {
   stats.bytes += chunk.length;
   if (!refsDone) {
     const probe = overlap.length ? Buffer.concat([overlap, chunk]) : chunk;
-    const at = probe.indexOf(MARKER);
+    let at = -1;
+    for (let s = 0; ; ) {
+      const c = probe.indexOf(MARKER, s);
+      if (c === -1) break;
+      const colon = isColonAfter(probe, c);
+      if (colon === true) {
+        at = c;
+        break;
+      }
+      if (colon === null) break; // marker at chunk edge — resolve next chunk
+      s = c + 1; // matched a lookalike key (value string etc.) — keep looking
+    }
     if (at === -1) {
       await refsWrite(chunk);
-      overlap = probe.subarray(Math.max(0, probe.length - MARKER.length + 1));
+      // keep enough overlap to re-see an edge marker plus its colon window
+      overlap = probe.subarray(Math.max(0, probe.length - MARKER.length - 8));
       continue;
     }
     // found the in_network key: flush the refs tail (bytes of this chunk that
@@ -318,6 +366,14 @@ for await (const chunk of process.stdin) {
     await scanChunk(chunk);
   }
 }
+if (!refsDone) {
+  // never report a silent zero when the file simply isn't shaped like we think
+  clearInterval(ticker);
+  console.error(
+    'SCANNER: "in_network" key never found — different layout or no in_network section. Verify with the reference parser.'
+  );
+  process.exit(4);
+}
 // flush the final item (its tail bytes may sit in carry)
 if (mode === "HEAD" || mode === "CAPTURE") {
   if (carry.length) {
@@ -326,6 +382,17 @@ if (mode === "HEAD" || mode === "CAPTURE") {
   }
   const verdict = mode === "CAPTURE" ? "CAPTURE" : decide();
   if (verdict === "CAPTURE") await finishItem();
+}
+if (stats.itemsSeen === 0) {
+  // reached in_network but matched no item opener: either the array is
+  // genuinely empty, or items don't start with negotiation_arrangement.
+  // Never let that pass as a silent zero — exit 5 = verify with reference.
+  clearInterval(ticker);
+  logStatus();
+  console.error(
+    "SCANNER: in_network reached but ZERO item openers matched — empty array or different item key order. Verify with the reference parser."
+  );
+  process.exit(5);
 }
 
 clearInterval(ticker);

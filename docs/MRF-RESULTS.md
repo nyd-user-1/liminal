@@ -40,3 +40,15 @@ insurance-accepted signal. Enrich-only: rates attach to NPIs we already hold._
   (universal item boundary `{"negotiation_arrangement"`), validated
   byte-identical vs reference on a 1.6 GB slice; singular-key fix in both.
   17.3 GB × 3 uncompressed, ~1.1 min each.
+
+### 2-pre. Fidelis Care (Centene) — ✅ better than feared (2026-07-12 ~03:30)
+
+- Pulled forward from the Medicaid-trap tier because the index was trivially
+  public (centene.com DAM). As predicted, commercial-only: 2 files (exchange
+  `fidelis-ex` + essential `fidelis-es`), 36 MB + 178 MB.
+- **33,147 rows loaded across all 5 CPTs** (EX: 21,093 · ES: 12,054). Distinct
+  NPIs counted in the morning rollup.
+- Two scanner layout traps found + fixed here (see commit): fidelis-es is
+  pretty-printed with CRLF inside items — the original opener needle missed
+  EVERY item silently (caught by the new exit-5 zero-items guard, verified vs
+  reference parser byte-identical after the boundary rewrite).

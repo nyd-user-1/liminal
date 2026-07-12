@@ -140,8 +140,16 @@ function emitRows(item) {
       }
     }
     if (!sides) continue;
-    // CDPHP publishes the singular `negotiated_price`; CMS schema says plural
-    for (const price of nr.negotiated_prices ?? nr.negotiated_price ?? []) {
+    // CDPHP publishes singular `negotiated_price` (array); HCP publishes it
+    // as a bare object; CMS schema says plural array. Normalize all three.
+    const priceList =
+      nr.negotiated_prices ??
+      (Array.isArray(nr.negotiated_price)
+        ? nr.negotiated_price
+        : nr.negotiated_price
+          ? [nr.negotiated_price]
+          : []);
+    for (const price of priceList) {
       const pos = Array.isArray(price.service_code) ? price.service_code.join("|") : "";
       for (const side of sides) {
         for (const npi of side.npis) {

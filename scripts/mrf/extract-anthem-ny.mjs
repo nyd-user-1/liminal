@@ -11,6 +11,11 @@
 const NEEDLE = Buffer.from('"location":"');
 const QUOTE = 0x22;
 
+// host substring to keep (NY commercial = empirebcbs.mrf.bcbs.com; the
+// "anthembcbsny" guess was wrong — always check the host tally in the log)
+const matchArg = process.argv.find((a) => a.startsWith("--match="));
+const MATCH = matchArg ? matchArg.slice(8) : "empirebcbs";
+
 const nyFiles = new Map(); // basename -> first full URL
 const hostCounts = new Map();
 let locations = 0;
@@ -45,9 +50,7 @@ for await (const chunk of process.stdin) {
     const url = data.toString("utf8", vStart, vEnd);
     const host = url.slice(8, url.indexOf("/", 8));
     hostCounts.set(host, (hostCounts.get(host) ?? 0) + 1);
-    const isNy =
-      host.includes("anthembcbsny") ||
-      (host.startsWith("antm-") && /_NY_|_ny_|empire/i.test(url));
+    const isNy = host.includes(MATCH);
     if (isNy) {
       const path = url.split("?")[0];
       const base = path.slice(path.lastIndexOf("/") + 1);
