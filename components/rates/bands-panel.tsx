@@ -29,7 +29,7 @@ const LICENSE_RANK: Record<string, number> = {
   "Prescriber (MD/NP)": 2,
 };
 
-const HEAD = ["Insurer", "Code", "Clinicians", "License", "25% In-Ntwk", "Median In-Ntwk", "75% In-Ntwk", "Schedule", "As-of"];
+const HEAD = ["Insurer", "Network", "Code", "Clinicians", "License", "25% In-Ntwk", "Median In-Ntwk", "75% In-Ntwk", "Schedule", "As-of"];
 type SortCol = "payer" | "code" | "license" | "clinicians" | "asOf";
 
 export function BandsPanel({
@@ -178,6 +178,7 @@ export function BandsPanel({
           stickyHeader
           head={[
             <SortableHead key="payer" label="Insurer" col="payer" sort={sort} onSort={toggleSort} />,
+            "Network",
             <SortableHead key="code" label="Code" col="code" sort={sort} onSort={toggleSort} />,
             <SortableHead key="clinicians" label="Clinicians" col="clinicians" sort={sort} onSort={toggleSort} />,
             <SortableHead key="license" label="License" col="license" sort={sort} onSort={toggleSort} />,
@@ -191,9 +192,12 @@ export function BandsPanel({
           {visible.map((b) => (
             <Tr key={`${b.payer}|${b.network}|${b.billingCode}|${b.license}`}>
               <Td>
-                {/* Network subline only when the payer's schedules differ by
-                    network — "All networks" is the default assumption. */}
-                <InsurerCell payer={b.payer} subline={b.network === "All networks" ? undefined : b.network} />
+                <InsurerCell payer={b.payer} />
+              </Td>
+              <Td>
+                <span className="block max-w-44 truncate" title={b.network}>
+                  {b.network}
+                </span>
               </Td>
               <Td className="whitespace-nowrap" title={cptLabel(b.billingCode)}>
                 {b.billingCode}
@@ -213,7 +217,7 @@ export function BandsPanel({
               <Td className="whitespace-nowrap text-text-muted">{b.asOf}</Td>
             </Tr>
           ))}
-          {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={9} />}
+          {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={10} />}
         </Table>
       )}
     </div>
