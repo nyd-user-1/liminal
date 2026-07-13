@@ -53,10 +53,6 @@ export function AppShell({
   const homeHref = variant === "portal" ? "/portal" : "/calendar";
   return (
     <div className="flex h-dvh overflow-hidden bg-canvas">
-      {/* The marketing site's dark toggle sets `dark` on <html>; strip it here
-          so it can't leak into the app shell if a user navigates in same-tab
-          (the app shell has no dark tokens of its own). */}
-      <script dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.remove('dark')" }} />
       <Sidebar className="max-md:hidden" items={nav} user={user} homeHref={homeHref} />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar

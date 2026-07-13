@@ -50,6 +50,22 @@ export function Sidebar({
     router.refresh();
   };
 
+  // Appearance — one preference shared with the marketing site (`mkt-theme`);
+  // the `dark` class on <html> drives the `:root.dark` token block in
+  // globals.css. Applied on mount so a stored preference survives full loads.
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    const isDark = localStorage.getItem("mkt-theme") === "dark";
+    setDark(isDark);
+    document.documentElement.classList.toggle("dark", isDark);
+  }, []);
+  const toggleTheme = () => {
+    const next = !dark;
+    setDark(next);
+    document.documentElement.classList.toggle("dark", next);
+    localStorage.setItem("mkt-theme", next ? "dark" : "light");
+  };
+
   // ⌘, / Ctrl+, → Settings (honors the shortcut hint shown in the account menu).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -152,17 +168,17 @@ export function Sidebar({
             trailing={<Badge variant="info">New</Badge>}
           />
           <MenuItem
-            icon="person-circle"
+            icon={dark ? "sun" : "moon"}
             label="Appearance"
-            onClick={() => {}}
-            trailing={<span className="text-[13px] font-medium text-text-muted">Light</span>}
+            onClick={toggleTheme}
+            trailing={<span className="text-[13px] font-medium text-text-muted">{dark ? "Dark" : "Light"}</span>}
           />
 
           <MenuDivider />
 
           <MenuItem
             icon="message"
-            label="Get help"
+            label="Help"
             onClick={() => {
               window.location.href = "mailto:support@liminal.health";
             }}
