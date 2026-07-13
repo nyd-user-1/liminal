@@ -46,7 +46,11 @@ export async function listRatedProviders(limit = 500): Promise<RatedProvider[]> 
     SELECT s.npi, d.name, d.profession, d.slug, s.payer_count,
            s.best_90791, s.best_90834, s.best_90837, s.best_90853, s.best_99214, s.as_of
     FROM provider_rate_summary s
-    JOIN directory_providers d ON d.npi = s.npi AND d.name IS NOT NULL
+    JOIN LATERAL (
+      SELECT name, profession, slug FROM directory_providers dp
+      WHERE dp.npi = s.npi AND dp.name IS NOT NULL
+      ORDER BY (dp.source = 'nppes') DESC, dp.slug IS NOT NULL DESC LIMIT 1
+    ) d ON true
     ORDER BY s.payer_count DESC, s.best_90837 DESC NULLS LAST
     LIMIT ${limit}
   `) as Array<Record<string, unknown>>;

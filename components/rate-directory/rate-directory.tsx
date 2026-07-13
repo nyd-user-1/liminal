@@ -68,27 +68,28 @@ export function RateDirectory({ providers }: { providers: RatedProvider[] }) {
           stickyHeader
           head={[
             "Provider",
-            <SortableHead key="breadth" label="Payer books" col="breadth" sort={sort} onSort={toggleSort} />,
-            <SortableHead key="b90791" label="90791 eval" col="b90791" sort={sort} onSort={toggleSort} />,
-            <SortableHead key="b90837" label="90837 60-min" col="b90837" sort={sort} onSort={toggleSort} />,
-            <SortableHead key="b99214" label="99214 E/M" col="b99214" sort={sort} onSort={toggleSort} />,
+            "Type",
+            <SortableHead key="breadth" label="Books" col="breadth" sort={sort} onSort={toggleSort} />,
+            <SortableHead key="b90791" label="Eval rate" col="b90791" sort={sort} onSort={toggleSort} />,
+            <SortableHead key="b90837" label="Therapy rate" col="b90837" sort={sort} onSort={toggleSort} />,
+            <SortableHead key="b99214" label="Med-mgmt rate" col="b99214" sort={sort} onSort={toggleSort} />,
           ]}
         >
           {rows.map((p) => (
             <Tr key={p.npi} onClick={() => go(p)}>
-              <Td className="whitespace-nowrap">
+              <Td className="!py-2 whitespace-nowrap">
                 <TextLink href={p.slug ? `/directory/${p.slug}` : `/rates?npi=${p.npi}`} onClick={(e) => e.stopPropagation()} className="!font-medium">
-                  {titleCase(p.name)}
+                  {displayName(p.name)}
                 </TextLink>
-                <span className="block text-[12.5px] text-text-muted">{p.profession ?? "—"}</span>
               </Td>
-              <Td><Badge variant={p.payerCount >= 4 ? "info" : "neutral"}>{p.payerCount} book{p.payerCount === 1 ? "" : "s"}</Badge></Td>
-              <Td className="tabular-nums text-text-body">{money(p.best90791)}</Td>
-              <Td className="font-medium tabular-nums text-text">{money(p.best90837)}</Td>
-              <Td className="tabular-nums text-text-body">{money(p.best99214)}</Td>
+              <Td className="!py-2 text-text-muted">{shortRole(p.profession)}</Td>
+              <Td className="!py-2"><Badge variant={p.payerCount >= 4 ? "info" : "neutral"}>{p.payerCount}</Badge></Td>
+              <Td className="!py-2 tabular-nums text-text-body">{money(p.best90791)}</Td>
+              <Td className="!py-2 font-medium tabular-nums text-text">{money(p.best90837)}</Td>
+              <Td className="!py-2 tabular-nums text-text-body">{money(p.best99214)}</Td>
             </Tr>
           ))}
-          {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={5} />}
+          {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={6} />}
         </Table>
       )}
       <p className="mt-3 shrink-0 text-[12px] text-text-muted">
@@ -98,6 +99,23 @@ export function RateDirectory({ providers }: { providers: RatedProvider[] }) {
   );
 }
 
-function titleCase(s: string): string {
-  return s.replace(/\b([A-Z])([A-Z']+)\b/g, (_, a, b) => a + b.toLowerCase());
+// NPPES stores "LAST FIRST [MIDDLE] [SUFFIX]"; show "First Last". Heuristic:
+// strip trailing credential suffixes, move the first token to the end.
+const SUFFIX = /\b(LCSW|LMHC|LMFT|LCAT|PHD|PSYD|MD|DO|NP|PMHNP|CRNP|RN|MSW|PC|PLLC)\b/gi;
+function displayName(raw: string): string {
+  const clean = raw.replace(SUFFIX, "").replace(/\s+/g, " ").trim();
+  const parts = clean.split(" ");
+  const reordered = parts.length >= 2 ? [...parts.slice(1), parts[0]] : parts;
+  return reordered.map((w) => w.charAt(0) + w.slice(1).toLowerCase()).join(" ");
+}
+const ROLE: Record<string, string> = {
+  "Psychiatric Nurse Practitioner": "Psych NP",
+  "Clinical Social Worker": "Social Worker",
+  "Mental Health Counselor": "Counselor",
+  "Marriage & Family Therapist": "MFT",
+  Psychiatrist: "Psychiatrist",
+  Psychologist: "Psychologist",
+};
+function shortRole(p: string | null): string {
+  return p ? (ROLE[p] ?? p) : "—";
 }
