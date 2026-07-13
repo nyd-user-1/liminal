@@ -31,7 +31,7 @@ const LICENSE_RANK: Record<string, number> = {
   "Prescriber (MD/NP)": 2,
 };
 
-const HEAD = ["Insurer", "Network", "Code", "Clinicians", "License", "25% In-Ntwk", "Median In-Ntwk", "75% In-Ntwk", "Schedule", "As-of"];
+const HEAD = ["Service", "Code", "Insurer", "Network", "Clinicians", "License", "25% In-Ntwk", "Median In-Ntwk", "75% In-Ntwk", "Schedule", "As-of"];
 type SortCol = "payer" | "code" | "license" | "clinicians" | "asOf";
 
 export function BandsPanel({
@@ -177,9 +177,10 @@ export function BandsPanel({
           className="min-h-0 flex-1"
           stickyHeader
           head={[
+            <SortableHead key="service" label="Service" col="code" sort={sort} onSort={toggleSort} />,
+            <SortableHead key="code" label="Code" col="code" sort={sort} onSort={toggleSort} />,
             <SortableHead key="payer" label="Insurer" col="payer" sort={sort} onSort={toggleSort} />,
             "Network",
-            <SortableHead key="code" label="Code" col="code" sort={sort} onSort={toggleSort} />,
             <SortableHead key="clinicians" label="Clinicians" col="clinicians" sort={sort} onSort={toggleSort} />,
             <SortableHead key="license" label="License" col="license" sort={sort} onSort={toggleSort} />,
             "25% In-Ntwk",
@@ -191,6 +192,8 @@ export function BandsPanel({
         >
           {visible.map((b) => (
             <Tr key={`${b.payer}|${b.network}|${b.billingCode}|${b.license}`}>
+              <Td className="whitespace-nowrap">{cptLabel(b.billingCode)}</Td>
+              <Td className="whitespace-nowrap text-text-muted">{b.billingCode}</Td>
               <Td>
                 <InsurerCell payer={b.payer} />
               </Td>
@@ -198,9 +201,6 @@ export function BandsPanel({
                 <span className="block max-w-44 truncate" title={b.network}>
                   {b.network}
                 </span>
-              </Td>
-              <Td className="whitespace-nowrap" title={cptLabel(b.billingCode)}>
-                {b.billingCode}
               </Td>
               <Td className="whitespace-nowrap">{b.clinicians.toLocaleString("en-US")}</Td>
               <Td className="whitespace-nowrap" title={b.license}>
@@ -217,7 +217,7 @@ export function BandsPanel({
               <Td className="whitespace-nowrap text-text-muted">{b.asOf}</Td>
             </Tr>
           ))}
-          {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={10} />}
+          {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={11} />}
         </Table>
       )}
     </div>
