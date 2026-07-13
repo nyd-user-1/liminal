@@ -142,6 +142,8 @@ function toProgram(r: ProgramRow): DirectoryProgram {
 
 // ── providers ──────────────────────────────────────────────────────────────
 
+let defaultListingMemo: { at: number; page: Page<DirectoryProvider> } | null = null;
+
 export async function searchProviders(opts: {
   q?: string;
   zip?: string;
@@ -156,6 +158,11 @@ export async function searchProviders(opts: {
   /** payer_sources.slug — keep only providers with a participation row for
       that payer (full or coarse — both mean "listed in their directory"). */
   insurancePayer?: string;
+  /** Global server-side sort over the participation aggregate — client-side
+      sort only reorders loaded pages, which reads as false scarcity on these
+      columns. Mock mode ignores it. */
+  sort?: "accepting" | "network";
+  sortDir?: "asc" | "desc";
   page?: number;
   pageSize?: number;
 }): Promise<Page<DirectoryProvider>> {
@@ -166,12 +173,33 @@ export async function searchProviders(opts: {
   const prescribers = opts.prescribersOnly || opts.providerType === "psychiatrist" || opts.providerType === "prescriber";
   const therapists = opts.providerType === "therapist";
 
+  // The unfiltered page-1 listing (the /directory first paint, also served for
+  // 1-char terms) is the one query the indexes can't help — full-table window
+  // dedup — and its result only drifts when ingest runs. Memo it briefly.
+  const isDefaultListing =
+    hasDb && (!q || q.length === 1) && !zip5 && !opts.city && !opts.county && !opts.profession &&
+    !opts.subspecialty && !opts.gender && !prescribers && !therapists &&
+    !opts.insurancePayer && !opts.includeInactive && !opts.sort && page === 1 && pageSize === PAGE_SIZE;
+  if (isDefaultListing && defaultListingMemo && Date.now() - defaultListingMemo.at < 60_000) {
+    return defaultListingMemo.page;
+  }
+
   if (hasDb) {
     const where: string[] = [];
     const params: unknown[] = [];
     let p = 1;
     if (!opts.includeInactive) where.push(`deactivated_at IS NULL`); // hide dead NPIs
-    if (q) {
+    // Length-tiered text match: trigram indexes need 3+ chars, so short terms
+    // would seq-scan + similarity-sort the whole table (~1s measured). One char
+    // isn't a search yet → unfiltered default listing (instant). Two chars →
+    // name-prefix only, so 2-letter surnames (Ng, Li, Wu) still work. 3+ →
+    // the full five-column fuzzy match.
+    const fuzzy = !!q && q.length >= 3;
+    if (q && q.length === 2) {
+      where.push(`name ILIKE $${p}`);
+      params.push(`${q}%`);
+      p++;
+    } else if (fuzzy) {
       where.push(
         `(name ILIKE $${p} OR city ILIKE $${p} OR profession ILIKE $${p} OR subspecialty ILIKE $${p} OR primary_taxonomy ILIKE $${p})`,
       );
@@ -231,26 +259,50 @@ export async function searchProviders(opts: {
       `PARTITION BY COALESCE(npi, id::text) ` +
       `ORDER BY CASE source WHEN 'medicaid' THEN 0 ELSE 1 END, id) AS _rn ` +
       `FROM directory_providers ${clause}) t WHERE _rn = 1`;
-    const countRows = (await sql.query(`SELECT count(*)::int AS n FROM (${deduped}) c`, params)) as Array<{ n: number }>;
-    const total = countRows[0]?.n ?? 0;
-
     // Relevance: when there's a free-text query, rank by trigram similarity
-    // against name (pg_trgm + the GIN indexes in sql/005 already exist for
-    // this — added for ILIKE perf, reused here for ranking); otherwise
-    // alphabetical is the sanest default.
+    // against name (pg_trgm + the GIN indexes in sql/005 + sql/022 already
+    // exist for this — added for ILIKE perf, reused here for ranking);
+    // otherwise alphabetical is the sanest default.
     const dataParams = [...params, pageSize, (page - 1) * pageSize];
     const limitIdx = p++;
     const offsetIdx = p++;
     let orderBy = "name";
-    if (q) {
+    if (fuzzy) {
       dataParams.push(q);
       orderBy = `similarity(name, $${p++}) DESC, name`;
     }
-    const rows = (await sql.query(
-      `SELECT * FROM (${deduped}) d ORDER BY ${orderBy} LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
-      dataParams,
-    )) as ProviderRow[];
-    return { items: rows.map(toProvider), total, page, pageSize };
+    // Accepting/network sort joins the participation aggregate and overrides
+    // relevance order. Rank: accepting 2 > listed-not-accepting 1 > no data 0;
+    // network = distinct network count, no data -1.
+    let sortJoin = "";
+    if (opts.sort === "accepting" || opts.sort === "network") {
+      const dirSql = opts.sortDir === "asc" ? "ASC" : "DESC";
+      // provider_participation_summary (sql/023) is this aggregate, precomputed
+      // — the live GROUP BY over provider_network_participation hit 2.7–5s past
+      // 1M rows. Refreshed post-ingest alongside provider_rate_summary.
+      sortJoin = ` LEFT JOIN provider_participation_summary x ON x.npi = d.npi`;
+      orderBy =
+        opts.sort === "accepting"
+          ? `(CASE WHEN x.any_accepting THEN 2 WHEN x.npi IS NOT NULL THEN 1 ELSE 0 END) ${dirSql}, d.name`
+          : `COALESCE(x.network_count, -1) ${dirSql}, d.name`;
+    }
+    // Count and page are independent — one flight, not two sequential trips.
+    // The count skips the window-dedup entirely: counting distinct partition
+    // keys is the same number, at a fraction of the cost (measured ~4x).
+    const [countRows, rows] = (await Promise.all([
+      sql.query(
+        `SELECT count(DISTINCT COALESCE(npi, id::text))::int AS n FROM directory_providers ${clause}`,
+        params,
+      ),
+      sql.query(
+        `SELECT d.* FROM (${deduped}) d${sortJoin} ORDER BY ${orderBy} LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+        dataParams,
+      ),
+    ])) as [Array<{ n: number }>, ProviderRow[]];
+    const total = countRows[0]?.n ?? 0;
+    const result = { items: rows.map(toProvider), total, page, pageSize };
+    if (isDefaultListing) defaultListingMemo = { at: Date.now(), page: result };
+    return result;
   }
 
   let all = filterProviders([...mockStore().directoryProviders.values()], opts);
@@ -402,12 +454,15 @@ export async function searchPrograms(opts: {
       params.push(opts.type);
     }
     const clause = where.length ? `WHERE ${where.join(" AND ")}` : "";
-    const countRows = (await sql.query(`SELECT count(*)::int AS n FROM directory_programs ${clause}`, params)) as Array<{ n: number }>;
+    // Count and page are independent — one flight, not two sequential trips.
+    const [countRows, rows] = (await Promise.all([
+      sql.query(`SELECT count(*)::int AS n FROM directory_programs ${clause}`, params),
+      sql.query(
+        `SELECT * FROM directory_programs ${clause} ORDER BY program_name LIMIT $${p++} OFFSET $${p++}`,
+        [...params, pageSize, (page - 1) * pageSize],
+      ),
+    ])) as [Array<{ n: number }>, ProgramRow[]];
     const total = countRows[0]?.n ?? 0;
-    const rows = (await sql.query(
-      `SELECT * FROM directory_programs ${clause} ORDER BY program_name LIMIT $${p++} OFFSET $${p++}`,
-      [...params, pageSize, (page - 1) * pageSize],
-    )) as ProgramRow[];
     return { items: rows.map(toProgram), total, page, pageSize };
   }
 
@@ -529,10 +584,13 @@ function filterPrograms(list: DirectoryProgram[], opts: { q?: string; county?: s
 /** Distinct filter facet values (cities, counties, professions, subspecialties) for filter chips. */
 export async function providerFacets(): Promise<{ cities: string[]; counties: string[]; professions: string[]; subspecialties: string[] }> {
   if (hasDb) {
-    const ci = (await sql`SELECT DISTINCT initcap(lower(city)) AS city FROM directory_providers WHERE city IS NOT NULL AND deactivated_at IS NULL ORDER BY city`) as Array<{ city: string }>;
-    const c = (await sql`SELECT DISTINCT county FROM directory_providers WHERE county IS NOT NULL AND deactivated_at IS NULL ORDER BY county`) as Array<{ county: string }>;
-    const pr = (await sql`SELECT DISTINCT profession FROM directory_providers WHERE profession IS NOT NULL AND deactivated_at IS NULL ORDER BY profession`) as Array<{ profession: string }>;
-    const ss = (await sql`SELECT subspecialty, count(*)::int n FROM directory_providers WHERE subspecialty IS NOT NULL AND deactivated_at IS NULL GROUP BY subspecialty ORDER BY n DESC`) as Array<{ subspecialty: string }>;
+    // Four independent facet queries — one flight, not four sequential trips.
+    const [ci, c, pr, ss] = (await Promise.all([
+      sql`SELECT DISTINCT initcap(lower(city)) AS city FROM directory_providers WHERE city IS NOT NULL AND deactivated_at IS NULL ORDER BY city`,
+      sql`SELECT DISTINCT county FROM directory_providers WHERE county IS NOT NULL AND deactivated_at IS NULL ORDER BY county`,
+      sql`SELECT DISTINCT profession FROM directory_providers WHERE profession IS NOT NULL AND deactivated_at IS NULL ORDER BY profession`,
+      sql`SELECT subspecialty, count(*)::int n FROM directory_providers WHERE subspecialty IS NOT NULL AND deactivated_at IS NULL GROUP BY subspecialty ORDER BY n DESC`,
+    ])) as [Array<{ city: string }>, Array<{ county: string }>, Array<{ profession: string }>, Array<{ subspecialty: string }>];
     return { cities: ci.map((r) => r.city), counties: c.map((r) => r.county), professions: pr.map((r) => r.profession), subspecialties: ss.map((r) => r.subspecialty) };
   }
   const list = [...mockStore().directoryProviders.values()];

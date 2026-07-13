@@ -28,7 +28,8 @@ export function Table({
         <thead className={stickyHeader ? "sticky top-0 z-10" : ""}>
           <tr>
             {head.map((h, i) => (
-              <th key={i} className="border-b border-border bg-surface px-4 py-3 text-sm font-semibold text-primary">
+              // inset shadow, not border-b: sticky headers drop collapsed borders while scrolled
+              <th key={i} className="bg-surface px-4 py-3 text-sm font-semibold text-primary shadow-[inset_0_-1px_0_var(--color-border)]">
                 {h}
               </th>
             ))}
@@ -61,7 +62,7 @@ export function Tr({
 
 export function Td({ className = "", children, ...rest }: TdHTMLAttributes<HTMLTableCellElement>) {
   return (
-    <td className={`px-4 py-3.5 text-[15px] text-text-body ${className}`} {...rest}>
+    <td className={`px-4 py-2 text-[15px] text-text-body ${className}`} {...rest}>
       {children}
     </td>
   );

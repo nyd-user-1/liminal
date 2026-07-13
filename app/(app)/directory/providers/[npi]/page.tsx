@@ -19,7 +19,7 @@ export default async function ProviderProfilePage({
   params: Promise<{ npi: string }>;
   searchParams: Promise<{ refer?: string }>;
 }) {
-  const user = await requireRole("practitioner");
+  await requireRole("practitioner");
   const { npi } = await params;
   if (!/^\d{10}$/.test(npi)) notFound();
   const { refer } = await searchParams;
@@ -36,7 +36,6 @@ export default async function ProviderProfilePage({
       provider={provider}
       network={network}
       clients={clients.map((c) => ({ id: c.id, name: `${c.firstName} ${c.lastName}` }))}
-      userEmail={user.email}
       openRefer={refer === "1"}
     />
   );

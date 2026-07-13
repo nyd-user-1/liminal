@@ -21,6 +21,9 @@ export interface TabItem {
   label: string;
   count?: number;
   href?: string;
+  /** Render a small × after the label (pairs with the Tabs `onClose` prop) —
+      for tabs that represent open records rather than fixed sections. */
+  closable?: boolean;
 }
 
 const tabCls = (isActive: boolean, slideActive: boolean) =>
@@ -34,6 +37,7 @@ export function Tabs({
   items,
   active,
   onChange,
+  onClose,
   overflow,
   overflowLabel = "View More",
   slideActive = false,
@@ -42,6 +46,9 @@ export function Tabs({
   items: TabItem[];
   active?: string;
   onChange?: (key: string) => void;
+  /** Close handler for `closable` items — clicking the × fires this instead
+      of selecting the tab. */
+  onClose?: (key: string) => void;
   overflow?: TabItem[];
   overflowLabel?: string;
   /** Slide the active underline between tabs (nav rail-slider) instead of
@@ -88,7 +95,9 @@ export function Tabs({
     >
       {items.map((t) => {
         const isActive = isActiveTab(t);
-        const cls = tabCls(isActive, slideActive);
+        // Closable tabs represent open records — they wear the hover wash
+        // permanently so they read as windows, not sections.
+        const cls = `${tabCls(isActive, slideActive)}${t.closable ? " bg-primary-wash/40" : ""}`;
         const setRef = (el: HTMLElement | null) => {
           tabEls.current[t.key] = el;
         };
@@ -97,6 +106,28 @@ export function Tabs({
             {t.label}
             {t.count !== undefined && (
               <span className="rounded-full bg-canvas px-1.5 text-[13px] text-text-muted">{t.count}</span>
+            )}
+            {t.closable && onClose && (
+              <span
+                role="button"
+                aria-label={`Close ${t.label}`}
+                tabIndex={0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onClose(t.key);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    onClose(t.key);
+                  }
+                }}
+                className="-mr-1 ml-0.5 rounded p-0.5 text-text-muted transition-colors hover:bg-primary-wash hover:text-text"
+              >
+                <Icon name="x" size={13} />
+              </span>
             )}
           </>
         );

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { shortProfession } from "@/lib/format";
 import type { RatedProvider } from "@/lib/repos/rate-directory";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -50,7 +51,7 @@ export function RateDirectory({ providers }: { providers: RatedProvider[] }) {
   const go = (p: RatedProvider) => router.push(p.slug ? `/directory/${p.slug}` : `/rates?npi=${p.npi}`);
 
   return (
-    <>
+    <div className="flex h-full min-h-0 flex-col">
       <Toolbar className="mb-4 shrink-0 md:mb-6">
         <SearchInput value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search providers by name or NPI…" className="max-w-md flex-1" />
         <span className="ml-auto self-center text-sm text-text-muted tabular-nums">
@@ -77,16 +78,16 @@ export function RateDirectory({ providers }: { providers: RatedProvider[] }) {
         >
           {rows.map((p) => (
             <Tr key={p.npi} onClick={() => go(p)}>
-              <Td className="!py-2 whitespace-nowrap">
+              <Td className="whitespace-nowrap">
                 <TextLink href={p.slug ? `/directory/${p.slug}` : `/rates?npi=${p.npi}`} onClick={(e) => e.stopPropagation()} className="!font-medium">
                   {displayName(p.name)}
                 </TextLink>
               </Td>
-              <Td className="!py-2 text-text-muted">{shortRole(p.profession)}</Td>
-              <Td className="!py-2"><Badge variant={p.payerCount >= 4 ? "info" : "neutral"}>{p.payerCount}</Badge></Td>
-              <Td className="!py-2 tabular-nums text-text-body">{money(p.best90791)}</Td>
-              <Td className="!py-2 font-medium tabular-nums text-text">{money(p.best90837)}</Td>
-              <Td className="!py-2 tabular-nums text-text-body">{money(p.best99214)}</Td>
+              <Td className="text-text-muted">{shortProfession(p.profession)}</Td>
+              <Td><Badge variant={p.payerCount >= 4 ? "info" : "neutral"}>{p.payerCount}</Badge></Td>
+              <Td className="tabular-nums text-text-body">{money(p.best90791)}</Td>
+              <Td className="font-medium tabular-nums text-text">{money(p.best90837)}</Td>
+              <Td className="tabular-nums text-text-body">{money(p.best99214)}</Td>
             </Tr>
           ))}
           {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={6} />}
@@ -95,7 +96,7 @@ export function RateDirectory({ providers }: { providers: RatedProvider[] }) {
       <p className="mt-3 shrink-0 text-[12px] text-text-muted">
         Best per-session negotiated rate the provider commands across the NY payer books we index. Per-session, not revenue &mdash; rates never sum across payers or codes. As published; presence isn&rsquo;t proof of an open panel.
       </p>
-    </>
+    </div>
   );
 }
 
@@ -107,15 +108,4 @@ function displayName(raw: string): string {
   const parts = clean.split(" ");
   const reordered = parts.length >= 2 ? [...parts.slice(1), parts[0]] : parts;
   return reordered.map((w) => w.charAt(0) + w.slice(1).toLowerCase()).join(" ");
-}
-const ROLE: Record<string, string> = {
-  "Psychiatric Nurse Practitioner": "Psych NP",
-  "Clinical Social Worker": "Social Worker",
-  "Mental Health Counselor": "Counselor",
-  "Marriage & Family Therapist": "MFT",
-  Psychiatrist: "Psychiatrist",
-  Psychologist: "Psychologist",
-};
-function shortRole(p: string | null): string {
-  return p ? (ROLE[p] ?? p) : "—";
 }

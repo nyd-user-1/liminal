@@ -17,6 +17,15 @@ const sizes = {
   lg: "h-24 w-24 text-3xl",
 } as const;
 
+const AVATAR_HUES: AvatarHue[] = ["teal", "amber", "pink", "blue"];
+
+/** Stable per-id hue for entities without a stored avatarHue (directory rows). */
+export function avatarHue(id: string): AvatarHue {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return AVATAR_HUES[h % AVATAR_HUES.length];
+}
+
 export function Avatar({
   name,
   hue = "teal",

@@ -1,11 +1,11 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Avatar } from "@/components/ui/avatar";
+import { Avatar, avatarHue } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ColumnPicker } from "@/components/ui/column-picker";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { Icon } from "@/components/ui/icons";
@@ -15,14 +15,16 @@ import { SearchInput } from "@/components/ui/search-input";
 import { SidePanel } from "@/components/ui/side-panel";
 import { Spinner } from "@/components/ui/spinner";
 import { LoadMoreRow, SortableHead, Table, Td, Tr, useSentinel, useSort } from "@/components/ui/table";
+import { Tooltip } from "@/components/ui/tooltip";
 import { Tabs } from "@/components/ui/tabs";
 import { TextLink } from "@/components/ui/text-link";
 import { Toolbar } from "@/components/ui/toolbar";
 import { useToast } from "@/components/ui/toast";
 import { ReferModal } from "@/components/providers/refer-modal";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatPhone, providerDisplayName, shortProfession, stateFromZip } from "@/lib/format";
 import type { ProviderNetworkSummary } from "@/lib/repos/networks";
 import type { DirectoryProgram, DirectoryProvider } from "@/lib/types";
+import { ProviderView } from "./provider-view";
 
 type Tab = "providers" | "programs";
 type ClientOption = { id: string; name: string };
@@ -32,12 +34,27 @@ type Facets = { cities?: string[]; counties: string[]; professions?: string[]; s
 // specialties can prescribe medication (shown as an "Rx" marker in the dropdown).
 const PRESCRIBER_SPECIALTIES = new Set(["Psychiatrist", "Psychiatric Nurse Practitioner"]);
 
-const AVATAR_HUES = ["teal", "amber", "pink", "blue"] as const;
-export function avatarHue(id: string): (typeof AVATAR_HUES)[number] {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return AVATAR_HUES[h % AVATAR_HUES.length];
-}
+// Optional provider columns (the Columns picker). Provider name, checkbox and
+// the kebab always render.
+const PROVIDER_COLUMNS = [
+  { key: "npi", label: "NPI" },
+  { key: "specialty", label: "Specialty" },
+  { key: "subspecialty", label: "Sub-specialty" },
+  { key: "type", label: "Type" },
+  { key: "address", label: "Address" },
+  { key: "city", label: "City" },
+  { key: "state", label: "State" },
+  { key: "zip", label: "Zip" },
+  { key: "phone", label: "Phone" },
+  { key: "license", label: "License" },
+  { key: "accepting", label: "Accepting" },
+  { key: "network", label: "Network" },
+  { key: "payers", label: "Payers" },
+  { key: "rate", label: "Rate" },
+  { key: "source", label: "Source" },
+];
+const DEFAULT_HIDDEN_COLUMNS = new Set(["subspecialty"]);
+
 
 // FilterChip + attached popover — same pattern as the Clients index toolbar.
 function ChipMenu({
@@ -118,7 +135,6 @@ export function DirectoryClient({
   programFacets: Facets;
   clients: ClientOption[];
 }) {
-  const router = useRouter();
   const toast = useToast();
   const [tab, setTab] = useState<Tab>("providers");
   const [q, setQ] = useState("");
@@ -132,13 +148,78 @@ export function DirectoryClient({
   const [page, setPage] = useState(1);
   const [items, setItems] = useState<Array<DirectoryProvider | DirectoryProgram>>([]);
   const [networks, setNetworks] = useState<Record<string, ProviderNetworkSummary>>({});
+  const [rateMap, setRateMap] = useState<Record<string, { best90837: number | null; payerCount: number }>>({});
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
   const [selected, setSelected] = useState<DirectoryProvider | DirectoryProgram | null>(null);
   const [checked, setChecked] = useState<Set<string>>(new Set());
-  const [providerSort, toggleProviderSort] = useSort<"name" | "specialty" | "city">({ col: "name", dir: "asc" });
+
+  // Browser-tab model: each opened provider is a closable tab after
+  // Providers/Programs; `view` is "list" or the open provider's row id. The
+  // network summary is captured at open time — `networks` is replaced on
+  // every list reload, so the map may no longer hold this NPI later.
+  const [openTabs, setOpenTabs] = useState<Array<{ provider: DirectoryProvider; network: ProviderNetworkSummary | null }>>([]);
+  const [view, setView] = useState<string>("list");
+
+  // Pin/favorite (row kebab) — device-local, hydrated after mount so the
+  // server render never touches localStorage. Pins store the WHOLE row, not
+  // just the id: the directory is server-paginated, so a pinned provider is
+  // usually not in the loaded pages and must be prepended from storage.
+  const [pinnedRows, setPinnedRows] = useState<DirectoryProvider[]>([]);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    try {
+      const rows = JSON.parse(localStorage.getItem("directory.pinned") ?? "[]");
+      setPinnedRows(Array.isArray(rows) ? rows.filter((r) => r && typeof r === "object" && r.id) : []);
+      setFavorites(new Set(JSON.parse(localStorage.getItem("directory.favorites") ?? "[]")));
+    } catch {
+      /* corrupt storage — start clean */
+    }
+  }, []);
+  const pinnedIds = useMemo(() => new Set(pinnedRows.map((r) => r.id)), [pinnedRows]);
+
+  // Column visibility (Columns picker) — device-local, same hydration rule.
+  const [visibleCols, setVisibleCols] = useState<Set<string>>(
+    new Set(PROVIDER_COLUMNS.map((c) => c.key).filter((k) => !DEFAULT_HIDDEN_COLUMNS.has(k))),
+  );
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("directory.columns") ?? "null");
+      if (Array.isArray(saved)) setVisibleCols(new Set(saved));
+    } catch {
+      /* corrupt storage — keep defaults */
+    }
+  }, []);
+  function toggleCol(key: string) {
+    setVisibleCols((s) => {
+      const next = new Set(s);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      localStorage.setItem("directory.columns", JSON.stringify([...next]));
+      return next;
+    });
+  }
+  const vis = (k: string) => visibleCols.has(k);
+  const providerColSpan = 3 + PROVIDER_COLUMNS.filter((c) => vis(c.key)).length;
+  function togglePin(r: DirectoryProvider) {
+    setPinnedRows((rows) => {
+      const next = rows.some((p) => p.id === r.id) ? rows.filter((p) => p.id !== r.id) : [...rows, r];
+      localStorage.setItem("directory.pinned", JSON.stringify(next));
+      return next;
+    });
+  }
+  function toggleFavorite(id: string) {
+    setFavorites((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      localStorage.setItem("directory.favorites", JSON.stringify([...next]));
+      return next;
+    });
+  }
+  const [providerSort, toggleProviderSort] = useSort<"name" | "specialty" | "city" | "accepting" | "network">({ col: "name", dir: "asc" });
   const [programSort, toggleProgramSort] = useSort<"name" | "agency" | "county">({ col: "name", dir: "asc" });
 
   const allLoadedChecked = items.length > 0 && items.every((r) => checked.has(r.id));
@@ -162,8 +243,22 @@ export function DirectoryClient({
   const facets = tab === "providers" ? providerFacets : programFacets;
   const needOptions = (tab === "providers" ? facets.professions : facets.types) ?? [];
 
+  // Only accepting/network sort server-side; other columns reorder loaded
+  // rows without a refetch, so the load callback must not depend on them.
+  const serverSort =
+    tab === "providers" && (providerSort.col === "accepting" || providerSort.col === "network")
+      ? `${providerSort.col}:${providerSort.dir}`
+      : "";
+
+  // Responses must apply newest-request-wins: a short query ("k") scans far
+  // more rows than the longer one typed after it ("kise"), so it can resolve
+  // LAST and clobber the right results. Every load takes a ticket; a response
+  // whose ticket is no longer current is discarded.
+  const loadSeq = useRef(0);
+
   const load = useCallback(
     async (pageToLoad: number, replace: boolean) => {
+      const seq = ++loadSeq.current;
       if (replace) setLoading(true);
       else setLoadingMore(true);
       const params = new URLSearchParams();
@@ -173,6 +268,9 @@ export function DirectoryClient({
       if (tab === "providers") {
         if (subspecialty) params.set("subspecialty", subspecialty);
         if (need) params.set("profession", need);
+        // Accepting/network sorts are global (server-side over the
+        // participation aggregate); other columns sort loaded rows client-side.
+        if (serverSort) params.set("sort", serverSort);
       } else {
         if (county) params.set("county", county);
         if (need) params.set("type", need);
@@ -181,21 +279,30 @@ export function DirectoryClient({
       try {
         const res = await fetch(`/api/directory/${tab}?${params.toString()}`);
         const data = await res.json();
+        if (seq !== loadSeq.current) return; // superseded while in flight
         setItems((prev) => (replace ? (data.items ?? []) : [...prev, ...(data.items ?? [])]));
         setNetworks((prev) => (replace ? (data.networks ?? {}) : { ...prev, ...(data.networks ?? {}) }));
+        setRateMap((prev) => (replace ? (data.rates ?? {}) : { ...prev, ...(data.rates ?? {}) }));
         setTotal(data.total ?? 0);
         setPage(pageToLoad);
       } finally {
-        if (replace) setLoading(false);
-        else setLoadingMore(false);
+        // Only the current request may clear the flags — clear both so a
+        // replace that superseded an in-flight append can't strand loadingMore.
+        if (seq === loadSeq.current) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
       }
     },
-    [tab, q, county, need, subspecialty],
+    [tab, q, county, need, subspecialty, serverSort],
   );
 
   // Filters/tab changed — reload from page 1, replacing the accumulated set.
+  // Debounced so each keystroke doesn't fire its own directory-wide scan;
+  // Enter in the search box still loads immediately.
   useEffect(() => {
-    load(1, true);
+    const t = setTimeout(() => load(1, true), 250);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load]);
 
@@ -226,13 +333,28 @@ export function DirectoryClient({
 
   const hasFilters = !!(q || county || need || subspecialty);
 
-  // Provider rows with an NPI navigate to the real profile page — the
-  // stable identifier the page routes on. Rows with no NPI (some Medicaid
-  // rows never carried one) have nothing to route to, so they keep opening
-  // the SidePanel here, same as before.
+  // A provider row opens as a closable tab in the page's tab row (no
+  // navigation, no breadcrumb). "Refer a client" still goes through the
+  // SidePanel, which carries the Refer action.
   function openProvider(r: DirectoryProvider, opts: { refer?: boolean } = {}) {
-    if (r.npi) router.push(`/directory/providers/${r.npi}${opts.refer ? "?refer=1" : ""}`);
-    else setSelected(r);
+    if (opts.refer) {
+      setSelected(r);
+      return;
+    }
+    setOpenTabs((tabs) =>
+      tabs.some((t) => t.provider.id === r.id)
+        ? tabs
+        : [...tabs, { provider: r, network: r.npi ? (networks[r.npi] ?? null) : null }],
+    );
+    setView(r.id);
+  }
+
+  // Close a provider tab; if it was the active one, fall back to its left
+  // neighbor (another open provider, else the list).
+  function closeTab(id: string) {
+    const idx = openTabs.findIndex((t) => t.provider.id === id);
+    setOpenTabs((tabs) => tabs.filter((t) => t.provider.id !== id));
+    if (view === id) setView(openTabs[idx - 1]?.provider.id ?? "list");
   }
 
   // Sort client-side over the rows loaded so far. The directory API has no
@@ -243,12 +365,33 @@ export function DirectoryClient({
   const sortedProviders = useMemo(() => {
     if (tab !== "providers") return [];
     const dir = providerSort.dir === "asc" ? 1 : -1;
-    return [...(items as DirectoryProvider[])].sort((a, b) => {
+    // Accepting/network sort values come from the per-page networks map:
+    // accepting 2 > not-accepting 1 > no data 0; network = count, no data -1.
+    const acceptingRank = (p: DirectoryProvider) => {
+      const s = p.npi ? networks[p.npi] : undefined;
+      return s ? (s.accepting ? 2 : 1) : 0;
+    };
+    const networkCount = (p: DirectoryProvider) => {
+      const s = p.npi ? networks[p.npi] : undefined;
+      return s ? s.networks.length : -1;
+    };
+    const sorted = [...(items as DirectoryProvider[])].sort((a, b) => {
       if (providerSort.col === "specialty") return (a.profession ?? "").localeCompare(b.profession ?? "") * dir;
       if (providerSort.col === "city") return (a.city ?? "").localeCompare(b.city ?? "") * dir;
-      return titleCase(a.name).localeCompare(titleCase(b.name)) * dir;
+      if (providerSort.col === "accepting") return (acceptingRank(a) - acceptingRank(b)) * dir;
+      if (providerSort.col === "network") return (networkCount(a) - networkCount(b)) * dir;
+      return providerDisplayName(a.name, a.entityType).localeCompare(providerDisplayName(b.name, b.entityType)) * dir;
     });
-  }, [tab, items, providerSort]);
+    // Pinned rows float above the sort, keeping their relative order.
+    const pinnedFirst = [...sorted.filter((p) => pinnedIds.has(p.id)), ...sorted.filter((p) => !pinnedIds.has(p.id))];
+    // On the UNFILTERED list, pinned providers belong at the top even when
+    // they're not in the loaded pages (server pagination) — prepend from
+    // storage. Under a search/filter we can't evaluate the match client-side,
+    // so only loaded matches float.
+    if (q.trim() || need || subspecialty) return pinnedFirst;
+    const loaded = new Set(sorted.map((p) => p.id));
+    return [...pinnedRows.filter((p) => !loaded.has(p.id)), ...pinnedFirst];
+  }, [tab, items, providerSort, pinnedIds, pinnedRows, q, need, subspecialty, networks]);
   const sortedPrograms = useMemo(() => {
     if (tab !== "programs") return [];
     const dir = programSort.dir === "asc" ? 1 : -1;
@@ -263,14 +406,28 @@ export function DirectoryClient({
     <div className="flex h-full min-h-0 flex-col">
       <Tabs
         className="mb-4 shrink-0"
-        active={tab}
-        onChange={(k) => switchTab(k as Tab)}
+        active={view === "list" ? tab : view}
+        onChange={(k) => {
+          if (k === "providers" || k === "programs") {
+            setView("list");
+            if (k !== tab) switchTab(k as Tab);
+          } else {
+            setView(k);
+          }
+        }}
+        onClose={closeTab}
         items={[
           { key: "providers", label: "Providers" },
           { key: "programs", label: "Programs" },
+          ...openTabs.map((t) => ({
+            key: t.provider.id,
+            label: providerDisplayName(t.provider.name, t.provider.entityType),
+            closable: true,
+          })),
         ]}
       />
 
+      <div className="flex min-h-0 flex-1 flex-col" hidden={view !== "list"}>
       <Toolbar className="mb-4 shrink-0 flex-wrap md:mb-6">
         <SearchInput
           value={q}
@@ -318,6 +475,9 @@ export function DirectoryClient({
           </>
         )}
         {hasFilters && <TextLink onClick={resetFilters}>Reset</TextLink>}
+        {tab === "providers" && (
+          <ColumnPicker options={PROVIDER_COLUMNS} visible={visibleCols} onToggle={toggleCol} className="ml-auto" />
+        )}
       </Toolbar>
 
       {loading ? (
@@ -340,19 +500,52 @@ export function DirectoryClient({
           head={[
             <Checkbox key="all" aria-label="Select all loaded" checked={allLoadedChecked} onChange={toggleAllLoaded} />,
             <SortableHead key="name" label="Provider" col="name" sort={providerSort} onSort={toggleProviderSort} />,
-            <SortableHead key="specialty" label="Specialty" col="specialty" sort={providerSort} onSort={toggleProviderSort} />,
-            "Sub-specialty",
-            "Address",
-            <SortableHead key="city" label="City" col="city" sort={providerSort} onSort={toggleProviderSort} />,
-            "Zip",
+            ...(vis("npi") ? ["NPI"] : []),
+            ...(vis("specialty")
+              ? [<SortableHead key="specialty" label="Specialty" col="specialty" sort={providerSort} onSort={toggleProviderSort} />]
+              : []),
+            ...(vis("subspecialty") ? ["Sub-specialty"] : []),
+            ...(vis("type") ? ["Type"] : []),
+            ...(vis("address") ? ["Address"] : []),
+            ...(vis("city")
+              ? [<SortableHead key="city" label="City" col="city" sort={providerSort} onSort={toggleProviderSort} />]
+              : []),
+            ...(vis("state") ? ["State"] : []),
+            ...(vis("zip") ? ["Zip"] : []),
+            ...(vis("phone") ? ["Phone"] : []),
+            ...(vis("license") ? ["License"] : []),
+            ...(vis("accepting")
+              ? [<SortableHead key="accepting" label="Accepting" col="accepting" sort={providerSort} onSort={toggleProviderSort} />]
+              : []),
+            ...(vis("network")
+              ? [
+                  <Tooltip key="network" label="Number of insurance networks on file — open the provider for the full list.">
+                    <SortableHead label="Network" col="network" sort={providerSort} onSort={toggleProviderSort} />
+                  </Tooltip>,
+                ]
+              : []),
+            ...(vis("payers") ? ["Payers"] : []),
+            ...(vis("rate")
+              ? [
+                  <Tooltip key="rate" label="Best 60-minute therapy rate (90837) on file across payer books.">
+                    <span className="inline-flex cursor-help items-center gap-1">
+                      Rate <Icon name="info" size={13} className="text-text-muted" />
+                    </span>
+                  </Tooltip>,
+                ]
+              : []),
+            ...(vis("source") ? ["Source"] : []),
             "",
           ]}
         >
           {sortedProviders.map((r) => {
-            const name = titleCase(r.name);
-            const specialty = r.profession ? titleCase(r.profession) : "–";
+            const name = providerDisplayName(r.name, r.entityType);
+            const specialty = r.profession ? shortProfession(r.profession) : "–";
             const address = r.address ? titleCase(r.address) : "–";
             const city = r.city ? titleCase(r.city) : "–";
+            const summary = r.npi ? networks[r.npi] : undefined;
+            const rate = r.npi ? rateMap[r.npi] : undefined;
+            const payers = summary?.payers ?? [];
             return (
               <Tr key={r.id} onClick={() => openProvider(r)}>
                 <Td className="w-10" onClick={(e) => e.stopPropagation()}>
@@ -364,25 +557,67 @@ export function DirectoryClient({
                     <TextLink className="min-w-0 truncate" title={name} onClick={(e) => { e.stopPropagation(); openProvider(r); }}>
                       {name}
                     </TextLink>
-                    {r.credential && <span className="shrink-0 text-sm text-text-muted">{r.credential}</span>}
+                    {pinnedIds.has(r.id) && <Icon name="pin" size={13} className="shrink-0 fill-primary-wash text-text" />}
+                    {favorites.has(r.id) && <Icon name="star" size={13} className="shrink-0 text-accent-ink" />}
                   </span>
-                  <NetworkSignal summary={r.npi ? networks[r.npi] : undefined} />
                 </Td>
-                <Td className="max-w-40 truncate" title={specialty}>{specialty}</Td>
-                <Td className="max-w-40 truncate" title={r.subspecialty ?? undefined}>{r.subspecialty ?? "–"}</Td>
-                <Td className="max-w-56 truncate" title={address}>{address}</Td>
-                <Td className="max-w-32 truncate" title={city}>{city}</Td>
-                <Td className="whitespace-nowrap tabular-nums">{(r.zip ?? "").replace(/[^0-9]/g, "").slice(0, 5) || "–"}</Td>
+                {vis("npi") && <Td className="whitespace-nowrap tabular-nums text-text-muted">{r.npi ?? "–"}</Td>}
+                {vis("specialty") && (
+                  <Td className="max-w-40 truncate" title={r.profession ? titleCase(r.profession) : undefined}>{specialty}</Td>
+                )}
+                {vis("subspecialty") && (
+                  <Td className="max-w-40 truncate" title={r.subspecialty ?? undefined}>{r.subspecialty ?? "–"}</Td>
+                )}
+                {vis("type") && (
+                  <Td className="whitespace-nowrap">{r.entityType === "2" ? "Org" : r.entityType === "1" ? "Person" : "–"}</Td>
+                )}
+                {vis("address") && <Td className="max-w-56 truncate" title={address}>{address}</Td>}
+                {vis("city") && <Td className="max-w-32 truncate" title={city}>{city}</Td>}
+                {vis("state") && <Td className="whitespace-nowrap">{stateFromZip(r.zip) ?? "–"}</Td>}
+                {vis("zip") && (
+                  <Td className="whitespace-nowrap tabular-nums">{(r.zip ?? "").replace(/[^0-9]/g, "").slice(0, 5) || "–"}</Td>
+                )}
+                {vis("phone") && <Td className="whitespace-nowrap tabular-nums">{r.phone ? formatPhone(r.phone) : "–"}</Td>}
+                {vis("license") && (
+                  <Td className="whitespace-nowrap">{[r.credential, r.licenseNo].filter(Boolean).join(" · ") || "–"}</Td>
+                )}
+                {vis("accepting") && (
+                  <Td className="whitespace-nowrap">
+                    {summary ? (
+                      <Badge variant={summary.accepting ? "success" : "neutral"}>
+                        {summary.accepting ? "Accepting" : "Not accepting"}
+                      </Badge>
+                    ) : (
+                      "–"
+                    )}
+                  </Td>
+                )}
+                {vis("network") && <Td className="whitespace-nowrap tabular-nums">{summary ? summary.networks.length : "–"}</Td>}
+                {vis("payers") && (
+                  <Td className="max-w-44 truncate whitespace-nowrap" title={payers.join(", ") || undefined}>
+                    {payers.length ? payers.slice(0, 2).join(", ") + (payers.length > 2 ? ` +${payers.length - 2}` : "") : "–"}
+                  </Td>
+                )}
+                {vis("rate") && (
+                  <Td className="whitespace-nowrap tabular-nums">
+                    {rate?.best90837 != null ? `$${rate.best90837.toFixed(2)}` : "–"}
+                  </Td>
+                )}
+                {vis("source") && (
+                  <Td className="whitespace-nowrap text-text-muted">{r.source === "nppes" ? "NPPES" : "Medicaid"}</Td>
+                )}
                 <Td className="w-12" onClick={(e) => e.stopPropagation()}>
                   <KebabMenu label={`Actions for ${name}`}>
                     <MenuItem icon="person-circle" label="View details" onClick={() => openProvider(r)} />
                     <MenuItem icon="send" label="Refer a client" onClick={() => openProvider(r, { refer: true })} />
+                    <MenuItem icon="pin" label={pinnedIds.has(r.id) ? "Unpin" : "Pin to top"} onClick={() => togglePin(r)} />
+                    <MenuItem icon="star" label={favorites.has(r.id) ? "Unfavorite" : "Favorite"} onClick={() => toggleFavorite(r.id)} />
                   </KebabMenu>
                 </Td>
               </Tr>
             );
           })}
-          {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={8} />}
+          {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={providerColSpan} />}
         </Table>
       ) : (
         <Table
@@ -424,6 +659,13 @@ export function DirectoryClient({
           {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={6} />}
         </Table>
       )}
+      </div>
+
+      {openTabs.map((t) => (
+        <div key={t.provider.id} className="min-h-0 flex-1" hidden={view !== t.provider.id}>
+          <ProviderView provider={t.provider} network={t.network} />
+        </div>
+      ))}
 
       <DetailPanel
         item={selected}
@@ -440,25 +682,6 @@ export function DirectoryClient({
 
 function isProvider(item: DirectoryProvider | DirectoryProgram): item is DirectoryProvider {
   return (item as DirectoryProvider).npi !== undefined && "profession" in item;
-}
-
-// Compact payer-network signal shown under a provider's name in the results.
-// Renders nothing when we hold no network data for the NPI — absence is NOT
-// "out of network", so we say nothing rather than imply it. Always dated.
-function NetworkSignal({ summary }: { summary?: ProviderNetworkSummary | null }) {
-  if (!summary) return null;
-  // Lead with the payer(s) — a provider can be in many sub-networks per payer,
-  // so the payer is the stable, readable unit here; networks live in the panel.
-  const label = summary.payers.join(", ") || summary.networks[0];
-  return (
-    <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-text-muted">
-      <Badge variant={summary.accepting ? "success" : "neutral"}>
-        {summary.accepting ? "Accepting" : "Not accepting"}
-      </Badge>
-      {label && <span className="truncate">In-network: {label}</span>}
-      {summary.asOf && <span>· as of {formatDate(summary.asOf)}</span>}
-    </span>
-  );
 }
 
 function LabeledRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -525,7 +748,7 @@ function DetailPanel({
         open={!!item}
         onClose={onClose}
         icon={provider ? "person-circle" : "globe"}
-        title={provider ? titleCase(p.name) : pr.programName}
+        title={provider ? providerDisplayName(p.name, p.entityType) : pr.programName}
         footer={
           <div className="flex justify-end">
             <Button leftIcon="send" onClick={() => setReferOpen(true)}>

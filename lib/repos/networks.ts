@@ -117,6 +117,53 @@ export async function networkSummaryForNpi(
   return (await networkSummariesByNpi([npi])).get(npi) ?? null;
 }
 
+/** One row per (payer × network) for a single NPI — the un-aggregated version
+ *  of the summary above; feeds the profile's unified membership table. Coarse
+ *  rows (bare listing, no network detail) come back with network "". */
+export interface NetworkParticipationRow {
+  payer: string;
+  network: string;
+  accepting: AcceptingStatus;
+  asOf: string | null;
+}
+
+export async function networkParticipationForNpi(npi: string): Promise<NetworkParticipationRow[]> {
+  if (!npi) return [];
+  if (hasDb) {
+    const rows = (await sql`
+      SELECT s.name AS payer, coalesce(n.network_name, '') AS network,
+             max(p.source_last_updated) AS as_of,
+             bool_or(p.accepting_new_patients = 'accepting')     AS accepting,
+             bool_or(p.accepting_new_patients = 'not_accepting') AS not_accepting
+      FROM provider_network_participation p
+      LEFT JOIN payer_networks n ON n.id = p.network_id
+      JOIN payer_sources s ON s.id = p.payer_source_id
+      WHERE p.npi = ${npi}
+      GROUP BY s.name, n.network_name
+      ORDER BY s.name, n.network_name
+    `) as Array<{ payer: string; network: string; as_of: string | Date | null; accepting: boolean; not_accepting: boolean }>;
+    return rows.map((r) => ({
+      payer: r.payer,
+      network: r.network,
+      accepting: r.accepting ? "accepting" : r.not_accepting ? "not_accepting" : "unknown",
+      asOf: r.as_of ? isoDateTime(r.as_of) : null,
+    }));
+  }
+  // mock — group the fixture by payer + network
+  const grouped = new Map<string, NetworkParticipationRow>();
+  for (const m of mockParticipation.filter((m) => m.npi === npi)) {
+    const k = `${m.payerName}|${m.networkName}`;
+    const cur = grouped.get(k);
+    if (!cur) {
+      grouped.set(k, { payer: m.payerName, network: m.networkName, accepting: m.accepting, asOf: m.asOf });
+    } else {
+      if (m.accepting === "accepting") cur.accepting = "accepting";
+      if (m.asOf && (!cur.asOf || m.asOf > cur.asOf)) cur.asOf = m.asOf;
+    }
+  }
+  return [...grouped.values()].sort((a, b) => a.payer.localeCompare(b.payer) || a.network.localeCompare(b.network));
+}
+
 // ── (b′) payer facets (drives the insurance dropdown) ────────────────────────
 
 /** One payer we hold participation data for, with matched count. */
