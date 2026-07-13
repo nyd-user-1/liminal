@@ -99,50 +99,52 @@ function FootprintCard({ f, payerMix }: { f: CredentialingFootprint; payerMix: s
       </div>
 
       {f.foundIn.length > 0 && (
-        <div className="mt-5 divide-y divide-border border-t border-border">
-          {f.foundIn.map((book) => {
-            const highlighted = payerMix.length > 0 && payerMix.includes(book.payer);
-            return (
-              <div
-                key={`${book.payer}|${book.tin}`}
-                className={`flex flex-wrap items-center gap-x-4 gap-y-1.5 py-3 ${highlighted ? "bg-primary-wash/40 -mx-2 rounded-field px-2" : ""}`}
-              >
-                <span className="flex min-w-0 items-center gap-2 whitespace-nowrap">
-                  <InsurerMark payer={book.payer} />
-                  <span className="font-medium text-text">{book.payer}</span>
-                </span>
-                <span className="max-w-40 truncate text-sm text-text-muted" title={book.networks.join(" · ")}>
-                  {book.networks.join(" · ")}
-                </span>
-                <span className="text-sm text-text-muted" title={book.tin}>
-                  {book.holder}
-                </span>
-                {book.platformScale && <Badge variant="warning">via platform group</Badge>}
-                <span className="ml-auto flex flex-wrap items-center gap-2.5 text-sm">
+        <div className="mt-5">
+          <Table
+            head={["Insurer", "Network", "Holder", ...RATE_CPTS.map((c) => c.code), "As-of"]}
+          >
+            {f.foundIn.map((book) => {
+              const highlighted = payerMix.length > 0 && payerMix.includes(book.payer);
+              return (
+                <Tr key={`${book.payer}|${book.tin}`} className={highlighted ? "bg-primary-wash/40" : ""}>
+                  <Td className="whitespace-nowrap">
+                    <span className="flex items-center gap-2">
+                      <InsurerMark payer={book.payer} />
+                      <span className="font-medium text-text">{book.payer}</span>
+                    </span>
+                  </Td>
+                  <Td>
+                    <span className="block max-w-40 truncate" title={book.networks.join(" · ")}>
+                      {book.networks.join(" · ")}
+                    </span>
+                  </Td>
+                  <Td>
+                    <span className="block max-w-40 truncate" title={book.tin}>
+                      {book.holder}
+                    </span>
+                    {book.platformScale && <span className="text-[13px] text-text-muted">via platform group</span>}
+                  </Td>
                   {RATE_CPTS.map((c) => {
                     const val = book.codes[c.code];
-                    if (!val) {
-                      return (
-                        <span key={c.code} className="text-text-muted/50" title={`No published ${c.code} rate`}>
-                          {c.code}
-                        </span>
-                      );
-                    }
-                    return c.code === "90837" ? (
-                      <span key={c.code} title={val} className="font-semibold text-text">
-                        {moneyOnly(val)}
-                      </span>
-                    ) : (
-                      <span key={c.code} title={`${c.code} · ${cptLabel(c.code)} — ${val}`}>
-                        <Icon name="circle-check" size={16} className="text-success" />
-                      </span>
+                    return (
+                      <Td key={c.code} className="whitespace-nowrap" title={cptLabel(c.code)}>
+                        {val ? (
+                          <span title={val} className="font-medium text-text">
+                            {moneyOnly(val)}
+                          </span>
+                        ) : (
+                          <span className="text-text-muted" title={`No published ${c.code} rate`}>
+                            —
+                          </span>
+                        )}
+                      </Td>
                     );
                   })}
-                </span>
-                <span className="whitespace-nowrap text-sm text-text-muted">as-of {book.asOf}</span>
-              </div>
-            );
-          })}
+                  <Td className="whitespace-nowrap text-text-muted">{book.asOf}</Td>
+                </Tr>
+              );
+            })}
+          </Table>
         </div>
       )}
 
