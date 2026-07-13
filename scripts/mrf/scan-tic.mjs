@@ -55,8 +55,27 @@ const SOURCE_FILE = arg("source-file", "");
 const FILE_DATE = arg("file-date", "");
 const CPTS = new Set((arg("codes", "90791,90834,90837,99214,90853")).split(","));
 
-if (!NPIS_PATH || !OUT_PATH) {
-  console.error("Usage: ... --npis=<file> --out=<csv> [--codes=a,b,c]");
+// Two-pass mode for ref-dense files (Empire NY 39-series: ~10.5 KB heap per
+// retained group x 600k+ matched groups — no heap cap can work, NYS-25):
+//   pass A  --collect-gids=<file>  stream once, SKIP provider_references
+//            entirely, write the group-ids the CPT-matched items reference;
+//   pass B  --gids=<file>          normal run retaining ONLY those groups.
+// Retained memory drops from GBs (every group our NPIs appear in) to MBs
+// (only the groups our five codes actually price).
+const COLLECT_GIDS_PATH = arg("collect-gids", "");
+const GIDS_PATH = arg("gids", "");
+if (COLLECT_GIDS_PATH && GIDS_PATH) {
+  console.error("--collect-gids and --gids are the two passes — use one at a time");
+  process.exit(1);
+}
+const collectedGids = COLLECT_GIDS_PATH ? new Set() : null;
+const wantedGids = GIDS_PATH
+  ? new Set(fs.readFileSync(GIDS_PATH, "utf8").split("\n").map((s) => s.trim()).filter(Boolean))
+  : null;
+if (wantedGids) console.error(`gids wanted: ${wantedGids.size} (pass B)`);
+
+if (!NPIS_PATH || (!OUT_PATH && !COLLECT_GIDS_PATH)) {
+  console.error("Usage: ... --npis=<file> --out=<csv> [--codes=a,b,c] [--collect-gids=<file> | --gids=<file>]");
   process.exit(1);
 }
 
@@ -79,9 +98,9 @@ const internTin = (t) => {
 };
 const retained = new Map(); // group_id -> [{tin, npis:[matched]}]
 
-fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true });
-const out = fs.createWriteStream(OUT_PATH);
-out.write(
+// pass A emits no rows — only the gid list
+const out = OUT_PATH ? (fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true }), fs.createWriteStream(OUT_PATH)) : null;
+out?.write(
   "npi,payer,plan_or_network,billing_code,negotiated_rate,negotiated_type,billing_class,place_of_service,tin,source_file,file_date\n"
 );
 const csv = (v) => {
@@ -115,6 +134,8 @@ const ticker = setInterval(logStatus, 15000);
 
 function handleProviderReference(ref) {
   stats.refsSeen++;
+  // pass B: only the groups pass A proved our items reference
+  if (wantedGids && !wantedGids.has(String(ref?.provider_group_id))) return;
   const groups = ref?.provider_groups;
   if (!Array.isArray(groups)) return;
   let kept = null;
@@ -150,6 +171,15 @@ function handleProviderReference(ref) {
 }
 
 async function emitRows(item) {
+  // pass A: record which groups the matched items price — nothing else
+  if (collectedGids) {
+    for (const nr of item.negotiated_rates ?? []) {
+      if (Array.isArray(nr.provider_references)) {
+        for (const gid of nr.provider_references) collectedGids.add(String(gid));
+      }
+    }
+    return;
+  }
   for (const nr of item.negotiated_rates ?? []) {
     let sides = null;
     if (Array.isArray(nr.provider_references)) {
@@ -227,7 +257,7 @@ const HEAD_WINDOW = 4096;
 let refsChain = null;
 let refsDone = false;
 
-if (REFS_MODE === "stream") {
+if (REFS_MODE === "stream" && !collectedGids) {
   refsChain = chain([parser(), pick({ filter: "provider_references" }), streamArray()]);
   refsChain.on("data", ({ value }) => handleProviderReference(value));
   // a malformed header/refs section must fail loudly, not as an unhandled event
@@ -325,6 +355,7 @@ function scanRefsChunk(buf) {
 
 const finishRefs = async (tail) => {
   refsDone = true;
+  if (collectedGids) return; // pass A never parsed the refs bytes
   if (REFS_MODE === "scan") {
     if (tail?.length) scanRefsChunk(tail);
     if (modeR === "OBJ") {
@@ -566,7 +597,9 @@ for await (const chunk of process.stdin) {
       s = c + 1; // matched a lookalike key (value string etc.) — keep looking
     }
     if (at === -1) {
-      if (REFS_MODE === "scan") scanRefsChunk(chunk);
+      if (collectedGids) {
+        // pass A: refs bytes skipped entirely — that's the whole point
+      } else if (REFS_MODE === "scan") scanRefsChunk(chunk);
       else await refsWrite(chunk);
       // keep enough overlap to re-see an edge marker plus its colon window
       overlap = probe.subarray(Math.max(0, probe.length - MARKER.length - 8));
@@ -619,9 +652,15 @@ if (unmatched) {
   ws.end();
   console.error(`unmatched NPIs written: ${unmatched.size} -> ${UNMATCHED_PATH}`);
 }
-out.end(() => {
+if (collectedGids) {
+  fs.mkdirSync(path.dirname(COLLECT_GIDS_PATH), { recursive: true });
+  fs.writeFileSync(COLLECT_GIDS_PATH, [...collectedGids].join("\n") + (collectedGids.size ? "\n" : ""));
+  console.error(`gids collected: ${collectedGids.size} -> ${COLLECT_GIDS_PATH}`);
+}
+const done = () =>
   console.error(
     "DONE",
     JSON.stringify({ ...stats, elapsedMin: (Date.now() - stats.start) / 60000 })
   );
-});
+if (out) out.end(done);
+else done();

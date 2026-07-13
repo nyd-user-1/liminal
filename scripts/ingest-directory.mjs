@@ -15,6 +15,7 @@
 // omh (6nvr-tbv8, OMH mental-health programs, statewide). nyc (8nqg-ia7v) is
 // currently private (HTTP 403) and skipped — see sql/003 header.
 
+import fs from "node:fs";
 import { neon } from "@neondatabase/serverless";
 
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -26,6 +27,24 @@ const sql = neon(DATABASE_URL);
 
 const arg = process.argv.find((a) => a.startsWith("--source="));
 const only = arg ? arg.split("=")[1] : null;
+
+// --npi-allowlist=path (nppes only): the telehealth-gap class ingest
+// (docs/TASK-TELEHEALTH-GAP.md) — NY-LICENSED providers whose PRACTICE address
+// is out of state, so the default NY-practice filter skips them. When set, the
+// run is surgical: ONLY listed NPIs are ingested (the NY-practice rows are
+// untouched), the MH taxonomy slot prefers the NY-licensed one, and each row
+// carries a provenance note in `raw`. List format: npi or npi|state|taxonomy
+// per line (.harvest/mrf/ny-licensed-notin99k.txt).
+const allowArg = process.argv.find((a) => a.startsWith("--npi-allowlist="));
+const npiAllowlist = allowArg
+  ? new Set(
+      fs
+        .readFileSync(allowArg.split("=")[1], "utf8")
+        .split("\n")
+        .map((l) => l.split("|")[0].trim())
+        .filter(Boolean),
+    )
+  : null;
 
 // Every mental/behavioral-health service category present in the keti-qx5t
 // feed (probed statewide). The feed uses broad Medicaid categories, not license
@@ -305,7 +324,11 @@ async function buildNuccSpecialization() {
 }
 
 async function ingestNppes(input = process.stdin) {
-  console.log("• nppes (NPI registry file) — NY practice location, MH taxonomy; streaming stdin");
+  console.log(
+    npiAllowlist
+      ? `• nppes (NPI registry file) — ALLOWLIST mode: ${npiAllowlist.size} NPIs (NY-licensed, out-of-state practice); streaming stdin`
+      : "• nppes (NPI registry file) — NY practice location, MH taxonomy; streaming stdin",
+  );
   console.log(`  taxonomy include-set: ${Object.keys(MH_TAXONOMY).length} exact + prefixes ${Object.keys(MH_TAX_PREFIX).join(", ")}`);
   const nuccSpec = await buildNuccSpecialization();
 
@@ -313,7 +336,7 @@ async function ingestNppes(input = process.stdin) {
     "source", "source_id", "npi", "name", "profession", "license_no", "taxonomy", "address", "city", "county", "zip", "phone",
     "entity_type", "primary_taxonomy", "subspecialty", "taxonomies", "credential", "gender", "license_state",
     "enumeration_date", "last_update_date", "deactivated_at", "deactivation_reason", "reactivated_at",
-    "is_sole_proprietor", "parent_org", "medicaid_id",
+    "is_sole_proprietor", "parent_org", "medicaid_id", "raw",
   ];
   const BATCH = 500;
   const PAUSE_EVERY = 50; // batches
@@ -329,10 +352,16 @@ async function ingestNppes(input = process.stdin) {
       for (const c of cols) params.push(rec[c] ?? null);
     }
     // county is derived by scripts/backfill-nppes-county.mjs (NPPES has none), so
-    // never let a re-ingest clobber a backfilled county back to NULL.
+    // never let a re-ingest clobber a backfilled county back to NULL. Same
+    // guard for raw: only allowlist runs write provenance there — a plain
+    // re-ingest must not null it out (the manual demo inserts carry raw too).
     const set = cols
       .slice(2)
-      .map((c) => (c === "county" ? "county = COALESCE(EXCLUDED.county, directory_providers.county)" : `${c} = EXCLUDED.${c}`))
+      .map((c) =>
+        c === "county" || c === "raw"
+          ? `${c} = COALESCE(EXCLUDED.${c}, directory_providers.${c})`
+          : `${c} = EXCLUDED.${c}`,
+      )
       .concat("updated_at = now()")
       .join(", ");
     const text =
@@ -364,13 +393,22 @@ async function ingestNppes(input = process.stdin) {
       scanned++;
       if (scanned % 10000 === 0) process.stdout.write(`\r  scanned ${scanned}, matched ${matched}…`);
       const f = parseCsvLine(line);
-      if (f[NP.state] !== "NY") continue;
+      // Allowlist mode is surgical: only the listed NPIs, wherever they
+      // practice. Default mode keeps the NY-practice filter.
+      if (npiAllowlist) {
+        if (!npiAllowlist.has(f[NP.npi])) continue;
+      } else if (f[NP.state] !== "NY") {
+        continue;
+      }
 
       // Walk all 15 taxonomy slots: collect the full array, the true primary
       // (switch=Y, MH or not), and the MH taxonomy that labels this provider —
       // preferring their MH-and-primary slot, else their first MH slot.
+      // Allowlist rows prefer the NY-LICENSED MH slot: these providers were
+      // selected for holding a NY license (count-ny-licensed.mjs), so that's
+      // the license the row should carry.
       const taxonomies = [];
-      let primaryTax = null, firstMh = null, primaryMh = null;
+      let primaryTax = null, firstMh = null, primaryMh = null, firstNyMh = null, primaryNyMh = null;
       for (const t of NP_TAX) {
         const code = f[t];
         if (!code) continue;
@@ -382,9 +420,13 @@ async function ingestNppes(input = process.stdin) {
           const slot = { code, label, lic: f[t + 1] || null, st: f[t + 2] || null };
           if (!firstMh) firstMh = slot;
           if (isPrimary && !primaryMh) primaryMh = slot;
+          if (slot.st === "NY") {
+            if (!firstNyMh) firstNyMh = slot;
+            if (isPrimary && !primaryNyMh) primaryNyMh = slot;
+          }
         }
       }
-      const mh = primaryMh || firstMh;
+      const mh = npiAllowlist ? primaryNyMh || firstNyMh || primaryMh || firstMh : primaryMh || firstMh;
       if (!mh) continue; // no mental-health taxonomy → not our directory
       const npi = f[NP.npi];
       if (!npi || !/^\d+$/.test(npi)) continue;
@@ -422,6 +464,12 @@ async function ingestNppes(input = process.stdin) {
         is_sole_proprietor: f[NP.soleProp] === "Y" ? true : f[NP.soleProp] === "N" ? false : null,
         parent_org: f[NP.parentOrg] || null,
         medicaid_id: medicaidId(f),
+        raw: npiAllowlist
+          ? JSON.stringify({
+              note: "telehealth-gap class ingest 2026-07-12 — NY-licensed, out-of-state practice (docs/TASK-TELEHEALTH-GAP.md)",
+              practice_state: f[NP.state] || null,
+            })
+          : null,
       });
       if (batch.length >= BATCH) await flushBatch();
     }
