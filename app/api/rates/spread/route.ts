@@ -47,7 +47,12 @@ export async function POST(req: NextRequest) {
       );
     }
     const weeksPerYear = Number.isFinite(Number(body?.weeksPerYear)) ? Number(body.weeksPerYear) : undefined;
-    const result = await computeSpread(entries, { weeksPerYear });
+    const scheduleBody = body?.schedule as { payer?: unknown; tin?: unknown } | undefined;
+    const schedule =
+      scheduleBody && typeof scheduleBody.payer === "string" && typeof scheduleBody.tin === "string"
+        ? { payer: scheduleBody.payer, tin: scheduleBody.tin }
+        : undefined;
+    const result = await computeSpread(entries, { weeksPerYear, schedule });
     return NextResponse.json({ result });
   } catch (e) {
     const res = authResponse(e);

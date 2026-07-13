@@ -1,11 +1,14 @@
 import { hasDb, sql } from "@/lib/db";
-import { isoDateOnly } from "@/lib/format";
+import { isoDateOnly, isoDateTime } from "@/lib/format";
 import {
+  mockAttestations,
   mockRateBands,
   mockRateBandsTiered,
   mockRateNames,
   mockRateSignals,
   mockTinCohorts,
+  mockTinOrgs,
+  type MockAttestationRow,
   type MockRateSignalRow,
 } from "@/lib/mock/rate-signals";
 
@@ -100,6 +103,16 @@ function money(n: number): string {
 
 function count(n: number): string {
   return n.toLocaleString("en-US");
+}
+
+function signedMoney(n: number): string {
+  return `${n < 0 ? "−" : "+"}${money(Math.abs(n))}`;
+}
+
+function median(nums: number[]): number {
+  const s = [...nums].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
 }
 
 // The wrapped figure without its as-of suffix — for table layouts that carry
@@ -485,6 +498,67 @@ export async function getTinCohort(tin: string): Promise<TinCohort> {
   return cohorts.get(normTin(tin))!;
 }
 
+// ── org names (tin_registry) ─────────────────────────────────────────────────
+// tin_registry is being built in a PARALLEL terminal — it may not exist yet.
+// Every read here is try/catch → null/empty so nothing in this module gates
+// on it; when the table lands, org names appear with zero code change here.
+
+/** 'ein:262976526' → 'EIN 26-2976526'; 'npi:1234567893' → 'org NPI 1234567893'. */
+function formatTinFallback(tinNorm: string): string {
+  const einMatch = tinNorm.match(/^ein:(\d+)$/);
+  if (einMatch) {
+    const digits = einMatch[1];
+    return digits.length === 9 ? `EIN ${digits.slice(0, 2)}-${digits.slice(2)}` : `EIN ${digits}`;
+  }
+  const npiMatch = tinNorm.match(/^npi:(\d+)$/);
+  if (npiMatch) return `org NPI ${npiMatch[1]}`;
+  return tinNorm;
+}
+
+/** holder = the org name when known, else the formatted EIN/NPI fallback. */
+function holderFor(tinNorm: string, orgName: string | null | undefined): { holder: string; orgKnown: boolean } {
+  return orgName ? { holder: orgName, orgKnown: true } : { holder: formatTinFallback(tinNorm), orgKnown: false };
+}
+
+/** Business name behind a TIN, from tin_registry — null when unknown or the
+ *  table isn't built yet. Never throws. */
+export async function getOrgName(tin: string): Promise<string | null> {
+  const norm = normTin(tin);
+  if (!hasDb) return mockTinOrgs[norm] ?? null;
+  try {
+    const rows = (await sql`
+      SELECT business_name FROM tin_registry WHERE tin_norm = ${norm} LIMIT 1
+    `) as Array<{ business_name: string }>;
+    return rows[0]?.business_name ?? null;
+  } catch {
+    return null; // table not built yet
+  }
+}
+
+/** Batch org-name lookup — one query for many TINs, empty map on any failure
+ *  (table missing, column mismatch) so callers never gate on it. */
+async function orgNamesFor(tins: string[]): Promise<Map<string, string>> {
+  const norms = [...new Set(tins.map(normTin))];
+  const out = new Map<string, string>();
+  if (norms.length === 0) return out;
+  if (!hasDb) {
+    for (const n of norms) {
+      const name = mockTinOrgs[n];
+      if (name) out.set(n, name);
+    }
+    return out;
+  }
+  try {
+    const rows = (await sql`
+      SELECT tin_norm, business_name FROM tin_registry WHERE tin_norm = ANY(${norms})
+    `) as Array<{ tin_norm: string; business_name: string }>;
+    for (const r of rows) out.set(r.tin_norm, r.business_name);
+  } catch {
+    // tin_registry isn't built yet — ship the EIN fallback, nothing gates on this
+  }
+  return out;
+}
+
 export interface StandingRate {
   billingCode: string;
   /** Wrapped figure, no as-of suffix: "$146.00 in-network rate (fee schedule)". */
@@ -586,6 +660,229 @@ export async function getStanding(npi: string): Promise<NpiStanding> {
   };
 }
 
+// The behavioral CPTs carried by provider_rate_signals (mirrors
+// components/rates/cpt.ts — this module can't import a "use client" file).
+const BEHAVIORAL_FIVE = ["90791", "90834", "90837", "90853", "99214"];
+
+// Distinct NY-book payers we index — stable within a process, so cache it.
+let checkedBooksCache: string[] | null = null;
+async function getCheckedBooks(): Promise<string[]> {
+  if (checkedBooksCache) return checkedBooksCache;
+  if (!hasDb) {
+    checkedBooksCache = [...new Set(mockRateBands.map((b) => b.payer))].filter((p) => NY_ENTITY_RE.test(p)).sort();
+    return checkedBooksCache;
+  }
+  const rows = (await sql`
+    SELECT DISTINCT payer FROM provider_rate_signals WHERE payer ~* ${NY_ENTITY_RE.source}
+  `) as Array<{ payer: string }>;
+  checkedBooksCache = rows.map((r) => r.payer).sort();
+  return checkedBooksCache;
+}
+
+export interface FootprintBook {
+  payer: string;
+  networks: string[];
+  tin: string;
+  holder: string;
+  orgKnown: boolean;
+  platformScale: boolean;
+  /** billingCode → wrapped figure, no as-of suffix. */
+  codes: Record<string, string>;
+  asOf: string;
+}
+
+export interface FootprintIdentity {
+  name: string;
+  profession: string | null;
+  license: string | null;
+  /** Primary NUCC taxonomy code, when the directory carries it. */
+  taxonomy: string | null;
+  /** "123 Main St, New York, NY 10001" — whatever the directory holds. */
+  address: string | null;
+}
+
+export interface CredentialingFootprint {
+  npi: string;
+  identity: FootprintIdentity | null;
+  /** NY-book entities only. */
+  foundIn: FootprintBook[];
+  /** Every distinct NY-book payer we index. */
+  checkedBooks: string[];
+  /** checkedBooks − foundIn payers. */
+  absentFrom: string[];
+}
+
+/**
+ * The recruiting/credentialing reveal: every NY-book payer this NPI is
+ * already published in (which pays it forward the moment a group adds them
+ * to the roster), the ones it's verified-absent from, and the identity strip
+ * from the statewide directory when we have it. Built on getStanding — same
+ * evidence, reshaped for "which books, which holders, which gaps."
+ */
+export async function getCredentialingFootprint(npi: string): Promise<CredentialingFootprint> {
+  const standing = await getStanding(npi);
+  const checkedBooks = await getCheckedBooks();
+  const nyGroups = standing.groups.filter((g) => g.nyBook);
+
+  const orgNames = await orgNamesFor(nyGroups.map((g) => g.tin));
+  const foundIn: FootprintBook[] = nyGroups.map((g) => {
+    const norm = normTin(g.tin);
+    const { holder, orgKnown } = holderFor(norm, orgNames.get(norm));
+    const codes: Record<string, string> = {};
+    for (const r of g.rates) codes[r.billingCode] = r.display;
+    return {
+      payer: g.payer,
+      networks: g.planOrNetworks,
+      tin: g.tin,
+      holder,
+      orgKnown,
+      platformScale: g.cohort?.platformScale ?? false,
+      codes,
+      asOf: g.asOf,
+    };
+  });
+
+  const foundPayers = new Set(foundIn.map((f) => f.payer));
+  const absentFrom = checkedBooks.filter((p) => !foundPayers.has(p));
+
+  let identity: CredentialingFootprint["identity"] = null;
+  if (!hasDb) {
+    const hit = mockRateNames[npi];
+    if (hit) identity = { name: hit.name, profession: hit.profession, license: null, taxonomy: null, address: null };
+  } else {
+    const rows = (await sql`
+      SELECT name, profession, license_no, license_state, COALESCE(primary_taxonomy, taxonomy) AS taxonomy,
+             address, city, zip
+      FROM directory_providers
+      WHERE npi = ${npi} AND name IS NOT NULL
+      ORDER BY (source = 'medicaid') DESC
+      LIMIT 1
+    `) as Array<{
+      name: string;
+      profession: string | null;
+      license_no: string | null;
+      license_state: string | null;
+      taxonomy: string | null;
+      address: string | null;
+      city: string | null;
+      zip: string | null;
+    }>;
+    const r = rows[0];
+    if (r) {
+      const addressParts = [r.address, r.city && `${r.city}, NY`, r.zip].filter(Boolean);
+      identity = {
+        name: r.name,
+        profession: r.profession,
+        license: r.license_no ? (r.license_state ? `${r.license_no} (${r.license_state})` : r.license_no) : null,
+        taxonomy: r.taxonomy,
+        address: addressParts.length > 0 ? addressParts.join(", ") : null,
+      };
+    }
+  }
+
+  return { npi, identity, foundIn, checkedBooks, absentFrom };
+}
+
+// ── percentile placement + a TIN's own schedule ───────────────────────────────
+
+/** A TIN's median deduped rate for a payer+code — the contract's own
+ *  published schedule, used by percentile placement and the Roster Check
+ *  spread (Moment 2, vs the group's contract rather than the payer median). */
+async function tinScheduleRates(payer: string, tin: string, codes: string[]): Promise<Map<string, number>> {
+  const norm = normTin(tin);
+  const out = new Map<string, number>();
+  if (codes.length === 0) return out;
+  if (!hasDb) {
+    for (const code of codes) {
+      const rates = mockRateSignals
+        .filter((r) => r.payer === payer && r.billingCode === code && normTin(r.tin) === norm)
+        .map((r) => r.negotiatedRate);
+      if (rates.length) out.set(code, median(rates));
+    }
+    return out;
+  }
+  const rows = (await sql`
+    WITH dd AS (
+      SELECT DISTINCT billing_code, negotiated_rate
+      FROM provider_rate_signals
+      WHERE payer = ${payer} AND billing_code = ANY(${codes})
+        AND replace(replace(lower(tin), '-', ''), ' ', '') = ${norm}
+        AND negotiated_type NOT ILIKE '%percent%'
+    )
+    SELECT billing_code, percentile_cont(0.5) WITHIN GROUP (ORDER BY negotiated_rate)::numeric(10,2)::float8 AS median
+    FROM dd GROUP BY billing_code
+  `) as Array<{ billing_code: string; median: number }>;
+  for (const r of rows) out.set(r.billing_code, r.median);
+  return out;
+}
+
+/** Piecewise-linear placement estimate through (p25,25)/(median,50)/(p75,75)
+ *  for mock mode, where we only carry the three percentile points rather than
+ *  a raw distribution. Clamped to [1,99] — never claim the exact edge. */
+function estimatePercentile(p25: number, med: number, p75: number, rate: number): number {
+  if (p25 === med && med === p75) return 50;
+  const points: Array<[number, number]> = [
+    [0, p25 - (med - p25)],
+    [25, p25],
+    [50, med],
+    [75, p75],
+    [100, p75 + (p75 - med)],
+  ];
+  for (let i = 0; i < points.length - 1; i++) {
+    const [x0, y0] = points[i];
+    const [x1, y1] = points[i + 1];
+    if ((rate >= y0 && rate <= y1) || (rate <= y0 && rate >= y1)) {
+      if (y1 === y0) return Math.round((x0 + x1) / 2);
+      return Math.round(x0 + ((rate - y0) / (y1 - y0)) * (x1 - x0));
+    }
+  }
+  return rate < p25 ? 1 : 99;
+}
+
+/**
+ * Where a TIN's published schedule sits inside the payer's book — "p38" style
+ * — the Roster Check pivot ("the contract left. the rates don't have to.").
+ * Null when either side has no rows.
+ */
+export async function getPercentilePlacement(
+  payer: string,
+  billingCode: string,
+  tin: string,
+): Promise<string | null> {
+  const norm = normTin(tin);
+  if (!hasDb) {
+    const rateRow = mockRateSignals.find(
+      (r) => r.payer === payer && r.billingCode === billingCode && normTin(r.tin) === norm,
+    );
+    const band = mockRateBands.find((b) => b.payer === payer && b.billingCode === billingCode);
+    if (!rateRow || !band) return null;
+    const pct = Math.max(1, Math.min(99, estimatePercentile(band.p25, band.median, band.p75, rateRow.negotiatedRate)));
+    return `p${pct}`;
+  }
+  const rows = (await sql`
+    WITH dd AS (
+      SELECT DISTINCT npi, tin, negotiated_rate
+      FROM provider_rate_signals
+      WHERE payer = ${payer} AND billing_code = ${billingCode}
+        AND negotiated_type NOT ILIKE '%percent%'
+    ),
+    tin_rate AS (
+      SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY negotiated_rate) AS rate
+      FROM dd
+      WHERE replace(replace(lower(tin), '-', ''), ' ', '') = ${norm}
+    )
+    SELECT
+      (SELECT rate FROM tin_rate) AS tin_rate,
+      count(*)::int AS total,
+      count(*) FILTER (WHERE negotiated_rate <= (SELECT rate FROM tin_rate))::int AS le_count
+    FROM dd
+  `) as Array<{ tin_rate: number | null; total: number; le_count: number }>;
+  const r = rows[0];
+  if (!r || r.tin_rate === null || r.total === 0) return null;
+  const pct = Math.max(1, Math.min(99, Math.round((100 * r.le_count) / r.total)));
+  return `p${pct}`;
+}
+
 export interface SpreadEntry {
   billingCode: string;
   /** What the caller's platform remits them per session, in dollars (their own number). */
@@ -630,7 +927,7 @@ const SPREAD_WEEKS_DEFAULT = 48;
  */
 export async function computeSpread(
   entries: SpreadEntry[],
-  opts: { weeksPerYear?: number; minClinicians?: number } = {},
+  opts: { weeksPerYear?: number; minClinicians?: number; schedule?: { payer: string; tin: string } } = {},
 ): Promise<SpreadResult> {
   const weeks = Math.min(52, Math.max(1, Math.round(opts.weeksPerYear ?? SPREAD_WEEKS_DEFAULT)));
   const valid = entries.filter(
@@ -644,10 +941,59 @@ export async function computeSpread(
   const empty: SpreadResult = { payers: [], headline: null, assumptions: "" };
   if (valid.length === 0) return empty;
 
+  // Roster Check moment 2: compare against the TIN's own published schedule
+  // instead of the payer's book median — one payer only, "the margin your
+  // work generated" framing (we never guess their comp; the user typed it).
+  if (opts.schedule) {
+    const { payer, tin } = opts.schedule;
+    const codes = [...new Set(valid.map((e) => e.billingCode))];
+    const rates = await tinScheduleRates(payer, tin, codes);
+    if (rates.size === 0) return empty;
+
+    let annualTotal = 0;
+    let covered = 0;
+    const perCode: PayerCodeSpread[] = valid.map((e) => {
+      const rate = rates.get(e.billingCode);
+      if (rate === undefined) {
+        return { billingCode: e.billingCode, display: `no published rate for ${e.billingCode} on this contract`, covered: false };
+      }
+      const perSession = rate - e.remit;
+      const annualSessions = e.cadence === "month" ? e.sessions * 12 : e.sessions * weeks;
+      annualTotal += perSession * annualSessions;
+      covered += 1;
+      return {
+        billingCode: e.billingCode,
+        display: `${signedMoney(perSession)} per ${e.billingCode} session vs the contract's published rate`,
+        covered: true,
+      };
+    });
+    const annual = Math.round(annualTotal / 100) * 100;
+    const coverageNote =
+      covered < valid.length ? ` · ${covered} of ${valid.length} CPTs have a published rate on this contract` : "";
+    const positive = annual > 0;
+    const payerResult: PayerSpread = {
+      payer,
+      perCode,
+      annualDisplay: `≈ ${annual < 0 ? "−" : "+"}$${count(Math.abs(annual))}/yr at your volume${coverageNote}`,
+      positive,
+    };
+    return {
+      payers: [payerResult],
+      headline: positive
+        ? {
+            payer,
+            display: `≈ +$${count(Math.abs(annual))}/yr`,
+            detail: "the margin your work generated — the gap between your pay and this contract's published rate, at your volume",
+          }
+        : null,
+      assumptions: `Vs ${payer}'s published rate for this contract, on deduped payer-published rows · weekly volume annualized over ${weeks} working weeks, monthly over 12 months · the margin your work generated — never a guess at your comp, since you supplied it yourself.`,
+    };
+  }
+
   const bands = await bandNumbers([...new Set(valid.map((e) => e.billingCode))], opts.minClinicians ?? DEFAULT_MIN_CLINICIANS);
   if (bands.length === 0) return empty;
 
-  const signed = (n: number) => `${n < 0 ? "−" : "+"}${money(Math.abs(n))}`;
+  const signed = signedMoney;
   const payers = [...new Set(bands.map((b) => b.payer))].map((payer) => {
     let annualTotal = 0;
     let covered = 0;
@@ -692,4 +1038,248 @@ export async function computeSpread(
         : null,
     assumptions: `Vs NY-book payer medians on deduped payer-published rates (as-of ${maxAsOf}) · weekly volume annualized over ${weeks} working weeks, monthly over 12 months · a band is ammunition for the ask, not a guarantee of an offer — and never what a patient pays.`,
   };
+}
+
+// ── affiliation attestations (Roster Check write path) ───────────────────────
+// Insert-only log — a correction is a new row, never an UPDATE. Latest row
+// wins per (npi, normalized tin). This is a proprietary liveness signal, not
+// demo glue: validate hard.
+
+export interface Attestation {
+  /** As the provider entered it (or as published, when set from a footprint row). */
+  tin: string;
+  status: "current" | "left";
+  /** ISO date, first-of-month — null when not given. */
+  attestedMonth: string | null;
+  createdAt: string;
+}
+
+function assertValidAttestation(input: {
+  npi: string;
+  tin: string;
+  status: string;
+  attestedMonth?: string | null;
+}): { npi: string; tin: string; status: "current" | "left"; attestedMonth: string | null } {
+  const npi = input.npi.trim();
+  if (!/^\d{10}$/.test(npi)) throw new Error("Provide a 10-digit NPI.");
+  const tin = input.tin.trim();
+  if (!tin) throw new Error("Provide a TIN.");
+  if (input.status !== "current" && input.status !== "left") throw new Error("Status must be 'current' or 'left'.");
+  let attestedMonth: string | null = null;
+  if (input.attestedMonth) {
+    const m = /^(\d{4})-(\d{2})(?:-\d{2})?$/.exec(input.attestedMonth);
+    if (!m) throw new Error("Invalid attested month.");
+    const [, y, mo] = m;
+    const monthNum = Number(mo);
+    if (monthNum < 1 || monthNum > 12) throw new Error("Invalid attested month.");
+    attestedMonth = `${y}-${mo}-01`;
+  }
+  return { npi, tin, status: input.status, attestedMonth };
+}
+
+/** Records the provider's own statement about a book — never inferred. */
+export async function attestAffiliation(input: {
+  npi: string;
+  tin: string;
+  status: "current" | "left";
+  attestedMonth?: string | null;
+  note?: string;
+}): Promise<Attestation> {
+  const { npi, tin, status, attestedMonth } = assertValidAttestation(input);
+  const note = input.note?.trim() || null;
+
+  if (!hasDb) {
+    const row: MockAttestationRow = { npi, tin, status, attestedMonth, note, createdAt: new Date().toISOString() };
+    mockAttestations.push(row);
+    return { tin: row.tin, status: row.status, attestedMonth: row.attestedMonth, createdAt: row.createdAt };
+  }
+
+  const rows = (await sql`
+    INSERT INTO provider_affiliation_attestations (npi, tin, status, attested_month, note)
+    VALUES (${npi}, ${tin}, ${status}, ${attestedMonth}, ${note})
+    RETURNING tin, status, attested_month, created_at
+  `) as Array<{ tin: string; status: string; attested_month: string | Date | null; created_at: string | Date }>;
+  const r = rows[0];
+  return {
+    tin: r.tin,
+    status: r.status as "current" | "left",
+    attestedMonth: r.attested_month ? isoDateOnly(r.attested_month) : null,
+    createdAt: isoDateTime(r.created_at),
+  };
+}
+
+/** Latest attestation per normalized TIN, newest first. */
+export async function getAttestations(npi: string): Promise<Attestation[]> {
+  if (!hasDb) {
+    const latest = new Map<string, MockAttestationRow>();
+    for (const r of mockAttestations.filter((r) => r.npi === npi)) latest.set(normTin(r.tin), r);
+    return [...latest.values()]
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map((r) => ({ tin: r.tin, status: r.status, attestedMonth: r.attestedMonth, createdAt: r.createdAt }));
+  }
+  const rows = (await sql`
+    SELECT DISTINCT ON (replace(replace(lower(tin), '-', ''), ' ', ''))
+      tin, status, attested_month, created_at
+    FROM provider_affiliation_attestations
+    WHERE npi = ${npi}
+    ORDER BY replace(replace(lower(tin), '-', ''), ' ', ''), created_at DESC
+  `) as Array<{ tin: string; status: string; attested_month: string | Date | null; created_at: string | Date }>;
+  return rows.map((r) => ({
+    tin: r.tin,
+    status: r.status as "current" | "left",
+    attestedMonth: r.attested_month ? isoDateOnly(r.attested_month) : null,
+    createdAt: isoDateTime(r.created_at),
+  }));
+}
+
+// ── Apply Next ─────────────────────────────────────────────────────────────
+
+export interface GapCard {
+  payer: string;
+  /** "Median for your codes: $197.80 in-network (90837) · top quartile $318.77" */
+  headline: string;
+  /** "≈ $237,400/yr gross at 25 sessions/wk at the median" */
+  opportunity: string | null;
+  negotiability: "flat" | "negotiated";
+  negotiabilityLabel: string;
+  asOf: string;
+}
+
+function medianFor90837(bands: BandNumbers[], payer: string): number | null {
+  return bands.find((b) => b.payer === payer && b.billing_code === "90837")?.median ?? null;
+}
+
+/**
+ * The absent NY-book payers, ranked and priced — "Shelley needs to apply
+ * tonight." Gaps come straight from the footprint; figures are the un-tiered
+ * band internals for the candidate's own codes (behavioral five when they
+ * carry no rows anywhere).
+ */
+export async function getApplyNext(
+  npi: string,
+  opts: { sessionsPerWeek?: number } = {},
+): Promise<{ npi: string; identity: CredentialingFootprint["identity"]; gaps: GapCard[] }> {
+  const sessionsPerWeek = Math.min(60, Math.max(1, Math.round(opts.sessionsPerWeek ?? 25)));
+  const footprint = await getCredentialingFootprint(npi);
+  if (footprint.absentFrom.length === 0) return { npi, identity: footprint.identity, gaps: [] };
+
+  const ownCodes = [...new Set(footprint.foundIn.flatMap((f) => Object.keys(f.codes)))];
+  const codes = ownCodes.length > 0 ? ownCodes : BEHAVIORAL_FIVE;
+  const bands = await bandNumbers(codes, DEFAULT_MIN_CLINICIANS, false);
+
+  const gaps: GapCard[] = footprint.absentFrom.map((payer) => {
+    const payerBands = bands.filter((b) => b.payer === payer);
+    if (payerBands.length === 0) {
+      return {
+        payer,
+        headline: "No published band yet for your codes in this book.",
+        opportunity: null,
+        negotiability: "negotiated" as const,
+        negotiabilityLabel: "Negotiated per group",
+        asOf: "",
+      };
+    }
+    const workhorse = payerBands.find((b) => b.billing_code === "90837") ?? payerBands[0];
+    const flat = workhorse.p25 === workhorse.p75;
+    const opportunityRaw = Math.round((workhorse.median * sessionsPerWeek * 48) / 100) * 100;
+    const asOf = payerBands.reduce((m, b) => (b.as_of > m ? b.as_of : m), payerBands[0].as_of);
+    return {
+      payer,
+      headline: `Median for your codes: ${money(workhorse.median)} in-network (${workhorse.billing_code}) · top quartile ${money(workhorse.p75)}`,
+      opportunity: `≈ $${count(opportunityRaw)}/yr gross at ${sessionsPerWeek} sessions/wk at the median`,
+      negotiability: flat ? "flat" : "negotiated",
+      negotiabilityLabel: flat ? "Flat schedule" : "Negotiated per group",
+      asOf,
+    };
+  });
+
+  // Rank by 90837 median descending; a payer with no 90837 band sorts last.
+  gaps.sort((a, b) => {
+    const am = medianFor90837(bands, a.payer);
+    const bm = medianFor90837(bands, b.payer);
+    if (am === null && bm === null) return 0;
+    if (am === null) return 1;
+    if (bm === null) return -1;
+    return bm - am;
+  });
+
+  return { npi, identity: footprint.identity, gaps };
+}
+
+// ── Affiliation Economics ─────────────────────────────────────────────────
+
+export interface EconCode {
+  billingCode: string;
+  /** "$151.50 in-network", sorted desc by rate. */
+  entries: Array<{ tin: string; holder: string; display: string }>;
+  /** "38% apart" — computed here, never in the UI. */
+  gapDisplay: string;
+}
+
+export interface EconCard {
+  payer: string;
+  codes: EconCode[];
+  framing: "hours" | "roster";
+}
+
+/**
+ * Payers that list this NPI under 2+ distinct TINs with actually-different
+ * schedules — the honest version of "which TIN pays more." Framing flips to
+ * "roster" (no arbitrage copy) the moment any involved TIN is attested left.
+ */
+export async function getAffiliationEconomics(npi: string): Promise<EconCard[]> {
+  const standing = await getStanding(npi);
+  const byPayer = new Map<string, StandingGroup[]>();
+  for (const g of standing.groups) {
+    if (!g.nyBook) continue;
+    byPayer.set(g.payer, [...(byPayer.get(g.payer) ?? []), g]);
+  }
+  const multiTinPayers = [...byPayer.entries()].filter(
+    ([, groups]) => new Set(groups.map((g) => normTin(g.tin))).size >= 2,
+  );
+  if (multiTinPayers.length === 0) return [];
+
+  const attestations = await getAttestations(npi);
+  const attByTin = new Map(attestations.map((a) => [normTin(a.tin), a.status]));
+  const orgNames = await orgNamesFor(multiTinPayers.flatMap(([, groups]) => groups.map((g) => g.tin)));
+
+  const cards: EconCard[] = [];
+  for (const [payer, groups] of multiTinPayers) {
+    const tins = [...new Set(groups.map((g) => g.tin))];
+    const codes = [...new Set(groups.flatMap((g) => g.rates.map((r) => r.billingCode)))];
+
+    const perTinRates = new Map<string, Map<string, number>>();
+    for (const tin of tins) perTinRates.set(tin, await tinScheduleRates(payer, tin, codes));
+
+    const econCodes: EconCode[] = [];
+    for (const code of codes) {
+      const entries = tins
+        .map((tin) => {
+          const rate = perTinRates.get(tin)?.get(code);
+          if (rate === undefined) return null;
+          const norm = normTin(tin);
+          const { holder } = holderFor(norm, orgNames.get(norm));
+          return { tin, holder, rate };
+        })
+        .filter((e): e is { tin: string; holder: string; rate: number } => e !== null)
+        .sort((a, b) => b.rate - a.rate);
+      if (entries.length < 2) continue;
+      const distinctRates = new Set(entries.map((e) => e.rate));
+      if (distinctRates.size < 2) continue; // schedules must actually differ
+
+      const top = entries[0].rate;
+      const bottom = entries[entries.length - 1].rate;
+      const gapPct = Math.round(((top - bottom) / bottom) * 100);
+      econCodes.push({
+        billingCode: code,
+        entries: entries.map((e) => ({ tin: e.tin, holder: e.holder, display: `${money(e.rate)} in-network` })),
+        gapDisplay: `${gapPct}% apart`,
+      });
+    }
+    if (econCodes.length === 0) continue;
+
+    const anyLeft = tins.map(normTin).some((t) => attByTin.get(t) === "left");
+    cards.push({ payer, codes: econCodes, framing: anyLeft ? "roster" : "hours" });
+  }
+  return cards;
 }

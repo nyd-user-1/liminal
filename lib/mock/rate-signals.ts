@@ -44,7 +44,38 @@ export const mockRateSignals: MockRateSignalRow[] = [
   // …and Fidelis on a dash-formatted group TIN (fee-schedule type, normalization case)
   { npi: "1588210394", tin: "ein:06-1242656", payer: "Fidelis Care (Centene)", planOrNetwork: "Fidelis Essential", billingCode: "90834", negotiatedRate: 86.52, billingClass: "professional", negotiatedType: "fee schedule", placeOfService: "11|02", fileDate: "2026-07-01", asOf: "2026-07-12" },
   { npi: "1588210394", tin: "ein:06-1242656", payer: "Fidelis Care (Centene)", planOrNetwork: "Fidelis Essential", billingCode: "90837", negotiatedRate: 97.34, billingClass: "professional", negotiatedType: "fee schedule", placeOfService: "11|02", fileDate: "2026-07-01", asOf: "2026-07-12" },
+  // Phase-2 (KYR): RAMIREZ also rides Cigna under TWO org TINs with different
+  // schedules — mirrors the live Padgett case (River Region vs Orenda) so the
+  // Affiliation Economics + Recruiting/Apply-Next screens demo with no DB.
+  // She stays absent from UHC's behavioral book (verified-absent → Apply Next).
+  { npi: "1588210394", tin: "ein:262976526", payer: "Cigna Health & Life", planOrNetwork: "Open Access Plus", billingCode: "90791", negotiatedRate: 157.66, billingClass: "professional", negotiatedType: "fee schedule", placeOfService: "11|02", fileDate: "2026-07-01", asOf: "2026-07-12" },
+  { npi: "1588210394", tin: "ein:262976526", payer: "Cigna Health & Life", planOrNetwork: "Open Access Plus", billingCode: "90834", negotiatedRate: 101.55, billingClass: "professional", negotiatedType: "fee schedule", placeOfService: "11|02", fileDate: "2026-07-01", asOf: "2026-07-12" },
+  { npi: "1588210394", tin: "ein:262976526", payer: "Cigna Health & Life", planOrNetwork: "Open Access Plus", billingCode: "90837", negotiatedRate: 151.5, billingClass: "professional", negotiatedType: "fee schedule", placeOfService: "11|02", fileDate: "2026-07-01", asOf: "2026-07-12" },
+  { npi: "1588210394", tin: "ein:853976267", payer: "Cigna Health & Life", planOrNetwork: "Open Access Plus", billingCode: "90791", negotiatedRate: 175.0, billingClass: "professional", negotiatedType: "fee schedule", placeOfService: "11|02", fileDate: "2026-07-01", asOf: "2026-07-12" },
+  { npi: "1588210394", tin: "ein:853976267", payer: "Cigna Health & Life", planOrNetwork: "Open Access Plus", billingCode: "90834", negotiatedRate: 100.0, billingClass: "professional", negotiatedType: "fee schedule", placeOfService: "11|02", fileDate: "2026-07-01", asOf: "2026-07-12" },
+  { npi: "1588210394", tin: "ein:853976267", payer: "Cigna Health & Life", planOrNetwork: "Open Access Plus", billingCode: "90837", negotiatedRate: 110.0, billingClass: "professional", negotiatedType: "fee schedule", placeOfService: "11|02", fileDate: "2026-07-01", asOf: "2026-07-12" },
 ];
+
+/** Phase-2 (KYR): TIN → business name, mirrors two of the live-registry rows
+ *  so the org-name path and the EIN-fallback path both demo without a DB. */
+export const mockTinOrgs: Record<string, string> = {
+  "ein:262976526": "River Region Psychotherapy PLLC",
+  "ein:853976267": "Orenda Psychiatry PLLC",
+};
+
+/** Phase-2 (KYR): in-memory attestation log — mirrors sql/018's shape.
+ *  Mutable within process; pushed to by attestAffiliation, read by
+ *  getAttestations (latest row wins per normalized (npi,tin)). */
+export type MockAttestationRow = {
+  npi: string;
+  tin: string;
+  status: "current" | "left";
+  attestedMonth: string | null;
+  note?: string | null;
+  createdAt: string;
+};
+
+export const mockAttestations: MockAttestationRow[] = [];
 
 /** NPI → directory identity for the standing screen (mirrors lib/mock/directory.ts). */
 export const mockRateNames: Record<string, { name: string; profession: string }> = {
