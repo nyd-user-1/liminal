@@ -29,6 +29,7 @@ const LOGOS: Record<string, string> = {
   Carelon: `${LOGO_BASE}/carelon.avif`,
   Oscar: `${LOGO_BASE}/optum-oscar.avif`,
   Healthfirst: `${LOGO_BASE}/healthfirst.svg`,
+  CDPHP: `${LOGO_BASE}/cdphp.png`,
 };
 
 const leadFor = (name: string): Pick<InsuranceOption, "image" | "iconName"> =>

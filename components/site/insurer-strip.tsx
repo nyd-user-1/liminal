@@ -22,9 +22,11 @@ const INSURERS: Array<{ slug: string; name: string; ext?: string; h?: string }> 
   { slug: "cigna", name: "Cigna" },
   { slug: "carelon", name: "Carelon" },
   { slug: "optum-oscar", name: "Optum" },
-  // Tightly cropped bold wordmarks — scaled down to match the others optically.
+  // Tightly cropped marks — scaled down to match the others optically.
   // Humana is a single bold wordmark; Healthfirst is a 2-line lockup (wordmark +
   // tagline), so its box runs even smaller to bring the whole mark down to size.
+  // CDPHP is a solid oval cropped to the glyph — mid-size box.
+  { slug: "cdphp", name: "CDPHP", ext: "png", h: "h-7 sm:h-8" },
   { slug: "humana", name: "Humana", h: "h-5 sm:h-6" },
   { slug: "healthfirst", name: "Healthfirst", ext: "svg", h: "h-4 sm:h-5" },
 ];
@@ -44,9 +46,9 @@ export function InsurerStrip({
     <section className={GROUNDS[ground]}>
       <div className="mx-auto w-full max-w-6xl px-6 py-12">
         {caption && <p className="text-center text-sm text-text-muted">{caption}</p>}
-        {/* All 8 marks on a single centered row; wraps gracefully if the
+        {/* All 9 marks on a single centered row; wraps gracefully if the
             viewport can't hold them. */}
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-6 sm:gap-x-10">
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-x-7 gap-y-6 sm:gap-x-8">
           {INSURERS.map((p) => (
             <img
               key={p.slug}
