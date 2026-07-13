@@ -98,8 +98,14 @@ const internTin = (t) => {
 };
 const retained = new Map(); // group_id -> [{tin, npis:[matched]}]
 
-// pass A emits no rows — only the gid list
-const out = OUT_PATH ? (fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true }), fs.createWriteStream(OUT_PATH)) : null;
+// pass A emits no rows — only the gid list. --out=- streams CSV to stdout so
+// it can pipe straight into stream-load.mjs (no intermediate file) — the
+// pipe-to-loader path for dense payers like Aetna whose CSVs won't fit disk.
+// (Progress/DONE all go to stderr, so stdout stays clean CSV.)
+let out;
+if (OUT_PATH === "-") out = process.stdout;
+else if (OUT_PATH) { fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true }); out = fs.createWriteStream(OUT_PATH); }
+else out = null;
 out?.write(
   "npi,payer,plan_or_network,billing_code,negotiated_rate,negotiated_type,billing_class,place_of_service,tin,source_file,file_date\n"
 );
