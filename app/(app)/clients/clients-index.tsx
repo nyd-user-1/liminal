@@ -12,7 +12,6 @@ import { KebabMenu } from "@/components/ui/kebab-menu";
 import { MenuItem } from "@/components/ui/dropdown-menu";
 import { TopBarActions } from "@/components/shell/topbar-slot";
 import { Tabs } from "@/components/ui/tabs";
-import { Pagination } from "@/components/ui/pagination";
 import { SearchInput } from "@/components/ui/search-input";
 import { Table, Td, Tr } from "@/components/ui/table";
 import { Tag, TagDot } from "@/components/ui/tag";
@@ -24,7 +23,9 @@ import type { PractitionerOption } from "@/lib/repos/clients";
 import { ClientStatusBadge, clientHue, tagHue } from "./ui";
 import { NewClientPanel } from "./new-client-panel";
 
-const PAGE_SIZE = 10;
+// Lazy-loaded table: render in batches, grow when the sentinel row scrolls
+// into view (the table body scrolls under its sticky header — no pagination).
+const BATCH = 50;
 const STATUS_LABELS: Record<ClientStatus, string> = { lead: "Lead", active: "Active", archived: "Archived" };
 // Dot colour per status — mirrors ClientStatusBadge's Badge variant.
 const STATUS_VARIANT: Record<ClientStatus, "info" | "success" | "neutral"> = {
@@ -117,9 +118,10 @@ export function ClientsIndex({
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<ClientStatus | undefined>();
   const [tag, setTag] = useState<string | undefined>();
-  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(BATCH);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [panelOpen, setPanelOpen] = useState(false);
+  const sentinelRef = useRef<HTMLTableRowElement>(null);
 
   const allTags = useMemo(() => [...new Set(clients.flatMap((c) => c.tags))].sort(), [clients]);
 
@@ -136,11 +138,21 @@ export function ClientsIndex({
     });
   }, [clients, q, status, tag]);
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const current = Math.min(page, pageCount);
-  const rows = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
+  const rows = filtered.slice(0, limit);
+  const hasMore = filtered.length > limit;
   const hasFilters = !!(q || status || tag);
   const allOnPageSelected = rows.length > 0 && rows.every((c) => selected.has(c.id));
+
+  // Grow the list when the sentinel row scrolls into view under the header.
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) setLimit((l) => l + BATCH);
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, rows.length]);
 
   function toggleRow(id: string) {
     setSelected((s) => {
@@ -181,8 +193,9 @@ export function ClientsIndex({
         </Button>
       </TopBarActions>
 
+      <div className="flex h-full min-h-0 flex-col">
       <Tabs
-        className="mb-4"
+        className="mb-4 shrink-0"
         active="clients"
         items={[
           { key: "clients", label: "Clients" },
@@ -193,12 +206,12 @@ export function ClientsIndex({
         }}
       />
 
-      <Toolbar className="mb-4">
+      <Toolbar className="mb-4 shrink-0">
         <SearchInput
           value={q}
           onChange={(e) => {
             setQ(e.target.value);
-            setPage(1);
+            setLimit(BATCH);
           }}
           placeholder="Search by name, email or phone"
           className="max-w-md flex-1"
@@ -213,7 +226,7 @@ export function ClientsIndex({
           }))}
           onSelect={(v) => {
             setStatus(v as ClientStatus);
-            setPage(1);
+            setLimit(BATCH);
           }}
           onClear={() => setStatus(undefined)}
         />
@@ -223,7 +236,7 @@ export function ClientsIndex({
           options={allTags.map((t) => ({ value: t, label: t, dot: <TagDot hue={tagHue(t)} /> }))}
           onSelect={(v) => {
             setTag(v);
-            setPage(1);
+            setLimit(BATCH);
           }}
           onClear={() => setTag(undefined)}
         />
@@ -233,7 +246,7 @@ export function ClientsIndex({
               setQ("");
               setStatus(undefined);
               setTag(undefined);
-              setPage(1);
+              setLimit(BATCH);
             }}
           >
             Reset
@@ -258,12 +271,13 @@ export function ClientsIndex({
           />
         </div>
       ) : (
-        <>
-          <Table
-            head={[
+        <Table
+          className="min-h-0"
+          stickyHeader
+          head={[
               <Checkbox
                 key="all"
-                aria-label="Select all on page"
+                aria-label="Select all loaded"
                 checked={allOnPageSelected}
                 onChange={() =>
                   setSelected((s) => {
@@ -334,10 +348,16 @@ export function ClientsIndex({
                 </Tr>
               );
             })}
-          </Table>
-          <Pagination page={current} pageCount={pageCount} onPageChange={setPage} className="mt-4" />
-        </>
+            {hasMore && (
+              <tr ref={sentinelRef}>
+                <td colSpan={7} className="px-4 py-3 text-center text-sm text-text-muted">
+                  Loading more…
+                </td>
+              </tr>
+            )}
+        </Table>
       )}
+      </div>
 
       <NewClientPanel open={panelOpen} onClose={() => setPanelOpen(false)} practitioners={practitioners} />
     </>
