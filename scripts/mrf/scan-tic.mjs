@@ -44,6 +44,13 @@ const NETWORK = arg("network", "");
 // stream-json). Default `stream` keeps the validated stream-json path (UHC
 // files are id-LAST — the scan needle would mis-delimit them; keep stream).
 const REFS_MODE = arg("refs", "stream");
+// --emit-unmatched=<file> -> also collect NPIs seen in provider groups that
+// are NOT in our list (telehealth-gap measurement, docs/TASK-TELEHEALTH-GAP.md).
+// Capped so a national file can't eat the heap; cap hit is reported loudly.
+const UNMATCHED_PATH = arg("emit-unmatched", "");
+const UNMATCHED_CAP = 3_000_000;
+const unmatched = UNMATCHED_PATH ? new Set() : null;
+let unmatchedCapped = false;
 const SOURCE_FILE = arg("source-file", "");
 const FILE_DATE = arg("file-date", "");
 const CPTS = new Set((arg("codes", "90791,90834,90837,99214,90853")).split(","));
@@ -97,8 +104,11 @@ const stats = {
 const logStatus = () => {
   const mb = (stats.bytes / 1e6).toFixed(0);
   const mins = ((Date.now() - stats.start) / 60000).toFixed(1);
+  // memory ticker: heapMB + container sizes — the 39-series OOM diagnostic
+  const heap = (process.memoryUsage().heapUsed / 1048576).toFixed(0);
   console.error(
-    `[${mins}m] ${mb} MB uncompressed | refs ${stats.refsSeen} (retained ${stats.refsRetained}) | items ${stats.itemsSeen} (cpt-hit ${stats.itemsMatchedCode}) | rows ${stats.rows}`
+    `[${mins}m] ${mb} MB uncompressed | refs ${stats.refsSeen} (retained ${stats.refsRetained}) | items ${stats.itemsSeen} (cpt-hit ${stats.itemsMatchedCode}) | rows ${stats.rows} | heap ${heap}MB` +
+      (unmatched ? ` | unmatched ${unmatched.size}` : "")
   );
 };
 const ticker = setInterval(logStatus, 15000);
@@ -115,6 +125,10 @@ function handleProviderReference(ref) {
       if (typeof n === "number") {
         const c = ourNpiCanon.get(n);
         if (c !== undefined) (matched ??= []).push(c);
+        else if (unmatched && n > 999999999) {
+          if (unmatched.size < UNMATCHED_CAP) unmatched.add(n);
+          else unmatchedCapped = true;
+        }
       } else if (ourNpis.has(String(n).trim())) {
         (matched ??= []).push(String(n).trim());
       }
@@ -598,6 +612,13 @@ if (stats.itemsSeen === 0) {
 
 clearInterval(ticker);
 logStatus();
+if (unmatched) {
+  if (unmatchedCapped) console.error(`UNMATCHED CAPPED at ${UNMATCHED_CAP} — counts are a floor`);
+  const ws = fs.createWriteStream(UNMATCHED_PATH);
+  for (const n of unmatched) ws.write(n + "\n");
+  ws.end();
+  console.error(`unmatched NPIs written: ${unmatched.size} -> ${UNMATCHED_PATH}`);
+}
 out.end(() => {
   console.error(
     "DONE",
