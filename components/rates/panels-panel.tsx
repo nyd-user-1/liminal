@@ -11,7 +11,7 @@ import { Tag } from "@/components/ui/tag";
 import { ChipMenu } from "@/components/rates/chip-menu";
 import { clinicianName } from "@/components/rates/clinician-name";
 import { cptLabel } from "@/components/rates/cpt";
-import { EconomicsCard } from "@/components/rates/economics-card";
+import { EconomicsButton } from "@/components/rates/economics-dialog";
 import { InsurerMark } from "@/components/rates/insurer-mark";
 import { TableSkeleton } from "@/components/rates/table-skeleton";
 import type { Attestation, EconCard, NpiStanding } from "@/lib/repos/rate-signals";
@@ -65,6 +65,7 @@ type SortCol = "clinician" | "payer" | "code" | "asOf" | "onTin";
 
 export function PanelsPanel({
   active,
+  userEmail,
   onPinBands,
   onGoToRoster,
 }: {
@@ -74,6 +75,9 @@ export function PanelsPanel({
    *  knowing. Tabs stay mounted (hidden, not unmounted), so a plain
    *  mount-time effect would never see that. */
   active: boolean;
+  /** The signed-in practitioner's own address, for the economics dialog's
+   *  "email yourself" action. */
+  userEmail?: string;
   onPinBands: (payer: string, code: string) => void;
   onGoToRoster: () => void;
 }) {
@@ -285,17 +289,21 @@ export function PanelsPanel({
         </Banner>
       ))}
 
-      {standings.flatMap((s) =>
-        (econByNpi.get(s.npi) ?? []).map((econCard) => (
-          <div key={`${s.npi}|${econCard.payer}`} className="shrink-0">
-            <EconomicsCard
-              card={econCard}
+      {standings.some((s) => (econByNpi.get(s.npi) ?? []).length > 0) && (
+        <div className="mb-4 flex shrink-0 flex-wrap items-center gap-2.5">
+          {standings.map((s) => (
+            <EconomicsButton
+              key={s.npi}
+              npi={s.npi}
+              clinicianLabel={s.providerName ? clinicianName(s.providerName) : s.npi}
+              cards={econByNpi.get(s.npi) ?? []}
               attestations={attByNpi.get(s.npi) ?? []}
+              userEmail={userEmail}
               onPinBands={onPinBands}
               onGoToRoster={onGoToRoster}
             />
-          </div>
-        )),
+          ))}
+        </div>
       )}
 
       {loading && rows.length === 0 ? (
