@@ -34,17 +34,24 @@ same blur exists there in principle; decide separately.
 - ⚠️ **July NPPES zip 404s at CMS now** (it worked earlier on 07-12 — pulled).
   Using **June**: `https://download.cms.gov/nppes/NPPES_Data_Dissemination_June_2026_V2.zip`.
   Expect a small match shortfall (July-enumerated NPIs absent from June) —
-  report matched vs 7,391. Dry run at interrupt: ~6,800 matched @ 7.7M rows,
-  log `.harvest/mrf/telehealth-ingest-dry.log`, on track.
-- **Next commands** (dry first if not finished, then real):
+  report matched vs 7,391.
+- **Dry-run RESULT (2026-07-13 ~00:15):** parsing/matching validated — 6,809
+  matched cleanly, samples correct — but the CMS download stream BROKE at
+  7.71M of ~9.6M rows (`ZIP decompression failed (-5)`, log
+  `.harvest/mrf/telehealth-ingest-dry.log`). So 6,809 is a floor from ~80% of
+  the file, not the true June match count. **For the real run, download the
+  zip to disk first (~1.2GB compressed; disk has ~18GB) instead of streaming
+  the flaky pipe:**
   ```
-  curl -sL https://download.cms.gov/nppes/NPPES_Data_Dissemination_June_2026_V2.zip \
-    | bsdtar -xOf - '*npidata_pfile*[0-9].csv' \
+  curl -sSL -o /tmp/nppes-june.zip https://download.cms.gov/nppes/NPPES_Data_Dissemination_June_2026_V2.zip
+  bsdtar -xOf /tmp/nppes-june.zip '*npidata_pfile*[0-9].csv' \
     | node --env-file=.env.local scripts/ingest-directory.mjs \
         --source=nppes --npi-allowlist=.harvest/mrf/ny-licensed-notin99k.txt
+  rm /tmp/nppes-june.zip
   ```
-  (Real run = same without `DRY_RUN=1`. Run `nohup sh -c '…' > log & disown` —
-  harness bg tasks got reaped twice in the prior session.)
+  (Run `nohup sh -c '…' > log & disown` — harness bg tasks got reaped twice
+  in the prior session. Ingest is idempotent — the interrupted-dry-run wrote
+  nothing; even a re-run after partial writes just re-upserts.)
 - After ingest: regenerate the scanner NPI list —
   `SELECT DISTINCT npi FROM directory_providers WHERE npi IS NOT NULL` →
   `.harvest/mrf/npis.txt` (was 99,105 lines; expect ~106.4k). Then re-run the
