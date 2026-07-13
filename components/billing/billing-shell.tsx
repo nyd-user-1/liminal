@@ -1,54 +1,56 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { AttentionTable } from "@/components/billing/attention-table";
 import { InvoiceStatusBadge } from "@/components/billing/invoice-status-badge";
 import { NewInvoicePanel, type ClientOption, type ServiceOption } from "@/components/billing/new-invoice-panel";
 import { PayerPanel } from "@/components/billing/payer-panel";
+import { ChipMenu } from "@/components/rates/chip-menu";
 import { TopBarActions } from "@/components/shell/topbar-slot";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { DotBadge } from "@/components/ui/badge";
 import { MenuItem } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
-import { IconSquare } from "@/components/ui/icons";
 import { KebabMenu } from "@/components/ui/kebab-menu";
-import { ListRow } from "@/components/ui/list-row";
 import { SearchInput } from "@/components/ui/search-input";
 import { StatCard } from "@/components/ui/stat-card";
+import { LoadMoreRow, SortableHead, Table, Td, Tr, useLazyBatch, useSort } from "@/components/ui/table";
 import { Tabs } from "@/components/ui/tabs";
+import { TextLink } from "@/components/ui/text-link";
 import { Toolbar } from "@/components/ui/toolbar";
 import { useToast } from "@/components/ui/toast";
 import { formatCents, formatDate } from "@/lib/format";
 import type { InvoiceListItem, InvoiceStats } from "@/lib/repos/invoices";
 import type { PayerListItem } from "@/lib/repos/payers";
+import type { InvoiceStatus } from "@/lib/types";
 
-// Billing — page-level Tabs (Overview/Open/Settled/Payers) and search (the
-// clients/directory pattern) over one master/detail container: agenda-style
-// invoice list pane beside the open invoice (children from
-// billing/layout.tsx). Overview is the KPI tab; below lg the split panes
-// swap on navigation. New invoice lives in the TopBar; the biller never
-// leaves /billing.
+// Billing — page-level Tabs (Overview/Clients/Payers) + standard tables. The
+// invoice detail (/billing/[id]) is its own full-page view now — InvoicePane
+// carries its own back button/header, so this shell renders nothing around
+// it. New invoice/payer live in the TopBar; the biller never leaves /billing.
 
-type ShellTab = "overview" | "open" | "settled" | "payers";
+type ShellTab = "overview" | "clients" | "payers";
+type InvoiceSortCol = "client" | "number" | "issued" | "due" | "status" | "balance";
+type PayerSortCol = "code" | "name" | "policies";
 
-const isSettled = (s: InvoiceListItem["status"]) => s === "paid" || s === "void";
-
-function invoiceMeta(inv: InvoiceListItem): { text: string; danger?: boolean } {
-  const due = inv.dueOn ? `Due ${formatDate(`${inv.dueOn}T00:00:00`)}` : null;
-  switch (inv.status) {
-    case "draft":
-      return { text: "Draft — not sent yet" };
-    case "overdue":
-      return { text: due ?? "Overdue", danger: true };
-    case "sent":
-      return { text: due ?? "Awaiting payment" };
-    case "paid":
-      return { text: "Paid in full" };
-    default:
-      return { text: "Void" };
-  }
-}
+const ATTENTION_ORDER: Record<string, number> = { overdue: 0, sent: 1, draft: 2 };
+const STATUS_LABELS: Record<InvoiceStatus, string> = {
+  draft: "Draft",
+  sent: "Sent",
+  paid: "Paid",
+  overdue: "Overdue",
+  void: "Void",
+};
+const STATUS_VARIANT: Record<InvoiceStatus, "neutral" | "info" | "success" | "danger"> = {
+  draft: "neutral",
+  sent: "info",
+  paid: "success",
+  overdue: "danger",
+  void: "neutral",
+};
+const dateOnly = (d: string | null) => (d ? formatDate(`${d}T00:00:00`) : "—");
 
 export function BillingShell({
   invoices,
@@ -70,35 +72,82 @@ export function BillingShell({
   const pathname = usePathname();
   const activeId = pathname.startsWith("/billing/") ? pathname.split("/")[2] : null;
 
-  const active = invoices.find((i) => i.id === activeId);
-  const [tab, setTab] = useState<ShellTab>(active && isSettled(active.status) ? "settled" : "open");
+  const [tab, setTab] = useState<ShellTab>("overview");
   const [query, setQuery] = useState("");
+  const [status, setStatus] = useState<InvoiceStatus | undefined>();
   const [newInvoiceOpen, setNewInvoiceOpen] = useState(false);
   const [payerPanel, setPayerPanel] = useState<{ open: boolean; payer: PayerListItem | null }>({
     open: false,
     payer: null,
   });
+  const [invoiceSort, toggleInvoiceSort] = useSort<InvoiceSortCol>({ col: "number", dir: "desc" });
+  const [payerSort, togglePayerSort] = useSort<PayerSortCol>({ col: "name", dir: "asc" });
 
-  const counts = useMemo(
-    () => ({
-      open: invoices.filter((i) => !isSettled(i.status)).length,
-      settled: invoices.filter((i) => isSettled(i.status)).length,
-    }),
+  const q = query.trim().toLowerCase();
+
+  const attention = useMemo(
+    () =>
+      invoices
+        .filter((i) => i.status in ATTENTION_ORDER)
+        .sort(
+          (a, b) =>
+            ATTENTION_ORDER[a.status] - ATTENTION_ORDER[b.status] || (a.dueOn ?? "9999").localeCompare(b.dueOn ?? "9999"),
+        )
+        .slice(0, 8),
     [invoices],
   );
 
-  const q = query.trim().toLowerCase();
-  const visibleInvoices =
-    tab === "payers"
-      ? []
-      : invoices.filter(
-          (i) =>
-            (tab === "settled") === isSettled(i.status) &&
-            (!q || i.number.toLowerCase().includes(q) || i.clientName.toLowerCase().includes(q)),
-        );
-  const visiblePayers = payers.filter(
-    (p) => !q || p.name.toLowerCase().includes(q) || p.payerCode.toLowerCase().includes(q),
+  const filteredInvoices = useMemo(
+    () =>
+      invoices.filter(
+        (i) =>
+          (!status || i.status === status) &&
+          (!q || i.number.toLowerCase().includes(q) || i.clientName.toLowerCase().includes(q)),
+      ),
+    [invoices, status, q],
   );
+  const sortedInvoices = useMemo(() => {
+    const dir = invoiceSort.dir === "asc" ? 1 : -1;
+    return [...filteredInvoices].sort((a, b) => {
+      const primary =
+        invoiceSort.col === "client"
+          ? a.clientName.localeCompare(b.clientName)
+          : invoiceSort.col === "issued"
+            ? (a.issuedOn ?? "").localeCompare(b.issuedOn ?? "")
+            : invoiceSort.col === "due"
+              ? (a.dueOn ?? "").localeCompare(b.dueOn ?? "")
+              : invoiceSort.col === "status"
+                ? STATUS_LABELS[a.status].localeCompare(STATUS_LABELS[b.status])
+                : invoiceSort.col === "balance"
+                  ? a.balanceCents - b.balanceCents
+                  : a.number.localeCompare(b.number);
+      return primary * dir || a.number.localeCompare(b.number);
+    });
+  }, [filteredInvoices, invoiceSort]);
+  const { visible: visibleInvoices, hasMore: invoicesHaveMore, sentinelRef: invoiceSentinel } = useLazyBatch(
+    sortedInvoices,
+    { resetKey: `${q}|${status}` },
+  );
+
+  const filteredPayers = useMemo(
+    () => payers.filter((p) => !q || p.name.toLowerCase().includes(q) || p.payerCode.toLowerCase().includes(q)),
+    [payers, q],
+  );
+  const sortedPayers = useMemo(() => {
+    const dir = payerSort.dir === "asc" ? 1 : -1;
+    return [...filteredPayers].sort((a, b) => {
+      const primary =
+        payerSort.col === "code"
+          ? a.payerCode.localeCompare(b.payerCode)
+          : payerSort.col === "policies"
+            ? a.policyCount - b.policyCount
+            : a.name.localeCompare(b.name);
+      return primary * dir || a.name.localeCompare(b.name);
+    });
+  }, [filteredPayers, payerSort]);
+  const { visible: visiblePayers, hasMore: payersHaveMore, sentinelRef: payerSentinel } = useLazyBatch(sortedPayers, {
+    resetKey: q,
+  });
 
   const deletePayer = async (p: PayerListItem) => {
     const res = await fetch(`/api/payers/${p.id}`, { method: "DELETE" });
@@ -111,10 +160,13 @@ export function BillingShell({
     router.refresh();
   };
 
-  const railCount =
-    tab === "payers"
-      ? `${visiblePayers.length} ${visiblePayers.length === 1 ? "payer" : "payers"}`
-      : `${visibleInvoices.length} ${visibleInvoices.length === 1 ? "invoice" : "invoices"}`;
+  // The invoice detail is a full-page view — InvoicePane owns its own back
+  // button/header, so nothing else from this shell renders around it.
+  if (activeId) {
+    return <div className="flex h-full min-h-0 flex-col">{children}</div>;
+  }
+
+  const hasFilters = !!(q || status);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -134,8 +186,7 @@ export function BillingShell({
         className="mb-4 shrink-0"
         items={[
           { key: "overview", label: "Overview" },
-          { key: "open", label: "Open", count: counts.open },
-          { key: "settled", label: "Settled", count: counts.settled },
+          { key: "clients", label: "Clients", count: invoices.length },
           { key: "payers", label: "Payers", count: payers.length },
         ]}
         active={tab}
@@ -143,129 +194,148 @@ export function BillingShell({
       />
 
       {tab === "overview" ? (
-        // The KPI tab — practice numbers get their own home.
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto">
           <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
             <StatCard label="Outstanding" value={formatCents(stats.outstandingCents)} />
             <StatCard label="Paid this month" value={formatCents(stats.paidThisMonthCents)} />
             <StatCard label="Overdue invoices" value={stats.overdueCount} />
             <StatCard label="Drafts" value={stats.draftCount} />
           </div>
-        </div>
-      ) : (
-        <>
-      <Toolbar className="mb-4 shrink-0">
-        <SearchInput
-          placeholder={tab === "payers" ? "Search payers" : "Search invoices or clients"}
-          className="w-full max-w-md"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </Toolbar>
-
-      <div className="flex min-h-0 flex-1 overflow-hidden rounded-card border border-border bg-surface shadow-card">
-        {/* Invoice list pane — agenda-rail row treatment inside the split */}
-        <aside
-          className={`w-full flex-col border-border lg:flex lg:w-80 lg:shrink-0 lg:border-r ${
-            activeId ? "hidden" : "flex"
-          }`}
-        >
-          {/* Pane header — matches the right pane's header height so the two
-              bottom borders meet in one horizontal line across the container */}
-          <div className="flex h-[68px] shrink-0 items-center border-b border-border px-4">
-            <h2 className="text-[17px] font-semibold text-text">{tab === "payers" ? "Payers" : "Invoices"}</h2>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto p-2">
-            {tab === "payers" ? (
-              visiblePayers.length === 0 ? (
-                <EmptyState
-                  icon="shield-plus"
-                  title={q ? "No payers match" : "No payers yet"}
-                  subtext={q ? undefined : "Add the insurance payers your practice bills."}
-                />
-              ) : (
-                <div className="space-y-2 p-1">
-                  {visiblePayers.map((p) => (
-                    <ListRow
-                      key={p.id}
-                      leading={<IconSquare name="shield-plus" />}
-                      title={
-                        <>
-                          <span className="font-semibold">{p.payerCode}</span> {p.name}
-                        </>
-                      }
-                      meta={`${p.policyCount} ${p.policyCount === 1 ? "policy" : "policies"} on file`}
-                      trailing={
-                        <KebabMenu>
-                          <MenuItem icon="edit" label="Edit" onClick={() => setPayerPanel({ open: true, payer: p })} />
-                          <MenuItem icon="trash" danger label="Delete" onClick={() => deletePayer(p)} />
-                        </KebabMenu>
-                      }
-                    />
-                  ))}
-                </div>
-              )
-            ) : visibleInvoices.length === 0 ? (
-              <EmptyState
-                icon="credit-card"
-                title={q ? "No invoices match" : tab === "open" ? "No open invoices" : "No settled invoices"}
-                subtext={
-                  q
-                    ? "Try a different search."
-                    : tab === "open"
-                      ? "Create an invoice to start collecting."
-                      : "Paid and voided invoices land here."
-                }
-              />
-            ) : (
-              <div className="space-y-0.5">
-                {visibleInvoices.map((inv) => {
-                  const current = inv.id === activeId;
-                  const meta = invoiceMeta(inv);
-                  return (
-                    <Link
-                      key={inv.id}
-                      href={`/billing/${inv.id}`}
-                      aria-current={current ? "page" : undefined}
-                      className={`block rounded-field px-2.5 py-2 transition-colors hover:bg-canvas ${
-                        current ? "bg-canvas" : ""
-                      }`}
-                    >
-                      <span className="flex items-center gap-2.5">
-                        <Avatar name={inv.clientName} size="sm" />
-                        <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-text">
-                          {inv.clientName}
-                        </span>
-                        <span className="shrink-0 text-[15px] font-semibold text-text">
-                          {formatCents(isSettled(inv.status) ? inv.totalCents : inv.balanceCents)}
-                        </span>
-                      </span>
-                      <span className="mt-1 flex items-center justify-between gap-2">
-                        <span className="truncate text-[13px] text-text-muted">{inv.number}</span>
-                        <InvoiceStatusBadge status={inv.status} />
-                      </span>
-                      <span
-                        className={`mt-0.5 block truncate text-[13px] ${
-                          meta.danger ? "font-medium text-danger" : "text-text-muted"
-                        }`}
-                      >
-                        {meta.text}
-                      </span>
-                    </Link>
-                  );
-                })}
+          <div>
+            <h2 className="mb-3 text-[17px] font-semibold text-text">Needs attention</h2>
+            {attention.length === 0 ? (
+              <div className="rounded-card border border-border bg-surface shadow-card">
+                <EmptyState icon="circle-check" title="All caught up" subtext="No open invoices need action right now." />
               </div>
+            ) : (
+              <AttentionTable invoices={attention} />
             )}
           </div>
-          {/* Pinned count, agenda-style */}
-          <div className="shrink-0 border-t border-border px-4 py-3 text-[13px] font-medium text-text-muted">
-            {railCount}
-          </div>
-        </aside>
+        </div>
+      ) : tab === "clients" ? (
+        <>
+          <Toolbar className="mb-4 shrink-0 md:mb-6">
+            <SearchInput
+              placeholder="Search invoices or clients"
+              className="w-full max-w-md"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            <ChipMenu
+              label="Status"
+              options={(Object.keys(STATUS_LABELS) as InvoiceStatus[]).map((s) => ({
+                value: s,
+                label: STATUS_LABELS[s],
+                lead: <DotBadge variant={STATUS_VARIANT[s]} />,
+              }))}
+              value={status}
+              onSelect={(v) => setStatus(v as InvoiceStatus)}
+              onClear={() => setStatus(undefined)}
+            />
+            {hasFilters && (
+              <TextLink
+                onClick={() => {
+                  setQuery("");
+                  setStatus(undefined);
+                }}
+              >
+                Reset
+              </TextLink>
+            )}
+          </Toolbar>
 
-        {/* Invoice pane */}
-        <div className={`min-w-0 flex-1 flex-col lg:flex ${activeId ? "flex" : "hidden"}`}>{children}</div>
-      </div>
+          {sortedInvoices.length === 0 ? (
+            <div className="rounded-card border border-border bg-surface shadow-card">
+              <EmptyState
+                icon="credit-card"
+                title={hasFilters ? "No invoices match" : "No invoices yet"}
+                subtext={hasFilters ? "Try a different search or filter." : "Create an invoice to start collecting."}
+              />
+            </div>
+          ) : (
+            <Table
+              className="min-h-0 flex-1"
+              stickyHeader
+              head={[
+                <SortableHead key="client" label="Client" col="client" sort={invoiceSort} onSort={toggleInvoiceSort} />,
+                <SortableHead key="number" label="Invoice #" col="number" sort={invoiceSort} onSort={toggleInvoiceSort} />,
+                <SortableHead key="issued" label="Issued" col="issued" sort={invoiceSort} onSort={toggleInvoiceSort} />,
+                <SortableHead key="due" label="Due" col="due" sort={invoiceSort} onSort={toggleInvoiceSort} />,
+                <SortableHead key="status" label="Status" col="status" sort={invoiceSort} onSort={toggleInvoiceSort} />,
+                <SortableHead key="balance" label="Balance" col="balance" sort={invoiceSort} onSort={toggleInvoiceSort} />,
+              ]}
+            >
+              {visibleInvoices.map((inv) => (
+                <Tr key={inv.id} onClick={() => router.push(`/billing/${inv.id}`)}>
+                  <Td className="max-w-56">
+                    <span className="flex min-w-0 items-center gap-2.5">
+                      <Avatar name={inv.clientName} size="sm" className="shrink-0" />
+                      <span className="min-w-0 truncate font-medium text-text" title={inv.clientName}>
+                        {inv.clientName}
+                      </span>
+                    </span>
+                  </Td>
+                  <Td className="whitespace-nowrap">{inv.number}</Td>
+                  <Td className="whitespace-nowrap text-text-muted">{dateOnly(inv.issuedOn)}</Td>
+                  <Td className={`whitespace-nowrap ${inv.status === "overdue" ? "font-medium text-danger" : "text-text-muted"}`}>
+                    {dateOnly(inv.dueOn)}
+                  </Td>
+                  <Td className="whitespace-nowrap">
+                    <InvoiceStatusBadge status={inv.status} />
+                  </Td>
+                  <Td className="whitespace-nowrap font-semibold">{formatCents(inv.balanceCents)}</Td>
+                </Tr>
+              ))}
+              {invoicesHaveMore && <LoadMoreRow sentinelRef={invoiceSentinel} colSpan={6} />}
+            </Table>
+          )}
+        </>
+      ) : (
+        <>
+          <Toolbar className="mb-4 shrink-0 md:mb-6">
+            <SearchInput
+              placeholder="Search payers"
+              className="w-full max-w-md"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </Toolbar>
+
+          {sortedPayers.length === 0 ? (
+            <div className="rounded-card border border-border bg-surface shadow-card">
+              <EmptyState
+                icon="shield-plus"
+                title={q ? "No payers match" : "No payers yet"}
+                subtext={q ? undefined : "Add the insurance payers your practice bills."}
+              />
+            </div>
+          ) : (
+            <Table
+              className="min-h-0 flex-1"
+              stickyHeader
+              head={[
+                <SortableHead key="code" label="Code" col="code" sort={payerSort} onSort={togglePayerSort} />,
+                <SortableHead key="name" label="Payer" col="name" sort={payerSort} onSort={togglePayerSort} />,
+                <SortableHead key="policies" label="Policies" col="policies" sort={payerSort} onSort={togglePayerSort} />,
+                "",
+              ]}
+            >
+              {visiblePayers.map((p) => (
+                <Tr key={p.id}>
+                  <Td className="whitespace-nowrap font-semibold">{p.payerCode}</Td>
+                  <Td className="max-w-64 truncate" title={p.name}>{p.name}</Td>
+                  <Td className="whitespace-nowrap">{p.policyCount}</Td>
+                  <Td className="w-12" onClick={(e) => e.stopPropagation()}>
+                    <KebabMenu label={`Actions for ${p.name}`}>
+                      <MenuItem icon="edit" label="Edit" onClick={() => setPayerPanel({ open: true, payer: p })} />
+                      <MenuItem icon="trash" danger label="Delete" onClick={() => deletePayer(p)} />
+                    </KebabMenu>
+                  </Td>
+                </Tr>
+              ))}
+              {payersHaveMore && <LoadMoreRow sentinelRef={payerSentinel} colSpan={4} />}
+            </Table>
+          )}
         </>
       )}
 

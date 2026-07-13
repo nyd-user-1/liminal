@@ -3,12 +3,11 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Icon } from "@/components/ui/icons";
 import { LibraryCard } from "@/components/ui/library-card";
 import { Modal } from "@/components/ui/modal";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
-import { Table, Td, Tr } from "@/components/ui/table";
+import { SortableHead, Table, Td, Tr, useSort } from "@/components/ui/table";
 import { Tabs } from "@/components/ui/tabs";
 import { Tag, type TagHue } from "@/components/ui/tag";
 import { Toolbar } from "@/components/ui/toolbar";
@@ -144,12 +143,8 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
   const [tab, setTab] = useState("all");
   const [view, setView] = useState<"table" | "cards">("table");
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<{ col: SortCol; dir: "asc" | "desc" }>({ col: "date", dir: "desc" });
+  const [sort, toggleSort] = useSort<SortCol>({ col: "date", dir: "desc" });
   const [openNote, setOpenNote] = useState<NoteItem | null>(null);
-
-  // Click a header to sort by it; click again to flip direction.
-  const toggleSort = (col: SortCol) =>
-    setSort((s) => (s.col === col ? { col, dir: s.dir === "asc" ? "desc" : "asc" } : { col, dir: "asc" }));
 
   const comingSoon = () => toast("This record isn't available yet.", "info");
 
@@ -309,23 +304,6 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
     return cmp * dir;
   });
 
-  // Clickable, sort-aware column header — faint chevron hints sortability,
-  // solid chevron shows the active column + direction.
-  const sortHead = (label: string, col: SortCol) => (
-    <button
-      type="button"
-      onClick={() => toggleSort(col)}
-      className="-mx-1 flex items-center gap-1 rounded px-1 transition-colors hover:text-text"
-    >
-      {label}
-      <Icon
-        name={sort.col === col && sort.dir === "asc" ? "chevron-up" : "chevron-down"}
-        size={14}
-        className={sort.col === col ? "text-text" : "text-text-muted/40"}
-      />
-    </button>
-  );
-
   return (
     <div className="flex h-full min-h-0 flex-col">
       <Tabs
@@ -366,7 +344,12 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
             <Table
               stickyHeader
               className="min-h-0 flex-1"
-              head={[sortHead("Name", "name"), sortHead("Date", "date"), sortHead("Type", "type"), sortHead("Created by", "createdBy")]}
+              head={[
+                <SortableHead key="name" label="Name" col="name" sort={sort} onSort={toggleSort} />,
+                <SortableHead key="date" label="Date" col="date" sort={sort} onSort={toggleSort} />,
+                <SortableHead key="type" label="Type" col="type" sort={sort} onSort={toggleSort} />,
+                <SortableHead key="createdBy" label="Created by" col="createdBy" sort={sort} onSort={toggleSort} />,
+              ]}
             >
               {sorted.map((c) => (
                 <Tr key={c.id} onClick={c.onOpen}>

@@ -13,19 +13,19 @@ import { MenuItem } from "@/components/ui/dropdown-menu";
 import { TopBarActions } from "@/components/shell/topbar-slot";
 import { Tabs } from "@/components/ui/tabs";
 import { SearchInput } from "@/components/ui/search-input";
-import { Table, Td, Tr } from "@/components/ui/table";
+import { LoadMoreRow, SortableHead, Table, Td, Tr, useLazyBatch, useSort } from "@/components/ui/table";
 import { Tag, TagDot } from "@/components/ui/tag";
 import { TextLink } from "@/components/ui/text-link";
 import { Toolbar } from "@/components/ui/toolbar";
 import { useToast } from "@/components/ui/toast";
+import { formatDate } from "@/lib/format";
 import type { Client, ClientStatus } from "@/lib/types";
 import type { PractitionerOption } from "@/lib/repos/clients";
 import { ClientStatusBadge, clientHue, tagHue } from "./ui";
 import { NewClientPanel } from "./new-client-panel";
 
-// Lazy-loaded table: render in batches, grow when the sentinel row scrolls
-// into view (the table body scrolls under its sticky header — no pagination).
-const BATCH = 50;
+type SortCol = "name" | "created" | "status";
+
 const STATUS_LABELS: Record<ClientStatus, string> = { lead: "Lead", active: "Active", archived: "Archived" };
 // Dot colour per status — mirrors ClientStatusBadge's Badge variant.
 const STATUS_VARIANT: Record<ClientStatus, "info" | "success" | "neutral"> = {
@@ -118,10 +118,9 @@ export function ClientsIndex({
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<ClientStatus | undefined>();
   const [tag, setTag] = useState<string | undefined>();
-  const [limit, setLimit] = useState(BATCH);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [panelOpen, setPanelOpen] = useState(false);
-  const sentinelRef = useRef<HTMLTableRowElement>(null);
+  const [sort, toggleSort] = useSort<SortCol>({ col: "name", dir: "asc" });
 
   const allTags = useMemo(() => [...new Set(clients.flatMap((c) => c.tags))].sort(), [clients]);
 
@@ -138,21 +137,18 @@ export function ClientsIndex({
     });
   }, [clients, q, status, tag]);
 
-  const rows = filtered.slice(0, limit);
-  const hasMore = filtered.length > limit;
+  const sorted = useMemo(() => {
+    const dir = sort.dir === "asc" ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      if (sort.col === "created") return (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0) * dir;
+      if (sort.col === "status") return (STATUS_LABELS[a.status].localeCompare(STATUS_LABELS[b.status]) || `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`)) * dir;
+      return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`) * dir;
+    });
+  }, [filtered, sort]);
+
+  const { visible: rows, hasMore, sentinelRef } = useLazyBatch(sorted, { resetKey: `${q}|${status}|${tag}` });
   const hasFilters = !!(q || status || tag);
   const allOnPageSelected = rows.length > 0 && rows.every((c) => selected.has(c.id));
-
-  // Grow the list when the sentinel row scrolls into view under the header.
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver((entries) => {
-      if (entries.some((e) => e.isIntersecting)) setLimit((l) => l + BATCH);
-    });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [hasMore, rows.length]);
 
   function toggleRow(id: string) {
     setSelected((s) => {
@@ -206,13 +202,10 @@ export function ClientsIndex({
         }}
       />
 
-      <Toolbar className="mb-4 shrink-0">
+      <Toolbar className="mb-4 shrink-0 md:mb-6">
         <SearchInput
           value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            setLimit(BATCH);
-          }}
+          onChange={(e) => setQ(e.target.value)}
           placeholder="Search by name, email or phone"
           className="max-w-md flex-1"
         />
@@ -224,20 +217,14 @@ export function ClientsIndex({
             label: STATUS_LABELS[s],
             dot: <DotBadge variant={STATUS_VARIANT[s]} />,
           }))}
-          onSelect={(v) => {
-            setStatus(v as ClientStatus);
-            setLimit(BATCH);
-          }}
+          onSelect={(v) => setStatus(v as ClientStatus)}
           onClear={() => setStatus(undefined)}
         />
         <ChipMenu
           label="Tags"
           value={tag}
           options={allTags.map((t) => ({ value: t, label: t, dot: <TagDot hue={tagHue(t)} /> }))}
-          onSelect={(v) => {
-            setTag(v);
-            setLimit(BATCH);
-          }}
+          onSelect={(v) => setTag(v)}
           onClear={() => setTag(undefined)}
         />
         {hasFilters && (
@@ -246,7 +233,6 @@ export function ClientsIndex({
               setQ("");
               setStatus(undefined);
               setTag(undefined);
-              setLimit(BATCH);
             }}
           >
             Reset
@@ -272,7 +258,7 @@ export function ClientsIndex({
         </div>
       ) : (
         <Table
-          className="min-h-0"
+          className="min-h-0 flex-1"
           stickyHeader
           head={[
               <Checkbox
@@ -288,11 +274,12 @@ export function ClientsIndex({
                   })
                 }
               />,
-              "Client name",
+              <SortableHead key="name" label="Client name" col="name" sort={sort} onSort={toggleSort} />,
               "Phone",
               "Email",
               "Tags",
-              "Status",
+              <SortableHead key="created" label="Created" col="created" sort={sort} onSort={toggleSort} />,
+              <SortableHead key="status" label="Status" col="status" sort={sort} onSort={toggleSort} />,
               "",
             ]}
           >
@@ -307,17 +294,17 @@ export function ClientsIndex({
                       onChange={() => toggleRow(c.id)}
                     />
                   </Td>
-                  <Td>
+                  <Td className="whitespace-nowrap">
                     <span className="flex items-center gap-2.5">
                       <Avatar name={name} hue={clientHue(c.id)} size="sm" />
-                      <TextLink href={`/clients/${c.id}`} onClick={(e) => e.stopPropagation()}>
+                      <TextLink href={`/clients/${c.id}`} onClick={(e) => e.stopPropagation()} className="!font-medium">
                         {name}
                       </TextLink>
                     </span>
                   </Td>
-                  <Td>{c.phone ?? "–"}</Td>
-                  <Td>{c.email ?? "–"}</Td>
-                  <Td>
+                  <Td className="whitespace-nowrap">{c.phone ?? "–"}</Td>
+                  <Td className="max-w-56 truncate" title={c.email ?? undefined}>{c.email ?? "–"}</Td>
+                  <Td className="whitespace-nowrap">
                     <span className="flex flex-wrap items-center gap-1">
                       {c.tags.slice(0, 3).map((t) => (
                         <Tag key={t} hue={tagHue(t)}>
@@ -329,7 +316,8 @@ export function ClientsIndex({
                       )}
                     </span>
                   </Td>
-                  <Td>
+                  <Td className="whitespace-nowrap text-text-muted">{formatDate(c.createdAt)}</Td>
+                  <Td className="whitespace-nowrap">
                     <ClientStatusBadge status={c.status} />
                   </Td>
                   <Td className="w-12" onClick={(e) => e.stopPropagation()}>
@@ -348,13 +336,7 @@ export function ClientsIndex({
                 </Tr>
               );
             })}
-            {hasMore && (
-              <tr ref={sentinelRef}>
-                <td colSpan={7} className="px-4 py-3 text-center text-sm text-text-muted">
-                  Loading more…
-                </td>
-              </tr>
-            )}
+            {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={8} />}
         </Table>
       )}
       </div>

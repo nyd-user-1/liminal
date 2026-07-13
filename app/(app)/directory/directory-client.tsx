@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,12 +11,11 @@ import { Icon } from "@/components/ui/icons";
 import { KebabMenu } from "@/components/ui/kebab-menu";
 import { MenuItem } from "@/components/ui/dropdown-menu";
 import { Modal } from "@/components/ui/modal";
-import { Pagination } from "@/components/ui/pagination";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
 import { SidePanel } from "@/components/ui/side-panel";
 import { Spinner } from "@/components/ui/spinner";
-import { Table, Td, Tr } from "@/components/ui/table";
+import { LoadMoreRow, SortableHead, Table, Td, Tr, useSentinel, useSort } from "@/components/ui/table";
 import { Tabs } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { TextLink } from "@/components/ui/text-link";
@@ -126,18 +125,23 @@ export function DirectoryClient({
   const [county, setCounty] = useState<string | undefined>();
   const [need, setNeed] = useState<string | undefined>(); // profession | program type
   const [subspecialty, setSubspecialty] = useState<string | undefined>();
-  const [page, setPage] = useState(1);
 
+  // Server-paginated, lazy-appended: `items` accumulates across pages as the
+  // sentinel scrolls into view (see the load effect + sentinel below) — no
+  // client slicing, no <Pagination>.
+  const [page, setPage] = useState(1);
   const [items, setItems] = useState<Array<DirectoryProvider | DirectoryProgram>>([]);
   const [networks, setNetworks] = useState<Record<string, ProviderNetworkSummary>>({});
   const [total, setTotal] = useState(0);
-  const [pageSize, setPageSize] = useState(25);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const [selected, setSelected] = useState<DirectoryProvider | DirectoryProgram | null>(null);
   const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [providerSort, toggleProviderSort] = useSort<"name" | "specialty" | "city">({ col: "name", dir: "asc" });
+  const [programSort, toggleProgramSort] = useSort<"name" | "agency" | "county">({ col: "name", dir: "asc" });
 
-  const allOnPageChecked = items.length > 0 && items.every((r) => checked.has(r.id));
+  const allLoadedChecked = items.length > 0 && items.every((r) => checked.has(r.id));
   function toggleChecked(id: string) {
     setChecked((s) => {
       const next = new Set(s);
@@ -146,10 +150,10 @@ export function DirectoryClient({
       return next;
     });
   }
-  function toggleAllOnPage() {
+  function toggleAllLoaded() {
     setChecked((s) => {
       const next = new Set(s);
-      if (allOnPageChecked) items.forEach((r) => next.delete(r.id));
+      if (allLoadedChecked) items.forEach((r) => next.delete(r.id));
       else items.forEach((r) => next.add(r.id));
       return next;
     });
@@ -158,35 +162,45 @@ export function DirectoryClient({
   const facets = tab === "providers" ? providerFacets : programFacets;
   const needOptions = (tab === "providers" ? facets.professions : facets.types) ?? [];
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    // The one search box handles text and ZIP: a purely-numeric term is a ZIP.
-    const term = q.trim();
-    if (term) params.set(/^\d{3,5}$/.test(term) ? "zip" : "q", term);
-    if (tab === "providers") {
-      if (subspecialty) params.set("subspecialty", subspecialty);
-      if (need) params.set("profession", need);
-    } else {
-      if (county) params.set("county", county);
-      if (need) params.set("type", need);
-    }
-    params.set("page", String(page));
-    try {
-      const res = await fetch(`/api/directory/${tab}?${params.toString()}`);
-      const data = await res.json();
-      setItems(data.items ?? []);
-      setNetworks(data.networks ?? {});
-      setTotal(data.total ?? 0);
-      setPageSize(data.pageSize ?? 25);
-    } finally {
-      setLoading(false);
-    }
-  }, [tab, q, county, need, subspecialty, page]);
+  const load = useCallback(
+    async (pageToLoad: number, replace: boolean) => {
+      if (replace) setLoading(true);
+      else setLoadingMore(true);
+      const params = new URLSearchParams();
+      // The one search box handles text and ZIP: a purely-numeric term is a ZIP.
+      const term = q.trim();
+      if (term) params.set(/^\d{3,5}$/.test(term) ? "zip" : "q", term);
+      if (tab === "providers") {
+        if (subspecialty) params.set("subspecialty", subspecialty);
+        if (need) params.set("profession", need);
+      } else {
+        if (county) params.set("county", county);
+        if (need) params.set("type", need);
+      }
+      params.set("page", String(pageToLoad));
+      try {
+        const res = await fetch(`/api/directory/${tab}?${params.toString()}`);
+        const data = await res.json();
+        setItems((prev) => (replace ? (data.items ?? []) : [...prev, ...(data.items ?? [])]));
+        setNetworks((prev) => (replace ? (data.networks ?? {}) : { ...prev, ...(data.networks ?? {}) }));
+        setTotal(data.total ?? 0);
+        setPage(pageToLoad);
+      } finally {
+        if (replace) setLoading(false);
+        else setLoadingMore(false);
+      }
+    },
+    [tab, q, county, need, subspecialty],
+  );
 
+  // Filters/tab changed — reload from page 1, replacing the accumulated set.
   useEffect(() => {
-    load();
+    load(1, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load]);
+
+  const hasMore = items.length < total;
+  const sentinelRef = useSentinel(() => load(page + 1, false), hasMore && !loading && !loadingMore);
 
   function switchTab(next: Tab) {
     setTab(next);
@@ -194,8 +208,13 @@ export function DirectoryClient({
     setNeed(undefined);
     setSubspecialty(undefined);
     setQ("");
-    setPage(1);
     setSelected(null);
+    setChecked(new Set());
+    // The other tab's rows must never linger under the new tab's row shape —
+    // clear immediately rather than waiting for the reload to replace them.
+    setItems([]);
+    setTotal(0);
+    setLoading(true);
   }
 
   function resetFilters() {
@@ -203,16 +222,38 @@ export function DirectoryClient({
     setCounty(undefined);
     setNeed(undefined);
     setSubspecialty(undefined);
-    setPage(1);
   }
 
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const hasFilters = !!(q || county || need || subspecialty);
 
+  // Sort client-side over the rows loaded so far. The directory API has no
+  // sort param, so a sort only reorders what's already paged in — scrolling
+  // further still loads in the server's default order, then re-sorts.
+  // `items` holds whichever tab's rows are loaded — each memo must only sort
+  // its own row shape, so the inactive tab's memo returns [].
+  const sortedProviders = useMemo(() => {
+    if (tab !== "providers") return [];
+    const dir = providerSort.dir === "asc" ? 1 : -1;
+    return [...(items as DirectoryProvider[])].sort((a, b) => {
+      if (providerSort.col === "specialty") return (a.profession ?? "").localeCompare(b.profession ?? "") * dir;
+      if (providerSort.col === "city") return (a.city ?? "").localeCompare(b.city ?? "") * dir;
+      return titleCase(a.name).localeCompare(titleCase(b.name)) * dir;
+    });
+  }, [tab, items, providerSort]);
+  const sortedPrograms = useMemo(() => {
+    if (tab !== "programs") return [];
+    const dir = programSort.dir === "asc" ? 1 : -1;
+    return [...(items as DirectoryProgram[])].sort((a, b) => {
+      if (programSort.col === "agency") return (a.agency ?? "").localeCompare(b.agency ?? "") * dir;
+      if (programSort.col === "county") return (a.county ?? "").localeCompare(b.county ?? "") * dir;
+      return a.programName.localeCompare(b.programName) * dir;
+    });
+  }, [tab, items, programSort]);
+
   return (
-    <>
+    <div className="flex h-full min-h-0 flex-col">
       <Tabs
-        className="mb-4"
+        className="mb-4 shrink-0"
         active={tab}
         onChange={(k) => switchTab(k as Tab)}
         items={[
@@ -221,14 +262,11 @@ export function DirectoryClient({
         ]}
       />
 
-      <Toolbar className="mb-4 flex-wrap">
+      <Toolbar className="mb-4 shrink-0 flex-wrap md:mb-6">
         <SearchInput
           value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            setPage(1);
-          }}
-          onKeyDown={(e) => e.key === "Enter" && load()}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && load(1, true)}
           placeholder={tab === "providers" ? "Search by name, city, specialty or ZIP" : "Search by program, agency or city"}
           className="max-w-md flex-1"
         />
@@ -239,28 +277,16 @@ export function DirectoryClient({
               value={need ? titleCase(need) : undefined}
               options={needOptions}
               annotate={(o) => (PRESCRIBER_SPECIALTIES.has(o) ? <Badge variant="info">Rx</Badge> : null)}
-              onSelect={(v) => {
-                setNeed(v);
-                setPage(1);
-              }}
-              onClear={() => {
-                setNeed(undefined);
-                setPage(1);
-              }}
+              onSelect={(v) => setNeed(v)}
+              onClear={() => setNeed(undefined)}
             />
             {(facets.subspecialties?.length ?? 0) > 0 && (
               <ChipMenu
                 label="Sub-specialty"
                 value={subspecialty}
                 options={facets.subspecialties ?? []}
-                onSelect={(v) => {
-                  setSubspecialty(v);
-                  setPage(1);
-                }}
-                onClear={() => {
-                  setSubspecialty(undefined);
-                  setPage(1);
-                }}
+                onSelect={(v) => setSubspecialty(v)}
+                onClear={() => setSubspecialty(undefined)}
               />
             )}
           </>
@@ -270,27 +296,15 @@ export function DirectoryClient({
               label="County"
               value={county ? titleCase(county) : undefined}
               options={facets.counties}
-              onSelect={(v) => {
-                setCounty(v);
-                setPage(1);
-              }}
-              onClear={() => {
-                setCounty(undefined);
-                setPage(1);
-              }}
+              onSelect={(v) => setCounty(v)}
+              onClear={() => setCounty(undefined)}
             />
             <ChipMenu
               label="Type"
               value={need ? titleCase(need) : undefined}
               options={needOptions}
-              onSelect={(v) => {
-                setNeed(v);
-                setPage(1);
-              }}
-              onClear={() => {
-                setNeed(undefined);
-                setPage(1);
-              }}
+              onSelect={(v) => setNeed(v)}
+              onClear={() => setNeed(undefined)}
             />
           </>
         )}
@@ -310,88 +324,96 @@ export function DirectoryClient({
             actions={hasFilters ? <Button variant="secondary" onClick={resetFilters}>Clear filters</Button> : undefined}
           />
         </div>
+      ) : tab === "providers" ? (
+        <Table
+          className="min-h-0 flex-1"
+          stickyHeader
+          head={[
+            <Checkbox key="all" aria-label="Select all loaded" checked={allLoadedChecked} onChange={toggleAllLoaded} />,
+            <SortableHead key="name" label="Provider" col="name" sort={providerSort} onSort={toggleProviderSort} />,
+            <SortableHead key="specialty" label="Specialty" col="specialty" sort={providerSort} onSort={toggleProviderSort} />,
+            "Sub-specialty",
+            "Address",
+            <SortableHead key="city" label="City" col="city" sort={providerSort} onSort={toggleProviderSort} />,
+            "Zip",
+            "",
+          ]}
+        >
+          {sortedProviders.map((r) => {
+            const name = titleCase(r.name);
+            const specialty = r.profession ? titleCase(r.profession) : "–";
+            const address = r.address ? titleCase(r.address) : "–";
+            const city = r.city ? titleCase(r.city) : "–";
+            return (
+              <Tr key={r.id} onClick={() => setSelected(r)}>
+                <Td className="w-10" onClick={(e) => e.stopPropagation()}>
+                  <Checkbox aria-label={`Select ${name}`} checked={checked.has(r.id)} onChange={() => toggleChecked(r.id)} />
+                </Td>
+                <Td className="max-w-56">
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <Avatar name={name} hue={avatarHue(r.id)} size="sm" className="shrink-0" />
+                    <TextLink className="min-w-0 truncate" title={name} onClick={(e) => { e.stopPropagation(); setSelected(r); }}>
+                      {name}
+                    </TextLink>
+                    {r.credential && <span className="shrink-0 text-sm text-text-muted">{r.credential}</span>}
+                  </span>
+                  <NetworkSignal summary={r.npi ? networks[r.npi] : undefined} />
+                </Td>
+                <Td className="max-w-40 truncate" title={specialty}>{specialty}</Td>
+                <Td className="max-w-40 truncate" title={r.subspecialty ?? undefined}>{r.subspecialty ?? "–"}</Td>
+                <Td className="max-w-56 truncate" title={address}>{address}</Td>
+                <Td className="max-w-32 truncate" title={city}>{city}</Td>
+                <Td className="whitespace-nowrap tabular-nums">{(r.zip ?? "").replace(/[^0-9]/g, "").slice(0, 5) || "–"}</Td>
+                <Td className="w-12" onClick={(e) => e.stopPropagation()}>
+                  <KebabMenu label={`Actions for ${name}`}>
+                    <MenuItem icon="person-circle" label="View details" onClick={() => setSelected(r)} />
+                    <MenuItem icon="send" label="Refer a client" onClick={() => setSelected(r)} />
+                  </KebabMenu>
+                </Td>
+              </Tr>
+            );
+          })}
+          {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={8} />}
+        </Table>
       ) : (
-        <>
-          {tab === "providers" ? (
-            <Table
-              head={[
-                <Checkbox key="all" aria-label="Select all on page" checked={allOnPageChecked} onChange={toggleAllOnPage} />,
-                "Provider",
-                "Specialty",
-                "Sub-specialty",
-                "Address",
-                "City",
-                "Zip",
-                "",
-              ]}
-            >
-              {(items as DirectoryProvider[]).map((r) => {
-                const name = titleCase(r.name);
-                return (
-                  <Tr key={r.id} onClick={() => setSelected(r)}>
-                    <Td className="w-10" onClick={(e) => e.stopPropagation()}>
-                      <Checkbox aria-label={`Select ${name}`} checked={checked.has(r.id)} onChange={() => toggleChecked(r.id)} />
-                    </Td>
-                    <Td>
-                      <span className="flex items-center gap-2.5">
-                        <Avatar name={name} hue={avatarHue(r.id)} size="sm" />
-                        <TextLink onClick={(e) => { e.stopPropagation(); setSelected(r); }}>{name}</TextLink>
-                        {r.credential && <span className="text-sm text-text-muted">{r.credential}</span>}
-                      </span>
-                      <NetworkSignal summary={r.npi ? networks[r.npi] : undefined} />
-                    </Td>
-                    <Td>{r.profession ? titleCase(r.profession) : "–"}</Td>
-                    <Td>{r.subspecialty ?? "–"}</Td>
-                    <Td>{r.address ? titleCase(r.address) : "–"}</Td>
-                    <Td>{r.city ? titleCase(r.city) : "–"}</Td>
-                    <Td className="tabular-nums">{(r.zip ?? "").replace(/[^0-9]/g, "").slice(0, 5) || "–"}</Td>
-                    <Td className="w-12" onClick={(e) => e.stopPropagation()}>
-                      <KebabMenu label={`Actions for ${name}`}>
-                        <MenuItem icon="person-circle" label="View details" onClick={() => setSelected(r)} />
-                        <MenuItem icon="send" label="Refer a client" onClick={() => setSelected(r)} />
-                      </KebabMenu>
-                    </Td>
-                  </Tr>
-                );
-              })}
-            </Table>
-          ) : (
-            <Table
-              head={[
-                <Checkbox key="all" aria-label="Select all on page" checked={allOnPageChecked} onChange={toggleAllOnPage} />,
-                "Program",
-                "Agency",
-                "Type",
-                "County",
-                "",
-              ]}
-            >
-              {(items as DirectoryProgram[]).map((r) => (
-                <Tr key={r.id} onClick={() => setSelected(r)}>
-                  <Td className="w-10" onClick={(e) => e.stopPropagation()}>
-                    <Checkbox aria-label={`Select ${r.programName}`} checked={checked.has(r.id)} onChange={() => toggleChecked(r.id)} />
-                  </Td>
-                  <Td>
-                    <span className="flex items-center gap-2.5">
-                      <Avatar name={r.programName} hue={avatarHue(r.id)} size="sm" />
-                      <TextLink onClick={(e) => { e.stopPropagation(); setSelected(r); }}>{r.programName}</TextLink>
-                    </span>
-                  </Td>
-                  <Td>{r.agency ?? "–"}</Td>
-                  <Td>{r.programType ?? "–"}</Td>
-                  <Td>{r.county ?? "–"}</Td>
-                  <Td className="w-12" onClick={(e) => e.stopPropagation()}>
-                    <KebabMenu label={`Actions for ${r.programName}`}>
-                      <MenuItem icon="globe" label="View details" onClick={() => setSelected(r)} />
-                      <MenuItem icon="send" label="Refer a client" onClick={() => setSelected(r)} />
-                    </KebabMenu>
-                  </Td>
-                </Tr>
-              ))}
-            </Table>
-          )}
-          <Pagination page={page} pageCount={pageCount} onPageChange={setPage} className="mt-4" />
-        </>
+        <Table
+          className="min-h-0 flex-1"
+          stickyHeader
+          head={[
+            <Checkbox key="all" aria-label="Select all loaded" checked={allLoadedChecked} onChange={toggleAllLoaded} />,
+            <SortableHead key="name" label="Program" col="name" sort={programSort} onSort={toggleProgramSort} />,
+            <SortableHead key="agency" label="Agency" col="agency" sort={programSort} onSort={toggleProgramSort} />,
+            "Type",
+            <SortableHead key="county" label="County" col="county" sort={programSort} onSort={toggleProgramSort} />,
+            "",
+          ]}
+        >
+          {sortedPrograms.map((r) => (
+            <Tr key={r.id} onClick={() => setSelected(r)}>
+              <Td className="w-10" onClick={(e) => e.stopPropagation()}>
+                <Checkbox aria-label={`Select ${r.programName}`} checked={checked.has(r.id)} onChange={() => toggleChecked(r.id)} />
+              </Td>
+              <Td className="max-w-64">
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <Avatar name={r.programName} hue={avatarHue(r.id)} size="sm" className="shrink-0" />
+                  <TextLink className="min-w-0 truncate" title={r.programName} onClick={(e) => { e.stopPropagation(); setSelected(r); }}>
+                    {r.programName}
+                  </TextLink>
+                </span>
+              </Td>
+              <Td className="max-w-40 truncate" title={r.agency ?? undefined}>{r.agency ?? "–"}</Td>
+              <Td className="max-w-48 truncate" title={r.programType ?? undefined}>{r.programType ?? "–"}</Td>
+              <Td className="max-w-32 truncate" title={r.county ?? undefined}>{r.county ?? "–"}</Td>
+              <Td className="w-12" onClick={(e) => e.stopPropagation()}>
+                <KebabMenu label={`Actions for ${r.programName}`}>
+                  <MenuItem icon="globe" label="View details" onClick={() => setSelected(r)} />
+                  <MenuItem icon="send" label="Refer a client" onClick={() => setSelected(r)} />
+                </KebabMenu>
+              </Td>
+            </Tr>
+          ))}
+          {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={6} />}
+        </Table>
       )}
 
       <DetailPanel
@@ -401,7 +423,7 @@ export function DirectoryClient({
         clients={clients}
         onReferred={() => toast("Referral sent.", "success")}
       />
-    </>
+    </div>
   );
 }
 
