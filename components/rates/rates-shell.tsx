@@ -31,6 +31,12 @@ export function RatesShell() {
   const [tab, setTab] = useState("bands");
   const [codes, setCodes] = useState<string[]>(DEFAULT_CODES);
   const [activeNpi, setActiveNpi] = useState<string | null>(null);
+  const [pin, setPin] = useState<{ payer: string; billingCode: string } | null>(null);
+
+  const onPinBands = (payer: string, billingCode: string) => {
+    setPin({ payer, billingCode });
+    setTab("bands");
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -49,10 +55,10 @@ export function RatesShell() {
       {/* Bands + Panels own their scroll internally (sticky-header table); Spread
           is a form-then-small-result screen, so its tab body scrolls normally. */}
       <div className="min-h-0 flex-1 pt-5" hidden={tab !== "bands"}>
-        <BandsPanel codes={codes} onCodesChange={setCodes} />
+        <BandsPanel codes={codes} onCodesChange={setCodes} pin={pin} />
       </div>
       <div className="min-h-0 flex-1 pt-5" hidden={tab !== "panels"}>
-        <PanelsPanel />
+        <PanelsPanel active={tab === "panels"} onPinBands={onPinBands} onGoToRoster={() => setTab("roster")} />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto pt-5" hidden={tab !== "roster"}>
         <RosterPanel

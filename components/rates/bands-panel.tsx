@@ -35,9 +35,13 @@ type SortCol = "payer" | "code" | "license" | "clinicians" | "asOf";
 export function BandsPanel({
   codes,
   onCodesChange,
+  pin,
 }: {
   codes: string[];
   onCodesChange: (codes: string[]) => void;
+  /** Set by the Affiliation Economics "renegotiate" CTA — pins the insurer
+   *  filter and makes sure the code is selected. */
+  pin?: { payer: string; billingCode: string } | null;
 }) {
   const [bands, setBands] = useState<RateBand[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +50,13 @@ export function BandsPanel({
   const [insurer, setInsurer] = useState<string | undefined>();
   const [license, setLicense] = useState<string | undefined>();
   const [sort, toggleSort] = useSort<SortCol>({ col: "payer", dir: "asc" });
+
+  useEffect(() => {
+    if (!pin) return;
+    setInsurer(pin.payer);
+    if (!codes.includes(pin.billingCode)) onCodesChange([...codes, pin.billingCode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pin]);
 
   useEffect(() => {
     if (codes.length === 0) {

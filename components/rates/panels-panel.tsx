@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
@@ -9,11 +9,12 @@ import { SearchInput } from "@/components/ui/search-input";
 import { LoadMoreRow, SortableHead, Table, Td, Tr, useLazyBatch, useSort } from "@/components/ui/table";
 import { Tag } from "@/components/ui/tag";
 import { ChipMenu } from "@/components/rates/chip-menu";
+import { clinicianName } from "@/components/rates/clinician-name";
 import { cptLabel } from "@/components/rates/cpt";
+import { EconomicsCard } from "@/components/rates/economics-card";
 import { InsurerMark } from "@/components/rates/insurer-mark";
 import { TableSkeleton } from "@/components/rates/table-skeleton";
-import { titleCase } from "@/lib/format";
-import type { NpiStanding } from "@/lib/repos/rate-signals";
+import type { Attestation, EconCard, NpiStanding } from "@/lib/repos/rate-signals";
 
 // Screen: Panels — look up an NPI, get every payer book that lists it as a
 // flat single-line-per-row table. Column model (settled with Brendan
@@ -62,23 +63,20 @@ const HEAD_BASE = [
 ];
 type SortCol = "clinician" | "payer" | "code" | "asOf" | "onTin";
 
-// NPPES/MMIS individual names arrive "LAST Given…" — flip to reading order.
-// When the given-name field holds multiple tokens, the goes-by name is the
-// FINAL token, not the first (verified against a live record: "HILARIO HENRY
-// JASON" is Jason Hilario — Henry is the middle name). Organizations
-// (digits, corporate suffixes) pass through untouched.
-const ORG_RE = /\d|\b(inc|llc|pllc|pc|corp|co|group|center|services|associates|company|hospital|clinic|health)\b/i;
-
-function clinicianName(raw: string): string {
-  const cased = titleCase(raw.trim());
-  if (ORG_RE.test(raw)) return cased;
-  const parts = cased.split(/\s+/);
-  if (parts.length < 2 || parts.length > 4) return cased;
-  const [last, ...given] = parts;
-  return `${given[given.length - 1]} ${last}`;
-}
-
-export function PanelsPanel() {
+export function PanelsPanel({
+  active,
+  onPinBands,
+  onGoToRoster,
+}: {
+  /** True while this tab is the visible one — re-fetches economics/attestations
+   *  on becoming active, since an attestation written on Roster check (a
+   *  sibling tab, same NPI) can flip a card's framing without this panel
+   *  knowing. Tabs stay mounted (hidden, not unmounted), so a plain
+   *  mount-time effect would never see that. */
+  active: boolean;
+  onPinBands: (payer: string, code: string) => void;
+  onGoToRoster: () => void;
+}) {
   const [q, setQ] = useState("");
   const [standings, setStandings] = useState<NpiStanding[]>([]);
   const [loading, setLoading] = useState(false);
@@ -86,8 +84,47 @@ export function PanelsPanel() {
   const [insurer, setInsurer] = useState<string | undefined>();
   const [code, setCode] = useState<string | undefined>();
   const [sort, toggleSort] = useSort<SortCol>({ col: "payer", dir: "asc" });
+  const [econByNpi, setEconByNpi] = useState<Map<string, EconCard[]>>(new Map());
+  const [attByNpi, setAttByNpi] = useState<Map<string, Attestation[]>>(new Map());
 
   const npiCandidate = /^\d{10}$/.test(q.trim()) ? q.trim() : null;
+
+  // Affiliation Economics — one lookup per looked-up NPI, cards render only
+  // when a payer actually lists that NPI under 2+ TINs with differing
+  // schedules (the repo does the filtering; empty array is the common case).
+  // Refetches on becoming active (not just on new NPIs) so a "left"
+  // attestation saved on the Roster check tab is reflected without a reload.
+  useEffect(() => {
+    if (!active || standings.length === 0) return;
+    let stale = false;
+    Promise.all(
+      standings.map(async ({ npi }) => {
+        const [econRes, attRes] = await Promise.all([
+          fetch(`/api/rates/economics?npi=${npi}`),
+          fetch(`/api/rates/attestations?npi=${npi}`),
+        ]);
+        const econData = await econRes.json().catch(() => ({ cards: [] }));
+        const attData = await attRes.json().catch(() => ({ attestations: [] }));
+        return { npi, cards: (econData.cards ?? []) as EconCard[], attestations: (attData.attestations ?? []) as Attestation[] };
+      }),
+    ).then((results) => {
+      if (stale) return;
+      setEconByNpi((prev) => {
+        const next = new Map(prev);
+        for (const r of results) next.set(r.npi, r.cards);
+        return next;
+      });
+      setAttByNpi((prev) => {
+        const next = new Map(prev);
+        for (const r of results) next.set(r.npi, r.attestations);
+        return next;
+      });
+    });
+    return () => {
+      stale = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [standings, active]);
 
   const lookup = async () => {
     if (!npiCandidate) return;
@@ -247,6 +284,19 @@ export function PanelsPanel() {
           rate-file pulls, and clinicians with out-of-state practice addresses are missing from NY files.
         </Banner>
       ))}
+
+      {standings.flatMap((s) =>
+        (econByNpi.get(s.npi) ?? []).map((econCard) => (
+          <div key={`${s.npi}|${econCard.payer}`} className="shrink-0">
+            <EconomicsCard
+              card={econCard}
+              attestations={attByNpi.get(s.npi) ?? []}
+              onPinBands={onPinBands}
+              onGoToRoster={onGoToRoster}
+            />
+          </div>
+        )),
+      )}
 
       {loading && rows.length === 0 ? (
         <TableSkeleton head={head} />
