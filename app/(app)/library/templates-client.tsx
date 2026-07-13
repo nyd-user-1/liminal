@@ -654,7 +654,7 @@ export function TemplatesIndex() {
         </Modal>
       )}
 
-      {openNoteId && <NoteSheet noteId={openNoteId} onClose={() => setOpenNoteId(null)} />}
+      {openNoteId && <NoteSheet noteId={openNoteId} onClose={() => setOpenNoteId(null)} defaultBig />}
     </div>
   );
 }

@@ -86,11 +86,14 @@ export function NoteSheet({
   noteId,
   onClose,
   onChanged,
+  defaultBig = false,
 }: {
   noteId: string;
   onClose: () => void;
   /** Called after save / sign / delete so list surfaces can refresh. */
   onChanged?: () => void;
+  /** Open at the big (~1200px) size — the create-note flow starts expanded. */
+  defaultBig?: boolean;
 }) {
   const toast = useToast();
   const editorRef = useRef<NotesEditorHandle>(null);
@@ -104,7 +107,7 @@ export function NoteSheet({
   const [signing, setSigning] = useState(false);
   const [minimized, setMinimized] = useState(false);
   // Compact (Gmail default-compose size) unless expanded to the big ~1200px view.
-  const [big, setBig] = useState(false);
+  const [big, setBig] = useState(defaultBig);
   const [tab, setTab] = useState("note");
   const [editorFocused, setEditorFocused] = useState(false);
   const [askOpen, setAskOpen] = useState(false);
@@ -263,13 +266,16 @@ export function NoteSheet({
       </Badge>
     ));
 
-  // Gmail-style floating window — no scrim; the rest of the page stays visible
-  // and interactive around it. Compact by default, ~1200px max when expanded.
+  // Floating document window. Compact = Gmail-compose size, no scrim — the
+  // page stays interactive around it. Big (~1200px) sits on the same scrim as
+  // Modal; minimizing or restoring to compact drops the scrim.
   const sizeClasses = big
     ? "inset-0 m-auto h-[85vh] max-h-[860px] w-[92vw] max-w-[1200px] rounded-2xl"
     : "bottom-0 right-4 sm:right-6 h-[560px] max-h-[80vh] w-full max-w-[520px] rounded-t-2xl";
 
   return createPortal(
+    <>
+    {big && <div className="fixed inset-0 z-40 bg-scrim" aria-hidden />}
     <div
       className={`sheet-rise fixed z-50 flex flex-col overflow-hidden border border-border bg-surface shadow-menu transition-[width,height,border-radius] duration-200 ${sizeClasses}`}
     >
@@ -532,7 +538,8 @@ export function NoteSheet({
           else editorRef.current?.insertMarkdown(md);
         }}
       />
-    </div>,
+    </div>
+    </>,
     document.body,
   );
 }
