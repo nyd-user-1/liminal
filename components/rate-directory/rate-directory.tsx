@@ -50,7 +50,7 @@ export function RateDirectory({ providers }: { providers: RatedProvider[] }) {
   const go = (p: RatedProvider) => router.push(p.slug ? `/directory/${p.slug}` : `/rates?npi=${p.npi}`);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <>
       <Toolbar className="mb-4 shrink-0 md:mb-6">
         <SearchInput value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search providers by name or NPI…" className="max-w-md flex-1" />
         <span className="ml-auto self-center text-sm text-text-muted tabular-nums">
@@ -95,7 +95,7 @@ export function RateDirectory({ providers }: { providers: RatedProvider[] }) {
       <p className="mt-3 shrink-0 text-[12px] text-text-muted">
         Best per-session negotiated rate the provider commands across the NY payer books we index. Per-session, not revenue &mdash; rates never sum across payers or codes. As published; presence isn&rsquo;t proof of an open panel.
       </p>
-    </div>
+    </>
   );
 }
 

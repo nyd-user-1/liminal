@@ -49,7 +49,7 @@ export function PlansIndex({ employers }: { employers: Employer[] }) {
   });
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <>
       <Toolbar className="mb-4 shrink-0 md:mb-6">
         <SearchInput
           value={q}
@@ -121,7 +121,7 @@ export function PlansIndex({ employers }: { employers: Employer[] }) {
           {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={5} />}
         </Table>
       )}
-    </div>
+    </>
   );
 }
 
