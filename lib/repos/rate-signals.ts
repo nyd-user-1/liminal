@@ -39,6 +39,12 @@ export interface RateSignal {
   display: string;
   /** Same wrapped figure without the as-of suffix — pair with `asOf` in a column. */
   rateDisplay: string;
+  /** Formatted figure alone ("$146.00") — only for layouts whose column
+   *  headers carry the in-network qualifier and whose Schedule column carries
+   *  `basis`. Non-dollar types keep their qualifier attached. */
+  figure: string;
+  /** Schedule basis label: "Fee schedule" | "Negotiated" | …. */
+  basis: string;
   /** ISO date the claim is good as of (effective date if published, else our fetch date). */
   asOf: string;
   /** ISO date the payer published the MRF. */
@@ -114,6 +120,18 @@ function display(rate: number | string, negotiatedType: string, asOf: string): s
   return `${figureDisplay(rate, negotiatedType)} · as-of ${asOf}`;
 }
 
+// Structured split of figureDisplay for table layouts where the in-network
+// qualifier lives in the column header and the schedule basis in its own
+// column. Dollar figures come out formatted ("$146.00"); non-dollar types
+// keep their qualifier attached (never a bare number).
+function figureParts(rate: number | string, negotiatedType: string): { figure: string; basis: string } {
+  const n = Number(rate);
+  const type = negotiatedType.toLowerCase();
+  const basis = type.charAt(0).toUpperCase() + type.slice(1);
+  if (!DOLLAR_TYPE_RE.test(type)) return { figure: `${n} (${type})`, basis };
+  return { figure: money(n), basis };
+}
+
 type SignalRow = {
   payer: string;
   plan_or_network: string;
@@ -146,6 +164,7 @@ export async function getRateSignals(npi: string): Promise<RateSignal[]> {
         placeOfService: r.placeOfService,
         display: display(r.negotiatedRate, r.negotiatedType, r.asOf),
         rateDisplay: figureDisplay(r.negotiatedRate, r.negotiatedType),
+        ...figureParts(r.negotiatedRate, r.negotiatedType),
         asOf: r.asOf,
         fileDate: r.fileDate,
         directoryListed: false, // fixtures mirror today's reality: no same-payer directory rows
@@ -182,6 +201,7 @@ export async function getRateSignals(npi: string): Promise<RateSignal[]> {
       placeOfService: r.place_of_service,
       display: display(r.negotiated_rate, r.negotiated_type, asOf),
       rateDisplay: figureDisplay(r.negotiated_rate, r.negotiated_type),
+      ...figureParts(r.negotiated_rate, r.negotiated_type),
       asOf,
       fileDate: isoDateOnly(r.file_date),
       directoryListed: !!slug && listedSlugs.has(slug),
@@ -206,13 +226,18 @@ export const LICENSE_TIERS = ["Masters-level", "Psychologist", "Prescriber (MD/N
 
 export interface RateBand {
   payer: string;
+  /** The network(s) this schedule rides: one name, "A · B", or "All networks"
+   *  when every network the payer publishes shows the same figures. */
+  network: string;
   billingCode: string;
   /** One of LICENSE_TIERS — the band is computed within the tier. */
   license: string;
   /** Distinct clinicians behind the band — evidence weight, not a rate figure. */
   clinicians: number;
   cliniciansDisplay: string;
-  /** Percentile figures only leave qualified: "$98.75 in-network". */
+  /** Formatted percentile figures ("$98.75") — the in-network qualifier is
+   *  carried by the consuming surface (table column headers, the rate card's
+   *  preamble), not repeated per figure. */
   p25: string;
   median: string;
   p75: string;
@@ -228,6 +253,8 @@ type BandNumbers = {
   payer: string;
   billing_code: string;
   license: string | null;
+  /** plan_or_network — only populated on the byLicense (negotiation-card) path. */
+  network: string | null;
   npis: number;
   p25: number;
   median: number;
@@ -253,6 +280,7 @@ async function bandNumbers(
         payer: b.payer,
         billing_code: b.billingCode,
         license: "license" in b ? (b.license as string) : null,
+        network: null,
         npis: b.clinicians,
         p25: b.p25,
         median: b.median,
@@ -267,7 +295,7 @@ async function bandNumbers(
           WHERE npi IS NOT NULL AND profession IS NOT NULL
           ORDER BY npi, (source = 'medicaid') DESC
         ), dd AS (
-          SELECT r.npi, r.payer, r.billing_code, r.negotiated_rate,
+          SELECT r.npi, r.payer, r.plan_or_network AS network, r.billing_code, r.negotiated_rate,
                  CASE
                    WHEN p.profession ILIKE '%psychiatr%' THEN 'Prescriber (MD/NP)'
                    WHEN p.profession ILIKE '%psycholog%' THEN 'Psychologist'
@@ -281,18 +309,18 @@ async function bandNumbers(
           WHERE r.billing_code = ANY(${codes})
             AND r.payer ~* ${NY_ENTITY_RE.source}
             AND r.negotiated_type NOT ILIKE '%percent%'
-          GROUP BY 1, 2, 3, 4, 5
+          GROUP BY 1, 2, 3, 4, 5, 6
         )
-        SELECT payer, billing_code, license, count(DISTINCT npi)::int AS npis,
+        SELECT payer, billing_code, license, network, count(DISTINCT npi)::int AS npis,
                percentile_cont(0.25) WITHIN GROUP (ORDER BY negotiated_rate)::numeric(10,2)::float8 AS p25,
                percentile_cont(0.5)  WITHIN GROUP (ORDER BY negotiated_rate)::numeric(10,2)::float8 AS median,
                percentile_cont(0.75) WITHIN GROUP (ORDER BY negotiated_rate)::numeric(10,2)::float8 AS p75,
                max(as_of) AS as_of
         FROM dd
         WHERE license <> 'Other'
-        GROUP BY payer, billing_code, license
+        GROUP BY payer, billing_code, license, network
         HAVING count(DISTINCT npi) >= ${minClinicians}
-        ORDER BY payer, billing_code, license
+        ORDER BY payer, billing_code, license, network
       `
     : await sql`
         WITH dd AS (
@@ -303,7 +331,7 @@ async function bandNumbers(
             AND negotiated_type NOT ILIKE '%percent%'
           GROUP BY 1, 2, 3, 4
         )
-        SELECT payer, billing_code, NULL AS license, count(DISTINCT npi)::int AS npis,
+        SELECT payer, billing_code, NULL AS license, NULL AS network, count(DISTINCT npi)::int AS npis,
                percentile_cont(0.25) WITHIN GROUP (ORDER BY negotiated_rate)::numeric(10,2)::float8 AS p25,
                percentile_cont(0.5)  WITHIN GROUP (ORDER BY negotiated_rate)::numeric(10,2)::float8 AS median,
                percentile_cont(0.75) WITHIN GROUP (ORDER BY negotiated_rate)::numeric(10,2)::float8 AS p75,
@@ -327,17 +355,53 @@ export async function getRateBands(
   opts: { minClinicians?: number } = {},
 ): Promise<RateBand[]> {
   const rows = await bandNumbers(codes, opts.minClinicians ?? DEFAULT_MIN_CLINICIANS, true);
-  return rows.map((r) => {
+
+  // Bands are computed per network (verified 2026-07-12: MetroPlus pays
+  // $377.62 FFS vs $293.70 QHP for the same 90837; Oxford OHBS $137.78 vs
+  // Freedom $286.13 — pooling blurred real schedules and corrupted the
+  // flat/negotiated inference, which is only sound within one network).
+  // Networks whose figures are identical merge back into one row, so payers
+  // publishing one schedule across products (Highmark WNY's five networks,
+  // Fidelis) stay a single line. A merged row's clinician count is the
+  // largest single-network cohort — product rosters overlap, so summing
+  // would double-count.
+  const scopeNetworks = new Map<string, Set<string>>();
+  for (const r of rows) {
+    if (!r.network) continue;
+    const scope = `${r.payer}|${r.billing_code}|${r.license}`;
+    let set = scopeNetworks.get(scope);
+    if (!set) scopeNetworks.set(scope, (set = new Set()));
+    set.add(r.network);
+  }
+  const merged = new Map<string, { row: BandNumbers; networks: string[] }>();
+  for (const r of rows) {
+    const scope = `${r.payer}|${r.billing_code}|${r.license}`;
+    const key = `${scope}|${r.p25}|${r.median}|${r.p75}`;
+    const hit = merged.get(key);
+    if (!hit) {
+      merged.set(key, { row: { ...r }, networks: r.network ? [r.network] : [] });
+    } else {
+      hit.row.npis = Math.max(hit.row.npis, r.npis);
+      if (r.as_of > hit.row.as_of) hit.row.as_of = r.as_of;
+      if (r.network) hit.networks.push(r.network);
+    }
+  }
+
+  return [...merged.values()].map(({ row: r, networks }) => {
+    const scopeSize = scopeNetworks.get(`${r.payer}|${r.billing_code}|${r.license}`)?.size ?? 0;
+    const network =
+      networks.length === 0 || networks.length === scopeSize ? "All networks" : networks.sort().join(" · ");
     const flat = r.p25 === r.p75;
     return {
       payer: r.payer,
+      network,
       billingCode: r.billing_code,
       license: r.license ?? "All",
       clinicians: r.npis,
       cliniciansDisplay: `${count(r.npis)} clinicians`,
-      p25: `${money(r.p25)} in-network`,
-      median: `${money(r.median)} in-network`,
-      p75: `${money(r.p75)} in-network`,
+      p25: money(r.p25),
+      median: money(r.median),
+      p75: money(r.p75),
       negotiability: flat ? "flat" : "negotiated",
       negotiabilityLabel: flat ? "Flat schedule" : "Negotiated per group",
       asOf: r.as_of,
@@ -425,6 +489,10 @@ export interface StandingRate {
   billingCode: string;
   /** Wrapped figure, no as-of suffix: "$146.00 in-network rate (fee schedule)". */
   display: string;
+  /** Formatted figure alone ("$146.00") — pair with a header-qualified column + `basis`. */
+  figure: string;
+  /** Schedule basis label: "Fee schedule" | "Negotiated" | …. */
+  basis: string;
   /** ISO date — render alongside the figure (its own column). */
   asOf: string;
 }
@@ -499,7 +567,8 @@ export async function getStanding(npi: string): Promise<NpiStanding> {
     }
     if (!g.planOrNetworks.includes(s.planOrNetwork)) g.planOrNetworks.push(s.planOrNetwork);
     const dup = g.rates.find((r) => r.billingCode === s.billingCode && r.display === s.rateDisplay);
-    if (!dup) g.rates.push({ billingCode: s.billingCode, display: s.rateDisplay, asOf: s.asOf });
+    if (!dup)
+      g.rates.push({ billingCode: s.billingCode, display: s.rateDisplay, figure: s.figure, basis: s.basis, asOf: s.asOf });
     else if (s.asOf > dup.asOf) dup.asOf = s.asOf;
     if (s.asOf > g.asOf) g.asOf = s.asOf;
   }

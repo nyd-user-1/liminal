@@ -6,7 +6,7 @@ import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SearchInput } from "@/components/ui/search-input";
-import { Table, Td, Tr } from "@/components/ui/table";
+import { LoadMoreRow, SortableHead, Table, Td, Tr, useLazyBatch, useSort } from "@/components/ui/table";
 import { Tag } from "@/components/ui/tag";
 import { ChipMenu } from "@/components/rates/chip-menu";
 import { cptLabel } from "@/components/rates/cpt";
@@ -35,6 +35,7 @@ type Row = {
   network: string;
   billingCode: string;
   rate: string;
+  basis: string;
   asOf: string;
   tin: string;
   onTin: number | null;
@@ -48,10 +49,24 @@ const nowrap = (label: string) => (
     {label}
   </span>
 );
-const HEAD_BASE = ["Insurer", "Network", "Code", "Rate", nowrap("As-of"), "TIN", nowrap("On TIN"), "Contract"];
+const HEAD_BASE = [
+  "Insurer",
+  "Network",
+  "Code",
+  nowrap("Rate In-Ntwk"),
+  "Schedule",
+  nowrap("As-of"),
+  "TIN",
+  nowrap("On TIN"),
+  "Contract",
+];
+type SortCol = "clinician" | "payer" | "code" | "asOf" | "onTin";
 
-// NPPES/MMIS individual names arrive "LAST First Middle" — flip to reading
-// order. Organizations (digits, corporate suffixes) pass through untouched.
+// NPPES/MMIS individual names arrive "LAST Given…" — flip to reading order.
+// When the given-name field holds multiple tokens, the goes-by name is the
+// FINAL token, not the first (verified against a live record: "HILARIO HENRY
+// JASON" is Jason Hilario — Henry is the middle name). Organizations
+// (digits, corporate suffixes) pass through untouched.
 const ORG_RE = /\d|\b(inc|llc|pllc|pc|corp|co|group|center|services|associates|company|hospital|clinic|health)\b/i;
 
 function clinicianName(raw: string): string {
@@ -60,7 +75,7 @@ function clinicianName(raw: string): string {
   const parts = cased.split(/\s+/);
   if (parts.length < 2 || parts.length > 4) return cased;
   const [last, ...given] = parts;
-  return `${given.join(" ")} ${last}`;
+  return `${given[given.length - 1]} ${last}`;
 }
 
 export function PanelsPanel() {
@@ -70,6 +85,7 @@ export function PanelsPanel() {
   const [error, setError] = useState<string | null>(null);
   const [insurer, setInsurer] = useState<string | undefined>();
   const [code, setCode] = useState<string | undefined>();
+  const [sort, toggleSort] = useSort<SortCol>({ col: "payer", dir: "asc" });
 
   const npiCandidate = /^\d{10}$/.test(q.trim()) ? q.trim() : null;
 
@@ -105,7 +121,8 @@ export function PanelsPanel() {
             payer: g.payer,
             network: g.planOrNetworks.join(" · "),
             billingCode: r.billingCode,
-            rate: r.display,
+            rate: r.figure,
+            basis: r.basis,
             asOf: r.asOf,
             tin: g.tin,
             onTin: ownBook?.clinicians ?? null,
@@ -141,18 +158,50 @@ export function PanelsPanel() {
 
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return rows.filter(
-      (r) =>
-        (!needle ||
-          `${r.clinician} ${r.payer} ${r.network} ${r.tin} ${r.billingCode}`.toLowerCase().includes(needle)) &&
-        (!insurer || r.payer === insurer) &&
-        (!code || r.billingCode === code),
-    );
-  }, [rows, q, insurer, code]);
+    const dir = sort.dir === "asc" ? 1 : -1;
+    return rows
+      .filter(
+        (r) =>
+          (!needle ||
+            `${r.clinician} ${r.payer} ${r.network} ${r.tin} ${r.billingCode}`.toLowerCase().includes(needle)) &&
+          (!insurer || r.payer === insurer) &&
+          (!code || r.billingCode === code),
+      )
+      .sort((a, b) => {
+        const primary =
+          sort.col === "clinician"
+            ? a.clinician.localeCompare(b.clinician)
+            : sort.col === "code"
+              ? a.billingCode.localeCompare(b.billingCode)
+              : sort.col === "asOf"
+                ? a.asOf.localeCompare(b.asOf)
+                : sort.col === "onTin"
+                  ? (a.onTin ?? -1) - (b.onTin ?? -1)
+                  : a.payer.localeCompare(b.payer);
+        return primary * dir || a.payer.localeCompare(b.payer) || a.billingCode.localeCompare(b.billingCode);
+      });
+  }, [rows, q, insurer, code, sort]);
+
+  const { visible, hasMore, sentinelRef } = useLazyBatch(shown, {
+    resetKey: `${standings.map((s) => s.npi).join(",")}|${q}|${insurer}|${code}`,
+  });
+
+  const headCells: React.ReactNode[] = [
+    ...(multi ? [<SortableHead key="clinician" label="Clinician" col="clinician" sort={sort} onSort={toggleSort} />] : []),
+    <SortableHead key="payer" label="Insurer" col="payer" sort={sort} onSort={toggleSort} />,
+    "Network",
+    <SortableHead key="code" label="Code" col="code" sort={sort} onSort={toggleSort} />,
+    nowrap("Rate In-Ntwk"),
+    "Schedule",
+    <SortableHead key="asOf" label="As-of" col="asOf" sort={sort} onSort={toggleSort} />,
+    "TIN",
+    <SortableHead key="onTin" label="On TIN" col="onTin" sort={sort} onSort={toggleSort} />,
+    "Contract",
+  ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="mb-4 flex shrink-0 flex-wrap items-center gap-3 md:mb-6">
         <SearchInput
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -189,10 +238,10 @@ export function PanelsPanel() {
           </Tag>
         ))}
       </div>
-      {error && <Banner variant="danger">{error}</Banner>}
+      {error && <Banner className="mb-4 shrink-0" variant="danger">{error}</Banner>}
 
       {noRowNpis.map((s) => (
-        <Banner key={s.npi} variant="info">
+        <Banner key={s.npi} className="mb-4 shrink-0" variant="info">
           {s.providerName ? clinicianName(s.providerName) : `NPI ${s.npi}`}: no published rate rows — which
           is <span className="font-semibold">not</span> the same as not being in-network. Some payers block
           rate-file pulls, and clinicians with out-of-state practice addresses are missing from NY files.
@@ -211,16 +260,16 @@ export function PanelsPanel() {
           />
         )
       ) : (
-        <Table head={head}>
+        <Table className="min-h-0 flex-1" stickyHeader head={headCells}>
           {shown.length === 0 && (
             <Tr>
-              <Td colSpan={head.length} className="text-center text-text-muted">
+              <Td colSpan={headCells.length} className="text-center text-text-muted">
                 No rows match — clear the search or filters, or press Enter on a 10-digit NPI to add a
                 clinician.
               </Td>
             </Tr>
           )}
-          {shown.map((r, i) => (
+          {visible.map((r, i) => (
             <Tr key={`${r.npi}|${r.payer}|${r.tin}|${r.billingCode}|${i}`}>
               {multi && <Td className="whitespace-nowrap">{r.clinician}</Td>}
               <Td className="whitespace-nowrap">
@@ -240,6 +289,11 @@ export function PanelsPanel() {
                 {r.billingCode}
               </Td>
               <Td className="whitespace-nowrap font-medium text-text">{r.rate}</Td>
+              <Td className="whitespace-nowrap">
+                <Badge variant={r.basis === "Negotiated" ? "info" : "neutral"} className="!font-normal">
+                  {r.basis}
+                </Badge>
+              </Td>
               <Td className="whitespace-nowrap text-text-muted">{r.asOf}</Td>
               <Td className="whitespace-nowrap text-text-muted">{r.tin}</Td>
               <Td className="whitespace-nowrap">{r.onTin === null ? "—" : r.onTin.toLocaleString("en-US")}</Td>
@@ -247,23 +301,24 @@ export function PanelsPanel() {
                 <span className="flex items-center gap-1.5">
                   {r.platform ? (
                     <span title="A platform-scale group holds this contract on this TIN">
-                      <Badge variant="warning">Platform</Badge>
+                      <Badge variant="warning" className="!font-normal">Platform</Badge>
                     </span>
                   ) : r.onTin === 1 ? (
                     <span title="One clinician on this TIN — their own contract">
-                      <Badge variant="success">Solo</Badge>
+                      <Badge variant="success" className="!font-normal">Solo</Badge>
                     </span>
                   ) : (
                     <span title="A practice group holds this contract on this TIN">
-                      <Badge variant="info">Group</Badge>
+                      <Badge variant="info" className="!font-normal">Group</Badge>
                     </span>
                   )}
-                  {!r.nyBook && <Badge variant="warning">Out-of-state</Badge>}
-                  {r.directoryListed && <Badge variant="success">In directory</Badge>}
+                  {!r.nyBook && <Badge variant="warning" className="!font-normal">Out-of-state</Badge>}
+                  {r.directoryListed && <Badge variant="success" className="!font-normal">In directory</Badge>}
                 </span>
               </Td>
             </Tr>
           ))}
+          {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={headCells.length} />}
         </Table>
       )}
     </div>

@@ -18,6 +18,16 @@ const MARKS: Array<[RegExp, string]> = [
   [/humana/i, `${LOGO_BASE}/humana.avif`],
   [/healthfirst/i, `${LOGO_BASE}/healthfirst.svg`],
   [/cdphp/i, `${LOGO_BASE}/cdphp.png`],
+  [/emblemhealth/i, `${LOGO_BASE}/emblemhealth.png`],
+  [/fidelis/i, `${LOGO_BASE}/fidelis.png`],
+  [/metroplus/i, `${LOGO_BASE}/metroplus.png`],
+  // Highmark's Western NY entity gets its own lockup (the mark says "Western
+  // New York" — wrong for its Northeastern NY sibling); every other Blue
+  // Cross/Blue Shield state affiliate (Highmark NENY, Excellus, CareFirst,
+  // Regence, Florida Blue, BCBS-of-<state> ...) falls through to the generic
+  // shield mark. Must stay ordered after Anthem/Empire above.
+  [/highmark.*western new york/i, `${LOGO_BASE}/highmark-wny.png`],
+  [/blue cross|blue shield|bluecross|blueshield/i, `${LOGO_BASE}/bcbs.avif`],
 ];
 
 function markFor(payer: string): string | null {
@@ -41,9 +51,11 @@ export function InsurerCell({ payer, subline }: { payer: string; subline?: strin
     <span className="flex min-w-0 items-center gap-2.5">
       <InsurerMark payer={payer} />
       <span className="min-w-0">
-        <span className="block font-medium text-text">{payer}</span>
+        <span className="block max-w-64 truncate font-medium text-text" title={payer}>
+          {payer}
+        </span>
         {subline && (
-          <span className="block max-w-[26rem] truncate text-[13px] text-text-muted" title={subline}>
+          <span className="block max-w-64 truncate text-[13px] text-text-muted" title={subline}>
             {subline}
           </span>
         )}

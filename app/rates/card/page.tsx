@@ -85,8 +85,16 @@ export default async function RateCardPrintPage({
                 </thead>
                 <tbody>
                   {rows.map((b) => (
-                    <tr key={`${b.payer}|${b.license}`} className="border-b border-border text-[13.5px] text-text-body">
-                      <td className="py-1.5 pr-3 font-medium text-text">{b.payer}</td>
+                    <tr
+                      key={`${b.payer}|${b.network}|${b.license}`}
+                      className="border-b border-border text-[13.5px] text-text-body"
+                    >
+                      <td className="py-1.5 pr-3 font-medium text-text">
+                        {b.payer}
+                        {b.network !== "All networks" && (
+                          <span className="font-normal text-text-muted"> · {b.network}</span>
+                        )}
+                      </td>
                       <td className="whitespace-nowrap py-1.5 pr-3">{b.license}</td>
                       <td className="whitespace-nowrap py-1.5 pr-3 text-right">{b.p25}</td>
                       <td className="whitespace-nowrap py-1.5 pr-3 text-right font-semibold text-text">{b.median}</td>

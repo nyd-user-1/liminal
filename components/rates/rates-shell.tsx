@@ -26,7 +26,7 @@ export function RatesShell() {
   const [codes, setCodes] = useState<string[]>(DEFAULT_CODES);
 
   return (
-    <div>
+    <div className="flex h-full min-h-0 flex-col">
       <TopBarActions>
         <Button
           size="sm"
@@ -37,15 +37,17 @@ export function RatesShell() {
         </Button>
       </TopBarActions>
 
-      <Tabs items={TABS} active={tab} onChange={setTab} slideActive />
+      <Tabs className="shrink-0" items={TABS} active={tab} onChange={setTab} slideActive />
 
-      <div className="pt-5" hidden={tab !== "bands"}>
+      {/* Bands + Panels own their scroll internally (sticky-header table); Spread
+          is a form-then-small-result screen, so its tab body scrolls normally. */}
+      <div className="min-h-0 flex-1 pt-5" hidden={tab !== "bands"}>
         <BandsPanel codes={codes} onCodesChange={setCodes} />
       </div>
-      <div className="pt-5" hidden={tab !== "panels"}>
+      <div className="min-h-0 flex-1 pt-5" hidden={tab !== "panels"}>
         <PanelsPanel />
       </div>
-      <div className="pt-5" hidden={tab !== "spread"}>
+      <div className="min-h-0 flex-1 overflow-y-auto pt-5" hidden={tab !== "spread"}>
         <SpreadPanel />
       </div>
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Field } from "@/components/ui/field";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { StatCard } from "@/components/ui/stat-card";
-import { Table, Td, Tr } from "@/components/ui/table";
+import { LoadMoreRow, SortableHead, Table, Td, Tr, useLazyBatch, useSort } from "@/components/ui/table";
 import { RATE_CPTS } from "@/components/rates/cpt";
 import { InsurerCell } from "@/components/rates/insurer-mark";
 import { TableSkeleton } from "@/components/rates/table-skeleton";
@@ -29,6 +29,7 @@ const CADENCE = [
 ];
 
 const RESULT_HEAD = ["Insurer", "Per-session spread vs the median", "Annualized"];
+type SortCol = "payer" | "spread";
 
 export function SpreadPanel() {
   const [rows, setRows] = useState<Record<string, RowInput>>(
@@ -38,6 +39,7 @@ export function SpreadPanel() {
   const [result, setResult] = useState<SpreadResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sort, toggleSort] = useSort<SortCol>({ col: "payer", dir: "asc" });
 
   const set = (code: string, patch: Partial<RowInput>) =>
     setRows((prev) => ({ ...prev, [code]: { ...prev[code], ...patch } }));
@@ -50,6 +52,16 @@ export function SpreadPanel() {
       cadence,
     }))
     .filter((e) => e.remit > 0 && e.sessions > 0);
+
+  const sortedPayers = useMemo(() => {
+    if (!result) return [];
+    const dir = sort.dir === "asc" ? 1 : -1;
+    return [...result.payers].sort((a, b) => {
+      const primary = sort.col === "spread" ? (a.positive === b.positive ? 0 : a.positive ? 1 : -1) : a.payer.localeCompare(b.payer);
+      return primary * dir || a.payer.localeCompare(b.payer);
+    });
+  }, [result, sort]);
+  const { visible, hasMore, sentinelRef } = useLazyBatch(sortedPayers);
 
   const check = async () => {
     setLoading(true);
@@ -143,8 +155,14 @@ export function SpreadPanel() {
             )}
             {result.headline && <p className="text-[15px] text-text-body">{result.headline.detail}</p>}
 
-            <Table head={RESULT_HEAD}>
-              {result.payers.map((p) => (
+            <Table
+              head={[
+                <SortableHead key="payer" label="Insurer" col="payer" sort={sort} onSort={toggleSort} />,
+                "Per-session spread vs the median",
+                <SortableHead key="spread" label="Annualized" col="spread" sort={sort} onSort={toggleSort} />,
+              ]}
+            >
+              {visible.map((p) => (
                 <Tr key={p.payer}>
                   <Td className="align-top">
                     <InsurerCell payer={p.payer} />
@@ -165,6 +183,7 @@ export function SpreadPanel() {
                   </Td>
                 </Tr>
               ))}
+              {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={3} />}
             </Table>
 
             <p className="max-w-4xl text-[13px] leading-relaxed text-text-muted">{result.assumptions}</p>

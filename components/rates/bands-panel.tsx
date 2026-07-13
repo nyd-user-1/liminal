@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Banner } from "@/components/ui/banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SearchInput } from "@/components/ui/search-input";
-import { Table, Td, Tr } from "@/components/ui/table";
+import { LoadMoreRow, SortableHead, Table, Td, Tr, useLazyBatch, useSort } from "@/components/ui/table";
 import { ChipMenu } from "@/components/rates/chip-menu";
 import { RATE_CPTS, cptLabel } from "@/components/rates/cpt";
 import { InsurerCell, InsurerMark } from "@/components/rates/insurer-mark";
@@ -29,7 +29,8 @@ const LICENSE_RANK: Record<string, number> = {
   "Prescriber (MD/NP)": 2,
 };
 
-const HEAD = ["Insurer", "Code", "License", "P25", "Median", "P75", "Schedule", "Clinicians", "As-of"];
+const HEAD = ["Insurer", "Code", "Clinicians", "License", "25% In-Ntwk", "Median In-Ntwk", "75% In-Ntwk", "Schedule", "As-of"];
+type SortCol = "payer" | "code" | "license" | "clinicians" | "asOf";
 
 export function BandsPanel({
   codes,
@@ -44,6 +45,7 @@ export function BandsPanel({
   const [q, setQ] = useState("");
   const [insurer, setInsurer] = useState<string | undefined>();
   const [license, setLicense] = useState<string | undefined>();
+  const [sort, toggleSort] = useSort<SortCol>({ col: "payer", dir: "asc" });
 
   useEffect(() => {
     if (codes.length === 0) {
@@ -83,6 +85,7 @@ export function BandsPanel({
 
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase();
+    const dir = sort.dir === "asc" ? 1 : -1;
     return bands
       .filter(
         (b) =>
@@ -90,19 +93,35 @@ export function BandsPanel({
           (!insurer || b.payer === insurer) &&
           (!license || b.license === license),
       )
-      .sort(
-        (a, b) =>
+      .sort((a, b) => {
+        const primary =
+          sort.col === "code"
+            ? a.billingCode.localeCompare(b.billingCode)
+            : sort.col === "license"
+              ? (LICENSE_RANK[a.license] ?? 9) - (LICENSE_RANK[b.license] ?? 9)
+              : sort.col === "clinicians"
+                ? a.clinicians - b.clinicians
+                : sort.col === "asOf"
+                  ? a.asOf.localeCompare(b.asOf)
+                  : a.payer.localeCompare(b.payer);
+        return (
+          primary * dir ||
           a.payer.localeCompare(b.payer) ||
           a.billingCode.localeCompare(b.billingCode) ||
-          (LICENSE_RANK[a.license] ?? 9) - (LICENSE_RANK[b.license] ?? 9),
-      );
-  }, [bands, q, insurer, license]);
+          (LICENSE_RANK[a.license] ?? 9) - (LICENSE_RANK[b.license] ?? 9)
+        );
+      });
+  }, [bands, q, insurer, license, sort]);
+
+  const { visible, hasMore, sentinelRef } = useLazyBatch(shown, {
+    resetKey: `${codes.join(",")}|${q}|${insurer}|${license}`,
+  });
 
   const codeOptions = RATE_CPTS.map((c) => ({ value: c.code, label: `${c.code} · ${c.label}` }));
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="mb-4 flex shrink-0 flex-wrap items-center gap-3 md:mb-6">
         <SearchInput
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -132,7 +151,7 @@ export function BandsPanel({
         />
       </div>
 
-      {error && <Banner variant="danger">{error}</Banner>}
+      {error && <Banner className="mb-4 shrink-0" variant="danger">{error}</Banner>}
 
       {loading ? (
         <TableSkeleton head={HEAD} />
@@ -143,15 +162,32 @@ export function BandsPanel({
           subtext="Bands are computed on deduped payer-published rows, NY-book entities only."
         />
       ) : (
-        <Table head={HEAD}>
-          {shown.map((b) => (
-            <Tr key={`${b.payer}|${b.billingCode}|${b.license}`}>
+        <Table
+          className="min-h-0 flex-1"
+          stickyHeader
+          head={[
+            <SortableHead key="payer" label="Insurer" col="payer" sort={sort} onSort={toggleSort} />,
+            <SortableHead key="code" label="Code" col="code" sort={sort} onSort={toggleSort} />,
+            <SortableHead key="clinicians" label="Clinicians" col="clinicians" sort={sort} onSort={toggleSort} />,
+            <SortableHead key="license" label="License" col="license" sort={sort} onSort={toggleSort} />,
+            "25% In-Ntwk",
+            "Median In-Ntwk",
+            "75% In-Ntwk",
+            "Schedule",
+            <SortableHead key="asOf" label="As-of" col="asOf" sort={sort} onSort={toggleSort} />,
+          ]}
+        >
+          {visible.map((b) => (
+            <Tr key={`${b.payer}|${b.network}|${b.billingCode}|${b.license}`}>
               <Td>
-                <InsurerCell payer={b.payer} />
+                {/* Network subline only when the payer's schedules differ by
+                    network — "All networks" is the default assumption. */}
+                <InsurerCell payer={b.payer} subline={b.network === "All networks" ? undefined : b.network} />
               </Td>
               <Td className="whitespace-nowrap" title={cptLabel(b.billingCode)}>
                 {b.billingCode}
               </Td>
+              <Td className="whitespace-nowrap">{b.clinicians.toLocaleString("en-US")}</Td>
               <Td className="whitespace-nowrap" title={b.license}>
                 {b.license.replace(" (MD/NP)", "")}
               </Td>
@@ -159,14 +195,14 @@ export function BandsPanel({
               <Td className="whitespace-nowrap font-semibold text-text">{b.median}</Td>
               <Td className="whitespace-nowrap">{b.p75}</Td>
               <Td className="whitespace-nowrap">
-                <Badge variant={b.negotiability === "flat" ? "neutral" : "info"}>
-                  {b.negotiability === "flat" ? "Flat schedule" : "Per group"}
+                <Badge variant={b.negotiability === "flat" ? "neutral" : "info"} className="!font-normal">
+                  {b.negotiability === "flat" ? "Flat" : "Group"}
                 </Badge>
               </Td>
-              <Td className="whitespace-nowrap">{b.clinicians.toLocaleString("en-US")}</Td>
               <Td className="whitespace-nowrap text-text-muted">{b.asOf}</Td>
             </Tr>
           ))}
+          {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={9} />}
         </Table>
       )}
     </div>
