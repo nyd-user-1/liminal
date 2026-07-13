@@ -56,7 +56,7 @@ function SubmitClock({ storageKey }: { storageKey: string }) {
   const day = Math.max(1, Math.floor((Date.now() - new Date(submittedAt).getTime()) / 86_400_000) + 1);
   return (
     <Badge variant={day > 75 ? "warning" : "info"}>
-      day {day} of the payer&rsquo;s ~90-day credentialing window
+      {`day ${day} of the payer’s ~90-day credentialing window`}
     </Badge>
   );
 }
