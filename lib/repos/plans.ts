@@ -51,6 +51,17 @@ export async function searchEmployers(q: string, limit = 20): Promise<Employer[]
   return rows.map(mapEmployer);
 }
 
+/** Full employer list for the catalog index (client-side filtered). 2,315 rows
+ *  is small enough to ship whole, like the clients index does. */
+export async function listEmployers(limit = 3000): Promise<Employer[]> {
+  if (!hasDb) return MOCK_EMPLOYERS;
+  const rows = (await sql`
+    SELECT ein, name, market_type, state, self_funded, plan_count
+    FROM employers ORDER BY plan_count DESC, name LIMIT ${limit}
+  `) as Array<Record<string, unknown>>;
+  return rows.map(mapEmployer);
+}
+
 export async function getEmployer(ein: string): Promise<Employer | null> {
   if (!hasDb) return MOCK_EMPLOYERS.find((e) => e.ein === ein) ?? null;
   const rows = (await sql`
@@ -95,6 +106,57 @@ export async function getPlanRatesForNpi(ein: string, npi: string) {
     display: `$${Number(r.negotiated_rate).toFixed(2)} your plan's in-network rate · as-of ${isoDate(r.as_of)}`,
     asOf: isoDate(r.as_of),
   }));
+}
+
+export interface NetworkRateSummary {
+  networkProduct: string | null;
+  providersPriced: number;
+  cpts: Array<{ billingCode: string; median: string; providers: number }>;
+}
+
+// behavioral CPT labels for the summary (mirrors the scanner's 5-code set)
+export const CPT_LABELS: Record<string, string> = {
+  "90791": "Diagnostic eval",
+  "90834": "Psychotherapy, 45 min",
+  "90837": "Psychotherapy, 60 min",
+  "90853": "Group psychotherapy",
+  "99214": "E/M established",
+};
+
+/**
+ * Per-network behavioral rate summary for an employer's plans — the catalog
+ * payoff. Joins the employer's plan files to provider_rate_signals, deduped
+ * (distinct npi×code×rate, dollar types only). Detail-on-demand; one query.
+ */
+export async function getEmployerRateSummary(ein: string): Promise<NetworkRateSummary[]> {
+  if (!hasDb) return [];
+  const rows = (await sql`
+    WITH emp_files AS (
+      SELECT DISTINCT network_product, source_file FROM plans WHERE employer_ein = ${ein}
+    ),
+    dd AS (
+      SELECT DISTINCT ef.network_product, prs.billing_code, prs.npi, prs.negotiated_rate
+      FROM emp_files ef
+      JOIN provider_rate_signals prs ON prs.source_file = ef.source_file
+      WHERE prs.negotiated_type NOT ILIKE '%percent%'
+    )
+    SELECT network_product, billing_code,
+           count(DISTINCT npi)::int AS providers,
+           percentile_cont(0.5) WITHIN GROUP (ORDER BY negotiated_rate)::numeric(10,2) AS median
+    FROM dd GROUP BY network_product, billing_code
+    ORDER BY network_product, billing_code
+  `) as Array<Record<string, unknown>>;
+  const byNet = new Map<string, NetworkRateSummary>();
+  for (const r of rows) {
+    const net = (r.network_product as string) ?? "—";
+    let s = byNet.get(net);
+    if (!s) { s = { networkProduct: net, providersPriced: 0, cpts: [] }; byNet.set(net, s); }
+    const providers = Number(r.providers);
+    s.cpts.push({ billingCode: r.billing_code as string, median: `$${Number(r.median).toFixed(2)}`, providers });
+    // network-level headcount ≈ the largest single-code coverage (eval/therapy)
+    if (providers > s.providersPriced) s.providersPriced = providers;
+  }
+  return [...byNet.values()].sort((a, b) => b.providersPriced - a.providersPriced);
 }
 
 function mapEmployer(r: Record<string, unknown>): Employer {
