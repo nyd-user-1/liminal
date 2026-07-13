@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -10,17 +11,15 @@ import { FilterChip } from "@/components/ui/filter-chip";
 import { Icon } from "@/components/ui/icons";
 import { KebabMenu } from "@/components/ui/kebab-menu";
 import { MenuItem } from "@/components/ui/dropdown-menu";
-import { Modal } from "@/components/ui/modal";
 import { SearchInput } from "@/components/ui/search-input";
-import { Select } from "@/components/ui/select";
 import { SidePanel } from "@/components/ui/side-panel";
 import { Spinner } from "@/components/ui/spinner";
 import { LoadMoreRow, SortableHead, Table, Td, Tr, useSentinel, useSort } from "@/components/ui/table";
 import { Tabs } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { TextLink } from "@/components/ui/text-link";
 import { Toolbar } from "@/components/ui/toolbar";
 import { useToast } from "@/components/ui/toast";
+import { ReferModal } from "@/components/providers/refer-modal";
 import { formatDate } from "@/lib/format";
 import type { ProviderNetworkSummary } from "@/lib/repos/networks";
 import type { DirectoryProgram, DirectoryProvider } from "@/lib/types";
@@ -34,7 +33,7 @@ type Facets = { cities?: string[]; counties: string[]; professions?: string[]; s
 const PRESCRIBER_SPECIALTIES = new Set(["Psychiatrist", "Psychiatric Nurse Practitioner"]);
 
 const AVATAR_HUES = ["teal", "amber", "pink", "blue"] as const;
-function avatarHue(id: string): (typeof AVATAR_HUES)[number] {
+export function avatarHue(id: string): (typeof AVATAR_HUES)[number] {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
   return AVATAR_HUES[h % AVATAR_HUES.length];
@@ -119,6 +118,7 @@ export function DirectoryClient({
   programFacets: Facets;
   clients: ClientOption[];
 }) {
+  const router = useRouter();
   const toast = useToast();
   const [tab, setTab] = useState<Tab>("providers");
   const [q, setQ] = useState("");
@@ -225,6 +225,15 @@ export function DirectoryClient({
   }
 
   const hasFilters = !!(q || county || need || subspecialty);
+
+  // Provider rows with an NPI navigate to the real profile page — the
+  // stable identifier the page routes on. Rows with no NPI (some Medicaid
+  // rows never carried one) have nothing to route to, so they keep opening
+  // the SidePanel here, same as before.
+  function openProvider(r: DirectoryProvider, opts: { refer?: boolean } = {}) {
+    if (r.npi) router.push(`/directory/providers/${r.npi}${opts.refer ? "?refer=1" : ""}`);
+    else setSelected(r);
+  }
 
   // Sort client-side over the rows loaded so far. The directory API has no
   // sort param, so a sort only reorders what's already paged in — scrolling
@@ -345,14 +354,14 @@ export function DirectoryClient({
             const address = r.address ? titleCase(r.address) : "–";
             const city = r.city ? titleCase(r.city) : "–";
             return (
-              <Tr key={r.id} onClick={() => setSelected(r)}>
+              <Tr key={r.id} onClick={() => openProvider(r)}>
                 <Td className="w-10" onClick={(e) => e.stopPropagation()}>
                   <Checkbox aria-label={`Select ${name}`} checked={checked.has(r.id)} onChange={() => toggleChecked(r.id)} />
                 </Td>
                 <Td className="max-w-56">
                   <span className="flex min-w-0 items-center gap-2.5">
                     <Avatar name={name} hue={avatarHue(r.id)} size="sm" className="shrink-0" />
-                    <TextLink className="min-w-0 truncate" title={name} onClick={(e) => { e.stopPropagation(); setSelected(r); }}>
+                    <TextLink className="min-w-0 truncate" title={name} onClick={(e) => { e.stopPropagation(); openProvider(r); }}>
                       {name}
                     </TextLink>
                     {r.credential && <span className="shrink-0 text-sm text-text-muted">{r.credential}</span>}
@@ -366,8 +375,8 @@ export function DirectoryClient({
                 <Td className="whitespace-nowrap tabular-nums">{(r.zip ?? "").replace(/[^0-9]/g, "").slice(0, 5) || "–"}</Td>
                 <Td className="w-12" onClick={(e) => e.stopPropagation()}>
                   <KebabMenu label={`Actions for ${name}`}>
-                    <MenuItem icon="person-circle" label="View details" onClick={() => setSelected(r)} />
-                    <MenuItem icon="send" label="Refer a client" onClick={() => setSelected(r)} />
+                    <MenuItem icon="person-circle" label="View details" onClick={() => openProvider(r)} />
+                    <MenuItem icon="send" label="Refer a client" onClick={() => openProvider(r, { refer: true })} />
                   </KebabMenu>
                 </Td>
               </Tr>
@@ -624,95 +633,6 @@ function DetailPanel({
         }}
       />
     </>
-  );
-}
-
-function ReferModal({
-  open,
-  onClose,
-  clients,
-  target,
-  isProvider: provider,
-  onSuccess,
-}: {
-  open: boolean;
-  onClose: () => void;
-  clients: ClientOption[];
-  target: DirectoryProvider | DirectoryProgram;
-  isProvider: boolean;
-  onSuccess: () => void;
-}) {
-  const toast = useToast();
-  const [clientId, setClientId] = useState("");
-  const [reason, setReason] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const targetName = provider ? titleCase((target as DirectoryProvider).name) : (target as DirectoryProgram).programName;
-
-  async function submit() {
-    if (!clientId) return;
-    setSaving(true);
-    try {
-      const res = await fetch("/api/directory/referrals", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientId,
-          providerId: provider ? target.id : null,
-          programId: provider ? null : target.id,
-          reason,
-        }),
-      });
-      if (!res.ok) throw new Error();
-      setClientId("");
-      setReason("");
-      onSuccess();
-    } catch {
-      toast("Could not create referral.", "danger");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      icon="send"
-      title="Refer a client"
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={submit} loading={saving} disabled={!clientId}>
-            Send referral
-          </Button>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        <p className="text-sm text-text-body">
-          Referring to <span className="font-medium text-text">{targetName}</span>.
-        </p>
-        <Select
-          label="Client"
-          required
-          searchable
-          placeholder="Select a client…"
-          value={clientId}
-          onValueChange={setClientId}
-          options={clients.map((c) => ({ value: c.id, label: c.name }))}
-        />
-        <Textarea
-          label="Reason for referral"
-          rows={4}
-          placeholder="Why this provider or program is a good fit…"
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-        />
-      </div>
-    </Modal>
   );
 }
 

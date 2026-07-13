@@ -66,6 +66,7 @@ type SortCol = "clinician" | "payer" | "code" | "asOf" | "onTin";
 export function PanelsPanel({
   active,
   userEmail,
+  initialNpi,
   onPinBands,
   onGoToRoster,
 }: {
@@ -78,6 +79,11 @@ export function PanelsPanel({
   /** The signed-in practitioner's own address, for the economics dialog's
    *  "email yourself" action. */
   userEmail?: string;
+  /** Pre-scoped entry point (Directory provider page) — looked up once on
+   *  mount, same as typing it into the search box, so the standing table
+   *  has a row with no manual entry. Standalone /rates keeps its today's
+   *  empty state when this is omitted. */
+  initialNpi?: string;
   onPinBands: (payer: string, code: string) => void;
   onGoToRoster: () => void;
 }) {
@@ -150,6 +156,33 @@ export function PanelsPanel({
       setLoading(false);
     }
   };
+
+  // Pre-scoped entry point: same lookup as typing the NPI + pressing Enter,
+  // run once on mount instead of on a keystroke. Standalone /rates never
+  // passes initialNpi, so its Panels tab keeps today's empty state.
+  useEffect(() => {
+    if (!initialNpi || !/^\d{10}$/.test(initialNpi)) return;
+    let stale = false;
+    setLoading(true);
+    setError(null);
+    fetch(`/api/rates/standing?npis=${initialNpi}`)
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Lookup failed.");
+        if (stale) return;
+        setStandings((prev) => (prev.some((s) => s.npi === initialNpi) ? prev : [...data.standings, ...prev]));
+      })
+      .catch((e) => {
+        if (!stale) setError(e instanceof Error ? e.message : "Lookup failed.");
+      })
+      .finally(() => {
+        if (!stale) setLoading(false);
+      });
+    return () => {
+      stale = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialNpi]);
 
   const rows: Row[] = useMemo(
     () =>

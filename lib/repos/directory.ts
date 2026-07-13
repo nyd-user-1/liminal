@@ -303,6 +303,25 @@ export async function getProviderBySlug(slug: string): Promise<DirectoryProvider
   return [...mockStore().directoryProviders.values()].find((p) => p.slug === slug) ?? null;
 }
 
+/**
+ * Internal profile lookup by NPI — /directory/providers/[npi]'s data source.
+ * A provider can exist as both a medicaid and an nppes row (same NPI); prefer
+ * the medicaid row, same tie-break as getStanding's own name/profession join.
+ */
+export async function getProviderByNpi(npi: string): Promise<DirectoryProvider | null> {
+  if (hasDb) {
+    const rows = (await sql`
+      SELECT * FROM directory_providers WHERE npi = ${npi}
+      ORDER BY (source = 'medicaid') DESC
+      LIMIT 1
+    `) as ProviderRow[];
+    return rows[0] ? toProvider(rows[0]) : null;
+  }
+  const rows = [...mockStore().directoryProviders.values()].filter((p) => p.npi === npi);
+  if (!rows.length) return null;
+  return rows.find((p) => p.source === "medicaid") ?? rows[0];
+}
+
 function filterProviders(
   list: DirectoryProvider[],
   opts: {
