@@ -4,7 +4,6 @@ import { useState } from "react";
 import { TopBarActions } from "@/components/shell/topbar-slot";
 import { Button } from "@/components/ui/button";
 import { Tabs } from "@/components/ui/tabs";
-import { DEFAULT_CODES } from "@/components/rates/cpt";
 import { ApplyNextPanel } from "@/components/rates/apply-next-panel";
 import { BandsPanel } from "@/components/rates/bands-panel";
 import { PanelsPanel } from "@/components/rates/panels-panel";
@@ -29,7 +28,9 @@ const TABS = [
 
 export function RatesShell() {
   const [tab, setTab] = useState("bands");
-  const [codes, setCodes] = useState<string[]>(DEFAULT_CODES);
+  // Empty = no code filter applied (the negotiation card shows every code by
+  // default, sorted A-Z) — codes narrow the table, they don't gate it.
+  const [codes, setCodes] = useState<string[]>([]);
   const [activeNpi, setActiveNpi] = useState<string | null>(null);
   const [pin, setPin] = useState<{ payer: string; billingCode: string } | null>(null);
 

@@ -16,7 +16,9 @@ import type { RateBand } from "@/lib/repos/rate-signals";
 // deduped, NY-book, payer-published rows. License comes from the statewide
 // directory profession join — real cohorts per tier, not a heuristic.
 // Toolbar = the Clients/Directory pattern: search + "+ Code" / "+ Insurer" /
-// "+ License" filter chips. Code selection fetches; the rest filter client-side.
+// "+ License" filter chips — all three are pure client-side filters over one
+// unconditional fetch of every RATE_CPTS code, unchecked by default, table
+// sorted Insurer A-Z out of the box. Nothing gates the initial view.
 
 const LICENSE_OPTIONS = [
   { value: "Masters-level", label: "Masters-level" },
@@ -58,16 +60,13 @@ export function BandsPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin]);
 
+  // Always pulls every RATE_CPTS code (a small fixed list) — the "Code" chip
+  // is a filter over this, not a fetch trigger, so it never gates the table.
   useEffect(() => {
-    if (codes.length === 0) {
-      setBands([]);
-      setLoading(false);
-      return;
-    }
     let stale = false;
     setLoading(true);
     setError(null);
-    fetch(`/api/rates/bands?codes=${codes.join(",")}`)
+    fetch(`/api/rates/bands?codes=${RATE_CPTS.map((c) => c.code).join(",")}`)
       .then(async (res) => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "Couldn't load bands.");
@@ -82,7 +81,7 @@ export function BandsPanel({
     return () => {
       stale = true;
     };
-  }, [codes]);
+  }, []);
 
   const insurerOptions = useMemo(
     () =>
@@ -101,6 +100,7 @@ export function BandsPanel({
       .filter(
         (b) =>
           (!needle || b.payer.toLowerCase().includes(needle)) &&
+          (codes.length === 0 || codes.includes(b.billingCode)) &&
           (!insurer || b.payer === insurer) &&
           (!license || b.license === license),
       )
@@ -122,7 +122,7 @@ export function BandsPanel({
           (LICENSE_RANK[a.license] ?? 9) - (LICENSE_RANK[b.license] ?? 9)
         );
       });
-  }, [bands, q, insurer, license, sort]);
+  }, [bands, q, codes, insurer, license, sort]);
 
   const { visible, hasMore, sentinelRef } = useLazyBatch(shown, {
     resetKey: `${codes.join(",")}|${q}|${insurer}|${license}`,
@@ -169,7 +169,7 @@ export function BandsPanel({
       ) : shown.length === 0 ? (
         <EmptyState
           icon="clipboard"
-          title={codes.length === 0 ? "Pick at least one code" : "No published bands for this pick"}
+          title={bands.length === 0 ? "No published bands yet" : "No bands match these filters"}
           subtext="Bands are computed on deduped payer-published rows, NY-book entities only."
         />
       ) : (
