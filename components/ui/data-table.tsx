@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ColumnPicker } from "@/components/ui/column-picker";
-import { SortableHead, Table, Td, Tr, useSort, type SortState } from "@/components/ui/table";
+import { LoadMoreRow, SortableHead, Table, Td, Tr, useLazyBatch, useSort, type SortState } from "@/components/ui/table";
 import { Toolbar } from "@/components/ui/toolbar";
 
 // Catalog `DataTable` — the canonical table standard (docs/TASK-TABLE-STANDARD.md)
@@ -19,6 +19,9 @@ import { Toolbar } from "@/components/ui/toolbar";
 export interface DataTableColumn<T> {
   key: string;
   label: string;
+  /** Native tooltip on the header — lets an abbreviated `label` (a CPT code, a
+   *  unit) stay one row instead of wrapping its meaning onto a second line. */
+  headTitle?: string;
   render: (row: T) => ReactNode;
   /** Presence alone enables the header to sort asc/desc on click. */
   sortValue?: (row: T) => string | number;
@@ -70,6 +73,8 @@ export function DataTable<T>({
   toolbarExtra,
   footnote,
   className,
+  lazy,
+  scrollToKey,
 }: {
   columns: DataTableColumn<T>[];
   rows: T[];
@@ -83,6 +88,20 @@ export function DataTable<T>({
   toolbarExtra?: ReactNode;
   footnote?: ReactNode;
   className?: string;
+  /**
+   * Render in growing batches (useLazyBatch + a LoadMoreRow sentinel) instead
+   * of putting every row in the DOM. For tables in the thousands — /published-rates
+   * ships ~12.5k rows. `true` = the default 100-row batch.
+   */
+  lazy?: boolean | { batchSize?: number };
+  /**
+   * `rowKey` of a row to reveal: re-anchors the batch around that row under the
+   * CURRENT sort, scrolls it into view and flashes it, leaving its neighbours
+   * rendered around it. Pairs with a search that jumps to a match instead of
+   * filtering the table down — the surrounding rows are often the point.
+   * Ignored unless `lazy`.
+   */
+  scrollToKey?: string | null;
 }) {
   const [visible, toggle] = useColumnVisibility(storageKey, columns);
   const shown = columns.filter((c) => c.fixed || !storageKey || visible.has(c.key));
@@ -105,14 +124,63 @@ export function DataTable<T>({
 
   const head = shown.map((c) => {
     const inner = c.sortValue ? <SortableHead label={c.label} col={c.key} sort={sort} onSort={toggleSort} /> : c.label;
-    return c.align === "right" ? <div className="flex justify-end">{inner}</div> : inner;
+    if (c.align !== "right" && !c.headTitle) return inner;
+    return (
+      <div title={c.headTitle} className={c.align === "right" ? "flex justify-end" : undefined}>
+        {inner}
+      </div>
+    );
   });
+
+  // ── batching + jump-to-row ────────────────────────────────────────────────
+  // Hooks run unconditionally (rules of hooks); `lazy` only decides whether the
+  // batched slice or the full set is rendered.
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [flashKey, setFlashKey] = useState<string | null>(null);
+  const batchSize = typeof lazy === "object" ? (lazy.batchSize ?? 100) : 100;
+
+  // Index under the ACTIVE sort — re-sorting moves the target, so the anchor is
+  // recomputed against the new order, not the old one.
+  const targetIndex = useMemo(
+    () => (scrollToKey ? sortedRows.findIndex((r) => rowKey(r) === scrollToKey) : -1),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [scrollToKey, sortedRows],
+  );
+
+  // A jump ANCHORS the batch just above the target instead of growing the batch
+  // down to it. Growing is the obvious reading, but the target's index is its
+  // rank under the sort: jumping to a mid-table row would mount thousands of
+  // rows (measured: ~12k rows / 8.6s for a bottom-ranked match) — the exact
+  // thing lazy rendering exists to prevent. Anchoring keeps the DOM at one
+  // batch and still shows the row in place, with its neighbours around it.
+  const anchor = targetIndex >= batchSize ? Math.max(0, targetIndex - 25) : 0;
+  const windowRows = useMemo(() => (anchor ? sortedRows.slice(anchor) : sortedRows), [sortedRows, anchor]);
+
+  const { visible: batch, hasMore, sentinelRef } = useLazyBatch(windowRows, {
+    batchSize,
+    // Snap back to the first batch when the row set, the sort or the anchor moves.
+    resetKey: `${sort.col}:${sort.dir}:${rows.length}:${anchor}`,
+  });
+  const rendered = lazy ? batch : sortedRows;
+
+  useEffect(() => {
+    if (!lazy || !scrollToKey || targetIndex < 0) return;
+    // The anchor already put the row in `rendered` in this same commit, so it's
+    // in the DOM by the time this effect runs. Keyed off the first cell, which
+    // carries data-rowkey (Td already spreads arbitrary attributes).
+    const cell = wrapRef.current?.querySelector(`[data-rowkey="${CSS.escape(scrollToKey)}"]`);
+    if (!cell) return;
+    cell.scrollIntoView({ block: "center", behavior: "smooth" });
+    setFlashKey(scrollToKey);
+    const t = setTimeout(() => setFlashKey(null), 1800);
+    return () => clearTimeout(t);
+  }, [lazy, scrollToKey, targetIndex, sort.col, sort.dir]);
 
   return (
     // min-w-0 is load-bearing: without it this flex child grows past its
     // container and the PAGE scrolls horizontally instead of the Table
     // primitive's own overflow-auto wrapper (docs/TASK-TABLE-STANDARD.md).
-    <div className={`flex min-w-0 flex-col gap-3 ${className ?? ""}`}>
+    <div ref={wrapRef} className={`flex min-w-0 flex-col gap-3 ${className ?? ""}`}>
       {(toolbarExtra || storageKey) && (
         <Toolbar
           className="shrink-0"
@@ -131,15 +199,30 @@ export function DataTable<T>({
         />
       )}
       <Table head={head} className="min-w-0">
-        {sortedRows.map((row) => (
-          <Tr key={rowKey(row)} onClick={onRowClick ? () => onRowClick(row) : undefined} className={rowClassName?.(row)}>
-            {shown.map((c) => (
-              <Td key={c.key} className={`${c.align === "right" ? "text-right tabular-nums " : ""}${c.cellClassName ?? "whitespace-nowrap"}`}>
-                {c.render(row)}
-              </Td>
-            ))}
-          </Tr>
-        ))}
+        {rendered.map((row) => {
+          const key = rowKey(row);
+          return (
+            <Tr
+              key={key}
+              onClick={onRowClick ? () => onRowClick(row) : undefined}
+              // Tr already transitions colors, so the flash fades out on its own.
+              className={`${rowClassName?.(row) ?? ""}${flashKey === key ? " bg-teal-100" : ""}`}
+            >
+              {shown.map((c, i) => (
+                <Td
+                  key={c.key}
+                  // Only the first cell is tagged — scrollToKey resolves the row
+                  // via this attribute, one node per row instead of one per cell.
+                  data-rowkey={i === 0 ? key : undefined}
+                  className={`${c.align === "right" ? "text-right tabular-nums " : ""}${c.cellClassName ?? "whitespace-nowrap"}`}
+                >
+                  {c.render(row)}
+                </Td>
+              ))}
+            </Tr>
+          );
+        })}
+        {lazy && hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={shown.length} />}
       </Table>
       {footnote}
     </div>
