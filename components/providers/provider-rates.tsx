@@ -54,7 +54,7 @@ function ToggleChip({ active, onClick, children }: { active: boolean; onClick: (
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-field border px-3 py-1.5 text-sm font-medium transition-colors ${
+      className={`inline-flex h-10 items-center rounded-field border px-4 text-sm font-medium transition-colors ${
         active ? "border-primary bg-primary-wash text-primary" : "border-field-border text-text-body hover:border-field-border-focus"
       }`}
     >
@@ -69,25 +69,26 @@ export function ProviderRates({ npi }: { npi: string | null }) {
   const [view, setView] = useState<"networks" | "rates">("networks");
   const [sort, toggleSort] = useSort<MemberCol>({ col: "insurer", dir: "asc" });
 
-  const [visibleCols, setVisibleCols] = useState<Set<string>>(new Set(NETWORK_COLUMNS.map((c) => c.key)));
+  // Column state is an ORDERED array, not a set: hiding removes; re-adding
+  // APPENDS, so a user can reorder columns without drag-and-drop (hide it,
+  // add it back → it's now last). Storage format (string[]) is unchanged.
+  const [colOrder, setColOrder] = useState<string[]>(NETWORK_COLUMNS.map((c) => c.key));
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("provider.rates.columns") ?? "null");
-      if (Array.isArray(saved)) setVisibleCols(new Set(saved));
+      if (Array.isArray(saved)) setColOrder(saved.filter((k) => NETWORK_COLUMNS.some((c) => c.key === k)));
     } catch {
       /* corrupt storage — keep defaults */
     }
   }, []);
   function toggleCol(key: string) {
-    setVisibleCols((s) => {
-      const next = new Set(s);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      localStorage.setItem("provider.rates.columns", JSON.stringify([...next]));
+    setColOrder((prev) => {
+      const next = prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key];
+      localStorage.setItem("provider.rates.columns", JSON.stringify(next));
       return next;
     });
   }
-  const vis = (k: string) => visibleCols.has(k);
+  const visibleCols = useMemo(() => new Set(colOrder), [colOrder]);
 
   useEffect(() => {
     if (!npi) {
@@ -164,20 +165,18 @@ export function ProviderRates({ npi }: { npi: string | null }) {
           stickyHeader
           head={[
             <SortableHead key="insurer" label="Insurer" col="insurer" sort={sort} onSort={toggleSort} />,
-            ...(vis("network")
-              ? [<SortableHead key="network" label="Network" col="network" sort={sort} onSort={toggleSort} />]
-              : []),
-            ...(vis("accepting")
-              ? [<SortableHead key="accepting" label="Accepting" col="accepting" sort={sort} onSort={toggleSort} />]
-              : []),
-            ...(vis("updated")
-              ? [<SortableHead key="updated" label="Updated" col="updated" sort={sort} onSort={toggleSort} />]
-              : []),
-            ...RATE_COLS.filter((c) => vis(c.key)).map((c) => (
-              <Tooltip key={c.key} label={c.tip}>
-                <SortableHead label={c.label} col={c.key} sort={sort} onSort={toggleSort} />
-              </Tooltip>
-            )),
+            // Headers render in colOrder — hide + re-add moves a column last.
+            ...colOrder.map((k) => {
+              if (k === "network") return <SortableHead key="network" label="Network" col="network" sort={sort} onSort={toggleSort} />;
+              if (k === "accepting") return <SortableHead key="accepting" label="Accepting" col="accepting" sort={sort} onSort={toggleSort} />;
+              if (k === "updated") return <SortableHead key="updated" label="Updated" col="updated" sort={sort} onSort={toggleSort} />;
+              const rc = RATE_COLS.find((c) => c.key === k);
+              return rc ? (
+                <Tooltip key={rc.key} label={rc.tip}>
+                  <SortableHead label={rc.label} col={rc.key} sort={sort} onSort={toggleSort} />
+                </Tooltip>
+              ) : null;
+            }),
           ]}
         >
           {sortedMembers.map((m, i) => (
@@ -185,38 +184,51 @@ export function ProviderRates({ npi }: { npi: string | null }) {
               <Td className="whitespace-nowrap">
                 <span className="flex items-center gap-2.5">
                   <InsurerMark payer={m.payer} />
-                  <span className="max-w-48 truncate font-medium text-text" title={m.payer}>
+                  {/* max-w-40 on both name columns keeps all 9 columns inside
+                      the container — the page must never scroll horizontally;
+                      full values live in the hover title. */}
+                  <span className="max-w-40 truncate font-medium text-text" title={m.payer}>
                     {m.payer}
                   </span>
                 </span>
               </Td>
-              {vis("network") && (
-                <Td>
-                  <span className="block max-w-64 truncate" title={m.network || undefined}>
-                    {m.network ? prettyNetworkLabel(m.network) : <span className="text-text-muted">Listed (no network detail)</span>}
-                  </span>
-                </Td>
-              )}
-              {vis("accepting") && (
-                <Td className="whitespace-nowrap">
-                  {m.accepting === "accepting" ? (
-                    <Badge variant="success">Accepting</Badge>
-                  ) : m.accepting === "not_accepting" ? (
-                    <Badge variant="neutral">Not accepting</Badge>
-                  ) : (
-                    "—"
-                  )}
-                </Td>
-              )}
-              {vis("updated") && <Td className="whitespace-nowrap text-text-muted">{m.asOf ?? "—"}</Td>}
-              {RATE_COLS.filter((c) => vis(c.key)).map((c) => (
-                <Td
-                  key={c.key}
-                  className={`whitespace-nowrap tabular-nums ${c.key === "b90837" ? "font-medium text-text" : "text-text-body"}`}
-                >
-                  {(m[RATE_FIELD[c.key]] as string | null) ?? "—"}
-                </Td>
-              ))}
+              {colOrder.map((k) => {
+                if (k === "network")
+                  return (
+                    <Td key={k}>
+                      <span className="block max-w-40 truncate" title={m.network || undefined}>
+                        {m.network ? prettyNetworkLabel(m.network) : <span className="text-text-muted">Listed (no network detail)</span>}
+                      </span>
+                    </Td>
+                  );
+                if (k === "accepting")
+                  return (
+                    <Td key={k} className="whitespace-nowrap">
+                      {m.accepting === "accepting" ? (
+                        <Badge variant="success">Accepting</Badge>
+                      ) : m.accepting === "not_accepting" ? (
+                        <Badge variant="neutral">Not accepting</Badge>
+                      ) : (
+                        "—"
+                      )}
+                    </Td>
+                  );
+                if (k === "updated")
+                  return (
+                    <Td key={k} className="whitespace-nowrap text-text-muted">
+                      {m.asOf ?? "—"}
+                    </Td>
+                  );
+                const rc = RATE_COLS.find((c) => c.key === k);
+                return rc ? (
+                  <Td
+                    key={k}
+                    className={`whitespace-nowrap tabular-nums ${rc.key === "b90837" ? "font-medium text-text" : "text-text-body"}`}
+                  >
+                    {(m[RATE_FIELD[rc.key]] as string | null) ?? "—"}
+                  </Td>
+                ) : null;
+              })}
             </Tr>
           ))}
         </Table>

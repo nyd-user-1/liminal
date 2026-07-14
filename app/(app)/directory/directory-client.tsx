@@ -663,7 +663,7 @@ export function DirectoryClient({
 
       {openTabs.map((t) => (
         <div key={t.provider.id} className="min-h-0 flex-1" hidden={view !== t.provider.id}>
-          <ProviderView provider={t.provider} network={t.network} />
+          <ProviderView provider={t.provider} network={t.network} onJump={(p) => openProvider(p)} />
         </div>
       ))}
 

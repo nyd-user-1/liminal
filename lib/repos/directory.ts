@@ -263,19 +263,27 @@ export async function searchProviders(opts: {
     // against name (pg_trgm + the GIN indexes in sql/005 + sql/022 already
     // exist for this — added for ILIKE perf, reused here for ranking);
     // otherwise alphabetical is the sanest default.
+    // Every ORDER BY ends in the unique id: LIMIT/OFFSET paging over ties
+    // (same name; worse, the 3-value accepting rank) is otherwise unstable —
+    // Postgres may re-serve page-1 rows on page 2, which the infinite-scroll
+    // append renders as duplicate React keys.
     const dataParams = [...params, pageSize, (page - 1) * pageSize];
     const limitIdx = p++;
     const offsetIdx = p++;
-    let orderBy = "name";
-    if (fuzzy) {
+    const columnSorted = opts.sort === "accepting" || opts.sort === "network";
+    let orderBy = "name, id";
+    // Similarity ranking only when no column sort overrides it — pushing the
+    // similarity param and then replacing the ORDER BY would leave an unused
+    // bind parameter, which Postgres rejects.
+    if (fuzzy && !columnSorted) {
       dataParams.push(q);
-      orderBy = `similarity(name, $${p++}) DESC, name`;
+      orderBy = `similarity(name, $${p++}) DESC, name, id`;
     }
     // Accepting/network sort joins the participation aggregate and overrides
     // relevance order. Rank: accepting 2 > listed-not-accepting 1 > no data 0;
     // network = distinct network count, no data -1.
     let sortJoin = "";
-    if (opts.sort === "accepting" || opts.sort === "network") {
+    if (columnSorted) {
       const dirSql = opts.sortDir === "asc" ? "ASC" : "DESC";
       // provider_participation_summary (sql/023) is this aggregate, precomputed
       // — the live GROUP BY over provider_network_participation hit 2.7–5s past
@@ -283,8 +291,8 @@ export async function searchProviders(opts: {
       sortJoin = ` LEFT JOIN provider_participation_summary x ON x.npi = d.npi`;
       orderBy =
         opts.sort === "accepting"
-          ? `(CASE WHEN x.any_accepting THEN 2 WHEN x.npi IS NOT NULL THEN 1 ELSE 0 END) ${dirSql}, d.name`
-          : `COALESCE(x.network_count, -1) ${dirSql}, d.name`;
+          ? `(CASE WHEN x.any_accepting THEN 2 WHEN x.npi IS NOT NULL THEN 1 ELSE 0 END) ${dirSql}, d.name, d.id`
+          : `COALESCE(x.network_count, -1) ${dirSql}, d.name, d.id`;
     }
     // Count and page are independent — one flight, not two sequential trips.
     // The count skips the window-dedup entirely: counting distinct partition
