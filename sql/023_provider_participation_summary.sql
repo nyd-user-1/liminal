@@ -5,7 +5,8 @@
 -- the table passed 1M rows. This matview is that GROUP BY, computed once:
 -- one row per NPI with participation anywhere.
 --
--- Refresh alongside provider_rate_summary after every ingest:
+-- Refresh alongside provider_rate_summary (021), the rate_bands_* matviews
+-- (024), and payer_rate_totals (026) after every ingest:
 --   REFRESH MATERIALIZED VIEW CONCURRENTLY provider_participation_summary;
 -- Staleness between ingest and refresh only softens a sort ranking — never a
 -- membership claim (those read the base table).

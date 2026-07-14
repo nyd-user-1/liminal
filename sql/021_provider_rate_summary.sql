@@ -2,6 +2,7 @@
 -- Backbone for the ranked provider rate-directory AND the recruiting footprint:
 -- reading this ~34k-row matview is instant vs scanning the 8.8M-row fact table.
 -- After each rate load: REFRESH MATERIALIZED VIEW CONCURRENTLY provider_rate_summary;
+-- (also refresh provider_participation_summary (023), the rate_bands_* matviews (024), and payer_rate_totals (026))
 -- NY-book payers only, dollar types only, deduped (distinct npi×payer×code×rate).
 CREATE MATERIALIZED VIEW IF NOT EXISTS provider_rate_summary AS
 WITH dd AS (

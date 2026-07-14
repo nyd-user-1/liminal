@@ -167,6 +167,9 @@ export function Sidebar({
             onClick={() => router.push("/design-system")}
             trailing={<Badge variant="info">New</Badge>}
           />
+          {user.email === "brendan@liminal.demo" && (
+            <MenuItem icon="grid" label="Data" onClick={() => router.push("/admin/data")} />
+          )}
           <MenuItem
             icon={dark ? "sun" : "moon"}
             label="Appearance"

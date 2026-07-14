@@ -301,57 +301,21 @@ async function bandNumbers(
         as_of: b.asOf,
       }));
   }
+  // Reads sql/024's precomputed matviews — same dedup subquery + license CASE
+  // as the live queries these replaced (20-30s at 9M rows), just materialized.
+  // `codes`/`minClinicians` move from the aggregate's WHERE/HAVING to a plain
+  // filter over the tiny rollup, since neither is fixed per call.
   const rows = (byLicense
     ? await sql`
-        WITH prof AS (
-          SELECT DISTINCT ON (npi) npi, profession FROM directory_providers
-          WHERE npi IS NOT NULL AND profession IS NOT NULL
-          ORDER BY npi, (source = 'medicaid') DESC
-        ), dd AS (
-          SELECT r.npi, r.payer, r.plan_or_network AS network, r.billing_code, r.negotiated_rate,
-                 CASE
-                   WHEN p.profession ILIKE '%psychiatr%' THEN 'Prescriber (MD/NP)'
-                   WHEN p.profession ILIKE '%psycholog%' THEN 'Psychologist'
-                   WHEN p.profession ILIKE '%social worker%' OR p.profession ILIKE '%counselor%'
-                     OR p.profession ILIKE '%marriage%' THEN 'Masters-level'
-                   ELSE 'Other'
-                 END AS license,
-                 max(r.as_of) AS as_of
-          FROM provider_rate_signals r
-          LEFT JOIN prof p ON p.npi = r.npi
-          WHERE r.billing_code = ANY(${codes})
-            AND r.payer ~* ${NY_ENTITY_RE.source}
-            AND r.negotiated_type NOT ILIKE '%percent%'
-          GROUP BY 1, 2, 3, 4, 5, 6
-        )
-        SELECT payer, billing_code, license, network, count(DISTINCT npi)::int AS npis,
-               percentile_cont(0.25) WITHIN GROUP (ORDER BY negotiated_rate)::numeric(10,2)::float8 AS p25,
-               percentile_cont(0.5)  WITHIN GROUP (ORDER BY negotiated_rate)::numeric(10,2)::float8 AS median,
-               percentile_cont(0.75) WITHIN GROUP (ORDER BY negotiated_rate)::numeric(10,2)::float8 AS p75,
-               max(as_of) AS as_of
-        FROM dd
-        WHERE license <> 'Other'
-        GROUP BY payer, billing_code, license, network
-        HAVING count(DISTINCT npi) >= ${minClinicians}
+        SELECT payer, billing_code, license, network, npis, p25, median, p75, as_of
+        FROM rate_bands_license_summary
+        WHERE billing_code = ANY(${codes}) AND npis >= ${minClinicians}
         ORDER BY payer, billing_code, license, network
       `
     : await sql`
-        WITH dd AS (
-          SELECT npi, payer, billing_code, negotiated_rate, max(as_of) AS as_of
-          FROM provider_rate_signals
-          WHERE billing_code = ANY(${codes})
-            AND payer ~* ${NY_ENTITY_RE.source}
-            AND negotiated_type NOT ILIKE '%percent%'
-          GROUP BY 1, 2, 3, 4
-        )
-        SELECT payer, billing_code, NULL AS license, NULL AS network, count(DISTINCT npi)::int AS npis,
-               percentile_cont(0.25) WITHIN GROUP (ORDER BY negotiated_rate)::numeric(10,2)::float8 AS p25,
-               percentile_cont(0.5)  WITHIN GROUP (ORDER BY negotiated_rate)::numeric(10,2)::float8 AS median,
-               percentile_cont(0.75) WITHIN GROUP (ORDER BY negotiated_rate)::numeric(10,2)::float8 AS p75,
-               max(as_of) AS as_of
-        FROM dd
-        GROUP BY payer, billing_code
-        HAVING count(DISTINCT npi) >= ${minClinicians}
+        SELECT payer, billing_code, NULL AS license, NULL AS network, npis, p25, median, p75, as_of
+        FROM rate_bands_payer_summary
+        WHERE billing_code = ANY(${codes}) AND npis >= ${minClinicians}
         ORDER BY payer, billing_code
       `) as Array<Omit<BandNumbers, "as_of"> & { as_of: string | Date }>;
   return rows.map((r) => ({ ...r, as_of: isoDateOnly(r.as_of) }));
@@ -672,9 +636,9 @@ async function getCheckedBooks(): Promise<string[]> {
     checkedBooksCache = [...new Set(mockRateBands.map((b) => b.payer))].filter((p) => NY_ENTITY_RE.test(p)).sort();
     return checkedBooksCache;
   }
-  const rows = (await sql`
-    SELECT DISTINCT payer FROM provider_rate_signals WHERE payer ~* ${NY_ENTITY_RE.source}
-  `) as Array<{ payer: string }>;
+  // sql/024's rate_bands_checked_payers matview — the live DISTINCT scan took
+  // ~12s at 9M rows, paid on every cold process before the cache warmed.
+  const rows = (await sql`SELECT payer FROM rate_bands_checked_payers`) as Array<{ payer: string }>;
   checkedBooksCache = rows.map((r) => r.payer).sort();
   return checkedBooksCache;
 }
