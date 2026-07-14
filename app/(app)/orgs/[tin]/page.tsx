@@ -25,20 +25,26 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ tin:
   ]);
   if (!header) notFound();
 
+  // Outer flex-col (h-full, direct child of the scrolling <main>) → inner
+  // min-h-0 flex-1 split. This is the pattern every full-height page uses; the
+  // flex-ROW must be a BOUNDED flex-1 child, never the h-full element itself,
+  // or <main> scrolls the whole page.
   return (
-    <div className="flex h-full min-h-0 flex-col gap-6 lg:flex-row">
-      <aside className="flex min-h-0 flex-col gap-4 lg:h-full lg:w-80 lg:shrink-0">
-        <OrgJumpSearch currentTin={tin} />
-        <div className="min-h-0 flex-1">
-          <OrgRail header={header} fhirNames={fhirNames} />
-        </div>
-      </aside>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col gap-6 lg:flex-row">
+        <aside className="flex min-h-0 flex-col gap-4 lg:h-full lg:w-80 lg:shrink-0">
+          <OrgJumpSearch currentTin={tin} />
+          <div className="min-h-0 flex-1">
+            <OrgRail header={header} fhirNames={fhirNames} />
+          </div>
+        </aside>
 
-      {/* min-w-0 is load-bearing: without it this flex child grows past the
-          viewport and the PAGE scrolls horizontally. The active table owns
-          both scroll axes (Table standard). */}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <OrgPanels tin={tin} rates={rates} rosterInitial={roster.rows} rosterTotal={roster.total} />
+        {/* min-w-0 is load-bearing: without it this flex child grows past the
+            viewport and the PAGE scrolls horizontally. The active table owns
+            both scroll axes (Table standard). */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <OrgPanels tin={tin} rates={rates} rosterInitial={roster.rows} rosterTotal={roster.total} />
+        </div>
       </div>
     </div>
   );

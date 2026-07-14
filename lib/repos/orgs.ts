@@ -63,7 +63,7 @@ export type OrgRosterRow = {
   lastFileDate: string | null;
 };
 
-export type OrgFhirName = { display: string; npis: number; payer: string };
+export type OrgFhirName = { display: string; npis: number };
 
 const MOCK_ORG: OrgListRow = {
   tin: "ein:832675429",
@@ -267,21 +267,31 @@ export async function getOrgRoster(
   };
 }
 
-/** Names payers publish for this TIN's roster (FHIR org displays) — the
- *  "also appears as" strip + naming provenance for unnamed TINs. */
+/** Distinct names payers publish for this TIN's roster (the "Related" list).
+ *  Case/punctuation-insensitive dedup so "HEADWAY" and "Headway" collapse to
+ *  one entry with a distinct-NPI count across all its spellings and payers; the
+ *  representative display prefers a mixed-case, shortest spelling. Payer is
+ *  intentionally not returned — the list shows the name + clinician count only. */
 export async function getOrgFhirNames(tin: string): Promise<OrgFhirName[]> {
   const key = normTin(tin);
   if (!hasDb) return [];
   const rows = (await sql`
-    SELECT a.org_display AS display, count(DISTINCT a.npi)::int AS npis, ps.name AS payer
-    FROM org_tin_rosters r
-    JOIN org_affiliations a ON a.npi = r.npi
-    JOIN payer_sources ps ON ps.id = a.payer_source_id
-    WHERE r.tin = ${key}
-    GROUP BY a.org_display, ps.name
-    ORDER BY count(DISTINCT a.npi) DESC
-    LIMIT 8
-  `) as Array<{ display: string; npis: number; payer: string }>;
+    SELECT display, npis FROM (
+      SELECT
+        (array_agg(display ORDER BY (display ~ '[a-z]') DESC, length(display) ASC, display ASC))[1] AS display,
+        count(DISTINCT npi)::int AS npis
+      FROM (
+        SELECT a.npi, a.org_display AS display,
+               upper(regexp_replace(a.org_display, '[^a-zA-Z0-9]', '', 'g')) AS norm
+        FROM org_tin_rosters r
+        JOIN org_affiliations a ON a.npi = r.npi
+        WHERE r.tin = ${key}
+      ) x
+      GROUP BY norm
+    ) y
+    ORDER BY npis DESC
+    LIMIT 12
+  `) as Array<{ display: string; npis: number }>;
   return rows;
 }
 

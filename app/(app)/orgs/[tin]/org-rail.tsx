@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icons";
+import { Tooltip } from "@/components/ui/tooltip";
 import { titleCase } from "@/lib/format";
 import { formatTin } from "@/lib/repos/tin-registry";
 import { FieldDisplay } from "../../clients/ui";
@@ -7,36 +8,55 @@ import { OrgRailMenu } from "./org-rail-menu";
 import type { OrgFhirName, OrgHeader } from "@/lib/repos/orgs";
 
 // Organization identity rail — the client Contact card's layout (SettingsCard
-// header + FieldDisplay label-over-value rows), at the provider rail's width
-// (w-80) and full height with a scrolling body. Reuses FieldDisplay so it
-// stays visually identical to the client drill-down. Names are payer-roster /
-// NPI-registry attestations, never legal-entity lookups — the source field and
-// the "Also appears as" list keep that provenance visible.
+// header + FieldDisplay label-over-value rows) at the provider rail's width
+// (w-80), full height with a scrolling body and a provenance footer (mirrors
+// the calendar rail's footer). Names are payer-roster / NPI-registry
+// attestations, never legal-entity lookups.
 
-const SOURCE_LABEL: Record<string, string> = {
-  "nppes-org": "NPI registry (organization record)",
-  "nppes-individual": "NPI registry (individual)",
-  directory: "Provider directory",
-  mock: "Sample data",
-};
+// Org suffixes that must stay uppercase when we title-case an all-caps name.
+const KEEP_UPPER = new Set(["LLC", "PLLC", "PC", "INC", "LP", "LLP", "PA", "MD", "DO", "NP", "LCSW", "USA", "NY", "NYC"]);
 
-function sourceLabel(source: string | null): string | null {
+/** Title-case a SHOUTING payer name ("HEADWAY" → "Headway", "ALMA … LLC" →
+ *  "Alma … LLC"); already mixed-case names pass through untouched. */
+function normalizeOrgName(s: string): string {
+  const t = s.trim();
+  if (/[a-z]/.test(t)) return t;
+  return t.replace(/\S+/g, (w) => {
+    const bare = w.replace(/[^A-Za-z]/g, "").toUpperCase();
+    if (KEEP_UPPER.has(bare)) return w.toUpperCase();
+    return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+  });
+}
+
+const key = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/** Concise provenance label for the footer. */
+function shortSource(source: string | null): string | null {
   if (!source) return null;
-  if (source.startsWith("fhir-crosswalk")) return "Matched via payer-roster crosswalk";
-  if (source.endsWith("mrf")) return "Payer rate file (MRF)";
-  return SOURCE_LABEL[source] ?? source;
+  if (source.startsWith("fhir-crosswalk")) return "payer roster";
+  if (source.endsWith("mrf")) return "MRF";
+  if (source.startsWith("nppes")) return "NPI registry";
+  if (source === "directory") return "directory";
+  if (source === "mock") return "sample";
+  return source;
 }
 
 export function OrgRail({ header, fhirNames }: { header: OrgHeader; fhirNames: OrgFhirName[] }) {
   const nppes = header.nppes;
-  const src = sourceLabel(header.nameSource);
-  // Distinct payer-published names other than the one we adopted as the org name.
-  const aliases = fhirNames.filter((f) => f.display && f.display !== header.name);
   const location = nppes
     ? [nppes.address ? titleCase(nppes.address) : null, nppes.city ? titleCase(nppes.city) : null, nppes.state]
         .filter(Boolean)
         .join(", ")
     : "";
+  // Normalized, deduped alternate names — drop the one we already show as the
+  // org name; cap the list so the rail stays tidy.
+  const selfKey = key(header.name ?? "");
+  const related = fhirNames
+    .map((f) => ({ display: normalizeOrgName(f.display), npis: f.npis }))
+    .filter((f) => key(f.display) !== selfKey)
+    .slice(0, 6);
+  const srcLabel = shortSource(header.nameSource);
+  const footer = [header.asOf ? `Modified ${header.asOf}` : null, srcLabel].filter(Boolean).join(" · ");
 
   return (
     <Card className="flex h-full min-h-0 flex-col overflow-hidden !p-0">
@@ -53,8 +73,6 @@ export function OrgRail({ header, fhirNames }: { header: OrgHeader; fhirNames: O
           <FieldDisplay label="Tax ID" value={formatTin(header.tin)} />
           <FieldDisplay label="Clinicians" value={header.npis.toLocaleString()} />
           <FieldDisplay label="Payer books" value={String(header.payerCount)} />
-          {header.asOf && <FieldDisplay label="Evidence through" value={header.asOf} />}
-          {src && <FieldDisplay label="Name source" value={src} />}
 
           {nppes && (
             <>
@@ -68,25 +86,30 @@ export function OrgRail({ header, fhirNames }: { header: OrgHeader; fhirNames: O
             </>
           )}
 
-          {aliases.length > 0 && (
-            <FieldDisplay
-              label="Also appears as"
-              value={
-                <span className="mt-1 flex flex-col gap-2.5">
-                  {aliases.map((a) => (
-                    <span key={`${a.payer}|${a.display}`} className="block">
-                      <span className="block leading-snug text-text">{a.display}</span>
-                      <span className="text-[13px] text-text-muted">
-                        {a.payer} · {a.npis.toLocaleString()} clinicians
-                      </span>
-                    </span>
-                  ))}
-                </span>
-              }
-            />
+          {related.length > 0 && (
+            <div>
+              <div className="flex items-center gap-1 text-sm text-text-muted">
+                Related
+                <Tooltip label="Also bills as">
+                  <Icon name="info" size={13} className="cursor-help text-text-muted" />
+                </Tooltip>
+              </div>
+              <div className="mt-1.5 flex flex-col gap-2.5">
+                {related.map((a) => (
+                  <div key={a.display}>
+                    <div className="leading-snug text-text">{a.display}</div>
+                    <div className="text-[13px] text-text-muted">{a.npis.toLocaleString()} clinicians</div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       </div>
+
+      {footer && (
+        <div className="shrink-0 border-t border-border px-6 py-3 text-[13px] text-text-muted">{footer}</div>
+      )}
     </Card>
   );
 }
