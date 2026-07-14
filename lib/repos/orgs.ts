@@ -74,30 +74,67 @@ const MOCK_ORG: OrgListRow = {
   lastFileDate: "2026-07-01",
 };
 
-/** Top organizations by roster size; q filters the registry name (ILIKE). */
-export async function listOrgs(opts: { q?: string; limit?: number } = {}): Promise<OrgListRow[]> {
+export type OrgListFilters = {
+  q?: string;
+  limit?: number;
+  /** true = only orgs with a resolved name; false = only unnamed TINs. */
+  named?: boolean;
+  /** Only orgs appearing in this payer's rate book. */
+  payer?: string;
+  /** 'ein' = contract-holder EINs; 'npi' = orgs billing under their own NPI. */
+  tinKind?: "ein" | "npi";
+};
+
+/** Top organizations by roster size; filtered by name/named/payer/TIN-kind. */
+export async function listOrgs(opts: OrgListFilters = {}): Promise<OrgListRow[]> {
   const limit = Math.min(opts.limit ?? 50, 200);
   const q = (opts.q ?? "").trim();
-  if (!hasDb) return q && !MOCK_ORG.name!.toLowerCase().includes(q.toLowerCase()) ? [] : [MOCK_ORG];
-  const rows = (await sql`
-    SELECT g.tin, g.name, g.npis, p.payer_count, g.last_file_date
-    FROM (
-      SELECT r.tin, t.business_name AS name,
-             count(*)::int AS npis,
-             max(r.last_file_date) AS last_file_date
-      FROM org_tin_rosters r
-      LEFT JOIN tin_registry t ON t.tin_norm = r.tin
-      WHERE ${q} = '' OR t.business_name ILIKE ${"%" + q + "%"}
-      GROUP BY r.tin, t.business_name
-      ORDER BY count(*) DESC, r.tin
-      LIMIT ${limit}
-    ) g
-    LEFT JOIN LATERAL (
-      SELECT count(DISTINCT payer)::int AS payer_count
-      FROM org_tin_rate_summary s WHERE s.tin = g.tin
-    ) p ON true
-    ORDER BY g.npis DESC, g.tin
-  `) as Array<{ tin: string; name: string | null; npis: number; payer_count: number; last_file_date: Date | null }>;
+  const { named, payer, tinKind } = opts;
+  if (!hasDb) {
+    const okQ = !q || MOCK_ORG.name!.toLowerCase().includes(q.toLowerCase());
+    const okNamed = named === undefined || named === !!MOCK_ORG.name;
+    const okKind = !tinKind || MOCK_ORG.tin.startsWith(`${tinKind}:`);
+    return okQ && okNamed && okKind && !payer ? [MOCK_ORG] : [];
+  }
+  // Dynamic WHERE over org_tin_rosters (grain: tin × npi) — several optional
+  // filters, so parameterized query rather than the tagged template.
+  const where: string[] = [];
+  const params: unknown[] = [];
+  if (q) {
+    params.push(`%${q}%`);
+    where.push(`t.business_name ILIKE $${params.length}`);
+  }
+  if (named === true) where.push(`t.business_name IS NOT NULL`);
+  if (named === false) where.push(`t.business_name IS NULL`);
+  if (tinKind === "ein") where.push(`r.tin LIKE 'ein:%'`);
+  if (tinKind === "npi") where.push(`r.tin LIKE 'npi:%'`);
+  if (payer) {
+    params.push(payer);
+    where.push(`EXISTS (SELECT 1 FROM org_tin_rate_summary s2 WHERE s2.tin = r.tin AND s2.payer = $${params.length})`);
+  }
+  params.push(limit);
+  const limitPh = `$${params.length}`;
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+  const rows = (await sql.query(
+    `SELECT g.tin, g.name, g.npis, p.payer_count, g.last_file_date
+     FROM (
+       SELECT r.tin, t.business_name AS name,
+              count(*)::int AS npis,
+              max(r.last_file_date) AS last_file_date
+       FROM org_tin_rosters r
+       LEFT JOIN tin_registry t ON t.tin_norm = r.tin
+       ${whereSql}
+       GROUP BY r.tin, t.business_name
+       ORDER BY count(*) DESC, r.tin
+       LIMIT ${limitPh}
+     ) g
+     LEFT JOIN LATERAL (
+       SELECT count(DISTINCT payer)::int AS payer_count
+       FROM org_tin_rate_summary s WHERE s.tin = g.tin
+     ) p ON true
+     ORDER BY g.npis DESC, g.tin`,
+    params,
+  )) as Array<{ tin: string; name: string | null; npis: number; payer_count: number; last_file_date: Date | null }>;
   return rows.map((r) => ({
     tin: r.tin,
     name: r.name,
@@ -106,6 +143,15 @@ export async function listOrgs(opts: { q?: string; limit?: number } = {}): Promi
     payerCount: r.payer_count,
     lastFileDate: r.last_file_date ? isoDateOnly(r.last_file_date) : null,
   }));
+}
+
+/** Filter-chip options for the /orgs toolbar: the payer books orgs appear in. */
+export async function orgFacets(): Promise<{ payers: string[] }> {
+  if (!hasDb) return { payers: ["Oxford Health Insurance Inc", "Aetna Life Insurance Company"] };
+  const rows = (await sql`
+    SELECT DISTINCT payer FROM org_tin_rate_summary ORDER BY payer
+  `) as Array<{ payer: string }>;
+  return { payers: rows.map((r) => r.payer) };
 }
 
 /** Header block for one org: identity + roster/payer counts (+ NPI-2 record). */

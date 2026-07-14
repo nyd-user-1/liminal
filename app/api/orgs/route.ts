@@ -12,9 +12,18 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     await requireRole("practitioner");
-    const q = (req.nextUrl.searchParams.get("q") ?? "").trim();
-    const limit = Number(req.nextUrl.searchParams.get("limit") ?? 50);
-    const orgs = await listOrgs({ q, limit: Number.isFinite(limit) ? limit : 50 });
+    const sp = req.nextUrl.searchParams;
+    const q = (sp.get("q") ?? "").trim();
+    const limit = Number(sp.get("limit") ?? 50);
+    const namedParam = sp.get("named"); // "1" | "0" | null
+    const kind = sp.get("kind");
+    const orgs = await listOrgs({
+      q,
+      limit: Number.isFinite(limit) ? limit : 50,
+      named: namedParam === "1" ? true : namedParam === "0" ? false : undefined,
+      payer: sp.get("payer") || undefined,
+      tinKind: kind === "ein" || kind === "npi" ? kind : undefined,
+    });
     return NextResponse.json({ orgs });
   } catch (e) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
