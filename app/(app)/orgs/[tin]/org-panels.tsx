@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Banner } from "@/components/ui/banner";
+import { Icon } from "@/components/ui/icons";
 import { LoadMoreRow, SortableHead, Table, Td, Tr, useSentinel, useSort } from "@/components/ui/table";
 import { Tooltip } from "@/components/ui/tooltip";
 import { TableSkeleton } from "@/components/rates/table-skeleton";
@@ -60,6 +61,16 @@ export function OrgPanels({
   rosterTotal: number;
 }) {
   const [view, setView] = useState<View>("rates");
+
+  // Rates groups collapse from their sub-header row (accordion); default open.
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const toggleGroup = (payer: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(payer)) next.delete(payer);
+      else next.add(payer);
+      return next;
+    });
 
   // ── Rates: grouped by insurer (insurer shown once), sortable per group ──────
   const rateGroups = useMemo(() => {
@@ -181,21 +192,32 @@ export function OrgPanels({
               "As-of",
             ]}
           >
-            {sortedGroups.flatMap((g) =>
-              g.rows.map((r, i) => (
-                <Tr key={`${g.payer}|${r.billingCode}`} className={i === 0 ? "border-t-2 border-t-border" : ""}>
+            {sortedGroups.flatMap((g) => {
+              const open = !collapsed.has(g.payer);
+              // Insurer sub-header row — light-gray, blank across the other four
+              // columns; clicking it collapses/expands that insurer's codes.
+              const header = (
+                <Tr key={`${g.payer}::header`} onClick={() => toggleGroup(g.payer)} className="bg-canvas">
                   <Td className="whitespace-nowrap">
-                    {i === 0 ? (
-                      <span className="flex items-center gap-2.5">
-                        <InsurerMark payer={g.payer} />
-                        <span className="max-w-48 truncate font-medium text-text" title={g.payer}>
-                          {g.payer}
-                        </span>
+                    <span className="flex items-center gap-2">
+                      <Icon
+                        name={open ? "chevron-down" : "chevron-right"}
+                        size={15}
+                        className="shrink-0 text-text-muted"
+                      />
+                      <InsurerMark payer={g.payer} />
+                      <span className="max-w-44 truncate font-semibold text-text" title={g.payer}>
+                        {g.payer}
                       </span>
-                    ) : (
-                      <span className="sr-only">{g.payer}</span>
-                    )}
+                    </span>
                   </Td>
+                  <Td colSpan={4} />
+                </Tr>
+              );
+              if (!open) return [header];
+              const rows = g.rows.map((r) => (
+                <Tr key={`${g.payer}|${r.billingCode}`}>
+                  <Td />
                   <Td className="whitespace-nowrap" title={cptLabel(r.billingCode)}>
                     <span className="tabular-nums">{r.billingCode}</span>
                   </Td>
@@ -203,8 +225,9 @@ export function OrgPanels({
                   <Td className="whitespace-nowrap tabular-nums font-medium text-text">{usd(r.median)}</Td>
                   <Td className="whitespace-nowrap text-text-muted">{r.asOf}</Td>
                 </Tr>
-              )),
-            )}
+              ));
+              return [header, ...rows];
+            })}
           </Table>
         )
       ) : view === "roster" ? (
