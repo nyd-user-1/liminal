@@ -14,7 +14,7 @@ const TABS = [
 export function AdminDataTabs({ groups, insurers }: { groups: DictionaryGroup[]; insurers: InsurerBoardRow[] }) {
   const [tab, setTab] = useState("dictionary");
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex min-w-0 flex-col gap-5">
       <Tabs items={TABS} active={tab} onChange={setTab} slideActive />
       {tab === "dictionary" ? <DataDictionary groups={groups} /> : <InsurersBoard rows={insurers} />}
     </div>
