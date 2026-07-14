@@ -1,5 +1,16 @@
 # TASK: Organization workspace (/orgs) — rail + content
 
+> **STATUS: BUILT & VERIFIED 2026-07-13 (Opus, DB/ingest session).** Shipped
+> `app/(app)/orgs/` (index + `[tin]` detail on the ProviderView chassis) +
+> `app/api/orgs/{route,roster/route}.ts`, nav wired in `app-shell.tsx` +
+> `topbar.tsx` (icon `id-card`). Verified live on :3010: Headway NY lists
+> first (13,614 clinicians / 8 payers), detail shows rail + economics +
+> roster + Suspense participation; Oxford 90837 median $137.78 matches the
+> matview; unnamed EIN + npi-TIN NPPES paths both render; tsc clean. Roster
+> links to `/directory/providers/{npi}` (the real deep-link route; the
+> `/directory/{slug}` below was the pre-build guess). This section is kept as
+> the spec of record — no build terminal needed.
+
 _Brief written 2026-07-13 (late) by the DB/ingest session for a build
 terminal. Read `CLAUDE.md` first; the design-system rule (reuse
 `components/ui/*`, never create primitives) and the one-H1-in-TopBar rule
