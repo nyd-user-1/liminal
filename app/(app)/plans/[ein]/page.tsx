@@ -1,9 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
-import { getEmployer, getEmployerRateSummary, getPlansForEmployer } from "@/lib/repos/plans";
-import { EmployerHeader } from "./employer-header";
-import { EmployerTabs } from "./employer-tabs";
-import { PlansPanel, RatesPanel } from "./employer-panels";
+import { CPT_LABELS, getEmployer, getEmployerRateSummary, getPlansForEmployer } from "@/lib/repos/plans";
+import { EmployerView } from "./employer-view";
 
 export const dynamic = "force-dynamic";
 
@@ -25,28 +23,13 @@ export default async function EmployerDetailPage({
     getEmployerRateSummary(ein),
   ]);
 
-  const networkCount = new Set(plans.map((p) => p.networkProduct).filter(Boolean)).size;
-
   return (
-    <>
-      <EmployerHeader employer={employer} networkCount={networkCount} />
-      <EmployerTabs
-        initialTab={tab}
-        tabs={[
-          {
-            key: "rates",
-            label: "Networks & rates",
-            count: rateSummary.length || undefined,
-            content: <RatesPanel rateSummary={rateSummary} />,
-          },
-          {
-            key: "plans",
-            label: "Plans",
-            count: plans.length || undefined,
-            content: <PlansPanel plans={plans} />,
-          },
-        ]}
-      />
-    </>
+    <EmployerView
+      employer={employer}
+      plans={plans}
+      rateSummary={rateSummary}
+      cptLabels={CPT_LABELS}
+      initialTab={tab}
+    />
   );
 }

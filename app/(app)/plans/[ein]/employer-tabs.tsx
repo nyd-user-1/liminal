@@ -23,19 +23,21 @@ export function EmployerTabs({
   const [active, setActive] = useState<string>(valid(initialTab) ?? tabs[0]?.key ?? "");
 
   return (
-    <>
+    <div className="flex h-full min-h-0 flex-col">
       <Tabs
         items={tabs.map(({ key, label, count }) => ({ key, label, count }))}
         active={active}
         onChange={setActive}
         slideActive
-        className="mb-6"
+        className="mb-6 shrink-0"
       />
-      {tabs.map((t) => (
-        <div key={t.key} hidden={t.key !== active}>
-          {t.content}
-        </div>
-      ))}
-    </>
+      <div className="min-h-0 flex-1">
+        {tabs.map((t) => (
+          <div key={t.key} hidden={t.key !== active} className="h-full min-h-0">
+            {t.content}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
