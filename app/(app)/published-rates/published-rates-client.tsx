@@ -120,19 +120,6 @@ export function PublishedRatesClient({ data }: { data: RateTableData }) {
     return () => clearTimeout(t);
   }, [term]);
 
-  // Header numbers come from the FETCHED corpus, never a filtered view and never
-  // a hardcoded constant — the sentence is a claim about the payer's whole book.
-  const { distinctRates, practices } = useMemo(() => {
-    const seen = new Set<number>();
-    let practices = 0;
-    for (const r of data.rows) {
-      if (r.c90837 !== null) seen.add(r.c90837);
-      if (r.c90791 !== null || r.c90834 !== null || r.c90837 !== null || r.c90853 !== null || r.c99214 !== null)
-        practices++;
-    }
-    return { distinctRates: seen.size, practices };
-  }, [data.rows]);
-
   const facets = useMemo(() => {
     const m = new Map<string, number>();
     for (const r of data.rows) if (r.credentialNorm) m.set(r.credentialNorm, (m.get(r.credentialNorm) ?? 0) + 1);
@@ -228,18 +215,6 @@ export function PublishedRatesClient({ data }: { data: RateTableData }) {
     // min-w-0 is load-bearing: without it this flex column grows past the shell
     // and the PAGE scrolls sideways instead of the Table's own overflow wrapper.
     <div className="flex min-w-0 flex-col gap-4">
-      <div className="max-w-3xl">
-        {/* Content copy, deliberately NOT an H1 — the TopBar owns the page H1. */}
-        <p className="text-2xl leading-snug text-text">
-          {data.payer} pays <span className="font-semibold text-primary">{distinctRates.toLocaleString("en-US")}</span>{" "}
-          different rates for a 60-minute therapy session in New York.
-        </p>
-        <p className="mt-2 text-[15px] text-text-body">
-          Same code. Same state. {practices.toLocaleString("en-US")} practices. Every rate below is what the insurer
-          publishes it pays. Find yours.
-        </p>
-      </div>
-
       <p className="text-[13px] text-text-muted">
         {RATE_CODES.map((c) => `${c.code} ${c.name}`).join(" · ")}
       </p>
