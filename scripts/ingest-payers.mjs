@@ -70,6 +70,36 @@ const NPI_SYSTEM = "http://hl7.org/fhir/sid/us-npi";
 // needing auth, add an entry with authType 'apikey'|'oauth2' and a buildHeaders()
 // — no other code changes. HumanaSource is the reference implementation.
 const FHIR_HEADERS = async () => ({ Accept: "application/fhir+json" });
+// Anthem (NYS-15, approved 2026-07-13): client-credentials OAuth, token TTL 3600s.
+// Harvest runs outlive the token, so refresh on an interval and mutate the shared
+// headers object in place — every driver holds `headers` by reference, so no
+// other code changes. A request racing expiry 401s once and lands in the normal
+// failed-NPI retry pass.
+const ANTHEM_TOKEN_URL = "https://totalview.healthos.elevancehealth.com/client.oauth2/unregistered/api/v1/token";
+async function anthemHeaders() {
+  if (!process.env.ANTHEM_CLIENT_ID || !process.env.ANTHEM_CLIENT_SECRET) {
+    console.error("ANTHEM_CLIENT_ID / ANTHEM_CLIENT_SECRET not set — run with node --env-file=.env.local");
+    process.exit(1);
+  }
+  const h = { Accept: "application/fhir+json" };
+  const refresh = async () => {
+    const r = await fetch(ANTHEM_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+      body: new URLSearchParams({
+        grant_type: "client_credentials",
+        client_id: process.env.ANTHEM_CLIENT_ID,
+        client_secret: process.env.ANTHEM_CLIENT_SECRET,
+      }),
+    });
+    const j = await r.json().catch(() => null);
+    if (!j?.access_token) throw new Error(`Anthem token: HTTP ${r.status}`);
+    h.Authorization = `Bearer ${j.access_token}`;
+  };
+  await refresh();
+  setInterval(() => refresh().catch((e) => console.error(`\n  ⚠ Anthem token refresh failed: ${e.message}`)), 45 * 60 * 1000).unref();
+  return h;
+}
 const PAYER_REGISTRY = {
   humana: {
     slug: "humana", name: "Humana", fhirBaseUrl: "https://fhir.humana.com/api/",
@@ -137,6 +167,25 @@ const PAYER_REGISTRY = {
     defaultMode: "reverse", completeness: "full",
     roleQuery: (npi) => `PractitionerRole?practitioner.identifier=${encodeURIComponent(`${NPI_SYSTEM}|${npi}`)}&_count=50`,
     preloadNetworkIncludes: true,
+  },
+  anthem: {
+    slug: "anthem", name: "Anthem (Empire BCBS)",
+    fhirBaseUrl: "https://totalview.healthos.elevancehealth.com/resources/unregistered/api/v1/fhir/cms_mandate/mcd/",
+    authType: "oauth2", planNetProfile: true, buildHeaders: anthemHeaders,
+    // Probed 2026-07-13 (scripts/probe-anthem.mjs + role mini-probe): FHIR 4.0.1
+    // hos-fhir-server. Chained practitioner.identifier WORKS (undeclared in the
+    // CapabilityStatement but filters correctly) → single-request reverse lookup.
+    // Roles carry network-reference WITH display, newpatients, NUCC specialty,
+    // locations, meta.lastUpdated — full Plan-Net. _include=network kept as the
+    // fallback for any display-less refs (server handles it; ntwk Organizations
+    // resolve). Elevance owns Carelon (Empire Plan/NYSHIP, MetroPlus, MVP BH
+    // carve-out) — watch the network names for Carelon leakage.
+    defaultMode: "reverse", completeness: "full",
+    // _count=200 honored (probed): heavy providers carry 125–200+ national-book
+    // roles, so big pages cut per-hit round-trips ~4×. NO _include: sampled 716
+    // network refs across heavy hits — 100% carry the name on
+    // valueReference.display, so the include only bloated hit pages (2026-07-13).
+    roleQuery: (npi) => `PractitionerRole?practitioner.identifier=${encodeURIComponent(`${NPI_SYSTEM}|${npi}`)}&_count=200`,
   },
   // aetna: gated (token) — see docs/payer-registration-checklist.md + TASK-AETNA.md
 };
@@ -744,17 +793,29 @@ async function runReverseLookup(payerSourceId, headers) {
     try { bundle = await fetchJson(source.fhirBaseUrl, source.roleQuery(npi), headers, { tries: isRetry ? 6 : 3 }); }
     catch (err) { process.stdout.write(`\n  ! ${npi}: ${err.message}`); failedNpis.add(npi); return; }
     failedNpis.delete(npi);
+    // Follow link.next: Cigna/Healthfirst return few roles per NPI, but Anthem
+    // publishes 50+ network×location roles per provider — without pagination the
+    // _count cap silently truncates (caught on the 2026-07-13 proof run).
     const includes = new Map(preloaded);
-    for (const e of bundle.entry || []) {
-      const r = e.resource; if (!r) continue;
-      if (r.resourceType && r.id) includes.set(`${r.resourceType}/${r.id}`, r);
-      if (e.fullUrl) includes.set(e.fullUrl, r);
-    }
-    // The bundle is NPI-scoped: match entries are this NPI's roles; _include'd
-    // resources carry search.mode==='include' (skip them as "roles").
-    const roles = (bundle.entry || [])
-      .filter((e) => e.search?.mode !== "include" && e.resource?.resourceType === "PractitionerRole")
-      .map((e) => e.resource);
+    const roles = [];
+    let nextUrl = null;
+    do {
+      if (nextUrl) {
+        try { bundle = await fetchJson(source.fhirBaseUrl, nextUrl, headers, { tries: isRetry ? 6 : 3 }); }
+        catch (err) { process.stdout.write(`\n  ! ${npi} page: ${err.message}`); break; }
+      }
+      for (const e of bundle.entry || []) {
+        const r = e.resource; if (!r) continue;
+        if (r.resourceType && r.id) includes.set(`${r.resourceType}/${r.id}`, r);
+        if (e.fullUrl) includes.set(e.fullUrl, r);
+      }
+      // The bundle is NPI-scoped: match entries are this NPI's roles; _include'd
+      // resources carry search.mode==='include' (skip them as "roles").
+      for (const e of bundle.entry || []) {
+        if (e.search?.mode !== "include" && e.resource?.resourceType === "PractitionerRole") roles.push(e.resource);
+      }
+      nextUrl = (bundle.link || []).find((l) => l.relation === "next")?.url || null;
+    } while (nextUrl);
     if (!roles.length) return; // not in this payer's directory
     stats.hits++;
     if (coarse) {
