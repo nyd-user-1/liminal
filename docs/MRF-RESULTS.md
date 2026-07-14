@@ -39,6 +39,30 @@ session should heap-profile a single chunk (`node --heapsnapshot-near-heap-limit
 or run one chunk through the constant-memory reference parser overnight to
 locate the true allocator before more scanner surgery.
 
+**RESOLVED 2026-07-13 (Opus session, NYS-25):** the crashes were NOT a
+parser/heap problem — the two-pass design works. The `SIGABRT`/`in_network
+never found` deaths were **mid-stream network failures** (`curl 56 Recv
+timeout` at ~15–35 GB on the empirebcbs host). Parts 1–3 pass-B CSVs streamed
+and parsed cleanly; they were just sitting unloaded. Loaded them:
+**334,671 rows / 31,369 NPIs / 9,686 TINs** under `Empire BlueCross
+BlueShield · PPO EPO PROVIDER` (the widest single NPI book in
+provider_rate_signals), all rate/org matviews refreshed. Part 5 carries zero
+behavioral codes. Part 4 still fails the transfer (curl 56, twice), DEFERRED.
+
+Transfer-avoidance for part 4 / future BCBS ref-dense files (the "didn't need
+the full 35 GB pull" idea):
+  1. **Schedule is invariant across the five same-network-product parts** —
+     rates attach to the network product (proven Aetna semantics), so parts
+     1–3 already hold the whole PPO-EPO schedule; part 4 only adds roster
+     rows at rates we already know → **part 4 is likely skippable**.
+  2. **Resumable download (`curl -C -`)** to disk, then scan the local file —
+     survives the mid-stream timeouts (resume from byte offset).
+  3. **Single-pass gid+refmap capture** — pass A builds the ref→(NPI,TIN) map
+     for matched gids in the same read, dropping pass B → one 35 GB read
+     instead of two (scan-tic enhancement, not built).
+(Kept here because the Linear MCP relay was Cloudflare-blocked when this was
+written; mirror into NYS-25 when convenient.)
+
 ## Baseline (before tonight, from the PoC sessions)
 
 - **UHC Behavior-Health P3**: 1,249 NPIs · 23,119 rows. 79% of rate-holders
