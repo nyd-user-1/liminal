@@ -77,6 +77,9 @@ for (const file of files) {
       continue;
     }
     read++;
+    // DB chokepoint tin normalization (col 8): older scan CSVs carry payer
+    // dash/case variants ('ein:83-2675429') that split one org across keys.
+    c[8] = c[8].toLowerCase().replace(/[^0-9a-z:]/g, "");
     batch.push(c);
     if (batch.length >= BATCH) {
       await flush(batch);

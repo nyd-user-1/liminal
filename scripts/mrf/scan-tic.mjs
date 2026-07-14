@@ -88,6 +88,11 @@ const ourNpis = new Set(
 // string, not allocate 5,000 (Empire-NY refs OOM'd 5GB on exactly that).
 const ourNpiCanon = new Map([...ourNpis].map((s) => [Number(s), s]));
 const tinCache = new Map(); // intern tins for the same reason
+// Canonical tin string: lowercased type + digits/letters only in the value.
+// Payers format EINs inconsistently ('83-2675429') — unnormalized tins split
+// one org across several keys (Headway rode two spellings until 2026-07-13).
+const normTin = (t) =>
+  t ? `${String(t.type ?? "").toLowerCase()}:${String(t.value ?? "").toLowerCase().replace(/[^0-9a-z]/g, "")}` : "";
 const internTin = (t) => {
   let v = tinCache.get(t);
   if (v === undefined) {
@@ -162,7 +167,7 @@ function handleProviderReference(ref) {
     }
     if (matched) {
       (kept ??= []).push({
-        tin: internTin(g.tin ? `${g.tin.type ?? ""}:${g.tin.value ?? ""}` : ""),
+        tin: internTin(normTin(g.tin)),
         npis: matched,
       });
     }
@@ -199,7 +204,7 @@ async function emitRows(item) {
         const matched = g.npi.map(String).filter((s) => ourNpis.has(s));
         if (matched.length)
           (sides ??= []).push({
-            tin: g.tin ? `${g.tin.type ?? ""}:${g.tin.value ?? ""}` : "",
+            tin: normTin(g.tin),
             npis: matched,
           });
       }
