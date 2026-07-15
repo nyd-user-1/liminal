@@ -47,6 +47,18 @@ export interface RateTableRow {
    *  a lie. */
   profession?: string | null;
   city?: string | null;
+  /** Child-only: the two things that make a published row unique besides the
+   *  person. Columns, not a GROUP BY — see sql/032. */
+  network?: string | null;
+  setting?: string | null;
+  /**
+   * How many rows the payer published under this billing ID — one per
+   * (NPI, network, setting). THE ROW'S SHAPE:
+   *   1  -> the row IS that published row; it shows dollars.
+   *   >1 -> the row is a GROUP HEADER: empty across every rate column, opens.
+   * Children always carry 1.
+   */
+  nLeaves: number;
   /** Roster NPIs, empty for rosters > 25 (platform TINs). Client-side NPI search. */
   npis: string[];
   /** Roster size — NPIs billing under this TIN. */
@@ -97,6 +109,34 @@ export function rateCell(row: RateTableRow, i: number): { rate: number | null; n
   const c = RATE_CODES[i];
   return { rate: row[c.key] as number | null, n: (row[c.nKey] as number) ?? 0 };
 }
+
+/** A group header: more than one published row underneath, so it summarizes
+ *  nothing and renders empty. Its children carry the numbers. */
+export const isGroupHeader = (r: RateTableRow): boolean => !r.isChild && r.nLeaves > 1;
+
+/**
+ * The payer publishes `place_of_service` as a pipe-joined list of CMS service
+ * codes, which is unreadable and long ('01|03|04|09|11|12|13|14|15|...'). These
+ * lists are not arbitrary — they are the standard non-facility / facility split,
+ * and the difference between them is a real price difference: Georgianna Dart's
+ * Cigna 90791 is $137.47 in an office and $133.02 in a facility.
+ *   11 = Office  ->  the non-facility list
+ *   21/22 = Inpatient / Outpatient Hospital  ->  the facility list
+ * 'CSTM-00' is Cigna's own marker, not a CMS code, and is left as "Custom" —
+ * naming it something friendlier would be inventing a meaning we do not know.
+ */
+export function settingLabel(setting: string | null | undefined): string {
+  if (!setting) return "";
+  if (setting === "CSTM-00") return "Custom";
+  const codes = setting.split("|");
+  if (codes.includes("11")) return "Office";
+  if (codes.includes("21") || codes.includes("22")) return "Facility";
+  return codes.length > 2 ? `${codes.length} settings` : setting;
+}
+
+/** 'Cigna national-oap' -> 'national-oap'. The insurer already has its own column. */
+export const networkLabel = (n: string | null | undefined, payer: string): string =>
+  !n ? "" : n.replace(new RegExp(`^${payer.split(" ")[0]}\\s+`, "i"), "");
 
 export interface RateTableData {
   rows: RateTableRow[];

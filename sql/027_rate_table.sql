@@ -84,10 +84,35 @@
 
 -- ── rate_table_mv ────────────────────────────────────────────────────────────
 CREATE MATERIALIZED VIEW IF NOT EXISTS rate_table_mv AS
-WITH cells AS (
+WITH leaves AS (
+  -- How many rows the payer actually published under this billing ID — one per
+  -- (NPI, network, setting). This is what decides the row's SHAPE: >1 and it is
+  -- a group header (empty across every rate column, opens to sql/032's
+  -- children); exactly 1 and the row IS that published row, so it shows the
+  -- dollars. A rate column then holds only rates, never a count of them.
+  SELECT tin, payer, count(*)::int AS n_leaves
+  FROM (
+    SELECT DISTINCT tin, payer, npi, plan_or_network, place_of_service
+    FROM provider_rate_signals
+    WHERE payer = ANY (ARRAY[
+            'Cigna Health & Life',
+            'Empire BlueCross BlueShield',
+            'Oxford Health Insurance Inc',
+            'EmblemHealth (Carelon behavioral)',
+            'Fidelis Care (Centene)',
+            'MetroPlus Health Plan'
+          ])
+      AND billing_code IN ('90791', '90834', '90837', '90853', '99214')
+      AND lower(billing_class) = 'professional'
+      AND negotiated_type NOT ILIKE '%percent%'
+      AND negotiated_rate > 5
+  ) l
+  GROUP BY tin, payer
+), cells AS (
   -- (tin, payer, code) -> the single published rate, or NULL when the entity
   -- carries several rates for that code under the same book — in which case
-  -- n_rates says how many, and the UI shows THAT instead of an empty cell.
+  -- n_rates says how many. Only read on a row with ONE leaf; a group header
+  -- ignores both and renders empty.
   SELECT tin, payer, billing_code,
          CASE WHEN count(DISTINCT negotiated_rate) = 1 THEN min(negotiated_rate) END AS rate,
          count(DISTINCT negotiated_rate)::int AS n_rates,
@@ -229,10 +254,15 @@ SELECT p.tin,
        d.county,
        COALESCE(r.npis, '{}'::text[]) AS npis,
        COALESCE(r.n_clinicians, 0) AS n_clinicians,
+       -- >1 => this row is a group HEADER: the UI renders every rate column
+       -- empty and opens to sql/032's children. =1 => the row is itself the one
+       -- row the payer published, and shows its dollars.
+       COALESCE(lv.n_leaves, 0) AS n_leaves,
        p.c90791, p.c90834, p.c90837, p.c90853, p.c99214,
        p.n90791, p.n90834, p.n90837, p.n90853, p.n99214,
        p.as_of
 FROM pivot p
+LEFT JOIN leaves lv ON lv.tin = p.tin AND lv.payer = p.payer
 LEFT JOIN roster r      ON r.tin = p.tin
 LEFT JOIN dir d         ON d.npi = r.solo_npi
 LEFT JOIN tin_registry reg ON reg.tin_norm = p.tin;

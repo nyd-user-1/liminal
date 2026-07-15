@@ -18,8 +18,11 @@ import { formatDate, providerDisplayName, titleCase } from "@/lib/format";
 import {
   billingIdKind,
   billingIdValue,
+  isGroupHeader,
+  networkLabel,
   rateCell,
   rateRowKey,
+  settingLabel,
   RATE_CODES,
   RATE_TABLE_PAYERS,
   rowNpi,
@@ -336,35 +339,65 @@ export function PublishedRatesClient({ data }: { data: RateTableData }) {
           return npi ? <span className="tabular-nums text-text-muted">{npi}</span> : dash;
         },
       },
+      {
+        key: "network",
+        label: "Network",
+        headTitle: "The insurer's plan/network this rate belongs to. Blank on a group header.",
+        cellClassName: "max-w-[13rem] truncate",
+        sortValue: (r: RateTableRow) => text(r.network ?? null),
+        render: (r: RateTableRow) => {
+          const n = networkLabel(r.network, r.payer);
+          return n ? (
+            <span className="text-text-muted" title={r.network ?? undefined}>{n}</span>
+          ) : null;
+        },
+      },
+      {
+        key: "setting",
+        label: "Setting",
+        // Not cosmetic: this column is the reason a row exists twice. Cigna pays
+        // Georgianna Dart $137.47 for 90791 in an office and $133.02 in a
+        // facility — two published rows, one price each. Collapsing them is what
+        // produced "3 rates" in a dollar column.
+        headTitle: "Where the service is delivered. The payer prices office and facility separately.",
+        sortValue: (r: RateTableRow) => settingLabel(r.setting),
+        render: (r: RateTableRow) => {
+          const l = settingLabel(r.setting);
+          return l ? (
+            <span className="text-text-muted" title={r.setting ?? undefined}>{l}</span>
+          ) : null;
+        },
+      },
       ...RATE_CODES.map((c, i) => ({
         key: c.key,
         label: c.code,
         // One-row headers: the plain-English name rides along as a tooltip.
         headTitle: c.name,
         align: "right" as const,
-        // Multi-rate cells sort as -1 alongside blanks: they hold no single
-        // number, so there is nothing to rank them by. They are found by opening
-        // a group, not by sorting a column.
         sortValue: (r: RateTableRow) => num(r[c.key]),
         render: (r: RateTableRow) => {
+          // A group header summarizes nothing. It is a LABEL: the billing ID,
+          // its chevron, and nothing else. Every rate column therefore holds one
+          // unit — dollars — from top to bottom.
+          //
+          // This column used to render a count here ("4 rates") beside "$155.00"
+          // one row down: a cardinality and a price sharing a column. That is
+          // what made "4 rates" over three clinician rows unreadable — the number
+          // counted distinct PRICES, not rows, and no wording fixes a column with
+          // two units in it. The children carry the numbers.
+          if (isGroupHeader(r)) return null;
           const { rate, n } = rateCell(r, i);
           if (n === 1) return money(rate);
-          // The payer published nothing. The only honest dash.
           if (n === 0) return dash;
-          // The payer published n different rates for this row and this code.
-          // THIS is the page's thesis at cell scale — "Cigna pays 395 different
-          // rates for a 60-minute session" is the same statistic, corpus-wide.
-          // Rendering "—" here (what this table did until 2026-07-15) hid the
-          // argument the page exists to make.
+          // Nothing left to split on: this is ONE published row (one NPI, one
+          // network, one setting) that still carries several rates, because the
+          // column that separates them — billing_code_modifier — is dropped at
+          // ingest (NYS-64). 9% of leaves. The count is the only true thing we
+          // can say, and there is no deeper row to open.
           return (
             <span
               className="text-text-muted"
-              title={
-                r.isChild
-                  ? `${r.payer} publishes ${n} different rates for this clinician and ${c.code}`
-                  : `${r.payer} publishes ${n} different rates across this group for ${c.code}` +
-                    (r.children?.length ? " — open the group to see them" : "")
-              }
+              title={`${r.payer} publishes ${n} rates for this provider on this network and setting, and the file gives us nothing that separates them (NYS-64)`}
             >
               {n} rates
             </span>

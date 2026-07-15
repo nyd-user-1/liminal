@@ -1,59 +1,60 @@
--- Liminal — 032: rate_table_child_mv — the clinicians inside a billing group.
+-- Liminal — 032: rate_table_child_mv — the rows a payer actually published.
 --
--- WHAT THIS FIXES. sql/027 is one row per (billing group, insurer). That row is
--- the contract, and it is the right spine — but it was the ONLY thing we kept.
--- The payer does not publish a rate for a group; it publishes a rate for a
--- PERSON, under a group. sql/027's `GROUP BY tin, payer, billing_code` collapsed
--- the people out, then reported the resulting collisions as "multi-rate" and
--- rendered "—". So the page deleted, cell by cell, the exact thing it exists to
--- show: that this insurer pays these five colleagues five different numbers for
--- the same hour.
+-- WHAT A CHILD IS. One row per (billing ID, insurer, NPI, network, setting).
+-- That is the grain Cigna publishes at, and every one is a LITERAL row in their
+-- file — not a cross-product we constructed. Georgianna Dart (NPI 1750644324)
+-- under ein:226019101 has four, all dated 2026-07-01:
+--   localplus / CSTM-00     90791 $155.00   90837 $130.00   99214 —
+--   national-oap / CSTM-00  90791 $155.00   90837 $130.00   99214 —
+--   national-oap / facility 90791 $133.02   90837 $132.21   99214 $83.83
+--   national-oap / office   90791 $137.47   90837 $133.02   99214 $116.98
+-- Four rows, three distinct prices (the CSTM-00 pair agrees), and 99214 is the
+-- proof they are not one row smeared four ways: blank on CSTM-00, $83.83 in a
+-- facility, $116.98 in an office.
 --
--- This MV is sql/027 one level down: (billing group, insurer, NPI). Same codes,
--- same columns, same filters — the parent row is a group header, these are its
--- children. Together they make the comparison work at two depths with one
--- gesture: BETWEEN practices (parent rows) and WITHIN a practice (open one).
+-- WHY NETWORK AND SETTING ARE COLUMNS, NOT A GROUP BY. Collapsing them is the
+-- mistake this file corrects. sql/027 grouped to (tin, payer, code) and called
+-- the collisions "multi-rate"; the FIRST cut of this file grouped to
+-- (tin, payer, npi, code) and did the same thing one level down — Dart's cell
+-- read "3 rates" when those three are an office rate, a facility rate and a
+-- custom-network rate, each one a fact. Both columns are present on 826,572 of
+-- 826,572 rows (0 missing), as is file_date. Nothing is inferred; they are
+-- carried.
 --
--- Concretely, NPI 1326429036 (Jessica Becker, MD, child psychiatry) is in three
--- groups, and Cigna pays her 90837 at $167.83 through one and $1,183.00 through
--- another. Same doctor, same code, same insurer, same network. The only variable
--- is whose identifier is on the claim. sql/027 alone cannot render that fact;
--- this MV is where it lives.
+-- Resolution at this grain: 91.0% of (npi, network, setting, code) cells hold
+-- exactly ONE rate — vs 82.0% at (npi, code) and 45.5% at sql/027's (tin, code).
+-- The 9% that remain have every column we store identical and differ anyway.
+-- That is NYS-64 (scan-tic drops billing_code_modifier), not a grain choice, and
+-- no regrouping reaches it; n_rates carries the count for exactly those.
 --
--- ── WHY 2..25 CLINICIANS ────────────────────────────────────────────────────
--- Not a performance hedge — a payload one. Measured 2026-07-15:
---   solo (1 clinician)     28,991 rows — the parent IS the clinician; a child
---                                       row would be the same row twice.
---   small groups (2..25)    8,661 rows ->  47,891 children  <- this MV
---   platforms (>25)         1,064 rows -> 168,030 children  <- excluded
--- Those 1,064 platform TINs (Headway carries ~13.6k NPIs) hold 3.5x the children
--- of every real practice combined, and nobody reads a 13,614-row roster. Same
--- cap, and the same reasoning, as sql/027's `npis` array. /orgs is where a
--- platform's roster belongs.
+-- ── THE CAP ────────────────────────────────────────────────────────────────
+-- Gated on the row's OWN leaf count for THIS payer — not the TIN's roster across
+-- every payer. That was the earlier bug: ein:223376459 has a 59-NPI roster, so
+-- all three of its rows lost their children, including an EmblemHealth row with
+-- exactly ONE clinician in that book.
+--   <=100 leaves   38,474 rows  <- this MV
+--   >100 leaves       242 rows -> 108,135 children, 48% of the total, excluded.
+-- The largest is Headway. Nobody reads a 10,873-row roster inline; /orgs owns
+-- those rosters.
 --
 -- ── REFRESH ────────────────────────────────────────────────────────────────
--- Reads org_tin_rosters (025) for the size gate, so it refreshes with 027:
+-- Reads only provider_rate_signals + directory_providers, so it has no ordering
+-- dependency on the naming scripts — but refresh it WITH 027, or the two halves
+-- of one row disagree about what the payer published:
 --   REFRESH MATERIALIZED VIEW CONCURRENTLY rate_table_mv;         -- 027
 --   REFRESH MATERIALIZED VIEW CONCURRENTLY rate_table_child_mv;   -- 032 (this)
 -- Every filter below is copied from sql/027 ON PURPOSE and must stay identical —
 -- a child whose filters differ from its parent's is a child that does not add up
--- to it. See the sql/027 header for why each one is load-bearing.
+-- to it.
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS rate_table_child_mv AS
-WITH eligible AS (
-  -- The size gate, computed once off the ready-made roster MV.
-  SELECT tin FROM org_tin_rosters GROUP BY tin HAVING count(*) BETWEEN 2 AND 25
-), cells AS (
-  -- (tin, payer, npi, code) -> that CLINICIAN's single published rate, or NULL
-  -- with n_rates > 1 when the payer published several for them. 82% of these
-  -- cells resolve to exactly one rate (vs 45.5% at the group grain) — the
-  -- collapse was never noise, it was five people.
-  SELECT s.tin, s.payer, s.npi, s.billing_code,
+WITH cells AS (
+  SELECT s.tin, s.payer, s.npi, s.plan_or_network AS network, s.place_of_service AS setting,
+         s.billing_code,
          CASE WHEN count(DISTINCT s.negotiated_rate) = 1 THEN min(s.negotiated_rate) END AS rate,
          count(DISTINCT s.negotiated_rate)::int AS n_rates,
          max(s.file_date) AS last_file_date
   FROM provider_rate_signals s
-  JOIN eligible e ON e.tin = s.tin
   WHERE s.payer = ANY (ARRAY[
           'Cigna Health & Life',
           'Empire BlueCross BlueShield',
@@ -66,33 +67,39 @@ WITH eligible AS (
     AND lower(s.billing_class) = 'professional'
     AND s.negotiated_type NOT ILIKE '%percent%'
     AND s.negotiated_rate > 5
-  GROUP BY s.tin, s.payer, s.npi, s.billing_code
+  GROUP BY s.tin, s.payer, s.npi, s.plan_or_network, s.place_of_service, s.billing_code
+), eligible AS (
+  SELECT tin, payer
+  FROM (SELECT DISTINCT tin, payer, npi, network, setting FROM cells) l
+  GROUP BY tin, payer
+  HAVING count(*) <= 100
 ), pivot AS (
-  SELECT tin, payer, npi,
-         max(rate) FILTER (WHERE billing_code = '90791')::numeric(10,2) AS c90791,
-         max(rate) FILTER (WHERE billing_code = '90834')::numeric(10,2) AS c90834,
-         max(rate) FILTER (WHERE billing_code = '90837')::numeric(10,2) AS c90837,
-         max(rate) FILTER (WHERE billing_code = '90853')::numeric(10,2) AS c90853,
-         max(rate) FILTER (WHERE billing_code = '99214')::numeric(10,2) AS c99214,
-         COALESCE(max(n_rates) FILTER (WHERE billing_code = '90791'), 0) AS n90791,
-         COALESCE(max(n_rates) FILTER (WHERE billing_code = '90834'), 0) AS n90834,
-         COALESCE(max(n_rates) FILTER (WHERE billing_code = '90837'), 0) AS n90837,
-         COALESCE(max(n_rates) FILTER (WHERE billing_code = '90853'), 0) AS n90853,
-         COALESCE(max(n_rates) FILTER (WHERE billing_code = '99214'), 0) AS n99214,
-         max(last_file_date) AS as_of
-  FROM cells
-  GROUP BY tin, payer, npi
+  SELECT c.tin, c.payer, c.npi, c.network, c.setting,
+         max(c.rate) FILTER (WHERE c.billing_code = '90791')::numeric(10,2) AS c90791,
+         max(c.rate) FILTER (WHERE c.billing_code = '90834')::numeric(10,2) AS c90834,
+         max(c.rate) FILTER (WHERE c.billing_code = '90837')::numeric(10,2) AS c90837,
+         max(c.rate) FILTER (WHERE c.billing_code = '90853')::numeric(10,2) AS c90853,
+         max(c.rate) FILTER (WHERE c.billing_code = '99214')::numeric(10,2) AS c99214,
+         COALESCE(max(c.n_rates) FILTER (WHERE c.billing_code = '90791'), 0) AS n90791,
+         COALESCE(max(c.n_rates) FILTER (WHERE c.billing_code = '90834'), 0) AS n90834,
+         COALESCE(max(c.n_rates) FILTER (WHERE c.billing_code = '90837'), 0) AS n90837,
+         COALESCE(max(c.n_rates) FILTER (WHERE c.billing_code = '90853'), 0) AS n90853,
+         COALESCE(max(c.n_rates) FILTER (WHERE c.billing_code = '99214'), 0) AS n99214,
+         max(c.last_file_date) AS as_of
+  FROM cells c
+  JOIN eligible e ON e.tin = c.tin AND e.payer = c.payer
+  GROUP BY c.tin, c.payer, c.npi, c.network, c.setting
 ), dir AS (
   -- Identical to sql/027's dir CTE: an NPI can land once from the 'nppes' load
   -- and once from 'medicaid'; only 'nppes' rows carry a credential and only
   -- 'medicaid' rows are authoritative on profession, so coalesce the best value
   -- per field rather than picking one row and inheriting its NULLs.
   SELECT npi,
-         (array_agg(name       ORDER BY (name IS NULL)))[1]                              AS name,
-         (array_agg(credential ORDER BY (credential IS NULL), (source = 'nppes') DESC))[1]   AS credential,
+         (array_agg(name       ORDER BY (name IS NULL)))[1]                                   AS name,
+         (array_agg(credential ORDER BY (credential IS NULL), (source = 'nppes') DESC))[1]    AS credential,
          (array_agg(profession ORDER BY (profession IS NULL), (source = 'medicaid') DESC))[1] AS profession,
-         (array_agg(city       ORDER BY (city IS NULL),       (source = 'nppes') DESC))[1]   AS city,
-         (array_agg(county     ORDER BY (county IS NULL),     (source = 'nppes') DESC))[1]   AS county
+         (array_agg(city       ORDER BY (city IS NULL),       (source = 'nppes') DESC))[1]    AS city,
+         (array_agg(county     ORDER BY (county IS NULL),     (source = 'nppes') DESC))[1]    AS county
   FROM directory_providers
   WHERE npi IS NOT NULL
   GROUP BY npi
@@ -100,8 +107,8 @@ WITH eligible AS (
 SELECT p.tin,
        p.payer,
        p.npi,
-       -- The child's own name. NULL is fine and expected for an NPI we hold no
-       -- directory row for; the UI falls back to the NPI, which is never NULL.
+       p.network,
+       p.setting,
        d.name AS display_name,
        d.credential,
        upper(regexp_replace(d.credential, '[.[:space:]-]', '', 'g')) AS credential_norm,
@@ -114,10 +121,11 @@ SELECT p.tin,
 FROM pivot p
 LEFT JOIN dir d ON d.npi = p.npi;
 
--- (payer, tin, npi) is the grain and the access path: the page reads one
--- payer's children, then attaches them to parents by tin.
+-- (payer, tin, npi, network, setting) is the grain. `setting` is a pipe-joined
+-- service_code list up to ~90 chars, so it is hashed into the unique index
+-- rather than indexed whole; the index exists so REFRESH CONCURRENTLY works.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_rate_table_child_key
-  ON rate_table_child_mv (payer, tin, npi);
+  ON rate_table_child_mv (payer, tin, npi, network, md5(setting));
 
 COMMENT ON MATERIALIZED VIEW rate_table_child_mv IS
-  'The clinicians inside a billing group: one row per (billing TIN, payer, NPI) for groups of 2-25. Children of sql/027 rate_table_mv — same codes, same filters, one level down. Solo groups are excluded (the parent IS the clinician); platform TINs >25 are excluded (payload — see /orgs).';
+  'The rows a payer actually published: one per (billing ID, insurer, NPI, network, setting), for billing IDs holding <=100 such rows for that payer. Children of sql/027 rate_table_mv. network + setting are COLUMNS, not a GROUP BY — collapsing them is what made a real office-vs-facility price difference render as "3 rates".';

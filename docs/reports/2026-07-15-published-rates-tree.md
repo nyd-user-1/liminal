@@ -1,5 +1,9 @@
 # 2026-07-15 — /published-rates: clinician sub-rows + rate counts
 
+> **SUPERSEDED same day** by `2026-07-15-published-rates-group-header.md`. The 2–25 roster cap and
+> the count-in-a-rate-cell described below were both wrong and are gone. Kept as the record of
+> what commit `750a27c` actually contained.
+
 ## Shipped
 `750a27c`
 - `sql/032_rate_table_children.sql` (new) — `rate_table_child_mv`
