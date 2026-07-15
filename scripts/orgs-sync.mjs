@@ -2,13 +2,25 @@
 // Organization-layer sync (sql/025, NYS-41 + NYS-27). Idempotent; run after
 // every FHIR harvest or rate load (part of the post-ingest routine):
 //
-//   node --env-file=.env.local scripts/orgs-sync.mjs [--skip-refresh]
+//   node --env-file=.env.local scripts/orgs-sync.mjs [--skip-refresh] [--skip-affiliations]
+//
+// ⚠️ STEP 1 NO LONGER FITS THE HTTP DRIVER AT ANTHEM SCALE (2026-07-15).
+// The neon() HTTP driver goes through Node's fetch, whose undici headersTimeout
+// is 300s — a CLIENT limit, not a Neon one. Anthem alone is 1.4M rows × ~2.6KB
+// of TOASTed raw_resource, so step 1's JSONB scan blows 300s and dies with
+// UND_ERR_HEADERS_TIMEOUT. Chunking per NPI bucket was tried and still exceeded
+// it; passing a custom undici dispatcher via fetchOptions does NOT work (Node's
+// global fetch uses its own internal undici). Until it's ported to the
+// WebSocket Pool (needs `ws`), run step 1 through psql, which has no such
+// timeout, then use --skip-affiliations here:
+//
+//   psql "$DATABASE_URL" -f sql/maint/org-affiliations-sync.sql
+//   node --env-file=.env.local scripts/orgs-sync.mjs --skip-affiliations
 //
 // Three steps, each safe to re-run:
 //  1. Extract provider↔org links from provider_network_participation
 //     .raw_resource (PractitionerRole.organization) into org_affiliations.
-//     Chunked per payer_source — the JSONB scan on the full table would
-//     brush Neon's 5-minute statement ceiling after big harvests.
+//     Chunked per payer_source — see the ceiling note above.
 //  2. Backfill tin_registry names, best source first (ON CONFLICT DO NOTHING
 //     = first writer wins, seeds stay):
 //       npi-TINs: nppes_organizations (NPI-2 orgs), then directory_providers
@@ -28,6 +40,7 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 const SKIP_REFRESH = process.argv.includes("--skip-refresh");
+const SKIP_AFFILIATIONS = process.argv.includes("--skip-affiliations");
 
 // Crosswalk acceptance gates — conservative on purpose: a wrong org name on a
 // TIN poisons every Know-Your-Rates screen that shows it.
@@ -43,23 +56,27 @@ const sources = await sql.query(
   "SELECT id, slug, name FROM payer_sources ORDER BY slug",
 );
 let extracted = 0;
-for (const s of sources) {
-  const r = await sql.query(
-    `INSERT INTO org_affiliations (npi, payer_source_id, org_ref, org_display)
-     SELECT DISTINCT p.npi, p.payer_source_id,
-            p.raw_resource->'organization'->>'reference',
-            p.raw_resource->'organization'->>'display'
-     FROM provider_network_participation p
-     WHERE p.payer_source_id = $1
-       AND p.raw_resource->'organization'->>'reference' IS NOT NULL
-       AND p.raw_resource->'organization'->>'display' IS NOT NULL
-     ON CONFLICT (npi, payer_source_id, org_ref)
-       DO UPDATE SET last_seen = CURRENT_DATE, org_display = EXCLUDED.org_display`,
-    [s.id],
-  );
-  const n = r.length ?? 0;
-  if (n) console.log(`  affiliations ${s.slug}: ${n} upserted`);
-  extracted += n;
+if (SKIP_AFFILIATIONS) {
+  console.log("1/3 org_affiliations SKIPPED (--skip-affiliations)");
+} else {
+  for (const s of sources) {
+    const r = await sql.query(
+      `INSERT INTO org_affiliations (npi, payer_source_id, org_ref, org_display)
+       SELECT DISTINCT p.npi, p.payer_source_id,
+              p.raw_resource->'organization'->>'reference',
+              p.raw_resource->'organization'->>'display'
+       FROM provider_network_participation p
+       WHERE p.payer_source_id = $1
+         AND p.raw_resource->'organization'->>'reference' IS NOT NULL
+         AND p.raw_resource->'organization'->>'display' IS NOT NULL
+       ON CONFLICT (npi, payer_source_id, org_ref)
+         DO UPDATE SET last_seen = CURRENT_DATE, org_display = EXCLUDED.org_display`,
+      [s.id],
+    );
+    const n = r.length ?? 0;
+    if (n) console.log(`  affiliations ${s.slug}: ${n} upserted`);
+    extracted += n;
+  }
 }
 console.log(`1/3 org_affiliations synced (${elapsed()})`);
 
