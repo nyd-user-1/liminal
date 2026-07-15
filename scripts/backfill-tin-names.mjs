@@ -106,7 +106,44 @@ const DIR_CANON = `
   WHERE npi IS NOT NULL AND name IS NOT NULL
   GROUP BY npi`;
 
-// ── 1. single-NPI TINs whose lone NPI is an NPI-2 org ────────────────────────
+// ── 0. npi-IDENTIFIED TINs: the identifier itself names the entity ───────────
+// A payer may identify a billing group by an NPI instead of an EIN, and that
+// NPI is frequently the GROUP's own NPI-2 — not any member's. Empire does this
+// for 100% of its rows. So for every 'npi:' TIN, the identifier is the first
+// and best evidence of who the entity is: resolve it against
+// nppes_organizations BEFORE looking at the roster.
+//
+// Getting this order wrong is not cosmetic. npi:1629049192 is MEMORIAL
+// GASTROENTEROLOGY GROUP; the only member in our data is one clinician, so a
+// roster-first rule names the GROUP after that person and types it as an
+// individual. That is a false statement about a real organisation, on a page
+// whose whole value is that every row is checkable.
+//
+// orgs-sync.mjs has this same rule and runs earlier, but ON CONFLICT DO NOTHING
+// means whoever writes first wins — so if it hasn't run since the last load,
+// step 2 below would claim the row. Repair first, then insert.
+const repaired = await sql.query(
+  `UPDATE tin_registry g
+   SET business_name = o.name, source = 'nppes-org', last_seen = CURRENT_DATE
+   FROM nppes_organizations o
+   WHERE g.tin_norm LIKE 'npi:%'
+     AND o.npi = substr(g.tin_norm, 5)
+     AND g.source = 'nppes-individual'
+   RETURNING 1`,
+);
+console.log(`0/5 npi-identified orgs repaired (were named after a member): ${repaired.length} [${elapsed()}]`);
+
+const r0 = await sql.query(
+  `INSERT INTO tin_registry (tin_norm, business_name, source)
+   SELECT DISTINCT r.tin, o.name, 'nppes-org'
+   FROM (SELECT DISTINCT tin FROM org_tin_rosters WHERE tin LIKE 'npi:%') r
+   JOIN nppes_organizations o ON o.npi = substr(r.tin, 5)
+   ON CONFLICT (tin_norm) DO NOTHING
+   RETURNING 1`,
+);
+console.log(`1/5 npi-identified orgs named from the identifier: ${r0.length} [${elapsed()}]`);
+
+// ── 1b. single-NPI TINs whose lone ROSTER NPI is an NPI-2 org ────────────────
 const r1 = await sql.query(
   `INSERT INTO tin_registry (tin_norm, business_name, source)
    SELECT s.tin, o.name, 'nppes-org'
@@ -115,7 +152,7 @@ const r1 = await sql.query(
    ON CONFLICT (tin_norm) DO NOTHING
    RETURNING 1`,
 );
-console.log(`1/4 single-NPI org shells named: ${r1.length} [${elapsed()}]`);
+console.log(`2/5 single-NPI org shells named: ${r1.length} [${elapsed()}]`);
 
 // ── 2. single-NPI TINs -> the person ─────────────────────────────────────────
 // Runs after (1), so an org shell keeps its org name via ON CONFLICT.
@@ -127,7 +164,7 @@ const r2 = await sql.query(
    ON CONFLICT (tin_norm) DO NOTHING
    RETURNING 1`,
 );
-console.log(`2/4 solo practices named: ${r2.length} [${elapsed()}]`);
+console.log(`3/5 solo practices named: ${r2.length} [${elapsed()}]`);
 
 // ── 3. multi-NPI TINs -> the roster's anchor NPI-2 ───────────────────────────
 // DISTINCT ON picks the NPI-2 with the most rate_rows; ties break on npi so a
@@ -142,7 +179,7 @@ const r3 = await sql.query(
    ON CONFLICT (tin_norm) DO NOTHING
    RETURNING 1`,
 );
-console.log(`3/4 group practices named from a roster NPI-2: ${r3.length} [${elapsed()}]`);
+console.log(`4/5 group practices named from a roster NPI-2: ${r3.length} [${elapsed()}]`);
 
 // ── 4. relaxed FHIR roster crosswalk (last resort) ───────────────────────────
 // Same maths as orgs-sync's crosswalk, one notch looser: >=5 shared NPIs rather
@@ -214,7 +251,7 @@ for (let i = 0; i < accepted.length; i += 500) {
     [c.map((p) => p.tin), c.map((p) => p.name), c.map((p) => `fhir-crosswalk5:${p.src}`)],
   );
 }
-console.log(`4/4 named via relaxed FHIR crosswalk (>=${MIN_SHARED} shared): ${accepted.length} [${elapsed()}]`);
+console.log(`5/5 named via relaxed FHIR crosswalk (>=${MIN_SHARED} shared): ${accepted.length} [${elapsed()}]`);
 
 // ── after ────────────────────────────────────────────────────────────────────
 const after = coverage(await namedKeys());

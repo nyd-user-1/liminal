@@ -1,10 +1,28 @@
 -- Liminal — 027: rate_table_mv (the published-rates table, /published-rates).
 --
--- Grain: one row per (tin, payer) — what a single insurer publishes it pays one
--- billing entity in New York for the five behavioral-health codes. The page
--- ships the WHOLE corpus for a payer (~12.5k rows for Cigna) and narrows it
--- client-side, so this MV is the entire query layer: no per-row lookups, no
--- filters pushed to request time beyond `WHERE payer = $1`.
+-- WHAT A ROW IS. Not a person, not a company: a row is ONE INSURER'S PRICE LIST
+-- FOR ONE BILLING GROUP — the party that insurer contracts with and pays. Grain
+-- is (tin, payer); the page ships the whole corpus and narrows it client-side,
+-- so this MV is the entire query layer: no per-row lookups, no request-time
+-- filters.
+--
+-- WHAT `tin` IS, AND WHY IT IS NOT A "TIN" COLUMN. In the CMS Transparency in
+-- Coverage schema a provider group is `{npi: [...], tin: {type, value}}`, where
+-- type is 'ein' OR 'npi'. So the field is really "the identifier this payer
+-- chose to publish for this group" — an EIN, or an NPI standing in for one.
+-- The choice belongs to the PAYER, not the provider (measured 2026-07-14):
+--   Empire BlueCross  0% ein / 100% npi      Cigna       72% / 28%
+--   Fidelis          100% ein /   0% npi      Oxford      65% / 35%
+--   MetroPlus        100% ein /   0% npi      EmblemHealth 59% / 41%
+-- 28,210 NPIs appear under BOTH an ein-identifier and an npi-identifier — the
+-- same human, identified differently by different insurers. An NPI is not a tax
+-- ID; do not label this column "TIN" in any UI.
+--
+-- CONSEQUENCE: one provider legitimately appears in many rows. NPI 1407961386
+-- sits in six — three EINs (employers she bills through; the EIN belongs to the
+-- employer, not to her) plus npi:1407961386 (billing as herself) and two org
+-- NPIs (MEMORIAL GASTROENTEROLOGY GROUP, MSKCC RADIOLOGY GROUP). She does not
+-- "have" three EINs. Rows are billing relationships, not people.
 --
 -- REFRESH ORDER — this MV reads tin_registry, so it must refresh AFTER the
 -- names land or ~77% of the table renders "Unnamed practice". It appends to the
@@ -78,7 +96,7 @@ WITH cells AS (
          max(last_file_date) AS as_of
   FROM cells
   GROUP BY tin, payer
-), roster AS (
+), roster_base AS (
   -- org_tin_rosters is the ready-made tin->npi join (31,233 TINs / 150,499 rows).
   -- NEVER resolve rosters off provider_rate_signals directly — the correlated
   -- version blows the 5-minute statement ceiling.
@@ -86,16 +104,39 @@ WITH cells AS (
          count(*)::int AS n_clinicians,
          -- Platform TINs (Headway et al.) carry thousands of NPIs; shipping them
          -- would balloon the page payload for a client-side search nobody runs
-         -- on a 13k-clinician roster. Small rosters only.
+         -- on a 13k-provider roster. Small rosters only.
          CASE WHEN count(*) <= 25 THEN array_agg(t.npi ORDER BY t.npi) ELSE '{}'::text[] END AS npis,
-         -- Non-NULL only for a true solo practice, so the LEFT JOIN below hands
-         -- individual-only attributes to individuals and NULL to everyone else.
-         CASE WHEN count(*) = 1 AND NOT bool_or(o.npi IS NOT NULL) THEN min(t.npi) END AS solo_npi,
-         CASE WHEN count(*) = 1 AND NOT bool_or(o.npi IS NOT NULL)
-              THEN 'individual' ELSE 'organization' END AS entity_kind
+         min(t.npi) AS first_npi,
+         bool_or(o.npi IS NOT NULL) AS roster_has_org,
+         -- Is the IDENTIFIER an organisation's own NPI-2? For an 'npi:' TIN the
+         -- payer named the billing group by an NPI, and that NPI is often the
+         -- GROUP's (npi:1629049192 = MEMORIAL GASTROENTEROLOGY GROUP), not any
+         -- member's. This is the strongest evidence we have about the entity and
+         -- it must outrank the roster.
+         bool_or(idorg.npi IS NOT NULL) AS id_is_org
   FROM org_tin_rosters t
   LEFT JOIN nppes_organizations o ON o.npi = t.npi   -- presence here = NPI-2 org
+  LEFT JOIN nppes_organizations idorg
+    ON t.tin LIKE 'npi:%' AND idorg.npi = substr(t.tin, 5)
   GROUP BY t.tin
+), roster AS (
+  SELECT tin, n_clinicians, npis,
+         CASE
+           -- Hard fact: the payer identified this group by an org's NPI-2.
+           WHEN id_is_org THEN 'organization'
+           -- Inference, and a soft one: a roster of one only means ONE member
+           -- appears in the codes we harvested. A large employer where a single
+           -- clinician bills behavioural codes looks identical from here. It is
+           -- the best evidence available for an 'ein:' TIN, but it is evidence,
+           -- not proof — see the header note on what a row actually is.
+           WHEN n_clinicians = 1 AND NOT roster_has_org THEN 'individual'
+           ELSE 'organization'
+         END AS entity_kind,
+         -- Non-NULL only for a presumed solo practice, so the LEFT JOIN below
+         -- hands individual-only attributes to individuals and NULL to the rest.
+         CASE WHEN NOT id_is_org AND n_clinicians = 1 AND NOT roster_has_org
+              THEN first_npi END AS solo_npi
+  FROM roster_base
 ), dir AS (
   -- ~123k rows for ~106k NPIs: an NPI can land once from the 'nppes' load and
   -- once from 'medicaid'. Only 'nppes' rows carry a credential and only

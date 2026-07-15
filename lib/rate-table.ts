@@ -70,34 +70,38 @@ export function rateRowKey(r: RateTableRow): string {
   return `${r.payer}::${r.tin}`;
 }
 
-// A TIN is EITHER an EIN or an NPI — never both, and never neither. "EIN vs
-// TIN" is a category error: TIN (taxpayer identification number) is the
-// umbrella, and an EIN is one kind of it; the other kind a payer may publish is
-// the entity's own NPI. provider_rate_signals.tin encodes which as a prefix
-// ('ein:832675429' / 'npi:1265047799'), so the type is a property of the one
-// value, not a second value. Verified across all 38,716 MV rows on 2026-07-14:
-// 13,075 ein TINs, 11,842 npi TINs, 0 neither, 0 both.
-export type TinKind = "EIN" | "NPI";
+// The billing IDENTIFIER — what the insurer publishes to say who it pays.
+//
+// In the CMS Transparency in Coverage schema a provider group is
+// `{npi: [...], tin: {type, value}}` where type is 'ein' or 'npi'. So this value
+// is not "the TIN": it is whichever identifier that payer chose, and the choice
+// is the PAYER's, not the provider's (measured 2026-07-14) —
+//   Empire 100% npi · Fidelis/MetroPlus 100% ein · Cigna 72/28 · Oxford 65/35.
+// 28,210 NPIs appear under both kinds. An NPI is not a tax ID, so this must
+// never be labelled "TIN" in the UI.
+export type BillingIdKind = "EIN" | "NPI";
 
-export function tinKind(tin: string): TinKind {
+export function billingIdKind(tin: string): BillingIdKind {
   return tin.startsWith("npi:") ? "NPI" : "EIN";
 }
 
 /** 'ein:262976526' → '26-2976526'; 'npi:1265047799' → '1265047799'. */
-export function tinValue(tin: string): string {
+export function billingIdValue(tin: string): string {
   const d = tin.replace(/\D/g, "");
-  return tinKind(tin) === "EIN" && d.length === 9 ? `${d.slice(0, 2)}-${d.slice(2)}` : d;
+  return billingIdKind(tin) === "EIN" && d.length === 9 ? `${d.slice(0, 2)}-${d.slice(2)}` : d;
 }
 
 /**
- * The entity's own NPI, or null when it doesn't have exactly one.
- *  - individual  -> their single roster NPI (all 28,710 individual rows have
- *    exactly one, verified 2026-07-14)
- *  - npi-TIN org -> the NPI it bills under (its NPI-2)
- *  - ein-TIN org -> null: a group has many NPIs, so no single answer.
+ * The MEMBER's NPI — the provider who bills under this group — or null when the
+ * group has more than one and there is no single answer.
+ *
+ * Deliberately NOT the identifier: for 1,074 npi-identified rows the identifier
+ * is not a member's NPI at all (939 of them are the GROUP's own NPI-2, e.g.
+ * npi:1629049192 = MEMORIAL GASTROENTEROLOGY GROUP). Reading the NPI off the
+ * identifier printed an organisation's NPI in a column headed "NPI" next to a
+ * person's name. Read the roster instead — it is the only thing that actually
+ * holds member NPIs.
  */
 export function rowNpi(r: RateTableRow): string | null {
-  if (tinKind(r.tin) === "NPI") return r.tin.slice(4);
-  if (r.entityKind === "individual" && r.npis.length === 1) return r.npis[0];
-  return null;
+  return r.npis.length === 1 ? r.npis[0] : null;
 }

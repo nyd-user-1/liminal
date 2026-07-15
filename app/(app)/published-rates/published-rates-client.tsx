@@ -16,12 +16,12 @@ import { formatDate, providerDisplayName } from "@/lib/format";
 // From lib/rate-table (no db import), never lib/repos — a VALUE import from a
 // repo pulls lib/db into this bundle and the Neon proxy throws in the browser.
 import {
+  billingIdKind,
+  billingIdValue,
   rateRowKey,
   RATE_CODES,
   RATE_TABLE_PAYERS,
   rowNpi,
-  tinKind,
-  tinValue,
   type RateTableData,
   type RateTableRow,
 } from "@/lib/rate-table";
@@ -269,23 +269,28 @@ export function PublishedRatesClient({ data }: { data: RateTableData }) {
       },
       {
         key: "tin",
-        // A TIN is EITHER an EIN or an NPI — never both. One column, typed.
-        label: "TIN",
+        // NOT "TIN": the value is whichever identifier the insurer published for
+        // this billing group, and an NPI is not a tax ID. The type prefix says
+        // which kind it is — that's the insurer's choice, not the provider's.
+        label: "Billing ID",
+        headTitle: "The identifier the insurer publishes for this billing group — an EIN, or an NPI standing in for one",
         sortValue: (r) => r.tin,
         render: (r) => (
           <span className="tabular-nums">
-            <span className="mr-1.5 text-[13px] text-text-muted">{tinKind(r.tin)}</span>
-            {tinValue(r.tin)}
+            <span className="mr-1.5 text-[13px] text-text-muted">{billingIdKind(r.tin)}</span>
+            {billingIdValue(r.tin)}
           </span>
         ),
       },
       {
         key: "npi",
         label: "NPI",
+        headTitle: "The provider billing under this group. Blank when the group has more than one.",
         sortValue: (r) => text(rowNpi(r)),
         render: (r) => {
           const npi = rowNpi(r);
-          // A group bills many NPIs — no single answer, so no invented one.
+          // The member's NPI, never the identifier — a group bills many NPIs, so
+          // there is no single answer and we don't invent one.
           return npi ? <span className="tabular-nums text-text-muted">{npi}</span> : dash;
         },
       },
