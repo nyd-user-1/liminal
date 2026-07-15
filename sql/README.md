@@ -18,6 +18,18 @@ Demo logins (password `demo`):
 > `.env.local` contains an unquoted `&`, so `source .env.local` fails under zsh. For psql:
 > `export DATABASE_URL="$(grep -m1 '^DATABASE_URL=' .env.local | cut -d= -f2- | tr -d '\"')"`
 
+## File numbering
+
+The numbers are **apply order for humans, nothing more** — no runner reads them, and no
+`schema_migrations` table tracks them. Files are applied by hand with `psql -f`.
+
+Take the next free number (`ls sql/`). If two concurrent sessions grab the same one, **that is
+cosmetic, not an emergency**: replay is lexical, so `029_anthem_resources` runs before
+`029_photon_demo` deterministically, and files are idempotent. Renaming an already-applied file
+buys nothing and breaks the reports that cite it — leave it. `029` is currently doubled for
+exactly this reason (Anthem's `fhir_*` tables; Photon's `clients.photon_patient_id` + demo rows).
+They share no tables.
+
 ---
 
 ## Post-ingest chain — run in this order, every time
@@ -30,12 +42,22 @@ its rows and one that renders ~9% "Unnamed practice".
 psql "$DATABASE_URL" -c "REFRESH MATERIALIZED VIEW CONCURRENTLY provider_rate_summary"          # 021
 psql "$DATABASE_URL" -c "REFRESH MATERIALIZED VIEW CONCURRENTLY provider_participation_summary" # 023
 psql "$DATABASE_URL" -c "REFRESH MATERIALIZED VIEW CONCURRENTLY rate_bands_summary"             # 024
-node --env-file=.env.local scripts/orgs-sync.mjs            # 025 MVs + npi-TIN names
+psql "$DATABASE_URL" -f sql/maint/org-affiliations-sync.sql                                      # 025 step 1 — see below
+node --env-file=.env.local scripts/orgs-sync.mjs --skip-affiliations   # 025 MVs + npi-TIN names
 node --env-file=.env.local scripts/backfill-tin-names.mjs   # roster-derived names
 node --env-file=.env.local scripts/nppes-name-groups.mjs    # 030/031 co-located-org names
-psql "$DATABASE_URL" -c "REFRESH MATERIALIZED VIEW CONCURRENTLY rate_table_mv"                  # 027
+psql "$DATABASE_URL" -c "REFRESH MATERIALIZED VIEW CONCURRENTLY rate_table_mv"                   # 027
+psql "$DATABASE_URL" -c "REFRESH MATERIALIZED VIEW CONCURRENTLY rate_table_child_mv"             # 032
 psql "$DATABASE_URL" -c "ANALYZE"
 ```
+
+**Step 1 of the org sync runs under psql, not node** (2026-07-15, NYS-65). The `neon()` HTTP
+driver rides on Node's `fetch`, whose undici `headersTimeout` is **300s — a client limit, not
+Neon's**. That scan now needs ~11 min (2.44M rows whose `raw_resource` averages 2.6KB and lives
+in TOAST), so plain `node scripts/orgs-sync.mjs` dies with `UND_ERR_HEADERS_TIMEOUT`. psql has no
+such timeout. **Worse, it fails silently downstream**: a timeout here leaves the org layer stale,
+and `backfill-tin-names` then reports a `+0` gain while `rate_table_mv` rebuilds on it — which is
+indistinguishable from "nothing to do". Always confirm the sync actually succeeded.
 
 `nppes-name-groups.mjs` READS `rate_table_mv` (it asks "which rows still render unnamed?")
 and WRITES `tin_registry`, which `rate_table_mv` reads. That cycle is resolved by the order
