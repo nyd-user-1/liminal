@@ -77,6 +77,8 @@ export function DataTable<T>({
   lazy,
   scrollToKey,
   fillHeight,
+  subRows,
+  isSubRow,
 }: {
   columns: DataTableColumn<T>[];
   rows: T[];
@@ -117,6 +119,20 @@ export function DataTable<T>({
    * already provides the bound).
    */
   fillHeight?: boolean;
+  /**
+   * Turns the table into a TREE: return a row's children and it gains a
+   * disclosure control; the children render beneath it, indented, in the same
+   * columns. Return undefined/empty for a leaf.
+   *
+   * Same columns top to bottom is the whole point — it makes "compare across
+   * groups" and "compare inside one group" the same gesture at two depths,
+   * rather than two screens. Children are NOT sorted into the parent list: the
+   * sort orders parents, and each parent keeps its own children in the order the
+   * caller supplied.
+   */
+  subRows?: (row: T) => T[] | undefined;
+  /** True for a child row — drives the indent. Required with `subRows`. */
+  isSubRow?: (row: T) => boolean;
 }) {
   const [visible, toggle] = useColumnVisibility(storageKey, columns);
   const shown = columns.filter((c) => c.fixed || !storageKey || visible.has(c.key));
@@ -147,6 +163,24 @@ export function DataTable<T>({
     );
   });
 
+  // ── tree ─────────────────────────────────────────────────────────────────
+  // Expansion splices each open parent's children in directly after it, so
+  // everything downstream — sort, batching, the jump-to-row anchor — keeps
+  // operating on one flat list and needs to know nothing about depth. The sort
+  // above ran on PARENTS only, which is what keeps a child attached to its
+  // parent instead of being re-ranked away from it.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const treeRows = useMemo(() => {
+    if (!subRows) return sortedRows;
+    const out: T[] = [];
+    for (const r of sortedRows) {
+      out.push(r);
+      if (expanded.has(rowKey(r))) out.push(...(subRows(r) ?? []));
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortedRows, expanded, subRows]);
+
   // ── batching + jump-to-row ────────────────────────────────────────────────
   // Hooks run unconditionally (rules of hooks); `lazy` only decides whether the
   // batched slice or the full set is rendered.
@@ -157,9 +191,9 @@ export function DataTable<T>({
   // Index under the ACTIVE sort — re-sorting moves the target, so the anchor is
   // recomputed against the new order, not the old one.
   const targetIndex = useMemo(
-    () => (scrollToKey ? sortedRows.findIndex((r) => rowKey(r) === scrollToKey) : -1),
+    () => (scrollToKey ? treeRows.findIndex((r) => rowKey(r) === scrollToKey) : -1),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [scrollToKey, sortedRows],
+    [scrollToKey, treeRows],
   );
 
   // A jump ANCHORS the batch just above the target instead of growing the batch
@@ -169,14 +203,17 @@ export function DataTable<T>({
   // thing lazy rendering exists to prevent. Anchoring keeps the DOM at one
   // batch and still shows the row in place, with its neighbours around it.
   const anchor = targetIndex >= batchSize ? Math.max(0, targetIndex - 25) : 0;
-  const windowRows = useMemo(() => (anchor ? sortedRows.slice(anchor) : sortedRows), [sortedRows, anchor]);
+  const windowRows = useMemo(() => (anchor ? treeRows.slice(anchor) : treeRows), [treeRows, anchor]);
 
   const { visible: batch, hasMore, sentinelRef } = useLazyBatch(windowRows, {
     batchSize,
     // Snap back to the first batch when the row set, the sort or the anchor moves.
+    // treeRows.length moves when a group opens/closes, which must NOT reset the
+    // batch — that would snap the user back to the top on every expand. Only the
+    // parent set, the sort and the anchor reset it.
     resetKey: `${sort.col}:${sort.dir}:${rows.length}:${anchor}`,
   });
-  const rendered = lazy ? batch : sortedRows;
+  const rendered = lazy ? batch : treeRows;
 
   useEffect(() => {
     if (!lazy || !scrollToKey || targetIndex < 0) return;
@@ -221,6 +258,10 @@ export function DataTable<T>({
       <Table head={head} stickyHeader={fillHeight} className={`min-w-0 ${fillHeight ? "min-h-0 flex-1" : ""}`}>
         {rendered.map((row) => {
           const key = rowKey(row);
+          const kids = subRows?.(row);
+          const canExpand = !!kids?.length;
+          const sub = isSubRow?.(row) ?? false;
+          const open = expanded.has(key);
           return (
             <Tr
               key={key}
@@ -236,7 +277,39 @@ export function DataTable<T>({
                   data-rowkey={i === 0 ? key : undefined}
                   className={`${c.align === "right" ? "text-right tabular-nums " : ""}${c.cellClassName ?? "whitespace-nowrap"}`}
                 >
-                  {c.render(row)}
+                  {i === 0 && subRows ? (
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      {canExpand ? (
+                        <button
+                          type="button"
+                          aria-expanded={open}
+                          aria-label={open ? "Collapse" : "Expand"}
+                          // Without this the click also fires onRowClick, so
+                          // opening a group would navigate away from it.
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpanded((s) => {
+                              const next = new Set(s);
+                              if (!next.delete(key)) next.add(key);
+                              return next;
+                            });
+                          }}
+                          className="-my-1 shrink-0 rounded p-1 text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
+                        >
+                          <svg viewBox="0 0 16 16" className={`size-3 transition-transform ${open ? "rotate-90" : ""}`} aria-hidden>
+                            <path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                      ) : (
+                        // Reserve the control's width so leaves and children
+                        // still align with the groups above them.
+                        <span className={`shrink-0 ${sub ? "w-6" : "w-5"}`} aria-hidden />
+                      )}
+                      <span className="min-w-0 truncate">{c.render(row)}</span>
+                    </span>
+                  ) : (
+                    c.render(row)
+                  )}
                 </Td>
               ))}
             </Tr>

@@ -12,12 +12,13 @@ import { KebabMenu } from "@/components/ui/kebab-menu";
 import { SearchInput } from "@/components/ui/search-input";
 import { Tabs } from "@/components/ui/tabs";
 import { TextLink } from "@/components/ui/text-link";
-import { formatDate, providerDisplayName } from "@/lib/format";
+import { formatDate, providerDisplayName, titleCase } from "@/lib/format";
 // From lib/rate-table (no db import), never lib/repos — a VALUE import from a
 // repo pulls lib/db into this bundle and the Neon proxy throws in the browser.
 import {
   billingIdKind,
   billingIdValue,
+  rateCell,
   rateRowKey,
   RATE_CODES,
   RATE_TABLE_PAYERS,
@@ -68,6 +69,13 @@ const formatAsOf = (iso: string) => formatDate(`${iso}T00:00:00`);
  */
 const INDIVIDUAL_SUFFIX = / \(individual\)$/i;
 function rowName(r: RateTableRow): string {
+  // A child is always a person — directory_providers writes them the way NPPES
+  // does, "BECKER JESSICA", so they format like every other person in the app.
+  // No name is survivable here in a way it never is for a group: the NPI still
+  // identifies them, and identifying them is the entire reason the row exists.
+  if (r.isChild) {
+    return r.displayName ? providerDisplayName(r.displayName, "1") : `NPI ${r.npis[0] ?? "—"}`;
+  }
   if (!r.displayName) return `Unnamed practice ${r.unnamedNo ?? "?"}`;
   if (INDIVIDUAL_SUFFIX.test(r.displayName))
     return providerDisplayName(r.displayName.replace(INDIVIDUAL_SUFFIX, ""), "1");
@@ -260,6 +268,19 @@ export function PublishedRatesClient({ data }: { data: RateTableData }) {
         sortValue: (r) => rowName(r),
         render: (r) => {
           const name = rowName(r);
+          // A clinician inside a group: their name is the identity, and the
+          // discipline + city beside it are how they recognize themselves. No
+          // link — the group above already links to /orgs, and a child row's job
+          // is to be read, not navigated.
+          if (r.isChild) {
+            const meta = [r.profession, r.city && titleCase(r.city)].filter(Boolean).join(" · ");
+            return (
+              <span className="block min-w-0 truncate" title={`${name}${meta ? ` · ${meta}` : ""}`}>
+                {name}
+                {meta && <span className="ml-1.5 text-[13px] text-text-muted">{meta}</span>}
+              </span>
+            );
+          }
           return (
             // `primary` + !block, not the default wipe: wipe wraps the label in a
             // flex item of an inline-flex anchor, and text-overflow never applies
@@ -315,14 +336,40 @@ export function PublishedRatesClient({ data }: { data: RateTableData }) {
           return npi ? <span className="tabular-nums text-text-muted">{npi}</span> : dash;
         },
       },
-      ...RATE_CODES.map((c) => ({
+      ...RATE_CODES.map((c, i) => ({
         key: c.key,
         label: c.code,
         // One-row headers: the plain-English name rides along as a tooltip.
         headTitle: c.name,
         align: "right" as const,
+        // Multi-rate cells sort as -1 alongside blanks: they hold no single
+        // number, so there is nothing to rank them by. They are found by opening
+        // a group, not by sorting a column.
         sortValue: (r: RateTableRow) => num(r[c.key]),
-        render: (r: RateTableRow) => money(r[c.key]),
+        render: (r: RateTableRow) => {
+          const { rate, n } = rateCell(r, i);
+          if (n === 1) return money(rate);
+          // The payer published nothing. The only honest dash.
+          if (n === 0) return dash;
+          // The payer published n different rates for this row and this code.
+          // THIS is the page's thesis at cell scale — "Cigna pays 395 different
+          // rates for a 60-minute session" is the same statistic, corpus-wide.
+          // Rendering "—" here (what this table did until 2026-07-15) hid the
+          // argument the page exists to make.
+          return (
+            <span
+              className="text-text-muted"
+              title={
+                r.isChild
+                  ? `${r.payer} publishes ${n} different rates for this clinician and ${c.code}`
+                  : `${r.payer} publishes ${n} different rates across this group for ${c.code}` +
+                    (r.children?.length ? " — open the group to see them" : "")
+              }
+            >
+              {n} rates
+            </span>
+          );
+        },
       })),
       {
         key: "actions",
@@ -385,6 +432,8 @@ export function PublishedRatesClient({ data }: { data: RateTableData }) {
         lazy
         fillHeight
         scrollToKey={scrollToKey}
+        subRows={(r) => r.children}
+        isSubRow={(r) => !!r.isChild}
         toolbarLeft={
           <>
             <SearchInput

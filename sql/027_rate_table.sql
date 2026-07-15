@@ -63,17 +63,34 @@
 --    of NY (5.6%), Oxford Health Plans (CT) (7.2%), CDPHP (0.0%), out-of-state
 --    Blues, Excellus (5 rows). Adding a payer here means proving its single-rate
 --    share first.
---  * A TIN shows a rate for a code ONLY if that (tin, payer, code) resolves to
---    exactly ONE distinct value. Multi-rate cells stay NULL and render "—";
---    picking one arbitrarily would invent a fact the payer never published.
+--  * A TIN shows a RATE for a code only if that (tin, payer, code) resolves to
+--    exactly ONE distinct value — picking one arbitrarily would invent a fact
+--    the payer never published. But a multi-rate cell is NOT empty: it carries
+--    n_rates, the COUNT of distinct rates, and the UI renders that count.
+--
+--    This is the correction of 2026-07-15. The cell used to render "—" whenever
+--    count(DISTINCT) > 1, which deleted the page's own headline: the thesis
+--    sentence is "Cigna pays 395 DIFFERENT RATES for a 60-minute therapy session
+--    in New York" — a count of distinct rates — and the table was built to show
+--    nothing precisely when that count exceeded one. The same statistic reads at
+--    three altitudes: 395 across the corpus, 4 across a practice, 10 for one
+--    clinician. "—" now means one thing only: the payer published nothing here.
+--
+--    A count is honest whichever way NYS-64 resolves. If those 10 rates turn out
+--    to be modifier variants (90837 vs 90837-95) rather than 10 prices for one
+--    service, the count is still literally true — the payer's file does contain
+--    10 distinct rates matching this identifier + code + network + setting. A
+--    single picked number would be a lie under either reading.
 
 -- ── rate_table_mv ────────────────────────────────────────────────────────────
 CREATE MATERIALIZED VIEW IF NOT EXISTS rate_table_mv AS
 WITH cells AS (
   -- (tin, payer, code) -> the single published rate, or NULL when the entity
-  -- carries several rates for that code under the same book.
+  -- carries several rates for that code under the same book — in which case
+  -- n_rates says how many, and the UI shows THAT instead of an empty cell.
   SELECT tin, payer, billing_code,
          CASE WHEN count(DISTINCT negotiated_rate) = 1 THEN min(negotiated_rate) END AS rate,
+         count(DISTINCT negotiated_rate)::int AS n_rates,
          max(file_date) AS last_file_date
   FROM provider_rate_signals
   WHERE payer = ANY (ARRAY[
@@ -98,6 +115,14 @@ WITH cells AS (
          max(rate) FILTER (WHERE billing_code = '90837')::numeric(10,2) AS c90837,
          max(rate) FILTER (WHERE billing_code = '90853')::numeric(10,2) AS c90853,
          max(rate) FILTER (WHERE billing_code = '99214')::numeric(10,2) AS c99214,
+         -- How many distinct rates the payer published for this group + code.
+         -- 0 (no row in cells) -> genuinely nothing; 1 -> c* holds it; >1 -> the
+         -- cell renders this number and opens.
+         COALESCE(max(n_rates) FILTER (WHERE billing_code = '90791'), 0) AS n90791,
+         COALESCE(max(n_rates) FILTER (WHERE billing_code = '90834'), 0) AS n90834,
+         COALESCE(max(n_rates) FILTER (WHERE billing_code = '90837'), 0) AS n90837,
+         COALESCE(max(n_rates) FILTER (WHERE billing_code = '90853'), 0) AS n90853,
+         COALESCE(max(n_rates) FILTER (WHERE billing_code = '99214'), 0) AS n99214,
          -- The payer's PUBLICATION date (file_date), not provider_rate_signals'
          -- own as_of — as_of is when we scanned the file and reads ~today for
          -- every payer, which would render MetroPlus's Feb-2024 book as fresh.
@@ -205,6 +230,7 @@ SELECT p.tin,
        COALESCE(r.npis, '{}'::text[]) AS npis,
        COALESCE(r.n_clinicians, 0) AS n_clinicians,
        p.c90791, p.c90834, p.c90837, p.c90853, p.c99214,
+       p.n90791, p.n90834, p.n90837, p.n90853, p.n99214,
        p.as_of
 FROM pivot p
 LEFT JOIN roster r      ON r.tin = p.tin

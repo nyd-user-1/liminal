@@ -18,13 +18,15 @@ export const RATE_TABLE_PAYERS = [
 
 export type RateTablePayer = (typeof RATE_TABLE_PAYERS)[number];
 
-/** The five codes, in table order. `name` is the plain-English header tooltip + legend. */
+/** The five codes, in table order. `name` is the plain-English header tooltip + legend.
+ *  `key` holds the single rate (NULL unless exactly one); `nKey` holds how many
+ *  distinct rates the payer published — see rateCell() for why both exist. */
 export const RATE_CODES = [
-  { key: "c90791", code: "90791", name: "Diagnostic evaluation" },
-  { key: "c90834", code: "90834", name: "Psychotherapy 45 min" },
-  { key: "c90837", code: "90837", name: "Psychotherapy 60 min" },
-  { key: "c90853", code: "90853", name: "Group psychotherapy" },
-  { key: "c99214", code: "99214", name: "Established patient visit" },
+  { key: "c90791", nKey: "n90791", code: "90791", name: "Diagnostic evaluation" },
+  { key: "c90834", nKey: "n90834", code: "90834", name: "Psychotherapy 45 min" },
+  { key: "c90837", nKey: "n90837", code: "90837", name: "Psychotherapy 60 min" },
+  { key: "c90853", nKey: "n90853", code: "90853", name: "Group psychotherapy" },
+  { key: "c99214", nKey: "n99214", code: "99214", name: "Established patient visit" },
 ] as const;
 
 export interface RateTableRow {
@@ -39,6 +41,12 @@ export interface RateTableRow {
   credential: string | null;
   /** Individual-only, uppercase + punctuation-stripped — what the filter chips group on. */
   credentialNorm: string | null;
+  /** Child-only: the clinician's discipline + city, rendered beside their name
+   *  ("Becker Jessica · Psychiatrist · Brighton"). Parents carry neither — a
+   *  group has many disciplines and often many cities, and one of each would be
+   *  a lie. */
+  profession?: string | null;
+  city?: string | null;
   /** Roster NPIs, empty for rosters > 25 (platform TINs). Client-side NPI search. */
   npis: string[];
   /** Roster size — NPIs billing under this TIN. */
@@ -47,11 +55,47 @@ export interface RateTableRow {
    *  Stable: assigned per distinct TIN in tin order, so the same entity keeps
    *  its number across insurers and across page loads. NULL when named. */
   unnamedNo: number | null;
+  /** The single published rate, or NULL when the payer published 0 or several. */
   c90791: number | null;
   c90834: number | null;
   c90837: number | null;
   c90853: number | null;
   c99214: number | null;
+  /** How many DISTINCT rates the payer published for this row + code. */
+  n90791: number;
+  n90834: number;
+  n90837: number;
+  n90853: number;
+  n99214: number;
+  /**
+   * The clinicians billing under this group, for groups of 2-25 (sql/032).
+   * Absent for solo groups (the row IS the clinician) and platform TINs (a
+   * 13,614-row roster is a payload, not a reading — /orgs owns those).
+   */
+  children?: RateTableRow[];
+  /** True on a clinician row nested under its billing group. */
+  isChild?: boolean;
+}
+
+/**
+ * What a rate cell actually says. Three states, and the third is the one the
+ * page exists for:
+ *   n = 0  -> the payer published nothing here. The ONLY honest "—".
+ *   n = 1  -> that rate.
+ *   n > 1  -> the payer published n different rates. Show the COUNT.
+ *
+ * The count is not a fallback for a missing value — it is the page's thesis at
+ * cell scale. The headline is "Cigna pays 395 DIFFERENT RATES for a 60-minute
+ * session"; a table that renders "—" whenever that count exceeds one is a table
+ * that hides its own argument. Corpus 395, practice 4, clinician 10 — one
+ * statistic, three altitudes.
+ *
+ * Picking one of the n is still forbidden (it invents a fact the payer never
+ * published). Counting them invents nothing.
+ */
+export function rateCell(row: RateTableRow, i: number): { rate: number | null; n: number } {
+  const c = RATE_CODES[i];
+  return { rate: row[c.key] as number | null, n: (row[c.nKey] as number) ?? 0 };
 }
 
 export interface RateTableData {
@@ -65,9 +109,12 @@ export interface RateTableData {
   asOfByPayer: Partial<Record<RateTablePayer, string>>;
 }
 
-/** Row identity: the MV's grain is (payer, tin), and a TIN recurs across insurers. */
+/** Row identity: the parent MV's grain is (payer, tin), and a TIN recurs across
+ *  insurers. A child adds its NPI — the same clinician appears under every group
+ *  they bill through, which is the whole point of showing them. */
 export function rateRowKey(r: RateTableRow): string {
-  return `${r.payer}::${r.tin}`;
+  const base = `${r.payer}::${r.tin}`;
+  return r.isChild ? `${base}::${r.npis[0] ?? "?"}` : base;
 }
 
 // The billing IDENTIFIER — what the insurer publishes to say who it pays.
