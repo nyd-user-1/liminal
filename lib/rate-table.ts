@@ -18,15 +18,6 @@ export const RATE_TABLE_PAYERS = [
 
 export type RateTablePayer = (typeof RATE_TABLE_PAYERS)[number];
 
-/** Every insurer at once — the default. The Insurer column carries the split. */
-export const ALL_PAYERS = "all";
-export type RateTableSelection = RateTablePayer | typeof ALL_PAYERS;
-
-/** `?payer=` is user input — anything off the allowlist falls back to "all". */
-export function resolveRatePayer(v: string | undefined | null): RateTableSelection {
-  return RATE_TABLE_PAYERS.includes(v as RateTablePayer) ? (v as RateTablePayer) : ALL_PAYERS;
-}
-
 /** The five codes, in table order. `name` is the plain-English header tooltip + legend. */
 export const RATE_CODES = [
   { key: "c90791", code: "90791", name: "Diagnostic evaluation" },
@@ -50,7 +41,12 @@ export interface RateTableRow {
   credentialNorm: string | null;
   /** Roster NPIs, empty for rosters > 25 (platform TINs). Client-side NPI search. */
   npis: string[];
-  nClinicians: number;
+  /** Roster size — NPIs billing under this TIN. */
+  nProviders: number;
+  /** 1-based label for a TIN with no resolved name ("Unnamed practice 41").
+   *  Stable: assigned per distinct TIN in tin order, so the same entity keeps
+   *  its number across insurers and across page loads. NULL when named. */
+  unnamedNo: number | null;
   c90791: number | null;
   c90834: number | null;
   c90837: number | null;
@@ -59,7 +55,6 @@ export interface RateTableRow {
 }
 
 export interface RateTableData {
-  selection: RateTableSelection;
   rows: RateTableRow[];
   /**
    * Publication date (max file_date) PER insurer — never one date for the whole
@@ -75,11 +70,34 @@ export function rateRowKey(r: RateTableRow): string {
   return `${r.payer}::${r.tin}`;
 }
 
-/** 'ein:262976526' → 'EIN ···6526'. Last 4 only on screen; the full value stays
- *  searchable client-side. (lib/repos/tin-registry.ts#formatTin renders the FULL
- *  EIN — deliberately not reused here.) */
-export function maskTin(tin: string): string {
-  const digits = tin.replace(/\D/g, "");
-  if (digits.length < 4) return tin;
-  return `${tin.startsWith("npi:") ? "NPI" : "EIN"} ···${digits.slice(-4)}`;
+// A TIN is EITHER an EIN or an NPI — never both, and never neither. "EIN vs
+// TIN" is a category error: TIN (taxpayer identification number) is the
+// umbrella, and an EIN is one kind of it; the other kind a payer may publish is
+// the entity's own NPI. provider_rate_signals.tin encodes which as a prefix
+// ('ein:832675429' / 'npi:1265047799'), so the type is a property of the one
+// value, not a second value. Verified across all 38,716 MV rows on 2026-07-14:
+// 13,075 ein TINs, 11,842 npi TINs, 0 neither, 0 both.
+export type TinKind = "EIN" | "NPI";
+
+export function tinKind(tin: string): TinKind {
+  return tin.startsWith("npi:") ? "NPI" : "EIN";
+}
+
+/** 'ein:262976526' → '26-2976526'; 'npi:1265047799' → '1265047799'. */
+export function tinValue(tin: string): string {
+  const d = tin.replace(/\D/g, "");
+  return tinKind(tin) === "EIN" && d.length === 9 ? `${d.slice(0, 2)}-${d.slice(2)}` : d;
+}
+
+/**
+ * The entity's own NPI, or null when it doesn't have exactly one.
+ *  - individual  -> their single roster NPI (all 28,710 individual rows have
+ *    exactly one, verified 2026-07-14)
+ *  - npi-TIN org -> the NPI it bills under (its NPI-2)
+ *  - ein-TIN org -> null: a group has many NPIs, so no single answer.
+ */
+export function rowNpi(r: RateTableRow): string | null {
+  if (tinKind(r.tin) === "NPI") return r.tin.slice(4);
+  if (r.entityKind === "individual" && r.npis.length === 1) return r.npis[0];
+  return null;
 }
