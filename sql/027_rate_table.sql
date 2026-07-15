@@ -33,8 +33,15 @@
 --   REFRESH MATERIALIZED VIEW CONCURRENTLY rate_bands_*;                     -- 024
 --   node --env-file=.env.local scripts/orgs-sync.mjs                         -- 025 MVs + names
 --   node --env-file=.env.local scripts/backfill-tin-names.mjs                -- roster-derived names
+--   node --env-file=.env.local scripts/nppes-name-groups.mjs                 -- 030 co-located org names
 --   REFRESH MATERIALIZED VIEW CONCURRENTLY rate_table_mv;                    -- 027 (this file)
 --   ANALYZE;
+--
+-- nppes-name-groups.mjs reads THIS MV (it asks "which rows still render
+-- unnamed?") and writes tin_registry, which this MV reads. That is a real cycle
+-- and the order above resolves it: the matcher runs against the PREVIOUS
+-- refresh, then the refresh picks up its names. On a first build, run the
+-- matcher after the initial CREATE and refresh again.
 --
 -- orgs-sync.mjs refreshes org_tin_rosters, which this MV joins for roster size /
 -- entity kind / NPI search — so 027 refreshes after orgs-sync, not before.
@@ -100,6 +107,10 @@ WITH cells AS (
   -- org_tin_rosters is the ready-made tin->npi join (31,233 TINs / 150,499 rows).
   -- NEVER resolve rosters off provider_rate_signals directly — the correlated
   -- version blows the 5-minute statement ceiling.
+  --
+  -- Identity comes from sql/030's nppes_npi (the FULL federal file: nationwide,
+  -- both entity types) and NOT from nppes_organizations, which is NY-scoped and
+  -- therefore silently answers "not an org" for every out-of-state entity.
   SELECT t.tin,
          count(*)::int AS n_clinicians,
          -- Platform TINs (Headway et al.) carry thousands of NPIs; shipping them
@@ -107,36 +118,59 @@ WITH cells AS (
          -- on a 13k-provider roster. Small rosters only.
          CASE WHEN count(*) <= 25 THEN array_agg(t.npi ORDER BY t.npi) ELSE '{}'::text[] END AS npis,
          min(t.npi) AS first_npi,
-         bool_or(o.npi IS NOT NULL) AS roster_has_org,
-         -- Is the IDENTIFIER an organisation's own NPI-2? For an 'npi:' TIN the
-         -- payer named the billing group by an NPI, and that NPI is often the
-         -- GROUP's (npi:1629049192 = MEMORIAL GASTROENTEROLOGY GROUP), not any
-         -- member's. This is the strongest evidence we have about the entity and
-         -- it must outrank the roster.
-         bool_or(idorg.npi IS NOT NULL) AS id_is_org
+         COALESCE(bool_or(n.entity_type = 2), false) AS roster_has_org,
+         -- The lone member's OWN sole-proprietor attestation. Only read when
+         -- n_clinicians = 1, which is the only case where "the roster" is a
+         -- person rather than a crowd.
+         min(n.sole_proprietor) FILTER (WHERE n.entity_type = 1) AS solo_sole_prop,
+         -- What KIND of NPI did the payer use as the identifier? For an 'npi:'
+         -- TIN the payer named the billing group by an NPI, and that NPI is
+         -- often the GROUP's own NPI-2 (npi:1629049192 = MEMORIAL
+         -- GASTROENTEROLOGY GROUP), not any member's. That is the strongest
+         -- evidence we have about the entity and it outranks the roster.
+         min(idn.entity_type) AS id_entity_type
   FROM org_tin_rosters t
-  LEFT JOIN nppes_organizations o ON o.npi = t.npi   -- presence here = NPI-2 org
-  LEFT JOIN nppes_organizations idorg
-    ON t.tin LIKE 'npi:%' AND idorg.npi = substr(t.tin, 5)
+  LEFT JOIN nppes_npi n ON n.npi = t.npi
+  LEFT JOIN nppes_npi idn ON t.tin LIKE 'npi:%' AND idn.npi = substr(t.tin, 5)
   GROUP BY t.tin
 ), roster AS (
-  SELECT tin, n_clinicians, npis,
-         CASE
-           -- Hard fact: the payer identified this group by an org's NPI-2.
-           WHEN id_is_org THEN 'organization'
-           -- Inference, and a soft one: a roster of one only means ONE member
-           -- appears in the codes we harvested. A large employer where a single
-           -- clinician bills behavioural codes looks identical from here. It is
-           -- the best evidence available for an 'ein:' TIN, but it is evidence,
-           -- not proof — see the header note on what a row actually is.
-           WHEN n_clinicians = 1 AND NOT roster_has_org THEN 'individual'
-           ELSE 'organization'
-         END AS entity_kind,
-         -- Non-NULL only for a presumed solo practice, so the LEFT JOIN below
-         -- hands individual-only attributes to individuals and NULL to the rest.
-         CASE WHEN NOT id_is_org AND n_clinicians = 1 AND NOT roster_has_org
-              THEN first_npi END AS solo_npi
-  FROM roster_base
+  SELECT tin, n_clinicians, npis, entity_kind,
+         -- Non-NULL only for an individual, so the LEFT JOIN below hands
+         -- individual-only attributes (credential, county) to individuals and
+         -- NULL to organizations — a group's clinicians have many credentials,
+         -- so one credential on an org row would be a lie.
+         CASE WHEN entity_kind = 'individual' THEN solo_npi_cand END AS solo_npi
+  FROM (
+    SELECT rb.*,
+           CASE
+             -- Hard fact: the payer identified this group by an org's NPI-2.
+             WHEN rb.id_entity_type = 2 THEN 'organization'
+             -- The provider's OWN answer, and the reason sql/030 exists. NPPES
+             -- asks every NPI-1 "are you a sole proprietor?" — i.e. are you the
+             -- unincorporated owner of this business. 'Y' means the billing
+             -- entity IS the person. 'N' means it is not: they are employed, or
+             -- they incorporated (a PLLC is an organization even when one
+             -- person works there), and either way the EIN on this row belongs
+             -- to an entity that is not the human. This retires the inference
+             -- below for ~92% of one-NPI rows and reclassifies thousands of
+             -- employers that used to render as "Individual".
+             WHEN rb.n_clinicians = 1 AND rb.solo_sole_prop = 'Y' THEN 'individual'
+             WHEN rb.n_clinicians = 1 AND rb.solo_sole_prop = 'N' THEN 'organization'
+             -- Fallback for sole_proprietor = 'X' (not answered) and for the
+             -- handful of roster NPIs absent from NPPES. This is the OLD rule,
+             -- and it is a soft inference: a roster of one only means ONE member
+             -- appears in the codes we harvested, so a large employer where a
+             -- single clinician bills behavioural codes looks identical from
+             -- here. Kept only where the provider told us nothing.
+             WHEN rb.n_clinicians = 1 AND NOT rb.roster_has_org THEN 'individual'
+             ELSE 'organization'
+           END AS entity_kind,
+           -- For an NPI-1 identifier the person named by the payer IS the
+           -- entity, so their attributes come from the identifier itself;
+           -- otherwise from the lone roster member.
+           CASE WHEN rb.id_entity_type = 1 THEN substr(rb.tin, 5) ELSE rb.first_npi END AS solo_npi_cand
+    FROM roster_base rb
+  ) z
 ), dir AS (
   -- ~123k rows for ~106k NPIs: an NPI can land once from the 'nppes' load and
   -- once from 'medicaid'. Only 'nppes' rows carry a credential and only

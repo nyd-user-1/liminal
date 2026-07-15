@@ -53,19 +53,40 @@ const formatAsOf = (iso: string) => formatDate(`${iso}T00:00:00`);
  * surname-first, so people render through providerDisplayName ("Marisa
  * Padgett"), the same helper /directory uses. Organizations keep their legal
  * name verbatim: title-casing it would mangle "LCSW, PLLC" into "Lcsw, Pllc".
+ *
+ * The suffix — NOT entityKind — decides which of those two happens, because
+ * they answer different questions. The suffix says where the NAME came from (a
+ * person's NPPES record); entityKind says who the PAYER CONTRACTS WITH. Those
+ * used to coincide and no longer do: since entity_kind started reading NPPES
+ * `sole_proprietor` (sql/027), 9,243 rows are an organization — the clinician
+ * is employed or incorporated, so the EIN is not theirs — while the only name
+ * we can put to that EIN is still the one clinician we can see billing under
+ * it. Keying off entityKind rendered those as "LAVIGNE TIMOTHY WILLIAM
+ * (individual)" beside an "Org" chip: raw suffix, surname-first, contradicting
+ * the chip next to it. A person's name is formatted like a person's name
+ * whoever the payer is contracting with.
  */
 const INDIVIDUAL_SUFFIX = / \(individual\)$/i;
 function rowName(r: RateTableRow): string {
   if (!r.displayName) return `Unnamed practice ${r.unnamedNo ?? "?"}`;
-  if (r.entityKind === "individual") return providerDisplayName(r.displayName.replace(INDIVIDUAL_SUFFIX, ""), "1");
+  if (INDIVIDUAL_SUFFIX.test(r.displayName))
+    return providerDisplayName(r.displayName.replace(INDIVIDUAL_SUFFIX, ""), "1");
   return r.displayName;
 }
 
+/**
+ * Tab labels track the Type chips ("Org" / "Individual") on the rows they
+ * filter. They used to read "Practices" and "Providers", which described the
+ * same two sets in a different vocabulary — and "Providers" was wrong twice
+ * over: an organization is also a provider, so the word does not name the
+ * distinction the tab draws. The split is who the payer contracts with — an
+ * organization, or one person — so the tabs say that.
+ */
 type TabKey = "all" | "organization" | "individual";
 const TABS = [
   { key: "all", label: "All" },
-  { key: "organization", label: "Practices" },
-  { key: "individual", label: "Providers" },
+  { key: "organization", label: "Organizations" },
+  { key: "individual", label: "Individuals" },
 ] as const;
 
 export interface FacetOption {

@@ -1,5 +1,14 @@
 # TASK — Published-rates table (`/published-rates`, provider app)
 
+> **SHIPPED 2026-07-14/15.** This brief has been reconciled with what was actually
+> built; where the original spec was wrong or was overtaken, the text below says
+> what shipped and why, and the paragraph is marked **[shipped]** or
+> **[superseded]**. The build reports are the narrative record:
+> `docs/reports/2026-07-14-published-rates.md` (page + matview),
+> `docs/reports/2026-07-15-published-rates.md` (naming investigation), and
+> `docs/reports/2026-07-15-published-rates-final.md` (naming + entity_kind).
+> Read this file as the spec-of-record, not as a to-do list.
+
 Build one page in the signed-in provider app: a full, browsable table of what a single insurer
 actually pays every billing entity in New York for the same five service
 codes.
@@ -114,6 +123,33 @@ tin_registry, resolve a display name from its roster NPIs:
 Print before/after coverage against the 26,288 baseline. Do not proceed to
 STEP 2 until named coverage is materially above 50%.
 
+### STEP 1b — the long tail **[shipped 2026-07-15: `scripts/nppes-name-groups.mjs`]**
+
+The roster rules above got to ~91%. The remaining ~9% were all multi-NPI ein-type
+groups, and no roster rule can reach them — naming a group after one of its
+members is exactly what STEP 1 forbids. Three facts settle how they are named:
+
+- **NPPES holds no EIN** — 0 of 8.6M rows; CMS suppresses the field. EIN → name
+  by lookup is impossible. Do not attempt it. (IRS EO BMF does map EIN → name
+  but covers nonprofits only — rejected as a spine.)
+- **Every roster NPI on an unnamed TIN is an NPI-1.** A roster lookup returns
+  people, never the practice.
+- So the organization is found through a member's ADDRESS: roster NPI → its
+  NPPES practice location + phone → the NPI-2 at that same address whose phone
+  also matches → that name is the group's. Gate = exactly one distinct name, or
+  skip. See the header of `scripts/nppes-name-groups.mjs` for why each gate
+  exists (each one is a measured false match, not caution).
+
+This needs the FULL NPPES file, nationwide — `nppes_organizations` (sql/025) is
+NY-scoped and cannot see an out-of-state organization. Hence `sql/030 nppes_npi`
+and `scripts/ingest-nppes-full.mjs`. **[superseded]** The 07-15 investigation
+planned to do this against the NPPES *API*; the file replaced it (no throttling,
+one source, and the match runs in SQL).
+
+The MRF `business_name` sidecar (`scripts/mrf/scan-tic.mjs --tin-names`) is built
+and proven on a fixture but remains BACKLOG: Cigna and EmblemHealth CDNs now
+require signed URLs. It is enrichment, not the spine.
+
 ## STEP 2 — Materialized view `rate_table_mv` (new file `sql/027_rate_table.sql`)
 
 One row per (tin, payer), payers from the allowlist only, all constraints
@@ -121,8 +157,16 @@ from above applied. Columns:
 
 - `tin`, `payer`
 - `display_name` (from tin_registry; NULL allowed here — UI handles it)
-- `entity_kind` — 'individual' if the TIN's roster is a single NPI-1,
-  else 'organization'
+- `entity_kind` — **[superseded 2026-07-15]** the original rule ('individual' if
+  the roster is a single NPI-1, else 'organization') was an inference, and a
+  weak one: a roster of one only means one member appeared in the five codes we
+  harvested, so a large employer where a single clinician bills behavioural
+  codes looked identical to a solo practice. It typed ~8.5k employed clinicians'
+  employers as "Individual". It now reads the provider's OWN attestation —
+  NPPES "Is Sole Proprietor" (sql/030 `nppes_npi.sole_proprietor`): Y →
+  individual, N → organization (the EIN belongs to their employer). An NPI-2
+  identifier still outranks everything; the roster-of-one inference survives
+  only as the fallback for the ~8% who answer 'X' (not answered).
 - `credential`, `credential_norm`, `profession`, `primary_taxonomy`,
   `county` — populated ONLY for entity_kind='individual' (a group's
   clinicians have many credentials; NULL for orgs). credential values are
@@ -157,26 +201,29 @@ wildly off, your filters are wrong — stop and compare against
 
 ## STEP 3 — The page
 
-`app/(site)/published-rates/page.tsx`. Server component. Reads
-`lib/repos/rate-table.ts` → full row set for the selected payer (default
-Cigna; payer via `?payer=` searchParam). Wrap the repo call in
-`unstable_cache` keyed by payer, 1h revalidate — the data changes only on
-ingest. The full corpus for one payer is ~12.5k rows ≈ 1–2MB JSON; that is
-intentional (the whole table ships; gzip handles it).
+**[shipped as `app/(app)/published-rates/page.tsx`]** — not `(site)/`. This
+brief contradicted itself: the Route section above says the page lives in the
+signed-in provider app and "Done when" requires signing in, while this line said
+`(site)/` (public). `(app)` won; the sign-in is the gate.
 
-### Header — state the finding as fact, not pitch
+Server component. Reads `lib/repos/rate-table.ts` → full row set for the
+selected payer (default Cigna; payer via `?payer=` searchParam). The full corpus
+for one payer is ~12.5k rows ≈ 1–2MB JSON; that is intentional (the whole table
+ships; gzip handles it).
 
-Numbers computed from the fetched rows, never hardcoded:
+**[superseded] `unstable_cache` is NOT used.** Next's data cache hard-caps a
+single entry at 2MB and the corpus is ~12MB; the rejection surfaces as a render
+error, not a cache miss. The repo holds a 1-hour in-process cache instead
+(the `checkedBooksCache` precedent). Consequence worth knowing: after a
+`REFRESH`, the dev server serves stale rows until it restarts.
 
-> "{Payer} pays **{N}** different rates for a 60-minute therapy session in
-> New York."
-> "Same code. Same state. {M} practices. Every rate below is what the
-> insurer publishes it pays. Find yours."
+### Header — **[superseded: removed]**
 
-N = count of distinct non-null `c90837` values; M = count of rows with at
-least one non-null code cell. These two sentences render as an intro copy
-block at the top of the content area — the first styled large, but it is
-content copy, NOT a page H1 (the TopBar owns the H1). The table is the hero.
+The spec called for a two-sentence intro block ("{Payer} pays {N} different
+rates…"). It was built, then removed in `cf040ce`: the table is the hero and the
+copy was arguing a case the data already makes. The page now opens on the
+toolbar and the table. Do not re-add it — "the restraint IS the argument"
+(below) applies to the header copy too.
 
 ### Controls (horizontal toolbar above the table, not a sidebar)
 
@@ -210,8 +257,17 @@ horizontal scroll (see docs/TASK-TABLE-STANDARD.md). Pass the search input +
 filter chips through `toolbarExtra`. Do not hand-roll a table, do not add a
 virtualization library.
 
-Columns:
-| Practice / Clinician | Credential | County | 90791 | 90834 | 90837 | 90853 | 99214 |
+Columns **[shipped]** — the spec's three grew to seven, all opt-in via the
+column picker except Provider and the codes:
+| Provider | Type | Billing ID | NPI | Credential | County | 90791 | 90834 | 90837 | 90853 | 99214 |
+
+**[superseded] The identifier column is "Billing ID", NOT "TIN".** In the CMS
+TiC schema a group is `{npi: [...], tin: {type, value}}` where type is `ein` OR
+`npi` — so the field is "the identifier this payer chose", and the choice is the
+PAYER's, not the provider's (Empire publishes 100% npi-type; Fidelis and
+MetroPlus 100% ein; Cigna 72/28). 28,210 NPIs appear under both kinds. An NPI is
+not a tax ID, so no UI may label this column "TIN". The NPI column reads the
+roster, not the identifier — 1,074 identifiers are not roster members.
 
 - Code headers stay ONE ROW: label is just the code, with the plain-English
   name as a `title` tooltip, plus a single legend line between header copy
@@ -222,10 +278,13 @@ Columns:
   the `num()` pattern in `app/(app)/admin/data/insurers-board.tsx`).
 - Default sort: 90837 desc (`defaultSort: { col: "c90837", dir: "desc" }`).
 - Name cell: display_name (truncating, `title` attr). Unnamed rows render
-  "Unnamed practice · {n_clinicians} clinician(s)" muted — still searchable
-  by TIN/NPI. Organizations show a small neutral `Badge` "org".
-  Individuals' County from the MV; TIN shown muted as `EIN ···1234`
-  (last 4 only in the UI; full value still searchable).
+  "Unnamed practice {n}" muted — still searchable by identifier/NPI. The Type
+  column carries a `Badge` ("Org" / "Individual"); tabs above the table filter
+  the same split and read "Organizations" / "Individuals" to match those chips.
+- **[superseded] No last-4 masking.** The spec asked for `EIN ···1234`. The
+  identifier is not secret — it is published by the payer in a public federal
+  file, and it is the one value a provider can use to verify their own row. It
+  renders in full.
 - **12.5k rows must not hit the DOM at once.** Extend `DataTable` with an
   opt-in lazy prop that composes the EXISTING `useLazyBatch` +
   `LoadMoreRow` from `components/ui/table.tsx` (batch ~100, sentinel
@@ -267,15 +326,19 @@ rates is a fact.
   do not build it now.
 - Do not touch `app/(app)/rates` or anything else in the app shell.
 - Hard data boundary: read ONLY provider_rate_signals, tin_registry,
-  directory_providers, nppes_organizations, and the org_tin_* MVs. Never
-  clients, appointments, notes, insurance_policies, users, or the neon_auth
-  schema — those hold PHI/credentials.
+  directory_providers, nppes_organizations, `nppes_npi`/`nppes_other_names`
+  (sql/030, added 2026-07-15), and the org_tin_* MVs. Never clients,
+  appointments, notes, insurance_policies, users, or the neon_auth schema —
+  those hold PHI/credentials. Nothing on this page reads PHI, which is why it
+  carries no `logEvent`.
 
 ## Done when
 
 1. `localhost:3010/published-rates` (signed in as brendan@liminal.demo /
    demo) loads the full Cigna corpus (~12.5k rows), >50% showing a real
-   name, first paint under ~2s warm.
+   name, first paint under ~2s warm. **[shipped: 38,716 rows across the six
+   payers; 36,167 named = 93.4% after STEP 1b (Empire 100%, Cigna 89.7%);
+   1.5s warm.]**
 2. Filtering credential = LCSW shows a visible, dramatic spread on 90837.
 3. Searching "Padgett" (or any known name/TIN/NPI) scrolls to and highlights
    the row in place, surrounding rows still visible.
