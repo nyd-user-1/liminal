@@ -30,11 +30,13 @@ function PolicyRow({
   clientId,
   cardFront,
   cardBack,
+  readOnly = false,
 }: {
   policy: PolicyWithPayer;
   clientId: string;
   cardFront: FileRecord | null;
   cardBack: FileRecord | null;
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -105,18 +107,20 @@ function PolicyRow({
           <PolicyStatusBadge status={policy.status} />
           <Icon name={open ? "chevron-up" : "chevron-down"} size={18} className="shrink-0 text-text-muted" />
         </button>
-        <KebabMenu label={`Actions for ${policy.payerName} policy`}>
-          {policy.status !== "verified" && (
-            <MenuItem icon="check" label="Mark verified" onClick={() => patch({ status: "verified" }, "Policy marked verified")} />
-          )}
-          {policy.status === "verified" && (
-            <MenuItem icon="warning-triangle" label="Mark unverified" onClick={() => patch({ status: "unverified" }, "Policy marked unverified")} />
-          )}
-          {policy.status !== "inactive" && (
-            <MenuItem icon="eye-off" label="Mark inactive" onClick={() => patch({ status: "inactive" }, "Policy marked inactive")} />
-          )}
-          <MenuItem icon="trash" label="Delete policy" danger onClick={remove} />
-        </KebabMenu>
+        {!readOnly && (
+          <KebabMenu label={`Actions for ${policy.payerName} policy`}>
+            {policy.status !== "verified" && (
+              <MenuItem icon="check" label="Mark verified" onClick={() => patch({ status: "verified" }, "Policy marked verified")} />
+            )}
+            {policy.status === "verified" && (
+              <MenuItem icon="warning-triangle" label="Mark unverified" onClick={() => patch({ status: "unverified" }, "Policy marked unverified")} />
+            )}
+            {policy.status !== "inactive" && (
+              <MenuItem icon="eye-off" label="Mark inactive" onClick={() => patch({ status: "inactive" }, "Policy marked inactive")} />
+            )}
+            <MenuItem icon="trash" label="Delete policy" danger onClick={remove} />
+          </KebabMenu>
+        )}
       </div>
       {open && (
         <div className="border-t border-border px-4 py-4">
@@ -131,23 +135,25 @@ function PolicyRow({
               value={policy.copayCents !== null ? formatCents(policy.copayCents) : null}
             />
           </div>
-          <div className="mt-5">
-            <div className="mb-2 text-sm font-medium text-text-body">Insurance card</div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <FileUpload
-                file={cardFront ? { name: cardFront.name } : null}
-                onFile={(f) => uploadCard("front", f)}
-                accept="image/*,.pdf"
-                constraints="Front · JPG, PNG or PDF · max 10 MB"
-              />
-              <FileUpload
-                file={cardBack ? { name: cardBack.name } : null}
-                onFile={(f) => uploadCard("back", f)}
-                accept="image/*,.pdf"
-                constraints="Back · JPG, PNG or PDF · max 10 MB"
-              />
+          {!readOnly && (
+            <div className="mt-5">
+              <div className="mb-2 text-sm font-medium text-text-body">Insurance card</div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <FileUpload
+                  file={cardFront ? { name: cardFront.name } : null}
+                  onFile={(f) => uploadCard("front", f)}
+                  accept="image/*,.pdf"
+                  constraints="Front · JPG, PNG or PDF · max 10 MB"
+                />
+                <FileUpload
+                  file={cardBack ? { name: cardBack.name } : null}
+                  onFile={(f) => uploadCard("back", f)}
+                  accept="image/*,.pdf"
+                  constraints="Back · JPG, PNG or PDF · max 10 MB"
+                />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>
@@ -161,11 +167,20 @@ export function InsuranceTab({
   policies,
   payers,
   files,
+  readOnly = false,
 }: {
   clientId: string;
   policies: PolicyWithPayer[];
   payers: Payer[];
   files: FileRecord[];
+  /**
+   * Patient-portal variant: policies stay visible (a patient should be able to
+   * check the member ID and co-pay the practice has on file) but every staff
+   * action goes — New policy, the per-policy kebab (verify / deactivate /
+   * delete) and the insurance-card dropzones. Verifying a policy is a billing
+   * assertion the practice makes, not the patient.
+   */
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -220,9 +235,11 @@ export function InsuranceTab({
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-[19px] font-semibold text-text">Insurance policies</h2>
-        <Button size="sm" leftIcon="plus" onClick={() => setPanelOpen(true)}>
-          New policy
-        </Button>
+        {!readOnly && (
+          <Button size="sm" leftIcon="plus" onClick={() => setPanelOpen(true)}>
+            New policy
+          </Button>
+        )}
       </div>
 
       {policies.length === 0 ? (
@@ -230,18 +247,24 @@ export function InsuranceTab({
           <EmptyState
             icon="shield-plus"
             title="No insurance on file"
-            subtext="Add a policy to bill this client's insurance."
+            subtext={
+              readOnly
+                ? "Your practice hasn't added an insurance policy for you yet."
+                : "Add a policy to bill this client's insurance."
+            }
             actions={
-              <Button leftIcon="plus" onClick={() => setPanelOpen(true)}>
-                New policy
-              </Button>
+              readOnly ? undefined : (
+                <Button leftIcon="plus" onClick={() => setPanelOpen(true)}>
+                  New policy
+                </Button>
+              )
             }
           />
         </div>
       ) : (
         <div className="flex flex-col gap-3">
           {policies.map((p) => (
-            <PolicyRow key={p.id} policy={p} clientId={clientId} cardFront={cardFront} cardBack={cardBack} />
+            <PolicyRow key={p.id} policy={p} clientId={clientId} cardFront={cardFront} cardBack={cardBack} readOnly={readOnly} />
           ))}
         </div>
       )}

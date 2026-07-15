@@ -28,8 +28,13 @@ const WORKSPACE_NAV: SidebarNavItem[] = [
   { label: "Design system", href: "/design-system", icon: "paint-roller" },
 ];
 
+// Home is the patient's own record (the /clients/[id] shell, read-only), so
+// Medications / Records / Invoices each exist twice: once as a tab of that
+// record and once as their own destination here. That duplication is
+// deliberate — the record is the whole picture, the nav items are the direct
+// route to one part of it.
 const PORTAL_NAV: SidebarNavItem[] = [
-  { label: "Home", href: "/portal", icon: "grid" },
+  { label: "Home", href: "/portal", icon: "id-card" },
   { label: "Appointments", href: "/portal/appointments", icon: "calendar-check" },
   { label: "Medications", href: "/portal/medications", icon: "pill-bottle" },
   { label: "Records", href: "/portal/records", icon: "file-text" },
@@ -38,6 +43,7 @@ const PORTAL_NAV: SidebarNavItem[] = [
   { label: "Invoices", href: "/portal/invoices", icon: "credit-card" },
   { label: "Messages", href: "/portal/messages", icon: "message" },
   { label: "Profile", href: "/portal/profile", icon: "person-circle" },
+  { label: "Dashboard", href: "/portal/dashboard", icon: "grid" },
 ];
 
 export function AppShell({

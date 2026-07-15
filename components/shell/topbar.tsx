@@ -34,6 +34,7 @@ const ROUTE_TITLES: Array<[prefix: string, icon: IconName, title: string]> = [
   ["/settings", "gear", "Settings"],
   ["/design-system", "paint-roller", "Design System"],
   ["/admin/data", "grid", "Data dictionary"],
+  ["/portal/dashboard", "grid", "Dashboard"],
   ["/portal/appointments", "calendar-check", "Appointments"],
   ["/portal/medications", "pill-bottle", "Medications"],
   ["/portal/records", "file-text", "Records"],
@@ -44,8 +45,12 @@ const ROUTE_TITLES: Array<[prefix: string, icon: IconName, title: string]> = [
   ["/portal/profile", "person-circle", "Profile"],
 ];
 
-function routeTitle(pathname: string, user: SessionUser): { icon: IconName; title: string } {
-  if (pathname === "/portal") return { icon: "grid", title: `Welcome back, ${user.name.split(" ")[0]}` };
+// /portal is the patient's own record and carries its own entity header (the
+// name as H1, the client-record exception to the one-H1-in-the-TopBar rule),
+// so the strip names the destination rather than greeting — the greeting moved
+// to /portal/dashboard, which renders its own.
+function routeTitle(pathname: string): { icon: IconName; title: string } {
+  if (pathname === "/portal") return { icon: "id-card", title: "Home" };
   const hit = ROUTE_TITLES.find(([p]) => pathname === p || pathname.startsWith(`${p}/`));
   return hit ? { icon: hit[1], title: hit[2] } : { icon: "grid", title: "Leuk" };
 }
@@ -64,7 +69,7 @@ export function TopBar({
   leading?: ReactNode;
 }) {
   const pathname = usePathname();
-  const derived = routeTitle(pathname, user);
+  const derived = routeTitle(pathname);
 
   return (
     <header className="flex h-[calc(4rem_+_env(safe-area-inset-top))] shrink-0 items-center gap-2 border-b border-border bg-surface px-3 pt-[env(safe-area-inset-top)] md:gap-3 md:px-6">

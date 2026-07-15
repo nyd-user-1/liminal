@@ -27,12 +27,15 @@ export function OverviewTab({
   invoices,
   referrals,
   practitionerName,
+  readOnly = false,
 }: {
   client: Client;
   appointments: Appointment[];
   invoices: Invoice[];
   referrals: Referral[];
   practitionerName: string | null;
+  /** Patient-portal variant: drops the staff ContactMenu (copy/email/log actions). */
+  readOnly?: boolean;
 }) {
   const now = Date.now();
   const upcoming = appointments
@@ -55,7 +58,7 @@ export function OverviewTab({
         icon="person-circle"
         title="Contact"
         className="self-start"
-        action={<ContactMenu clientId={client.id} email={client.email} phone={client.phone} />}
+        action={readOnly ? undefined : <ContactMenu clientId={client.id} email={client.email} phone={client.phone} />}
       >
         <div className="flex flex-col gap-4">
           <FieldDisplay label="Email" value={client.email} />

@@ -12,6 +12,12 @@ import type { Client } from "@/lib/types";
 
 // Personal tab — editable details form card (Team UI form-card anatomy:
 // IconSquare + title header · 2-col Field grid · Cancel/Save footer).
+//
+// `readOnly` is the patient-portal variant (app/portal/page.tsx): the same form,
+// every control disabled and the Cancel/Save footer gone. A patient sees what
+// the practice holds on them but cannot rewrite it — `PATCH /api/clients/:id`
+// is practitioner-only anyway, so an enabled Save here would only ever 403.
+// Corrections go through their care team.
 
 const GENDERS = ["Female", "Male", "Non-binary", "Prefer to self-describe", "Prefer not to say"];
 
@@ -33,9 +39,11 @@ function fromClient(client: Client) {
 export function PersonalTab({
   client,
   practitioners,
+  readOnly = false,
 }: {
   client: Client;
   practitioners: PractitionerOption[];
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -88,14 +96,15 @@ export function PersonalTab({
   return (
     <SettingsCard icon="person-circle" title="Client details" className="max-w-3xl">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="First name" required value={form.firstName} onChange={(e) => set("firstName")(e.target.value)} />
-        <Field label="Last name" required value={form.lastName} onChange={(e) => set("lastName")(e.target.value)} />
-        <Field label="Date of birth" type="date" value={form.dob} onChange={(e) => set("dob")(e.target.value)} />
-        <Field label="Email" type="email" value={form.email} onChange={(e) => set("email")(e.target.value)} />
-        <Field label="Phone" type="tel" value={form.phone} onChange={(e) => set("phone")(e.target.value)} />
+        <Field label="First name" required disabled={readOnly} value={form.firstName} onChange={(e) => set("firstName")(e.target.value)} />
+        <Field label="Last name" required disabled={readOnly} value={form.lastName} onChange={(e) => set("lastName")(e.target.value)} />
+        <Field label="Date of birth" type="date" disabled={readOnly} value={form.dob} onChange={(e) => set("dob")(e.target.value)} />
+        <Field label="Email" type="email" disabled={readOnly} value={form.email} onChange={(e) => set("email")(e.target.value)} />
+        <Field label="Phone" type="tel" disabled={readOnly} value={form.phone} onChange={(e) => set("phone")(e.target.value)} />
         <Select
           label="Gender"
           placeholder="Select…"
+          disabled={readOnly}
           options={GENDERS.map((g) => ({ value: g, label: g }))}
           value={form.gender}
           onValueChange={set("gender")}
@@ -103,18 +112,21 @@ export function PersonalTab({
         <Field
           label="Address"
           className="sm:col-span-2"
+          disabled={readOnly}
           value={form.address}
           onChange={(e) => set("address")(e.target.value)}
           placeholder="Street, city, state, zip"
         />
         <Field
           label="Pronouns"
+          disabled={readOnly}
           value={form.pronouns}
           onChange={(e) => set("pronouns")(e.target.value)}
           placeholder="they/them"
         />
         <Field
           label="Tags"
+          disabled={readOnly}
           value={form.tags}
           onChange={(e) => set("tags")(e.target.value)}
           hint="Comma separated"
@@ -123,20 +135,27 @@ export function PersonalTab({
           label="Primary practitioner"
           placeholder="Select…"
           className="sm:col-span-2"
+          disabled={readOnly}
           options={practitioners.map((p) => ({ value: p.id, label: p.name }))}
           value={form.primaryPractitionerId}
           onValueChange={set("primaryPractitionerId")}
         />
       </div>
       {error && <p className="mt-4 text-[13px] text-danger">{error}</p>}
-      <div className="mt-6 flex items-center justify-end gap-3 border-t border-border pt-4">
-        <Button variant="secondary" onClick={() => setForm(fromClient(client))}>
-          Cancel
-        </Button>
-        <Button loading={saving} onClick={save}>
-          Save
-        </Button>
-      </div>
+      {readOnly ? (
+        <p className="mt-6 border-t border-border pt-4 text-[13px] text-text-muted">
+          Need something here corrected? Message your care team and they&rsquo;ll update it.
+        </p>
+      ) : (
+        <div className="mt-6 flex items-center justify-end gap-3 border-t border-border pt-4">
+          <Button variant="secondary" onClick={() => setForm(fromClient(client))}>
+            Cancel
+          </Button>
+          <Button loading={saving} onClick={save}>
+            Save
+          </Button>
+        </div>
+      )}
     </SettingsCard>
   );
 }

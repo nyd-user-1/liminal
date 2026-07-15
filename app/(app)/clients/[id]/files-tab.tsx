@@ -26,7 +26,16 @@ function formatBytes(bytes: number): string {
   return `${bytes} B`;
 }
 
-export function FilesTab({ clientId, files }: { clientId: string; files: FileRecord[] }) {
+export function FilesTab({
+  clientId,
+  files,
+  readOnly = false,
+}: {
+  clientId: string;
+  files: FileRecord[];
+  /** Patient-portal variant: the dropzone goes, the tiles stay. */
+  readOnly?: boolean;
+}) {
   const router = useRouter();
   const toast = useToast();
   const [uploading, setUploading] = useState(false);
@@ -57,7 +66,7 @@ export function FilesTab({ clientId, files }: { clientId: string; files: FileRec
 
   return (
     <div className="max-w-4xl">
-      {uploading ? (
+      {readOnly ? null : uploading ? (
         <div className="flex items-center justify-center gap-3 rounded-field border-2 border-dashed border-primary-weak bg-teal-100/50 px-6 py-8 text-[15px] text-text-body">
           <Spinner size={18} /> Uploading…
         </div>
@@ -69,10 +78,14 @@ export function FilesTab({ clientId, files }: { clientId: string; files: FileRec
         <EmptyState
           icon="file-up"
           title="No files yet"
-          subtext="Uploads, generated form PDFs and superbills will appear here."
+          subtext={
+            readOnly
+              ? "Documents your practice shares with you will appear here."
+              : "Uploads, generated form PDFs and superbills will appear here."
+          }
         />
       ) : (
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-3 ${readOnly ? "" : "mt-6"}`}>
           {files.map((f) => {
             const kind = KIND_LABELS[f.kind];
             return (
