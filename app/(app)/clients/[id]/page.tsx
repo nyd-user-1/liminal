@@ -9,12 +9,14 @@ import { listReferrals } from "@/lib/repos/directory";
 import { listFiles } from "@/lib/repos/files";
 import { listInvoices } from "@/lib/repos/invoices";
 import { listPayers, listPolicies } from "@/lib/repos/policies";
+import { hasPhoton, photonOrgId } from "@/lib/photon";
 import { ClientHeader } from "./client-header";
 import { ClientTabs } from "./client-tabs";
 import { FilesTab } from "./files-tab";
 import { InsuranceTab } from "./insurance-tab";
 import { OverviewTab } from "./overview-tab";
 import { PersonalTab } from "./personal-tab";
+import { RxTab } from "./rx-tab";
 
 // Client record — Breadcrumb → Avatar + name + status Badge header over
 // Tabs. All tab content renders server-side here and is slotted into the
@@ -48,6 +50,11 @@ export default async function ClientDetailPage({
 
   const practitionerName = practitioners.find((p) => p.id === client.primaryPractitionerId)?.name ?? null;
 
+  // Photon's org id rides on the M2M token, so it follows the credentials from
+  // sandbox to production instead of needing its own env var. A Photon outage
+  // must not take the whole client record down — the Rx tab degrades alone.
+  const orgId = hasPhoton ? await photonOrgId().catch(() => "") : "";
+
   return (
     <>
       <ClientHeader client={client} />
@@ -71,6 +78,18 @@ export default async function ClientDetailPage({
             key: "personal",
             label: "Personal",
             content: <PersonalTab client={client} practitioners={practitioners} />,
+          },
+          {
+            key: "rx",
+            label: "Rx",
+            content: (
+              <RxTab
+                client={client}
+                photonClientId={process.env.NEXT_PUBLIC_PHOTON_CLIENT_ID ?? ""}
+                orgId={orgId}
+                photonEnv={process.env.NEXT_PUBLIC_PHOTON_ENV ?? ""}
+              />
+            ),
           },
           {
             key: "insurance",

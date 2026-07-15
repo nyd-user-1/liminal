@@ -128,6 +128,7 @@ export async function getInvoice(id: string): Promise<InvoiceDetail | null> {
       status: Client["status"];
       tags: string[];
       primary_practitioner_id: string | null;
+      photon_patient_id: string | null;
       created_at: string | Date;
       updated_at: string | Date;
     }>;
@@ -147,6 +148,7 @@ export async function getInvoice(id: string): Promise<InvoiceDetail | null> {
           status: c.status,
           tags: c.tags,
           primaryPractitionerId: c.primary_practitioner_id,
+          photonPatientId: c.photon_patient_id,
           createdAt: isoDateTime(c.created_at),
           updatedAt: isoDateTime(c.updated_at),
         }

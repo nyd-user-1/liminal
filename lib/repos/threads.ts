@@ -261,6 +261,7 @@ export async function clientForUser(userId: string): Promise<Client | null> {
       status: r.status as Client["status"],
       tags: (r.tags as string[]) ?? [],
       primaryPractitionerId: r.primary_practitioner_id as string | null,
+      photonPatientId: (r.photon_patient_id as string | null) ?? null,
       createdAt: isoDateTime(r.created_at as string | Date),
       updatedAt: isoDateTime(r.updated_at as string | Date),
     };

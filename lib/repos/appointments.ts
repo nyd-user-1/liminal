@@ -269,6 +269,7 @@ export async function findOrCreateLeadClient(input: {
     status: "lead",
     tags: ["online-booking"],
     primaryPractitionerId: input.practitionerId,
+    photonPatientId: null,
     createdAt: now,
     updatedAt: now,
   };

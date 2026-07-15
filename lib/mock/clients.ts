@@ -43,6 +43,7 @@ function row(
     status,
     tags,
     primaryPractitionerId,
+    photonPatientId: null, // mock mode never talks to Photon
     createdAt: T,
     updatedAt: T,
   };

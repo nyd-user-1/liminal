@@ -21,6 +21,7 @@ type ClientRow = {
   status: ClientStatus;
   tags: string[] | null;
   primary_practitioner_id: string | null;
+  photon_patient_id: string | null;
   created_at: string | Date;
   updated_at: string | Date;
 };
@@ -40,6 +41,7 @@ function toClient(r: ClientRow): Client {
     status: r.status,
     tags: r.tags ?? [],
     primaryPractitionerId: r.primary_practitioner_id,
+    photonPatientId: r.photon_patient_id ?? null,
     createdAt: isoDateTime(r.created_at),
     updatedAt: isoDateTime(r.updated_at),
   };
@@ -49,6 +51,8 @@ export interface ClientFilters {
   q?: string;
   status?: ClientStatus;
   tag?: string;
+  /** Practitioner caseload: only clients whose primary practitioner is this user. */
+  practitionerId?: string;
 }
 
 export async function listClients(f?: ClientFilters): Promise<Client[]> {
@@ -62,6 +66,7 @@ export async function listClients(f?: ClientFilters): Promise<Client[]> {
              OR phone ILIKE '%' || ${q} || '%')
         AND (${f?.status ?? null}::text IS NULL OR status = ${f?.status ?? null})
         AND (${f?.tag ?? null}::text IS NULL OR ${f?.tag ?? null} = ANY(tags))
+        AND (${f?.practitionerId ?? null}::uuid IS NULL OR primary_practitioner_id = ${f?.practitionerId ?? null})
       ORDER BY first_name, last_name
     `) as ClientRow[];
     return rows.map(toClient);
@@ -71,6 +76,7 @@ export async function listClients(f?: ClientFilters): Promise<Client[]> {
     .filter((c) => {
       if (f?.status && c.status !== f.status) return false;
       if (f?.tag && !c.tags.includes(f.tag)) return false;
+      if (f?.practitionerId && c.primaryPractitionerId !== f.practitionerId) return false;
       if (q) {
         const hay = `${c.firstName} ${c.lastName} ${c.email ?? ""} ${c.phone ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
@@ -131,6 +137,7 @@ export async function createClient(input: CreateClientInput): Promise<Client> {
     status,
     tags,
     primaryPractitionerId: input.primaryPractitionerId ?? null,
+    photonPatientId: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -173,6 +180,26 @@ export async function updateClient(id: string, patch: UpdateClientPatch): Promis
   }
   mockStore().clients.set(id, next);
   return next;
+}
+
+/**
+ * Store the Photon patient id for a client. Idempotent by design: the WHERE
+ * clause makes the write a no-op once set, so a concurrent sync can't clobber
+ * an existing link with a second Photon patient.
+ */
+export async function setPhotonPatientId(clientId: string, photonPatientId: string): Promise<void> {
+  if (hasDb) {
+    await sql`
+      UPDATE clients SET photon_patient_id = ${photonPatientId}, updated_at = now()
+      WHERE id = ${clientId} AND photon_patient_id IS NULL
+    `;
+    return;
+  }
+  const store = mockStore();
+  const client = store.clients.get(clientId);
+  if (client && !client.photonPatientId) {
+    store.clients.set(clientId, { ...client, photonPatientId, updatedAt: new Date().toISOString() });
+  }
 }
 
 /** Link a newly auto-provisioned portal account to a booking lead. No-op if already linked. */

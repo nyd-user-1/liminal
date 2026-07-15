@@ -24,7 +24,7 @@ import type { PractitionerOption } from "@/lib/repos/clients";
 import { ClientStatusBadge, clientHue, tagHue } from "./ui";
 import { NewClientPanel } from "./new-client-panel";
 
-type SortCol = "name" | "created" | "status";
+type SortCol = "name" | "created" | "status" | "practitioner";
 
 const STATUS_LABELS: Record<ClientStatus, string> = { lead: "Lead", active: "Active", archived: "Archived" };
 // Dot colour per status — mirrors ClientStatusBadge's Badge variant.
@@ -106,12 +106,73 @@ function ChipMenu({
   );
 }
 
+/**
+ * Photon prescription counts for the rows currently on screen, in one request
+ * per newly-revealed batch (never one per row). Only synced clients — those
+ * carrying a photon_patient_id — are asked about; ids already fetched are
+ * never re-requested, so scrolling costs one call per batch.
+ */
+function useRxCounts(rows: Client[]): Map<string, number> {
+  const [counts, setCounts] = useState<Map<string, number>>(new Map());
+  const asked = useRef<Set<string>>(new Set());
+
+  const wanted = rows
+    .map((c) => c.photonPatientId)
+    .filter((id): id is string => !!id && !asked.current.has(id));
+  const key = wanted.join(",");
+
+  useEffect(() => {
+    if (!key) return;
+    const ids = key.split(",");
+    ids.forEach((id) => asked.current.add(id));
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/photon/rx-counts?patientIds=${encodeURIComponent(key)}`);
+        if (!res.ok || cancelled) return;
+        const json = (await res.json()) as { counts: Record<string, number> };
+        if (cancelled) return;
+        setCounts((prev) => {
+          const next = new Map(prev);
+          for (const [id, n] of Object.entries(json.counts ?? {})) next.set(id, n);
+          return next;
+        });
+      } catch {
+        // Photon unreachable — the column keeps showing "…" rather than a
+        // wrong number, and the rest of the list is unaffected.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [key]);
+
+  return counts;
+}
+
+/** Rx cell: real 0 for a synced patient with no scripts; "–" only when unsynced. */
+function RxCell({ client, counts }: { client: Client; counts: Map<string, number> }) {
+  if (!client.photonPatientId) {
+    return (
+      <span className="text-text-muted" title="Not synced to Photon yet">
+        –
+      </span>
+    );
+  }
+  const n = counts.get(client.photonPatientId);
+  if (n === undefined) return <span className="text-text-muted">…</span>;
+  return <span className="tabular-nums">{n}</span>;
+}
+
 export function ClientsIndex({
   clients,
   practitioners,
+  isAdmin,
 }: {
   clients: Client[];
   practitioners: PractitionerOption[];
+  /** Admin sees every client + a Practitioner column; a practitioner sees only their own. */
+  isAdmin: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -121,6 +182,11 @@ export function ClientsIndex({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [panelOpen, setPanelOpen] = useState(false);
   const [sort, toggleSort] = useSort<SortCol>({ col: "name", dir: "asc" });
+
+  const practitionerById = useMemo(
+    () => new Map(practitioners.map((p) => [p.id, p])),
+    [practitioners],
+  );
 
   const allTags = useMemo(() => [...new Set(clients.flatMap((c) => c.tags))].sort(), [clients]);
 
@@ -139,16 +205,25 @@ export function ClientsIndex({
 
   const sorted = useMemo(() => {
     const dir = sort.dir === "asc" ? 1 : -1;
+    const name = (c: Client) => `${c.firstName} ${c.lastName}`;
     return [...filtered].sort((a, b) => {
       if (sort.col === "created") return (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0) * dir;
-      if (sort.col === "status") return (STATUS_LABELS[a.status].localeCompare(STATUS_LABELS[b.status]) || `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`)) * dir;
-      return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`) * dir;
+      if (sort.col === "status") return (STATUS_LABELS[a.status].localeCompare(STATUS_LABELS[b.status]) || name(a).localeCompare(name(b))) * dir;
+      if (sort.col === "practitioner") {
+        const pn = (c: Client) =>
+          (c.primaryPractitionerId ? practitionerById.get(c.primaryPractitionerId)?.name : "") ?? "";
+        return (pn(a).localeCompare(pn(b)) || name(a).localeCompare(name(b))) * dir;
+      }
+      return name(a).localeCompare(name(b)) * dir;
     });
-  }, [filtered, sort]);
+  }, [filtered, sort, practitionerById]);
 
   const { visible: rows, hasMore, sentinelRef } = useLazyBatch(sorted, { resetKey: `${q}|${status}|${tag}` });
+  const rxCounts = useRxCounts(rows);
   const hasFilters = !!(q || status || tag);
   const allOnPageSelected = rows.length > 0 && rows.every((c) => selected.has(c.id));
+  // checkbox, name, [practitioner], Rx, phone, email, tags, created, status, kebab
+  const colSpan = isAdmin ? 10 : 9;
 
   function toggleRow(id: string) {
     setSelected((s) => {
@@ -194,7 +269,8 @@ export function ClientsIndex({
         className="mb-4 shrink-0"
         active="clients"
         items={[
-          { key: "clients", label: "Clients" },
+          // The only in-content list heading — the TopBar H1 stays route-derived.
+          { key: "clients", label: isAdmin ? "All Clients" : "My Clients" },
           { key: "new", label: "New" },
         ]}
         onChange={(k) => {
@@ -275,6 +351,13 @@ export function ClientsIndex({
                 }
               />,
               <SortableHead key="name" label="Client name" col="name" sort={sort} onSort={toggleSort} />,
+              ...(isAdmin
+                ? [<SortableHead key="practitioner" label="Practitioner" col="practitioner" sort={sort} onSort={toggleSort} />]
+                : []),
+              // Right-aligned to sit over the tabular-nums counts.
+              <span key="rx" className="block text-right">
+                Rx
+              </span>,
               "Phone",
               "Email",
               "Tags",
@@ -301,6 +384,23 @@ export function ClientsIndex({
                         {name}
                       </TextLink>
                     </span>
+                  </Td>
+                  {isAdmin && (
+                    <Td className="whitespace-nowrap">
+                      {(() => {
+                        const p = c.primaryPractitionerId ? practitionerById.get(c.primaryPractitionerId) : undefined;
+                        if (!p) return <span className="text-text-muted">Unassigned</span>;
+                        return (
+                          <span className="flex items-center gap-2.5">
+                            <Avatar name={p.name} hue={p.avatarHue} size="sm" />
+                            <span>{p.name}</span>
+                          </span>
+                        );
+                      })()}
+                    </Td>
+                  )}
+                  <Td className="w-14 text-right">
+                    <RxCell client={c} counts={rxCounts} />
                   </Td>
                   <Td className="whitespace-nowrap">{c.phone ?? "–"}</Td>
                   <Td className="max-w-56 truncate" title={c.email ?? undefined}>{c.email ?? "–"}</Td>
@@ -336,7 +436,7 @@ export function ClientsIndex({
                 </Tr>
               );
             })}
-            {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={8} />}
+            {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={colSpan} />}
         </Table>
       )}
       </div>

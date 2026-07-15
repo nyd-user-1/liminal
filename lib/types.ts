@@ -35,6 +35,7 @@ export interface Client {
   status: ClientStatus;
   tags: string[];
   primaryPractitionerId: string | null;
+  photonPatientId: string | null; // Photon patient id; null = not yet synced
   createdAt: string;
   updatedAt: string;
 }
