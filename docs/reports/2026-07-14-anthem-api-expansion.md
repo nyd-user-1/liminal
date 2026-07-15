@@ -1,30 +1,33 @@
 # 2026-07-14 — Anthem API expansion (NYS-53 epic)
 
+_Updated 2026-07-15: five-resource harvest now RUNNING concurrently (see Decisions)._
+
 ## Shipped
-- NYS-54 qualifications — `sql/028_provider_qualifications.sql`, `scripts/extract-qualifications.mjs` (commit 9f01506; already local).
-- NYS-53 five-resource prep (this commit) — `sql/029_anthem_resources.sql`, `scripts/ingest-anthem-resources.mjs`, `scripts/probe-anthem-resources.mjs`.
-- Linear — epic NYS-53 + subs NYS-54..60 filed; NYS-54 set Done.
+- NYS-54 qualifications — `sql/028_provider_qualifications.sql`, `scripts/extract-qualifications.mjs` (commit 9f01506).
+- NYS-53 harvester + recon — `sql/029_anthem_resources.sql`, `scripts/ingest-anthem-resources.mjs`, `scripts/probe-anthem-resources.mjs` (commit 56f6bf1).
+- Linear — epic NYS-53 + subs NYS-54..60; NYS-54 Done.
 
 ## DB changes
-- `provider_qualifications` (sql/028): 0 → **69,416 rows / 19,160 providers** — 24,241 licenses (23,286 parsed state+number, 16,979 NY), 15,821 degrees, 29,354 specialties.
-- sql/029 created 5 tables: `fhir_locations`, `fhir_organizations`, `fhir_org_affiliations`, `fhir_healthcare_services`, `fhir_insurance_plans`. Seeded with **smoke rows only** (3 / 3 / 2 / 34 / 100); full harvest NOT run.
+- `provider_qualifications` (sql/028): 0 → **69,416 rows / 19,160 providers** (24,241 licenses incl. 16,979 NY; 15,821 degrees; 29,354 specialties).
+- sql/029 created 5 tables. Full harvest IN PROGRESS: `fhir_locations` ~1k→climbing (34,861 target); `fhir_organizations`/`fhir_org_affiliations`/`fhir_healthcare_services`/`fhir_insurance_plans` still at smoke values (3/2/34/100) — `--resource=all` runs phases sequentially, location first.
 - No matview changes.
 
 ## Decisions
-- `ingest-anthem-resources.mjs` is a SEPARATE script with its own OAuth client — not an edit to the running `ingest-payers.mjs` — so nothing touches the live harvest process.
-- Full run HELD: all 5 need new calls against the same endpoint the PractitionerRole harvest is saturating (concurrency 12). Ran only ~80 recon+smoke GETs. Start after the harvest finishes.
-- Work items enumerated from cheap columns (`location_ref`, `org_affiliations.org_ref`, `payer_networks.raw_network_id`), not JSONB scans over the 2.9M-row table. Scale: 34,861 locations, ~6,196 org ids.
-- OrganizationAffiliation searched per-org by primary-organization ∪ participating-organization. Sparse (~2/60 orgs) — most billing orgs are small practices; filter verified applied (unrelated orgs return 0, not the unfiltered page).
-- Batched upsert via `jsonb_to_recordset` (one param/batch); text[] + jsonb serialize correctly.
+- REVERSED "hold for go": started the five-resource harvest CONCURRENTLY with the running PractitionerRole harvest (concurrency 5). Rationale: no per-call cost (flat plan); the five resources are shared/deduped grain (34,861 locations for 106k providers), and at 80k probed ~95% of distinct locations/orgs are already discovered, so it runs in parallel now and a cheap idempotent re-run sweeps stragglers after the primary finishes.
+- Escape hatch is AUTOMATIC: watcher b828nyzc9 auto-kills the five-resource harvest (by PID) if the primary near-stalls (<150 probed/3min ×2) OR sustained 429s appear; primary untouched.
+- Separate OAuth client, not an edit to the running `ingest-payers.mjs`.
+- Work enumerated from cheap columns (`location_ref`, `org_affiliations.org_ref`, `payer_networks.raw_network_id`), not JSONB scans.
+- OrganizationAffiliation searched per-org (primary ∪ participating); sparse (~2/60 orgs) — correct, filter verified.
+- Batched upsert via `jsonb_to_recordset`; text[]/jsonb serialize correctly.
 
 ## Open items
-- NYS-55/56/57/58/59 harvester built + verified, NOT run. GO = `node --env-file=.env.local scripts/ingest-anthem-resources.mjs --resource=all --concurrency=8 --resume` (after the PractitionerRole harvest ends).
-- NYS-60 (incremental `_lastUpdated` harvest): not built.
-- Re-run `extract-qualifications.mjs` after harvest completes (catches NPIs added since 19,160).
-- No UI surfacing of qualifications or the new fhir_* resources yet.
+- Five-resource harvest running now; after it + the primary finish, re-run `--resource=all --resume` to catch stragglers.
+- Re-run `extract-qualifications.mjs` post-primary (catches NPIs added since 19,160).
+- NYS-60 (incremental `_lastUpdated`): not built. No UI surfacing of qualifications / fhir_* yet.
 
 ## Gotchas
-- `ingest-anthem-resources.mjs` checkpoints to `os.tmpdir()/liminal-anthem-<resource>.json`; `--resume` honors them. Smoke checkpoints were cleared, so GO starts pristine.
-- Anthem endpoint is Provider Directory scope ONLY — no rates / TIN / member data (those are MRF / NPPES). `patient360`/`fhir.anthem.com` forbidden and guarded.
-- Practitioner NPI-identifier search works though undeclared in the CapabilityStatement.
-- Pushes are STOOD DOWN per Brendan — commits are local only. Shared `main` also carries another session's 4 unpushed "Published rates" commits, so a push would carry those too.
+- Watchers track by PID (harvest 51524, babysitter 5186), NOT `pgrep -f` — a pattern match self-matches the watcher's own command line (first watcher b4lq8wuke hit this; killed + relaunched).
+- Row counts LAG mid-run: 500-row batch-flush, so a phase shows 0 rows until item 500.
+- Checkpoints in `os.tmpdir()/liminal-anthem-<resource>.json`; `--resume` honors them.
+- Anthem = Provider Directory scope only — no rates/TIN/member data; `patient360`/`fhir.anthem.com` forbidden.
+- Pushes STOOD DOWN per Brendan — commits local only. Shared `main` also carries another session's 4 unpushed "Published rates" commits.
