@@ -12,6 +12,11 @@ const WORKSPACE_NAV: SidebarNavItem[] = [
   { label: "Calendar", href: "/calendar", icon: "calendar" },
   { label: "Inbox", href: "/inbox", icon: "inbox" },
   { label: "Clients", href: "/clients", icon: "users" },
+  // Photon e-prescribing, grouped after Clients: the Rx you wrote, the pharmacy
+  // orders they became, and the formulary that feeds the prescribe flow.
+  { label: "Prescriptions", href: "/prescriptions", icon: "pill-bottle" },
+  { label: "Orders", href: "/orders", icon: "send" },
+  { label: "Catalog", href: "/catalog", icon: "grid" },
   { label: "Directory", href: "/directory", icon: "globe" },
   { label: "Billing", href: "/billing", icon: "dollar" },
   { label: "Rates", href: "/rates", icon: "activity" },
@@ -26,6 +31,7 @@ const WORKSPACE_NAV: SidebarNavItem[] = [
 const PORTAL_NAV: SidebarNavItem[] = [
   { label: "Home", href: "/portal", icon: "grid" },
   { label: "Appointments", href: "/portal/appointments", icon: "calendar-check" },
+  { label: "Medications", href: "/portal/medications", icon: "pill-bottle" },
   { label: "Records", href: "/portal/records", icon: "file-text" },
   { label: "Resources", href: "/portal/resources", icon: "globe" },
   { label: "Forms", href: "/portal/forms", icon: "clipboard" },

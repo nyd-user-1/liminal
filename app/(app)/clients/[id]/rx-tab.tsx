@@ -9,12 +9,16 @@ import { Spinner } from "@/components/ui/spinner";
 import { Table, Td, Tr } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { PrescribePanel } from "@/components/photon/prescribe-panel";
+import { RxDetailPanel } from "@/components/photon/rx-detail-panel";
+import { RX_STATE_LABEL, RX_STATE_VARIANT } from "@/components/photon/status";
 import { formatDate } from "@/lib/format";
+import type { PhotonRxState } from "@/lib/photon";
 import type { Client } from "@/lib/types";
 
 // Rx tab — real Photon data, no fixtures. Reads go through the server's M2M
 // token (/api/photon/prescriptions); writes go through the provider's own
 // Photon login inside PrescribePanel, because M2M cannot write prescriptions.
+// A row opens the shared read-only detail (components/photon/rx-detail-panel).
 
 type Prescription = {
   id: string;
@@ -23,21 +27,7 @@ type Prescription = {
   dispenseUnit: string | null;
   fillsAllowed: number | null;
   writtenAt: string | null;
-  state: "ACTIVE" | "EXPIRED" | "DEPLETED" | "CANCELED";
-};
-
-const STATE_VARIANT: Record<Prescription["state"], "success" | "neutral" | "warning" | "danger"> = {
-  ACTIVE: "success",
-  EXPIRED: "neutral",
-  DEPLETED: "warning",
-  CANCELED: "danger",
-};
-
-const STATE_LABEL: Record<Prescription["state"], string> = {
-  ACTIVE: "Active",
-  EXPIRED: "Expired",
-  DEPLETED: "Depleted",
-  CANCELED: "Canceled",
+  state: PhotonRxState;
 };
 
 export function RxTab({
@@ -58,6 +48,7 @@ export function RxTab({
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const patientId = client.photonPatientId;
 
   const load = useCallback(async () => {
@@ -149,7 +140,7 @@ export function RxTab({
       ) : (
         <Table head={["Medication", "Quantity", "Fills", "Written", "Status"]}>
           {rows.map((rx) => (
-            <Tr key={rx.id}>
+            <Tr key={rx.id} onClick={() => setDetailId(rx.id)}>
               <Td className="font-medium">{rx.medication}</Td>
               <Td className="whitespace-nowrap tabular-nums">
                 {rx.dispenseQuantity ?? "–"}
@@ -158,12 +149,14 @@ export function RxTab({
               <Td className="tabular-nums">{rx.fillsAllowed ?? "–"}</Td>
               <Td className="whitespace-nowrap text-text-muted">{rx.writtenAt ? formatDate(rx.writtenAt) : "–"}</Td>
               <Td>
-                <Badge variant={STATE_VARIANT[rx.state]}>{STATE_LABEL[rx.state]}</Badge>
+                <Badge variant={RX_STATE_VARIANT[rx.state]}>{RX_STATE_LABEL[rx.state]}</Badge>
               </Td>
             </Tr>
           ))}
         </Table>
       )}
+
+      <RxDetailPanel prescriptionId={detailId} onClose={() => setDetailId(null)} />
 
       {canConfigure && (
         <PrescribePanel
