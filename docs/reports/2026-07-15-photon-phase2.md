@@ -1,7 +1,7 @@
 # 2026-07-15 — Photon Phase 2: Rx detail, portal Rx, /prescriptions /orders /catalog
 
 ## Shipped
-`c73603c` — 22 files, executing `docs/TASK-PHOTON-PHASE2.md` A→D.
+`1bd5e87` — 22 files, executing `docs/TASK-PHOTON-PHASE2.md` A→D.
 - **A** `app/api/photon/prescription/route.ts`, `components/photon/rx-detail-panel.tsx`,
   `app/(app)/clients/[id]/rx-tab.tsx` (M — rows now open the panel).
 - **B** `app/portal/medications/{page.tsx,medications-list.tsx}`, `components/photon/pharmacy-picker.tsx`,
