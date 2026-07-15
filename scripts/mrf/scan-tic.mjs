@@ -48,6 +48,23 @@ const REFS_MODE = arg("refs", "stream");
 // are NOT in our list (telehealth-gap measurement, docs/TASK-TELEHEALTH-GAP.md).
 // Capped so a national file can't eat the heap; cap hit is reported loudly.
 const UNMATCHED_PATH = arg("emit-unmatched", "");
+// --tin-names=<file> -> the tin-name sidecar sql/019 has been waiting for.
+// The TiC provider_groups `tin` object carries the org's own name:
+//   "tin":{"type":"ein","value":"51-0111166","business_name":"NOVACARE REHABILITATION"}
+// This is the ONLY authoritative name for an ein-TIN: CMS suppresses EINs in
+// the public NPPES file, so an EIN cannot be resolved to an org any other way —
+// every other route (NPPES rosters, FHIR crosswalks) is inference. Names ride
+// on ein-type tins; npi-type tins carry none and don't need one (NPPES resolves
+// those directly).
+//
+// Independent of --out: the name lives on the group, not on a rate row, so it
+// is captured for EVERY group in the file, including groups whose NPIs we don't
+// track and groups that never reach a CPT we want.
+const TIN_NAMES_PATH = arg("tin-names", "");
+// --tins=<file> -> only keep names for these tins (one canonical tin per line).
+// Bounds the heap on national files, where the ein universe runs to millions
+// and we only ever care about the ~31k that appear in our own rate data.
+const TINS_PATH = arg("tins", "");
 const UNMATCHED_CAP = 3_000_000;
 const unmatched = UNMATCHED_PATH ? new Set() : null;
 let unmatchedCapped = false;
@@ -74,8 +91,11 @@ const wantedGids = GIDS_PATH
   : null;
 if (wantedGids) console.error(`gids wanted: ${wantedGids.size} (pass B)`);
 
-if (!NPIS_PATH || (!OUT_PATH && !COLLECT_GIDS_PATH)) {
-  console.error("Usage: ... --npis=<file> --out=<csv> [--codes=a,b,c] [--collect-gids=<file> | --gids=<file>]");
+if (!NPIS_PATH || (!OUT_PATH && !COLLECT_GIDS_PATH && !TIN_NAMES_PATH)) {
+  console.error(
+    "Usage: ... --npis=<file> --out=<csv> [--codes=a,b,c] [--collect-gids=<file> | --gids=<file>]\n" +
+      "       ... --tin-names=<csv> [--tins=<file>]   (name sidecar; --out optional)"
+  );
   process.exit(1);
 }
 
@@ -101,6 +121,23 @@ const internTin = (t) => {
   }
   return v;
 };
+
+// ── tin-name sidecar ─────────────────────────────────────────────────────────
+const wantedTins = TINS_PATH
+  ? new Set(fs.readFileSync(TINS_PATH, "utf8").split("\n").map((s) => s.trim()).filter(Boolean))
+  : null;
+if (TIN_NAMES_PATH)
+  console.error(`tin-names: capturing${wantedTins ? ` (${wantedTins.size} tins wanted)` : " (all tins)"}`);
+const tinNames = TIN_NAMES_PATH ? new Map() : null;
+/** First writer wins: a file can repeat a group, and the spellings agree. */
+const captureTinName = (g) => {
+  if (!tinNames) return;
+  const name = g?.tin?.business_name;
+  if (!name) return;
+  const tin = normTin(g.tin);
+  if (!tin || (wantedTins && !wantedTins.has(tin)) || tinNames.has(tin)) return;
+  tinNames.set(tin, String(name).trim());
+};
 const retained = new Map(); // group_id -> [{tin, npis:[matched]}]
 
 // pass A emits no rows — only the gid list. --out=- streams CSV to stdout so
@@ -118,8 +155,21 @@ const csv = (v) => {
   const s = String(v ?? "");
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
+// No-op when there's no --out (a --tin-names-only pass still walks every item;
+// it just has nowhere to put rows, and shouldn't crash trying).
 const writeOut = (line) =>
-  out.write(line) || new Promise((res) => out.once("drain", res));
+  out ? out.write(line) || new Promise((res) => out.once("drain", res)) : undefined;
+
+/** Flush the name sidecar. Called on every exit path — a scan that bails on a
+ *  layout check has still learned every name it read up to that point, and
+ *  those names are expensive to re-fetch. */
+const flushTinNames = () => {
+  if (!tinNames) return;
+  fs.mkdirSync(path.dirname(TIN_NAMES_PATH), { recursive: true });
+  const rows = [...tinNames].map(([tin, name]) => `${csv(tin)},${csv(name)}\n`);
+  fs.writeFileSync(TIN_NAMES_PATH, `tin,business_name\n${rows.join("")}`);
+  console.error(`tin-names: wrote ${tinNames.size} names -> ${TIN_NAMES_PATH}`);
+};
 
 const stats = {
   bytes: 0,
@@ -145,6 +195,10 @@ const ticker = setInterval(logStatus, 15000);
 
 function handleProviderReference(ref) {
   stats.refsSeen++;
+  // Names first, and BEFORE the pass-B gid filter + the npi filter below: the
+  // business_name belongs to the group, not to any rate row we keep, so a ref
+  // we discard for rates can still be the only place a TIN is ever named.
+  if (tinNames && Array.isArray(ref?.provider_groups)) for (const g of ref.provider_groups) captureTinName(g);
   // pass B: only the groups pass A proved our items reference
   if (wantedGids && !wantedGids.has(String(ref?.provider_group_id))) return;
   const groups = ref?.provider_groups;
@@ -200,6 +254,8 @@ async function emitRows(item) {
       }
     } else if (Array.isArray(nr.provider_groups)) {
       for (const g of nr.provider_groups) {
+        // Inline groups (no provider_references section) name TINs too.
+        captureTinName(g);
         if (!Array.isArray(g?.npi)) continue;
         const matched = g.npi.map(String).filter((s) => ourNpis.has(s));
         if (matched.length)
@@ -631,6 +687,7 @@ if (!refsDone) {
   console.error(
     'SCANNER: "in_network" key never found — different layout or no in_network section. Verify with the reference parser.'
   );
+  flushTinNames();
   process.exit(4);
 }
 // flush the final item (its tail bytes may sit in carry)
@@ -651,6 +708,7 @@ if (stats.itemsSeen === 0) {
   console.error(
     "SCANNER: in_network reached but ZERO item openers matched — empty array or different item key order. Verify with the reference parser."
   );
+  flushTinNames();
   process.exit(5);
 }
 
@@ -668,6 +726,7 @@ if (collectedGids) {
   fs.writeFileSync(COLLECT_GIDS_PATH, [...collectedGids].join("\n") + (collectedGids.size ? "\n" : ""));
   console.error(`gids collected: ${collectedGids.size} -> ${COLLECT_GIDS_PATH}`);
 }
+flushTinNames();
 const done = () =>
   console.error(
     "DONE",
