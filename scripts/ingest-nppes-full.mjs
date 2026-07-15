@@ -42,8 +42,8 @@ const arg = (n, d) => {
 };
 const MODE = arg("mode", "npi");
 const CHUNK = Number(arg("chunk", "500000"));
-if (!["npi", "othername"].includes(MODE)) {
-  console.error(`unknown --mode=${MODE} (npi | othername)`);
+if (!["npi", "othername", "endpoint", "taxonomy"].includes(MODE)) {
+  console.error(`unknown --mode=${MODE} (npi | othername | endpoint | taxonomy)`);
   process.exit(1);
 }
 
@@ -65,6 +65,23 @@ const TARGET = {
   othername: {
     table: "nppes_other_names",
     cols: ["npi", "other_name", "type_code"],
+    truncate: true,
+  },
+  endpoint: {
+    table: "nppes_endpoints",
+    cols: [
+      "npi", "endpoint_type", "endpoint_type_description", "endpoint", "affiliation",
+      "endpoint_description", "affiliation_lbn", "use_code", "use_description",
+      "content_type", "content_description", "aff_address1", "aff_city", "aff_state", "aff_postal",
+    ],
+    truncate: true,
+  },
+  // NUCC, not CMS: a different publisher on a different cadence, but the same
+  // load shape (small flat CSV -> one table), so it rides the same machinery
+  // rather than earning a script of its own for 883 rows.
+  taxonomy: {
+    table: "nucc_taxonomy",
+    cols: ["code", "grouping", "classification", "specialization", "definition", "display_name", "section"],
     truncate: true,
   },
 }[MODE];
@@ -95,6 +112,33 @@ const H_OTHER = {
   other_name: "Provider Other Organization Name",
   type_code: "Provider Other Organization Name Type Code",
 };
+const H_ENDPOINT = {
+  npi: "NPI",
+  endpoint_type: "Endpoint Type",
+  endpoint_type_description: "Endpoint Type Description",
+  endpoint: "Endpoint",
+  affiliation: "Affiliation",
+  endpoint_description: "Endpoint Description",
+  affiliation_lbn: "Affiliation Legal Business Name",
+  use_code: "Use Code",
+  use_description: "Use Description",
+  content_type: "Content Type",
+  content_description: "Content Description",
+  aff_address1: "Affiliation Address Line One",
+  aff_city: "Affiliation Address City",
+  aff_state: "Affiliation Address State",
+  aff_postal: "Affiliation Address Postal Code",
+};
+const H_TAXONOMY = {
+  code: "Code",
+  grouping: "Grouping",
+  classification: "Classification",
+  specialization: "Specialization",
+  definition: "Definition",
+  display_name: "Display Name",
+  section: "Section",
+};
+const HEADERS = { npi: H, othername: H_OTHER, endpoint: H_ENDPOINT, taxonomy: H_TAXONOMY };
 
 /** Quote-aware CSV parse of one record line into fields. */
 function parseCsvLine(line) {
@@ -199,13 +243,13 @@ let rows = [];
 // rows are pure duplicates and COPY would fail on the primary key. Dedupe here
 // rather than widening the key: (npi, name) IS our grain — one name per NPI is
 // exactly the question the matcher asks.
-// ~1.2M keys, only in othername mode; nppes_npi is keyed by a unique NPI and
+// Only for the two files that need it; nppes_npi is keyed by a unique NPI and
 // needs no such set (8.6M strings would be real memory).
-const seenOther = MODE === "othername" ? new Set() : null;
+const seenOther = MODE === "othername" || MODE === "endpoint" ? new Set() : null;
 
 function buildIndex(headerFields) {
   const pos = new Map(headerFields.map((h, i) => [h.trim(), i]));
-  const want = MODE === "npi" ? H : H_OTHER;
+  const want = HEADERS[MODE];
   const map = {};
   const missing = [];
   for (const [col, header] of Object.entries(want)) {
@@ -266,8 +310,43 @@ async function handleLines(lines) {
     const f = parseCsvLine(line);
     if (!idx) { idx = buildIndex(f); continue; }   // header row
     scanned++;
+
+    // NUCC rows are keyed by taxonomy code, not NPI — handled before the NPI gate.
+    if (MODE === "taxonomy") {
+      const code = f[idx.code];
+      if (!code) { skipped++; continue; }
+      rows.push(csvRow([
+        code, f[idx.grouping] || null, f[idx.classification] || null,
+        f[idx.specialization] || null, f[idx.definition] || null,
+        f[idx.display_name] || null, f[idx.section] || null,
+      ]));
+      emitted++;
+      if (rows.length >= CHUNK) await flush();
+      continue;
+    }
+
     const npi = f[idx.npi];
     if (!npi || !/^\d{10}$/.test(npi)) { skipped++; continue; }
+
+    if (MODE === "endpoint") {
+      const ep = f[idx.endpoint];
+      if (!ep) { skipped++; continue; }
+      // Same duplicate-row problem as the Other Name file — dedupe on our grain.
+      const k = `${npi}|${ep}`;
+      if (seenOther.has(k)) { deduped++; continue; }
+      seenOther.add(k);
+      rows.push(csvRow([
+        npi, f[idx.endpoint_type] || null, f[idx.endpoint_type_description] || null, ep,
+        f[idx.affiliation] || null, f[idx.endpoint_description] || null,
+        f[idx.affiliation_lbn] || null, f[idx.use_code] || null, f[idx.use_description] || null,
+        f[idx.content_type] || null, f[idx.content_description] || null,
+        f[idx.aff_address1] || null, f[idx.aff_city] || null, f[idx.aff_state] || null,
+        f[idx.aff_postal] || null,
+      ]));
+      emitted++;
+      if (rows.length >= CHUNK) await flush();
+      continue;
+    }
 
     if (MODE === "npi") {
       rows.push(csvRow([

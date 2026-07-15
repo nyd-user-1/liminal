@@ -26,7 +26,8 @@
 --
 -- REFRESH ORDER — this MV reads tin_registry, so it must refresh AFTER the
 -- names land or ~77% of the table renders "Unnamed practice". It appends to the
--- existing post-ingest routine:
+-- existing post-ingest routine (canonical copy: sql/README.md, which also has
+-- the NPPES monthly-full / weekly-incremental cadence that feeds sql/030):
 --
 --   REFRESH MATERIALIZED VIEW CONCURRENTLY provider_rate_summary;            -- 021
 --   REFRESH MATERIALIZED VIEW CONCURRENTLY provider_participation_summary;   -- 023
