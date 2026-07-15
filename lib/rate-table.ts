@@ -18,11 +18,13 @@ export const RATE_TABLE_PAYERS = [
 
 export type RateTablePayer = (typeof RATE_TABLE_PAYERS)[number];
 
-export const DEFAULT_RATE_PAYER: RateTablePayer = "Cigna Health & Life";
+/** Every insurer at once — the default. The Insurer column carries the split. */
+export const ALL_PAYERS = "all";
+export type RateTableSelection = RateTablePayer | typeof ALL_PAYERS;
 
-/** `?payer=` is user input — anything off the allowlist falls back to the default. */
-export function resolveRatePayer(v: string | undefined | null): RateTablePayer {
-  return RATE_TABLE_PAYERS.includes(v as RateTablePayer) ? (v as RateTablePayer) : DEFAULT_RATE_PAYER;
+/** `?payer=` is user input — anything off the allowlist falls back to "all". */
+export function resolveRatePayer(v: string | undefined | null): RateTableSelection {
+  return RATE_TABLE_PAYERS.includes(v as RateTablePayer) ? (v as RateTablePayer) : ALL_PAYERS;
 }
 
 /** The five codes, in table order. `name` is the plain-English header tooltip + legend. */
@@ -36,6 +38,9 @@ export const RATE_CODES = [
 
 export interface RateTableRow {
   tin: string;
+  /** The insurer that published this rate. A TIN appears once per insurer, so
+   *  (payer, tin) — not tin — is the row identity. */
+  payer: RateTablePayer;
   /** NULL when no name resolved — the UI renders "Unnamed practice · N clinicians". */
   displayName: string | null;
   entityKind: "individual" | "organization";
@@ -43,7 +48,6 @@ export interface RateTableRow {
   credential: string | null;
   /** Individual-only, uppercase + punctuation-stripped — what the filter chips group on. */
   credentialNorm: string | null;
-  county: string | null;
   /** Roster NPIs, empty for rosters > 25 (platform TINs). Client-side NPI search. */
   npis: string[];
   nClinicians: number;
@@ -55,10 +59,20 @@ export interface RateTableRow {
 }
 
 export interface RateTableData {
-  payer: RateTablePayer;
+  selection: RateTableSelection;
   rows: RateTableRow[];
-  /** Max payer file_date — the publication date the footer must always show. */
-  asOf: string | null;
+  /**
+   * Publication date (max file_date) PER insurer — never one date for the whole
+   * table. The books are months apart (Cigna 2026-07-01 vs MetroPlus 2024-02-07)
+   * so a single folded date would render MetroPlus's two-year-old book as fresh.
+   * The footer names each one.
+   */
+  asOfByPayer: Partial<Record<RateTablePayer, string>>;
+}
+
+/** Row identity: the MV's grain is (payer, tin), and a TIN recurs across insurers. */
+export function rateRowKey(r: RateTableRow): string {
+  return `${r.payer}::${r.tin}`;
 }
 
 /** 'ein:262976526' → 'EIN ···6526'. Last 4 only on screen; the full value stays

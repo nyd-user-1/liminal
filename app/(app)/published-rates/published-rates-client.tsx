@@ -2,17 +2,24 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { InsurerCell, insurerLogo } from "@/components/rates/insurer-mark";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { MenuItem } from "@/components/ui/dropdown-menu";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { Icon } from "@/components/ui/icons";
+import { KebabMenu } from "@/components/ui/kebab-menu";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
+import { Tabs } from "@/components/ui/tabs";
+import { TextLink } from "@/components/ui/text-link";
 import { formatDate } from "@/lib/format";
 // From lib/rate-table (no db import), never lib/repos — a VALUE import from a
 // repo pulls lib/db into this bundle and the Neon proxy throws in the browser.
 import {
+  ALL_PAYERS,
   maskTin,
+  rateRowKey,
   RATE_CODES,
   RATE_TABLE_PAYERS,
   type RateTableData,
@@ -39,9 +46,16 @@ const norm = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").to
  *  west of Greenwich — and this date is the whole point of the footer. */
 const formatAsOf = (iso: string) => formatDate(`${iso}T00:00:00`);
 
+type TabKey = "all" | "organization" | "individual";
+const TABS = [
+  { key: "all", label: "All" },
+  { key: "organization", label: "Practices" },
+  { key: "individual", label: "Clinicians" },
+] as const;
+
 // FilterChip + attached popover, multi-select — the /directory ChipMenu pattern
 // with checks instead of single-select, since the whole point is comparing many
-// licenses at once. h-10 to match every other control in the toolbar.
+// licenses at once.
 function CredentialChip({
   facets,
   selected,
@@ -74,9 +88,9 @@ function CredentialChip({
 
   return (
     <span ref={ref} className="relative">
-      <FilterChip label="Credential" value={value} onClick={() => setOpen((o) => !o)} onClear={onClear} className="h-10" />
+      <FilterChip label="Credential" value={value} onClick={() => setOpen((o) => !o)} onClear={onClear} />
       {open && (
-        <div className="absolute right-0 top-full z-40 mt-1.5 w-72 rounded-card border border-border bg-surface p-2 shadow-menu">
+        <div className="absolute left-0 top-full z-40 mt-1.5 w-72 rounded-card border border-border bg-surface p-2 shadow-menu">
           <SearchInput
             value={term}
             onChange={(e) => setTerm(e.target.value)}
@@ -111,6 +125,7 @@ function CredentialChip({
 
 export function PublishedRatesClient({ data }: { data: RateTableData }) {
   const router = useRouter();
+  const [tab, setTab] = useState<TabKey>("all");
   const [term, setTerm] = useState("");
   const [debounced, setDebounced] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -126,15 +141,23 @@ export function PublishedRatesClient({ data }: { data: RateTableData }) {
     return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   }, [data.rows]);
 
-  // Credential is the only control that filters. Rows without a credential are
-  // organizations (a group's clinicians have many licenses) — dropping them when
-  // a license is selected is the expected, correct behaviour.
-  const rows = useMemo(
-    () => (selected.size === 0 ? data.rows : data.rows.filter((r) => r.credentialNorm && selected.has(r.credentialNorm))),
-    [data.rows, selected],
-  );
+  const counts = useMemo(() => {
+    let organization = 0;
+    for (const r of data.rows) if (r.entityKind === "organization") organization++;
+    return { all: data.rows.length, organization, individual: data.rows.length - organization };
+  }, [data.rows]);
 
-  // Search does NOT filter — it finds. The surrounding rows are the entire point,
+  // Tab + credential filter. Search deliberately does NOT filter (below).
+  // Filtering by credential drops organizations by construction — a group's
+  // clinicians hold many licenses, so org rows carry no single credential.
+  const rows = useMemo(() => {
+    let out = data.rows;
+    if (tab !== "all") out = out.filter((r) => r.entityKind === tab);
+    if (selected.size) out = out.filter((r) => r.credentialNorm && selected.has(r.credentialNorm));
+    return out;
+  }, [data.rows, tab, selected]);
+
+  // Search finds, it doesn't filter — the surrounding rows are the entire point,
   // so we resolve a best match and let the table jump to it in place.
   const scrollToKey = useMemo(() => {
     const q = norm(debounced.trim());
@@ -152,7 +175,7 @@ export function PublishedRatesClient({ data }: { data: RateTableData }) {
         if (n.startsWith(q)) score = 80;
         else if (n.includes(q)) score = 60;
       }
-      if (score >= 0 && (!best || score > best.score)) best = { score, key: r.tin };
+      if (score >= 0 && (!best || score > best.score)) best = { score, key: rateRowKey(r) };
       if (best?.score === 100) break;
     }
     return best?.key ?? null;
@@ -164,26 +187,41 @@ export function PublishedRatesClient({ data }: { data: RateTableData }) {
         key: "name",
         label: "Practice / Clinician",
         fixed: true,
-        // Bounded so the five rate columns — the actual argument — fit without
-        // the table scrolling on a laptop. Long names truncate with a title.
-        cellClassName: "max-w-[24rem]",
+        cellClassName: "max-w-[22rem]",
         sortValue: (r) => text(r.displayName),
-        render: (r) => (
-          <span className="flex min-w-0 items-center gap-2">
-            {r.displayName ? (
-              <span className="truncate" title={r.displayName}>
-                {r.displayName}
-              </span>
-            ) : (
-              // Still findable by TIN or NPI — the search covers both.
-              <span className="truncate text-text-muted">
-                Unnamed practice · {r.nClinicians.toLocaleString("en-US")} clinician{r.nClinicians === 1 ? "" : "s"}
-              </span>
-            )}
-            {r.entityKind === "organization" && <Badge className="shrink-0">org</Badge>}
-            <span className="shrink-0 text-[13px] text-text-muted">{maskTin(r.tin)}</span>
-          </span>
-        ),
+        render: (r) => {
+          const name =
+            r.displayName ??
+            `Unnamed practice · ${r.nClinicians.toLocaleString("en-US")} clinician${r.nClinicians === 1 ? "" : "s"}`;
+          return (
+            <span className="flex min-w-0 items-center gap-2">
+              {/* Every row is a billing TIN, so every row has an org page.
+                  `primary` + !block, not the default wipe: wipe wraps the label
+                  in a flex item of an inline-flex anchor, and text-overflow
+                  never applies to a flex item — so the /directory spelling
+                  (`truncate` on the link) hard-clips mid-word here. Forcing the
+                  anchor to a block box gives the ellipsis a box to work in.
+                  /directory just never has names long enough to show it. */}
+              <TextLink
+                href={`/orgs/${encodeURIComponent(r.tin)}`}
+                variant="primary"
+                className="!block min-w-0 truncate"
+                title={name}
+              >
+                {name}
+              </TextLink>
+              {r.entityKind === "organization" && <Badge className="shrink-0">org</Badge>}
+              <span className="shrink-0 text-[13px] text-text-muted">{maskTin(r.tin)}</span>
+            </span>
+          );
+        },
+      },
+      {
+        key: "payer",
+        label: "Insurer",
+        cellClassName: "max-w-[18rem]",
+        sortValue: (r) => r.payer,
+        render: (r) => <InsurerCell payer={r.payer} />,
       },
       {
         key: "credential",
@@ -191,50 +229,85 @@ export function PublishedRatesClient({ data }: { data: RateTableData }) {
         sortValue: (r) => text(r.credential),
         render: (r) => r.credential ?? <span className="text-text-muted">—</span>,
       },
-      {
-        key: "county",
-        label: "County",
-        sortValue: (r) => text(r.county),
-        render: (r) => r.county ?? <span className="text-text-muted">—</span>,
-      },
       ...RATE_CODES.map((c) => ({
         key: c.key,
         label: c.code,
-        // One-row headers: the plain-English name rides along as a tooltip and
-        // repeats in the legend above the table.
+        // One-row headers: the plain-English name rides along as a tooltip.
         headTitle: c.name,
         align: "right" as const,
         sortValue: (r: RateTableRow) => num(r[c.key]),
         render: (r: RateTableRow) => money(r[c.key]),
       })),
+      {
+        key: "actions",
+        label: "",
+        fixed: true,
+        align: "right",
+        render: (r) => (
+          <KebabMenu label={`Actions for ${r.displayName ?? r.tin}`}>
+            <MenuItem
+              icon="id-card"
+              label="View organization"
+              onClick={() => router.push(`/orgs/${encodeURIComponent(r.tin)}`)}
+            />
+            <MenuItem
+              icon="activity"
+              label="Open in Rates"
+              onClick={() => router.push(`/rates?tin=${encodeURIComponent(r.tin)}`)}
+            />
+          </KebabMenu>
+        ),
+      },
     ],
-    [],
+    [router],
+  );
+
+  // One date per insurer, never one for the table: the books are months apart
+  // (Cigna 2026-07-01 vs MetroPlus 2024-02-07) and a folded date would render
+  // MetroPlus's two-year-old book as current.
+  const dates = RATE_TABLE_PAYERS.filter((p) => data.asOfByPayer[p]).map(
+    (p) => `${p} ${formatAsOf(data.asOfByPayer[p]!)}`,
   );
 
   return (
-    // min-w-0 is load-bearing: without it this flex column grows past the shell
-    // and the PAGE scrolls sideways instead of the Table's own overflow wrapper.
-    <div className="flex min-w-0 flex-col gap-4">
-      <p className="text-[13px] text-text-muted">
-        {RATE_CODES.map((c) => `${c.code} ${c.name}`).join(" · ")}
-      </p>
-
+    // h-full (not flex-1) because the shell's <main> is a block, not a flex
+    // container — same bridge /directory uses. With min-h-0 it bounds the table
+    // so its ROWS scroll under a sticky header instead of the page growing;
+    // min-w-0 keeps the horizontal scroll inside the table's own container.
+    <div className="flex h-full min-h-0 min-w-0 flex-col">
+      <Tabs
+        className="mb-4 shrink-0"
+        slideActive
+        active={tab}
+        onChange={(k) => setTab(k as TabKey)}
+        items={TABS.map((t) => ({ key: t.key, label: t.label, count: counts[t.key] }))}
+      />
       <DataTable
         columns={columns}
         rows={rows}
-        rowKey={(r) => r.tin}
+        rowKey={rateRowKey}
         storageKey="published-rates.columns"
         defaultSort={{ col: "c90837", dir: "desc" }}
         lazy
+        fillHeight
         scrollToKey={scrollToKey}
-        toolbarExtra={
+        toolbarLeft={
           <>
+            <SearchInput
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              placeholder="Find a practice, TIN or NPI"
+              className="max-w-md flex-1"
+            />
             <Select
-              options={RATE_TABLE_PAYERS.map((p) => ({ value: p, label: p }))}
-              value={data.payer}
-              onValueChange={(v) => router.push(`/published-rates?payer=${encodeURIComponent(v)}`)}
+              options={[
+                { value: ALL_PAYERS, label: "All insurers", iconName: "id-card" },
+                ...RATE_TABLE_PAYERS.map((p) => ({ value: p, label: p, image: insurerLogo(p) })),
+              ]}
+              value={data.selection}
+              onValueChange={(v) => router.push(v === ALL_PAYERS ? "/published-rates" : `/published-rates?payer=${encodeURIComponent(v)}`)}
               aria-label="Insurer"
-              className="w-64"
+              className="w-56"
             />
             <CredentialChip
               facets={facets}
@@ -249,19 +322,13 @@ export function PublishedRatesClient({ data }: { data: RateTableData }) {
               }
               onClear={() => setSelected(new Set())}
             />
-            <SearchInput
-              value={term}
-              onChange={(e) => setTerm(e.target.value)}
-              placeholder="Find a practice, TIN or NPI"
-              className="w-72"
-            />
           </>
         }
         footnote={
-          <p className="text-[13px] leading-relaxed text-text-muted">
-            Source: Transparency in Coverage machine-readable files published by {data.payer}.{" "}
-            {data.asOf ? `Rates as of ${formatAsOf(data.asOf)}.` : null} A rate is what the insurer publishes it pays the
-            billing entity for an in-network professional service — it is not what a patient pays.
+          <p className="shrink-0 text-[13px] leading-relaxed text-text-muted">
+            Source: Transparency in Coverage machine-readable files published by each insurer shown. Rates as of{" "}
+            {dates.join(" · ")}. A rate is what the insurer publishes it pays the billing entity for an in-network
+            professional service — it is not what a patient pays.
           </p>
         }
       />

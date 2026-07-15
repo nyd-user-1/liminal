@@ -41,7 +41,9 @@ export function ColumnPicker({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-1.5 rounded-field border border-field-border px-3 py-1.5 text-sm font-medium text-text-body transition-colors hover:border-field-border-focus"
+        // bg-surface so the chip reads as a control on a canvas-filled toolbar,
+        // matching FilterChip's unapplied state next to it.
+        className="inline-flex items-center gap-1.5 rounded-field border border-field-border bg-surface px-3 py-1.5 text-sm font-medium text-text-body transition-colors hover:border-field-border-focus"
       >
         <Icon name="grid" size={14} />
         Columns

@@ -35,6 +35,13 @@ function markFor(payer: string): string | null {
   return null;
 }
 
+/** The brand mark URL for a payer, or null when there's no unambiguous match —
+ *  for callers that need the asset rather than the rendered cell (e.g. the
+ *  insurer Select's per-option `image`). Same map as InsurerMark, one source. */
+export function insurerLogo(payer: string): string | undefined {
+  return markFor(payer) ?? undefined;
+}
+
 /** Table-row insurer cell lead: brand mark (contained, never cropped) or icon. */
 export function InsurerMark({ payer }: { payer: string }) {
   const url = markFor(payer);

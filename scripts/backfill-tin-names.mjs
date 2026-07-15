@@ -115,7 +115,7 @@ const r1 = await sql.query(
    ON CONFLICT (tin_norm) DO NOTHING
    RETURNING 1`,
 );
-console.log(`1/3 single-NPI org shells named: ${r1.length} [${elapsed()}]`);
+console.log(`1/4 single-NPI org shells named: ${r1.length} [${elapsed()}]`);
 
 // ── 2. single-NPI TINs -> the person ─────────────────────────────────────────
 // Runs after (1), so an org shell keeps its org name via ON CONFLICT.
@@ -127,7 +127,7 @@ const r2 = await sql.query(
    ON CONFLICT (tin_norm) DO NOTHING
    RETURNING 1`,
 );
-console.log(`2/3 solo practices named: ${r2.length} [${elapsed()}]`);
+console.log(`2/4 solo practices named: ${r2.length} [${elapsed()}]`);
 
 // ── 3. multi-NPI TINs -> the roster's anchor NPI-2 ───────────────────────────
 // DISTINCT ON picks the NPI-2 with the most rate_rows; ties break on npi so a
@@ -142,7 +142,79 @@ const r3 = await sql.query(
    ON CONFLICT (tin_norm) DO NOTHING
    RETURNING 1`,
 );
-console.log(`3/3 group practices named from a roster NPI-2: ${r3.length} [${elapsed()}]`);
+console.log(`3/4 group practices named from a roster NPI-2: ${r3.length} [${elapsed()}]`);
+
+// ── 4. relaxed FHIR roster crosswalk (last resort) ───────────────────────────
+// Same maths as orgs-sync's crosswalk, one notch looser: >=5 shared NPIs rather
+// than >=10, containment and margin unchanged. Runs LAST so an NPPES legal name
+// (steps 1-3) always beats a payer-roster attestation, and orgs-sync's stricter
+// pass — which runs earlier in the routine — keeps its own names via ON CONFLICT.
+//
+// Why not looser still: the gates are what stop a wrong name landing on a TIN,
+// and a wrong org name poisons every screen that shows it. Measured on the 2,789
+// TINs still unnamed for /published-rates (2026-07-14):
+//   shared>=10 (orgs-sync's bar)  ->    15    shared>=3, 50%, 1.5x ->   185
+//   shared>=5  (this pass)        ->    56    shared>=1, no gate   -> 1,858
+// That last row is the trap: it would name a 693-clinician TIN off ONE shared
+// NPI. The real fix is upstream — the MRF provider_references carry
+// business_name inside the tin object and scan-tic.mjs currently drops it
+// (sql/019's "tin-name sidecar, pending"). This pass is a stopgap, not that.
+const MIN_SHARED = 5;
+const MIN_CONTAINMENT = 0.6;
+const MIN_MARGIN = 2;
+
+const unnamedTins = new Set(
+  (await sql.query(
+    `SELECT DISTINCT t.tin FROM org_tin_rosters t
+     WHERE NOT EXISTS (SELECT 1 FROM tin_registry g WHERE g.tin_norm = t.tin)`,
+  )).map((r) => r.tin),
+);
+const aff = await sql.query(
+  `SELECT npi, payer_source_id || '|' || org_ref AS org_key, min(org_display) AS display
+   FROM org_affiliations GROUP BY npi, payer_source_id || '|' || org_ref`,
+);
+const roster = await sql.query(`SELECT tin, npi FROM org_tin_rosters`);
+
+const orgSize = new Map(), orgDisplay = new Map(), npiOrgs = new Map();
+for (const a of aff) {
+  orgSize.set(a.org_key, (orgSize.get(a.org_key) ?? 0) + 1);
+  orgDisplay.set(a.org_key, a.display);
+  let l = npiOrgs.get(a.npi);
+  if (!l) npiOrgs.set(a.npi, (l = []));
+  l.push(a.org_key);
+}
+// tinSize counts the FULL roster (not just unnamed TINs) — containment divides
+// by the smaller of the two rosters, so an undercounted denominator would
+// inflate it and wave through weak matches.
+const tinSize = new Map(), cands = new Map();
+for (const r of roster) {
+  tinSize.set(r.tin, (tinSize.get(r.tin) ?? 0) + 1);
+  if (!unnamedTins.has(r.tin)) continue;
+  for (const k of npiOrgs.get(r.npi) ?? []) {
+    let m = cands.get(r.tin);
+    if (!m) cands.set(r.tin, (m = new Map()));
+    m.set(k, (m.get(k) ?? 0) + 1);
+  }
+}
+const accepted = [];
+for (const [tin, orgs] of cands) {
+  const ranked = [...orgs.entries()].sort((a, b) => b[1] - a[1]);
+  const [orgKey, shared] = ranked[0];
+  const runnerUp = ranked[1]?.[1] ?? 0;
+  const containment = shared / Math.min(orgSize.get(orgKey), tinSize.get(tin));
+  if (shared >= MIN_SHARED && containment >= MIN_CONTAINMENT && shared >= runnerUp * MIN_MARGIN)
+    accepted.push({ tin, name: orgDisplay.get(orgKey), src: orgKey.split("|")[0].slice(0, 8) });
+}
+for (let i = 0; i < accepted.length; i += 500) {
+  const c = accepted.slice(i, i + 500);
+  await sql.query(
+    `INSERT INTO tin_registry (tin_norm, business_name, source)
+     SELECT * FROM unnest($1::text[], $2::text[], $3::text[])
+     ON CONFLICT (tin_norm) DO NOTHING`,
+    [c.map((p) => p.tin), c.map((p) => p.name), c.map((p) => `fhir-crosswalk5:${p.src}`)],
+  );
+}
+console.log(`4/4 named via relaxed FHIR crosswalk (>=${MIN_SHARED} shared): ${accepted.length} [${elapsed()}]`);
 
 // ── after ────────────────────────────────────────────────────────────────────
 const after = coverage(await namedKeys());

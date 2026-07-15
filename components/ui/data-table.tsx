@@ -71,10 +71,12 @@ export function DataTable<T>({
   rowClassName,
   onRowClick,
   toolbarExtra,
+  toolbarLeft,
   footnote,
   className,
   lazy,
   scrollToKey,
+  fillHeight,
 }: {
   columns: DataTableColumn<T>[];
   rows: T[];
@@ -86,6 +88,12 @@ export function DataTable<T>({
   onRowClick?: (row: T) => void;
   /** Renders left of the column picker in the toolbar (e.g. a search input). Toolbar only shows when this or storageKey is set. */
   toolbarExtra?: ReactNode;
+  /**
+   * Renders LEFT-aligned in the toolbar — search + filter chips, the way every
+   * index page lays them out (see /directory). `toolbarExtra` is the opposite
+   * end: it sits right, beside the column picker.
+   */
+  toolbarLeft?: ReactNode;
   footnote?: ReactNode;
   className?: string;
   /**
@@ -102,6 +110,13 @@ export function DataTable<T>({
    * Ignored unless `lazy`.
    */
   scrollToKey?: string | null;
+  /**
+   * Bound the table to its container and scroll the ROWS under a sticky header,
+   * instead of growing the page. Needs a height-bounded ancestor — the caller's
+   * wrapper must be `flex min-h-0 flex-1 flex-col` (the (app) shell's <main>
+   * already provides the bound).
+   */
+  fillHeight?: boolean;
 }) {
   const [visible, toggle] = useColumnVisibility(storageKey, columns);
   const shown = columns.filter((c) => c.fixed || !storageKey || visible.has(c.key));
@@ -180,10 +195,13 @@ export function DataTable<T>({
     // min-w-0 is load-bearing: without it this flex child grows past its
     // container and the PAGE scrolls horizontally instead of the Table
     // primitive's own overflow-auto wrapper (docs/TASK-TABLE-STANDARD.md).
-    <div ref={wrapRef} className={`flex min-w-0 flex-col gap-3 ${className ?? ""}`}>
-      {(toolbarExtra || storageKey) && (
+    <div
+      ref={wrapRef}
+      className={`flex min-w-0 flex-col gap-3 ${fillHeight ? "min-h-0 flex-1" : ""} ${className ?? ""}`}
+    >
+      {(toolbarExtra || toolbarLeft || storageKey) && (
         <Toolbar
-          className="shrink-0"
+          className="shrink-0 flex-wrap"
           actions={
             <>
               {toolbarExtra}
@@ -196,9 +214,11 @@ export function DataTable<T>({
               )}
             </>
           }
-        />
+        >
+          {toolbarLeft}
+        </Toolbar>
       )}
-      <Table head={head} className="min-w-0">
+      <Table head={head} stickyHeader={fillHeight} className={`min-w-0 ${fillHeight ? "min-h-0 flex-1" : ""}`}>
         {rendered.map((row) => {
           const key = rowKey(row);
           return (
