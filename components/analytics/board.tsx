@@ -43,6 +43,7 @@ const HEIGHT: Record<CardSize, string> = {
   lg: "h-[340px]",
 };
 const NEXT_SIZE: Record<CardSize, CardSize> = { sm: "md", md: "lg", lg: "sm" };
+const SIZE_ORDER: CardSize[] = ["sm", "md", "lg"];
 const SIZE_LABEL: Record<CardSize, string> = { sm: "small", md: "wide", lg: "full width" };
 
 /** A metric's natural size — stats are tiles, everything else wants room. */
@@ -173,6 +174,23 @@ export function AnalyticsBoard({
       setBoard((b) => {
         const cur = b.sizes[key] ?? defaultSize(key);
         const next = { ...b, sizes: { ...b.sizes, [key]: NEXT_SIZE[cur] } };
+        persist(viewName, next);
+        return next;
+      });
+    },
+    [persist, viewName],
+  );
+
+  /** Corner-handle resize: step up or down the size ladder, clamped at the
+   *  ends — dragging outward past lg (or inward past sm) is a no-op, unlike
+   *  the kebab's cycle. */
+  const stepMetricSize = useCallback(
+    (key: string, dir: 1 | -1) => {
+      setBoard((b) => {
+        const cur = b.sizes[key] ?? defaultSize(key);
+        const idx = Math.min(Math.max(SIZE_ORDER.indexOf(cur) + dir, 0), SIZE_ORDER.length - 1);
+        if (SIZE_ORDER[idx] === cur) return b;
+        const next = { ...b, sizes: { ...b.sizes, [key]: SIZE_ORDER[idx] } };
         persist(viewName, next);
         return next;
       });
@@ -332,6 +350,7 @@ export function AnalyticsBoard({
                     onRemove={() => removeMetric(key)}
                     onAbout={() => setAboutKey(key)}
                     onResize={() => resizeMetric(key)}
+                    onResizeStep={(dir) => stepMetricSize(key, dir)}
                     dragHandle={
                       <span
                         draggable

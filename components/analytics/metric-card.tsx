@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { AgendaList } from "@/components/calendar/agenda-list";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -69,12 +70,46 @@ function Body({ def, value }: { def: MetricDef; value: MetricValue | undefined }
   }
 }
 
+/** The bottom-right resize grip. Drag outward (right/down) to grow a step,
+ *  inward to shrink; a plain click cycles like the kebab item. Sizes snap —
+ *  there is no freeform preview, so all the handle needs is direction. */
+function ResizeHandle({ onStep, onCycle, label }: { onStep: (dir: 1 | -1) => void; onCycle: () => void; label: string }) {
+  const start = useRef<{ x: number; y: number } | null>(null);
+
+  return (
+    <span
+      role="button"
+      aria-label={`Resize ${label}`}
+      title="Drag to resize"
+      onPointerDown={(e) => {
+        start.current = { x: e.clientX, y: e.clientY };
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+        e.preventDefault();
+      }}
+      onPointerUp={(e) => {
+        if (!start.current) return;
+        const d = e.clientX - start.current.x + (e.clientY - start.current.y);
+        start.current = null;
+        if (d > 24) onStep(1);
+        else if (d < -24) onStep(-1);
+        else onCycle();
+      }}
+      className="absolute bottom-0 right-0 z-10 flex h-5 w-5 cursor-nwse-resize touch-none items-end justify-end p-[3px] opacity-0 transition-opacity group-hover/card:opacity-100"
+    >
+      <svg width="9" height="9" viewBox="0 0 9 9" aria-hidden className="text-text-muted">
+        <path d="M8 1v7H1M8 4.5V8H4.5" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      </svg>
+    </span>
+  );
+}
+
 export function MetricCard({
   def,
   value,
   onRemove,
   onAbout,
   onResize,
+  onResizeStep,
   size,
   dragHandle,
 }: {
@@ -83,12 +118,13 @@ export function MetricCard({
   onRemove: () => void;
   onAbout: () => void;
   onResize: () => void;
+  onResizeStep: (dir: 1 | -1) => void;
   size: string;
   /** The grip rendered by the board — pointer-down starts a move. */
   dragHandle?: React.ReactNode;
 }) {
   return (
-    <Card className="group/card flex h-full min-w-0 flex-col gap-2.5 !p-4 transition-colors hover:border-primary">
+    <Card className="group/card relative flex h-full min-w-0 flex-col gap-2.5 !p-4 transition-colors hover:border-primary">
       <div className="flex items-start justify-between gap-2">
         <span className="min-w-0 flex-1">
           <span className="line-clamp-1 text-[15px] font-semibold text-text" title={def.label}>
@@ -125,6 +161,8 @@ export function MetricCard({
         </button>
         <span className="shrink-0 text-[9px] uppercase tracking-widest text-text-muted">{def.kind}</span>
       </div>
+
+      <ResizeHandle onStep={onResizeStep} onCycle={onResize} label={def.label} />
     </Card>
   );
 }
