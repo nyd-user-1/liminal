@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
+import { BoardTabs } from "@/components/shell/board-tabs";
 import { Divider } from "@/components/ui/divider";
 import { TextLink } from "@/components/ui/text-link";
 import { requireUser } from "@/lib/auth";
 import { platformInventory } from "@/lib/repos/admin";
 import { practiceSnapshot } from "@/lib/repos/dashboard";
-import { BriefingCard } from "./briefing-card";
+import { InsightsHeader } from "./insights-header";
 import { Observatory } from "./observatory";
 import { PracticeStrip } from "./practice-strip";
 
@@ -14,12 +15,13 @@ import { PracticeStrip } from "./practice-strip";
 //   Layer 1  every staff role: today's caseload, scoped to who's asking.
 //   Layer 2  admin only: what the data platform actually holds, and which
 //            page each table powers. Every card is click-to-copy.
-//   Layer 3  admin only: Claude's read on Layer 2 — OFF by default, behind a
-//            switch; the model is only called when Brendan flips it on.
+//   Layer 3  admin only: the Briefing switch in the masthead — OFF by
+//            default; flipping it swaps the greeting for Claude's headline +
+//            article on the inventory. The model runs only from that switch.
 //
+// BoardTabs (Insights · Analytics · Dashboard) sit above everything — the
+// standard visual point of reference across the three board surfaces.
 // No page-level H1 — the TopBar owns it (ROUTE_TITLES → "Insights").
-// Numbers are server-rendered; the briefing is a client card that talks to
-// /api/insights/briefing.
 
 export const dynamic = "force-dynamic";
 
@@ -41,14 +43,16 @@ export default async function InsightsPage() {
 
   const firstName = user.name.split(" ")[0];
 
+  const greeting =
+    snapshot.scope === "all"
+      ? `Good to see you, ${firstName}. Here's the whole practice today.`
+      : `Good to see you, ${firstName}. Here's your day.`;
+
   return (
-    <div className="mx-auto flex min-w-0 max-w-[1400px] flex-col gap-8">
+    <div className="mx-auto flex min-w-0 max-w-[1400px] flex-col gap-6">
+      <BoardTabs />
       <section className="flex min-w-0 flex-col gap-4">
-        <p className="text-[15px] text-text-muted">
-          {snapshot.scope === "all"
-            ? `Good to see you, ${firstName}. Here's the whole practice today.`
-            : `Good to see you, ${firstName}. Here's your day.`}
-        </p>
+        <InsightsHeader greeting={greeting} canBrief={isAdmin} />
         <PracticeStrip snapshot={snapshot} />
       </section>
 
@@ -67,8 +71,6 @@ export default async function InsightsPage() {
                 has the full schema reference.
               </p>
             </div>
-
-            <BriefingCard />
 
             <Observatory groups={inventory.groups} />
           </section>

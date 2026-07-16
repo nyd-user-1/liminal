@@ -84,7 +84,8 @@ function buildFacts(groups: DictionaryGroup[], deltas: Deltas | null): string {
 const SYSTEM = `You are the in-house data lead for Liminal, a NY behavioral-health practice platform.
 You are briefing the founder on the state of the data platform. He built it and knows the domain — do not explain what an NPI is.
 
-Write ~150 words of plain prose. No headings, no bullets, no preamble. Cover, in this order:
+Line 1: a headline for the briefing — at most ten words, no trailing period, front-page voice, specific to what the data shows tonight (not "Platform Update").
+Then a blank line. Then ~150 words of plain prose. No headings, no bullets, no preamble. Cover, in this order:
 1. What we have — the shape of the corpus, in one or two sentences.
 2. What grew — reference the 7-day activity only if it shows something.
 3. What's thin — the honest gap. Empty tables, tables not loaded, "NOT BUILT YET" entries, and lopsided coverage are the interesting parts. Say which one you'd fix next and why.

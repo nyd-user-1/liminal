@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { BoardTabs } from "@/components/shell/board-tabs";
 import { AnalyticsBoard } from "@/components/analytics/board";
 import { requireUser } from "@/lib/auth";
 import { analyticsData } from "@/lib/repos/analytics";
@@ -23,7 +24,8 @@ export default async function AnalyticsPage() {
   const { values, dictionary, generatedAt } = await analyticsData(user);
 
   return (
-    <div className="mx-auto min-w-0 max-w-[1600px]">
+    <div className="mx-auto flex min-w-0 max-w-[1600px] flex-col gap-6">
+      <BoardTabs />
       <AnalyticsBoard values={values} dictionary={dictionary} isAdmin={user.role === "admin"} generatedAt={generatedAt} />
     </div>
   );

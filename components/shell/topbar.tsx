@@ -15,6 +15,8 @@ import type { SessionUser } from "@/lib/auth";
 const ROUTE_TITLES: Array<[prefix: string, icon: IconName, title: string]> = [
   ["/insights", "wand-sparkles", "Insights"],
   ["/analytics", "columns-3", "Analytics"],
+  // The pre-rename original, kept reachable via the BoardTabs rail.
+  ["/dashboard", "grid", "Dashboard"],
   ["/calendar", "calendar", "Calendar"],
   ["/inbox", "inbox", "Inbox"],
   ["/clients", "users", "Clients"],
