@@ -100,6 +100,7 @@ const ESTIMATED = new Set([
   "rate_table_child_mv",
   "org_tin_rosters",
   "org_tin_rate_summary",
+  "organizations",
 ]);
 
 // Every table the registry names. Existence is probed (to_regclass) rather than
@@ -110,6 +111,7 @@ const LIVE_TABLES = [
   "directory_programs",
   "provider_qualifications",
   "nppes_npi",
+  "organizations",
   "cpt_codes",
   "hcpcs_codes",
   "cms_rvu",
@@ -221,7 +223,12 @@ function buildDictionaryGroups(
           "npi → directory_providers",
           { blurb: "The raw national NPI registry we distil the NY book out of.", powers: DIRECTORY },
         ),
-        planned("organizations", "NPI-2 orgs; all NY + national platforms.", "NYS-41"),
+        table(
+          "organizations",
+          "NPI-2 org book (sql/034): every NY organization + every org our datasets reference nationwide (105.6k; 103.8k NY + 1.8k net-new national platforms like Headway). Derived in SQL from nppes_npi; no EIN (NPPES has none). 3.1k are also billing TINs — the first NPI-2 ↔ billing-TIN join.",
+          "npi ↔ tin_registry / org_tin_rosters",
+          { blurb: "The organizations behind the NPIs — clinics, groups and national platforms, not the people.", powers: DIRECTORY },
+        ),
         table(
           "cpt_codes",
           "OUR OWN plain-language names for billing codes (14 behavioral-health codes) — never AMA descriptor text, which is licensed. Editable content; the five live codes match RATE_CODES in lib/rate-table.ts. See scripts/cms/LICENSE_NOTE.md.",
