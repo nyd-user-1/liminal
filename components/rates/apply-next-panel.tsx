@@ -74,56 +74,69 @@ function GapCardView({ npi, identity, gap }: { npi: string; identity: Credential
   const pct = Math.round((heldCount / total) * 100 / 5) * 5;
   const portal = portalFor(gap.payer);
 
+  // Landscape card: the opportunity (why apply) on the left, the application
+  // (how ready you are + the actions) on the right. One card, two panels.
   return (
     <Card>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="flex items-center gap-2.5">
-          <InsurerMark payer={gap.payer} />
-          <h2 className="text-[17px] font-semibold text-text">{gap.payer}</h2>
-        </span>
-        <Badge variant={gap.negotiability === "flat" ? "neutral" : "info"}>{gap.negotiabilityLabel}</Badge>
-      </div>
-
-      <p className="mt-3 text-[15px] text-text-body">{gap.headline}</p>
-      {gap.opportunity && <p className="mt-1 text-[17px] font-semibold text-text">{gap.opportunity}</p>}
-      {gap.asOf && <p className="mt-1 text-sm text-text-muted">as-of {gap.asOf}</p>}
-
-      <div className="mt-4 border-t border-border pt-4">
-        <p className="mb-2 text-sm font-medium text-text">
-          Your application is ~{pct}% assembled
-        </p>
-        <ProgressBar value={pct} showLabel />
-        <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm sm:grid-cols-4">
-          {heldRows.map((r) => (
-            <span key={r.label} className="flex items-center gap-1.5 text-text-body">
-              <Icon name="circle-check" size={15} className={r.held ? "text-success" : "text-text-muted/40"} />
-              {r.label}
+      <div className="grid gap-x-8 gap-y-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
+        {/* Left — the opportunity */}
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="flex items-center gap-2.5">
+              <InsurerMark payer={gap.payer} />
+              <h2 className="text-[17px] font-semibold text-text">{gap.payer}</h2>
             </span>
-          ))}
-          {CHECKLIST_MISSING.map((label) => (
-            <span key={label} className="flex items-center gap-1.5 text-text-muted">
-              <Icon name="circle-check" size={15} className="text-text-muted/40" />
-              {label}
-            </span>
-          ))}
+            <Badge variant={gap.negotiability === "flat" ? "neutral" : "info"} className="lg:hidden">
+              {gap.negotiabilityLabel}
+            </Badge>
+          </div>
+          <p className="mt-1 text-[15px] text-text-body">{gap.headline}</p>
+          {gap.opportunity && <p className="text-xl font-semibold leading-snug text-text">{gap.opportunity}</p>}
+          {gap.asOf && <p className="text-sm text-text-muted">as-of {gap.asOf}</p>}
         </div>
-      </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2.5 border-t border-border pt-4">
-        {portal && (
-          <Button variant="secondary" size="sm" onClick={() => window.open(portal, "_blank")}>
-            Open {gap.payer}&rsquo;s join-network portal
-          </Button>
-        )}
-        <Button
-          variant="secondary"
-          size="sm"
-          leftIcon="download"
-          onClick={() => window.open(`/rates/packet?npi=${npi}&payer=${encodeURIComponent(gap.payer)}`, "_blank")}
-        >
-          Download pre-filled packet
-        </Button>
-        <SubmitClock storageKey={`kyr-clock:${npi}:${gap.payer}`} />
+        {/* Right — the application */}
+        <div className="flex min-w-0 flex-col gap-3 border-t border-border pt-4 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-text-muted">
+              Your application · ~{pct}% assembled
+            </p>
+            <Badge variant={gap.negotiability === "flat" ? "neutral" : "info"} className="max-lg:hidden">
+              {gap.negotiabilityLabel}
+            </Badge>
+          </div>
+          <ProgressBar value={pct} showLabel />
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm sm:grid-cols-4">
+            {heldRows.map((r) => (
+              <span key={r.label} className="flex items-center gap-1.5 text-text-body">
+                <Icon name="circle-check" size={15} className={r.held ? "text-success" : "text-text-muted/40"} />
+                {r.label}
+              </span>
+            ))}
+            {CHECKLIST_MISSING.map((label) => (
+              <span key={label} className="flex items-center gap-1.5 text-text-muted">
+                <Icon name="circle-check" size={15} className="text-text-muted/40" />
+                {label}
+              </span>
+            ))}
+          </div>
+          <div className="mt-auto flex flex-wrap items-center gap-2.5 border-t border-border pt-3">
+            {portal && (
+              <Button variant="secondary" size="sm" onClick={() => window.open(portal, "_blank")}>
+                Open {gap.payer}&rsquo;s join-network portal
+              </Button>
+            )}
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon="download"
+              onClick={() => window.open(`/rates/packet?npi=${npi}&payer=${encodeURIComponent(gap.payer)}`, "_blank")}
+            >
+              Download pre-filled packet
+            </Button>
+            <SubmitClock storageKey={`kyr-clock:${npi}:${gap.payer}`} />
+          </div>
+        </div>
       </div>
     </Card>
   );

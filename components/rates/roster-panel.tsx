@@ -119,6 +119,9 @@ function AffiliationCard({
     }
   };
 
+  // Landscape card: header strip, then three columns — attest | what it was
+  // worth | margin + the pivot. No stacked full-width sections; the card's
+  // height is set by its densest column, not by empty air.
   return (
     <Card>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -140,90 +143,104 @@ function AffiliationCard({
         )}
       </div>
 
-      <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-border pt-4">
-        <SegmentedControl
-          segments={[
-            { value: "current", label: "Current" },
-            { value: "left", label: "I left this group" },
-          ]}
-          value={status}
-          onChange={(v) => setStatus(v as "current" | "left")}
-        />
-        {status === "left" && (
-          <Field label="Month (optional)" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
-        )}
-        <Button size="sm" onClick={saveAttestation} loading={saving}>
-          Save
-        </Button>
-      </div>
-      {saveError && <p className="mt-2 text-sm text-danger">{saveError}</p>}
-
-      <div className="mt-5 border-t border-border pt-4">
-        <p className="mb-2 text-sm font-medium text-text">What your sessions were worth on their contract</p>
-        <ul className="space-y-1 text-[15px] text-text-body">
-          {Object.entries(book.codes).map(([code, display]) => (
-            <li key={code}>
-              <span className="font-medium text-text">{code}</span>{" "}
-              <span className="text-text-muted">· {cptLabel(code)}</span> — {display}
-            </li>
-          ))}
-        </ul>
-
-        <div className="mt-4 flex flex-wrap items-end gap-3">
-          <Field
-            label={`What were you paid per ${code90837 ?? Object.keys(book.codes)[0] ?? "session"} session?`}
-            prefix="$"
-            inputMode="decimal"
-            placeholder="0.00"
-            value={pay}
-            onChange={(e) => setPay(e.target.value)}
-            className="w-40"
+      <div className="mt-4 grid gap-x-8 gap-y-5 border-t border-border pt-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.2fr)_minmax(0,1.2fr)]">
+        {/* Column 1 — the attestation */}
+        <div className="flex flex-col gap-3">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-text-muted">Still with this group?</p>
+          <SegmentedControl
+            segments={[
+              { value: "current", label: "Current" },
+              { value: "left", label: "I left this group" },
+            ]}
+            value={status}
+            onChange={(v) => setStatus(v as "current" | "left")}
           />
-          <Field
-            label="Sessions/week"
-            inputMode="numeric"
-            placeholder="0"
-            value={sessionsPerWeek}
-            onChange={(e) => setSessionsPerWeek(e.target.value)}
-            className="w-32"
-          />
-          <Button size="sm" variant="secondary" onClick={checkMargin} loading={marginLoading}>
-            Check the margin
+          {status === "left" && (
+            <Field label="Month (optional)" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
+          )}
+          <Button size="sm" className="self-start" onClick={saveAttestation} loading={saving}>
+            Save
           </Button>
+          {saveError && <p className="text-sm text-danger">{saveError}</p>}
         </div>
-        {marginError && <p className="mt-2 text-sm text-danger">{marginError}</p>}
-        {marginResult && marginResult.payers[0] && (
-          <div className="mt-3 rounded-field bg-canvas p-3.5">
-            <p className="text-sm font-medium text-text-muted">The margin your work generated</p>
-            <ul className="mt-1 space-y-0.5 text-[15px] text-text-body">
-              {marginResult.payers[0].perCode.map((c) => (
-                <li key={c.billingCode}>{c.display}</li>
-              ))}
-            </ul>
-            <p className="mt-1 text-[17px] font-semibold text-text">{marginResult.payers[0].annualDisplay}</p>
-          </div>
-        )}
-      </div>
 
-      {code90837 && (
-        <div className="mt-5 border-t border-border pt-4">
-          <p className="text-[15px] text-text-body">
-            {placement === undefined ? (
-              "Placing this contract's 90837 in the payer's book…"
-            ) : placement ? (
-              <>
-                <span className="font-semibold text-text">{book.holder}</span>&rsquo;s 90837 sat at{" "}
-                <span className="font-semibold text-text">{placement}</span> of {book.payer}&rsquo;s book.
-              </>
-            ) : (
-              "Not enough published rows to place this contract in the book."
-            )}
+        {/* Column 2 — what the sessions were worth */}
+        <div className="flex min-w-0 flex-col gap-3">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-text-muted">
+            What your sessions were worth on their contract
           </p>
-          <Button className="mt-3" size="sm" onClick={() => onGoToApplyNext(npi)}>
-            The contract left. The rates don&rsquo;t have to. → See where to apply next
-          </Button>
+          <dl className="flex flex-col gap-1.5">
+            {Object.entries(book.codes).map(([code, display]) => (
+              <div key={code} className="flex items-baseline justify-between gap-3">
+                <dt className="min-w-0 truncate text-[15px]">
+                  <span className="font-medium text-text">{code}</span>{" "}
+                  <span className="text-text-muted">{cptLabel(code)}</span>
+                </dt>
+                <dd className="shrink-0 text-right text-[15px] tabular-nums text-text-body">{display}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
-      )}
+
+        {/* Column 3 — your margin, then the pivot */}
+        <div className="flex min-w-0 flex-col gap-3">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-text-muted">
+            The margin your work generated
+          </p>
+          <div className="flex flex-wrap items-end gap-2.5">
+            <Field
+              label={`Paid per ${code90837 ?? Object.keys(book.codes)[0] ?? "session"}`}
+              prefix="$"
+              inputMode="decimal"
+              placeholder="0.00"
+              value={pay}
+              onChange={(e) => setPay(e.target.value)}
+              className="w-32"
+            />
+            <Field
+              label="Sessions/week"
+              inputMode="numeric"
+              placeholder="0"
+              value={sessionsPerWeek}
+              onChange={(e) => setSessionsPerWeek(e.target.value)}
+              className="w-28"
+            />
+            <Button size="sm" variant="secondary" onClick={checkMargin} loading={marginLoading}>
+              Check the margin
+            </Button>
+          </div>
+          {marginError && <p className="text-sm text-danger">{marginError}</p>}
+          {marginResult && marginResult.payers[0] && (
+            <div className="rounded-field bg-canvas p-3">
+              <ul className="space-y-0.5 text-sm text-text-body">
+                {marginResult.payers[0].perCode.map((c) => (
+                  <li key={c.billingCode}>{c.display}</li>
+                ))}
+              </ul>
+              <p className="mt-1 text-[17px] font-semibold text-text">{marginResult.payers[0].annualDisplay}</p>
+            </div>
+          )}
+          {code90837 && (
+            <div className="mt-auto border-t border-border pt-3">
+              <p className="text-sm text-text-body">
+                {placement === undefined ? (
+                  "Placing this contract's 90837 in the payer's book…"
+                ) : placement ? (
+                  <>
+                    <span className="font-semibold text-text">{book.holder}</span>&rsquo;s 90837 sat at{" "}
+                    <span className="font-semibold text-text">{placement}</span> of {book.payer}&rsquo;s book.
+                  </>
+                ) : (
+                  "Not enough published rows to place this contract in the book."
+                )}
+              </p>
+              <Button className="mt-2.5" size="sm" onClick={() => onGoToApplyNext(npi)}>
+                The contract left. The rates don&rsquo;t have to. → See where to apply next
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
     </Card>
   );
 }

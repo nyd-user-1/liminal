@@ -82,23 +82,21 @@ export function SpreadPanel() {
     }
   };
 
+  // Landscape composition: the form is the left panel, the results are the
+  // right panel — two cards making one rectangle, no dead half-page. Before
+  // the first check the right panel carries the explainer, so the shape holds
+  // from the first paint.
   return (
-    <div className="space-y-5">
-      <Card className="max-w-3xl">
+    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
+      <Card>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-[17px] font-semibold text-text">What your platform remits</h2>
-            <p className="mt-0.5 text-sm text-text-muted">
-              Fill in the codes you bill — leave the rest blank. We compare against every NY-book
-              payer&rsquo;s median, server-side.
-            </p>
-          </div>
+          <h2 className="text-[17px] font-semibold text-text">What your platform remits</h2>
           <SegmentedControl segments={CADENCE} value={cadence} onChange={setCadence} />
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {RATE_CPTS.map((c) => (
-            <div key={c.code} className="grid items-end gap-3 sm:grid-cols-[minmax(0,1.2fr)_1fr_1fr]">
+            <div key={c.code} className="grid items-end gap-2.5 sm:grid-cols-[minmax(0,1.1fr)_1fr_1fr]">
               <p className="pb-2.5 text-[15px] font-medium text-text max-sm:pb-0">
                 {c.code} <span className="font-normal text-text-muted">· {c.label}</span>
               </p>
@@ -124,71 +122,87 @@ export function SpreadPanel() {
           ))}
         </div>
 
-        <div className="mt-5">
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-border pt-4">
           <Button onClick={check} loading={loading} disabled={entries.length === 0}>
             Check the spread
           </Button>
+          <p className="text-[13px] text-text-muted">Fill in the codes you bill — leave the rest blank.</p>
         </div>
       </Card>
 
-      {error && <Banner variant="danger">{error}</Banner>}
+      <div className="flex min-w-0 flex-col gap-4">
+        {error && <Banner variant="danger">{error}</Banner>}
 
-      {loading && <TableSkeleton head={RESULT_HEAD} rows={5} />}
+        {loading && <TableSkeleton head={RESULT_HEAD} rows={5} />}
 
-      {!loading &&
-        result &&
-        (result.payers.length === 0 ? (
-          <EmptyState
-            icon="dollar"
-            title="No published bands for these codes"
-            subtext="Spread needs at least one NY-book payer with a band on a code you entered."
-          />
-        ) : (
-          <div className="space-y-4">
-            {result.headline && (
-              <StatCard
-                label="The spread, annualized"
-                value={result.headline.display}
-                corner={<Badge variant="info">{result.headline.payer}</Badge>}
-                className="max-w-md"
+        {!loading && !result && !error && (
+          <Card className="flex min-h-[280px] items-center justify-center">
+            <EmptyState
+              icon="dollar"
+              title="The spread, payer by payer"
+              subtext="Your numbers go up, the medians stay server-side — what comes back is each NY-book payer's per-session spread against what your platform pays you, annualized."
+            />
+          </Card>
+        )}
+
+        {!loading &&
+          result &&
+          (result.payers.length === 0 ? (
+            <Card className="flex min-h-[280px] items-center justify-center">
+              <EmptyState
+                icon="dollar"
+                title="No published bands for these codes"
+                subtext="Spread needs at least one NY-book payer with a band on a code you entered."
               />
-            )}
-            {result.headline && <p className="text-[15px] text-text-body">{result.headline.detail}</p>}
+            </Card>
+          ) : (
+            <>
+              {result.headline && (
+                <div className="grid gap-4 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)]">
+                  <StatCard
+                    label="The spread, annualized"
+                    value={result.headline.display}
+                    corner={<Badge variant="info">{result.headline.payer}</Badge>}
+                  />
+                  <p className="self-center text-[15px] leading-relaxed text-text-body">{result.headline.detail}</p>
+                </div>
+              )}
 
-            <Table
-              head={[
-                <SortableHead key="payer" label="Insurer" col="payer" sort={sort} onSort={toggleSort} />,
-                "Per-session spread vs the median",
-                <SortableHead key="spread" label="Annualized" col="spread" sort={sort} onSort={toggleSort} />,
-              ]}
-            >
-              {visible.map((p) => (
-                <Tr key={p.payer}>
-                  <Td className="align-top">
-                    <InsurerCell payer={p.payer} />
-                  </Td>
-                  <Td>
-                    <ul className="space-y-0.5">
-                      {p.perCode.map((c) => (
-                        <li key={c.billingCode} className={c.covered ? "" : "text-text-muted"}>
-                          {c.display}
-                        </li>
-                      ))}
-                    </ul>
-                  </Td>
-                  <Td
-                    className={`whitespace-nowrap align-top font-semibold ${p.positive ? "text-success" : "text-text-body"}`}
-                  >
-                    {p.annualDisplay}
-                  </Td>
-                </Tr>
-              ))}
-              {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={3} />}
-            </Table>
+              <Table
+                head={[
+                  <SortableHead key="payer" label="Insurer" col="payer" sort={sort} onSort={toggleSort} />,
+                  "Per-session spread vs the median",
+                  <SortableHead key="spread" label="Annualized" col="spread" sort={sort} onSort={toggleSort} />,
+                ]}
+              >
+                {visible.map((p) => (
+                  <Tr key={p.payer}>
+                    <Td className="align-top">
+                      <InsurerCell payer={p.payer} />
+                    </Td>
+                    <Td>
+                      <ul className="space-y-0.5">
+                        {p.perCode.map((c) => (
+                          <li key={c.billingCode} className={c.covered ? "" : "text-text-muted"}>
+                            {c.display}
+                          </li>
+                        ))}
+                      </ul>
+                    </Td>
+                    <Td
+                      className={`whitespace-nowrap align-top font-semibold ${p.positive ? "text-success" : "text-text-body"}`}
+                    >
+                      {p.annualDisplay}
+                    </Td>
+                  </Tr>
+                ))}
+                {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={3} />}
+              </Table>
 
-            <p className="max-w-4xl text-[13px] leading-relaxed text-text-muted">{result.assumptions}</p>
-          </div>
-        ))}
+              <p className="text-[13px] leading-relaxed text-text-muted">{result.assumptions}</p>
+            </>
+          ))}
+      </div>
     </div>
   );
 }
