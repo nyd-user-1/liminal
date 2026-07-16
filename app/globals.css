@@ -58,7 +58,19 @@
 
   /* Overlays */
   --color-scrim: rgb(18 13 40 / 0.5);
+  /* Softer than --color-scrim, for the SidePanel flyover: the panel now floats
+     with a visible gap, so the page reads as BEHIND it rather than replaced —
+     a half-opaque scrim would fight that. Modal keeps the heavier --color-scrim. */
+  --color-scrim-soft: rgb(18 13 40 / 0.32);
   --color-stage: #111019; /* video-call stage */
+
+  /* SidePanel flyover chrome — the hq/Linear spec-drawer anatomy translated to
+     light tokens: a 1px INSET ring (not a border, so the radius stays exact at
+     every corner) over a high, soft drop shadow. Linear ships
+     `inset 0 0 0 1px #23252a, 0 7px 32px #00000059`; #00000059 (35%) is tuned
+     for near-black chrome and reads as soot on a white shell, hence 0.18. */
+  --shadow-panel: inset 0 0 0 1px var(--color-border), 0 7px 32px rgb(0 0 0 / 0.18);
+  --shadow-panel-spec: inset 0 0 0 1px #23252a, 0 7px 32px rgb(0 0 0 / 0.35);
 
   /* Liminal ramps */
   --color-navy-900: #1c2440;
@@ -191,6 +203,30 @@ body {
 .sheet-rise { animation: sheet-rise 0.24s cubic-bezier(0.16, 1, 0.3, 1) both; }
 @media (prefers-reduced-motion: reduce) {
   .sheet-rise { animation: none; transform: none; }
+}
+
+/* ── SidePanel flyover (components/ui/side-panel.tsx) ────────────────────────
+   ENTER-ONLY, like hq's spec drawer: the panel unmounts on close (`if (!open)
+   return null`), so there is no exit keyframe to run — a leave animation would
+   need the component to stay mounted through it. Dismiss is instant by design. */
+@keyframes panel-in {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes panel-scrim-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.panel-in { animation: panel-in 0.2s ease-out both; }
+.panel-scrim-in { animation: panel-scrim-in 0.2s ease-out both; }
+/* mobileSheet: rises from the bottom edge as a sheet, but at lg it IS the right
+   flyover, so it takes the same fly-in as .panel-in there. */
+.panel-sheet-in { animation: sheet-rise 0.24s cubic-bezier(0.16, 1, 0.3, 1) both; }
+@media (min-width: 1024px) {
+  .panel-sheet-in { animation: panel-in 0.2s ease-out both; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .panel-in, .panel-scrim-in, .panel-sheet-in { animation: none; opacity: 1; transform: none; }
 }
 
 /* ── Watercolour paintings float on the paper ground ────────────────────────

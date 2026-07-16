@@ -4,32 +4,82 @@ import { useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Icon, IconSquare, type IconName } from "@/components/ui/icons";
 
-// Catalog `SidePanel` — right slide-over on the scrim; header (icon square +
-// title + actions) · scrollable body · pinned footer. THE workhorse for
-// create/edit/detail flows. `mobileSheet` swaps the below-lg presentation
-// for a bottom sheet (rounded top, slide-up, grab bar) — same API, same
-// desktop behavior.
+// Catalog `SidePanel` — right FLYOVER on a soft scrim; header (icon square +
+// mono kicker over title + actions) · scrollable body · pinned footer. THE
+// workhorse for create/edit/detail flows. `mobileSheet` swaps the below-lg
+// presentation for a bottom sheet (rounded top, slide-up, grab bar) — same
+// API, same desktop behavior.
+//
+// ANATOMY (hq's Linear-tech-specs drawer, ~/Code/hq/app/ui/landing/spec-drawer.tsx,
+// translated into Liminal's tokens rather than transplanted):
+//   • Flyover, not a slab. The panel insets from the viewport by 12px and wears
+//     rounded-card + an INSET 1px ring + a high shadow (--shadow-panel), so it
+//     reads as a card flying over the page instead of a wall bolted to its edge.
+//     The ring is inset rather than a border so the corner radius stays exact.
+//   • Kicker over title. A mono uppercase category line sits above a larger,
+//     calmer title — Linear's move for making a drawer announce what KIND of
+//     thing it is before what it is. `kicker` is optional; without it the title
+//     simply sits alone and the header is the old one, bigger.
+//   • Enter-only motion. See .panel-in in globals.css.
+//   • Softer scrim (--color-scrim-soft): a floating panel needs the page to
+//     stay legible behind it. Modal keeps the heavier --color-scrim.
+//
+// `variant="spec"` is the faithful dark treatment for read-only detail surfaces
+// — same structure, Linear's own values. Opt-in only; nothing is forced onto it.
+
+type Variant = "default" | "spec";
+
+const SHELL: Record<Variant, string> = {
+  default: "bg-surface",
+  spec: "bg-[#0f1011]",
+};
+
+const KICKER: Record<Variant, string> = {
+  default: "text-text-muted",
+  spec: "text-[#62666d]",
+};
+
+const TITLE: Record<Variant, string> = {
+  default: "text-text",
+  spec: "text-[#f7f8f8]",
+};
+
+const CLOSE: Record<Variant, string> = {
+  default: "text-text-muted hover:bg-[#F3F4F6] hover:text-text",
+  spec: "text-[#8a8f98] hover:bg-white/[0.06]",
+};
+
+const EDGE: Record<Variant, string> = {
+  default: "border-border",
+  spec: "border-[#23252a]",
+};
 
 export function SidePanel({
   open,
   onClose,
   title,
   icon,
+  kicker,
   headerActions,
   footer,
   width = "max-w-xl",
   mobileSheet = false,
+  variant = "default",
   children,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   icon?: IconName;
+  /** Mono uppercase category line above the title ("PRESCRIPTION", "CLIENT"). */
+  kicker?: string;
   headerActions?: ReactNode;
   footer?: ReactNode;
   width?: string; // tailwind max-w-* (~400–800px)
   /** Below lg, present as a bottom sheet instead of a full-height right panel. */
   mobileSheet?: boolean;
+  /** "spec" = dark, read-only detail treatment. Default stays the light shell. */
+  variant?: Variant;
   children: ReactNode;
 }) {
   useEffect(() => {
@@ -42,6 +92,7 @@ export function SidePanel({
   }, [open, onClose]);
 
   if (!open || typeof document === "undefined") return null;
+  const spec = variant === "spec";
 
   return createPortal(
     <div
@@ -49,29 +100,55 @@ export function SidePanel({
       aria-modal="true"
       aria-label={title}
       onClick={onClose}
-      className={`fixed inset-0 z-50 flex bg-scrim ${
-        mobileSheet ? "flex-col justify-end lg:flex-row lg:justify-end" : "justify-end"
+      // The inset lives on the OUTER flex container as padding, so the panel's
+      // own `h-full` still resolves against a bounded box — insetting the panel
+      // itself with a margin would push it past the viewport by that margin.
+      // mobileSheet stays flush to the bottom edge below lg; a sheet with a gap
+      // under it reads as a mistake, not a flyover.
+      className={`panel-scrim-in fixed inset-0 z-50 flex bg-scrim-soft ${
+        mobileSheet ? "flex-col justify-end lg:flex-row lg:justify-end lg:p-3" : "justify-end p-3"
       }`}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className={
+        style={{ boxShadow: `var(${spec ? "--shadow-panel-spec" : "--shadow-panel"})` }}
+        className={`relative isolate overflow-hidden ${SHELL[variant]} ${
           mobileSheet
-            ? `mkt-rise mx-auto flex max-h-[88dvh] w-full ${width} flex-col rounded-t-card bg-surface shadow-menu lg:mx-0 lg:h-full lg:max-h-none lg:rounded-none`
-            : `flex h-full w-full ${width} flex-col bg-surface shadow-menu`
-        }
+            ? `panel-sheet-in mx-auto flex max-h-[88dvh] w-full ${width} flex-col rounded-t-card lg:mx-0 lg:h-full lg:max-h-none lg:rounded-card`
+            : `panel-in flex h-full w-full ${width} flex-col rounded-card`
+        }`}
       >
-        {mobileSheet && <div className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-border lg:hidden" />}
-        <div className="flex items-center gap-3 border-b border-border px-6 py-4">
-          {icon && <IconSquare name={icon} />}
-          <h2 className="text-[19px] font-semibold text-text">{title}</h2>
-          <div className="ml-auto flex items-center gap-1">
+        {/* Top-left radial glow — Linear lifts the panel's near-black corner with
+            a white wash; on a white shell that is invisible, so the same gesture
+            is carried by the brand teal at low alpha. Purely decorative. */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute left-0 top-0 -z-10 size-[400px] -translate-x-1/2 -translate-y-1/2 rounded-full"
+          style={{
+            background: spec
+              ? "radial-gradient(circle, #ffffff14 0%, transparent 50%)"
+              : "radial-gradient(circle, rgb(63 130 144 / 0.10) 0%, transparent 50%)",
+            mixBlendMode: spec ? "lighten" : "normal",
+          }}
+        />
+        {mobileSheet && (
+          <div className={`mx-auto mt-2 h-1 w-9 shrink-0 rounded-full lg:hidden ${spec ? "bg-[#23252a]" : "bg-border"}`} />
+        )}
+        <div className={`flex items-center gap-3 border-b px-6 py-4 ${EDGE[variant]}`}>
+          {icon && !spec && <IconSquare name={icon} />}
+          <div className="min-w-0">
+            {kicker && (
+              <p className={`font-mono text-[11px] uppercase tracking-[0.14em] ${KICKER[variant]}`}>{kicker}</p>
+            )}
+            <h2 className={`truncate text-[22px] font-semibold tracking-[-0.01em] ${TITLE[variant]}`}>{title}</h2>
+          </div>
+          <div className="ml-auto flex shrink-0 items-center gap-1">
             {headerActions}
             <button
               type="button"
               onClick={onClose}
               aria-label="Close panel"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-field text-text-muted transition-colors hover:bg-[#F3F4F6] hover:text-text"
+              className={`inline-flex h-9 w-9 items-center justify-center rounded-field transition-colors ${CLOSE[variant]}`}
             >
               <Icon name="x" />
             </button>
@@ -80,7 +157,7 @@ export function SidePanel({
         <div className="flex-1 overflow-y-auto p-6">{children}</div>
         {footer && (
           <div
-            className={`flex items-center justify-end gap-3 border-t border-border px-6 py-4 ${
+            className={`flex items-center justify-end gap-3 border-t px-6 py-4 ${EDGE[variant]} ${
               mobileSheet ? "max-lg:pb-[calc(1rem+env(safe-area-inset-bottom))]" : ""
             }`}
           >

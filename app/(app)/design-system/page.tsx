@@ -786,6 +786,7 @@ export default function DesignSystemPage() {
   const [page, setPage] = useState(2);
   const [modalOpen, setModalOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [specPanelOpen, setSpecPanelOpen] = useState(false);
   const toast = useToast();
 
   const featureTotal = FEATURES.reduce((n, g) => n + g.items.length, 0);
@@ -1440,18 +1441,51 @@ export default function DesignSystemPage() {
                 <p className="text-[15px] text-text-body">Body content — forms, confirmations, details.</p>
               </Modal>
             </Spec>
-            <Spec name="SidePanel" desc="Right slide-over — the create/edit workhorse.">
+            <Spec
+              name="SidePanel"
+              desc="Right FLYOVER — the create/edit workhorse. Insets 12px from the viewport with rounded-card, an inset 1px ring + high shadow (--shadow-panel) over a soft scrim, so it reads as a card over the page rather than a slab bolted to its edge. Optional `kicker` adds a mono uppercase category line above the title. Enter-only motion; Esc/backdrop dismiss."
+            >
               <Button variant="secondary" onClick={() => setPanelOpen(true)}>Open panel</Button>
               <SidePanel
                 open={panelOpen}
                 onClose={() => setPanelOpen(false)}
                 title="New client"
+                kicker="Client"
                 icon="users"
                 footer={<><Button variant="secondary" onClick={() => setPanelOpen(false)}>Cancel</Button><Button onClick={() => setPanelOpen(false)}>Create</Button></>}
               >
                 <div className="space-y-4">
                   <Field label="Full name" name="n" placeholder="Jane Doe" />
                   <Field label="Email" name="e" placeholder="jane@example.com" />
+                </div>
+              </SidePanel>
+            </Spec>
+            <Spec
+              name={'SidePanel variant="spec"'}
+              desc="The faithful dark treatment for READ-ONLY detail surfaces — same structure, Linear's own values (#0f1011 panel, #23252a ring, white radial glow, #8a8f98 secondary text). Opt-in: no consumer is forced onto it."
+            >
+              <Button variant="secondary" onClick={() => setSpecPanelOpen(true)}>Open spec panel</Button>
+              <SidePanel
+                open={specPanelOpen}
+                onClose={() => setSpecPanelOpen(false)}
+                title="Psychotherapy, 60 min"
+                kicker="Tech specs"
+                variant="spec"
+              >
+                <div className="space-y-6">
+                  <div>
+                    <p className="font-mono text-[13px] text-[#8a8f98]">1.0</p>
+                    <h3 className="mt-1 text-[17px] text-[#f7f8f8]">Billing code</h3>
+                    <p className="mt-2 text-[15px] leading-relaxed text-[#8a8f98]">
+                      CPT 90837 — the dark shell marks a surface as read-only, so a spec sheet never reads as an
+                      editable form.
+                    </p>
+                  </div>
+                  <div className="border-t border-[#23252a] pt-6">
+                    <p className="font-mono text-[13px] text-[#8a8f98]">2.0</p>
+                    <h3 className="mt-1 text-[17px] text-[#f7f8f8]">Duration</h3>
+                    <p className="mt-2 text-[15px] leading-relaxed text-[#8a8f98]">53–60 minutes.</p>
+                  </div>
                 </div>
               </SidePanel>
             </Spec>
