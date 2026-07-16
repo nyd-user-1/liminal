@@ -50,12 +50,7 @@ export function DictionaryPanel({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {entry?.count != null && (
-            <Badge variant="neutral">
-              {entry.countKind === "estimate" ? "≈" : ""}
-              {entry.count.toLocaleString("en-US")} rows
-            </Badge>
-          )}
+          {entry?.count != null && <Badge variant="neutral">{entry.count.toLocaleString("en-US")} rows</Badge>}
           <Badge variant="info">{def.category}</Badge>
           {entry?.missing && <Badge variant="warning">Not yet loaded</Badge>}
         </div>

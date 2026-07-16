@@ -200,7 +200,7 @@ export async function analyticsData(user: { id: string; role: Role }): Promise<A
   const stat = (table: string, sub: string): MetricValue => {
     const t = byTable.get(table);
     if (!t || t.missing) return { kind: "missing", note: `${table} hasn't been loaded yet.` };
-    return { kind: "stat", value: `${t.countKind === "estimate" ? "≈" : ""}${num(t.count ?? 0)}`, sub };
+    return { kind: "stat", value: num(t.count ?? 0), sub };
   };
 
   values.dir_rows = stat("directory_providers", "rows, not people");
