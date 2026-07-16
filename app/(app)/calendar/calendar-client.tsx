@@ -1,9 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Icon, type IconName } from "@/components/ui/icons";
+import { type IconName } from "@/components/ui/icons";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Divider } from "@/components/ui/divider";
 import { KebabMenu } from "@/components/ui/kebab-menu";
@@ -27,7 +26,8 @@ import {
   parseKey,
   startOfWorkWeek,
 } from "./calendar-utils";
-import { AppointmentDetailPanel, AppointmentFormPanel, STATUS_META, type CreateDraft } from "./appointment-panels";
+import { AgendaList } from "@/components/calendar/agenda-list";
+import { AppointmentDetailPanel, AppointmentFormPanel, type CreateDraft } from "./appointment-panels";
 import { MonthGrid } from "./month-grid";
 import { WeekGrid, type CalEvent } from "./week-grid";
 
@@ -314,43 +314,9 @@ export function CalendarClient({
                 </KebabMenu>
               </span>
             </div>
-            {agendaTotal === 0 ? (
-              <p className="rounded-field bg-canvas px-3 py-6 text-center text-sm text-text-muted">
-                No upcoming appointments
-              </p>
-            ) : (
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
-                {agenda.map((group) => (
-                  <div key={group.key}>
-                    <p className="mb-1 text-[13px] font-semibold text-text-muted">{group.label}</p>
-                    <div className="space-y-0.5">
-                      {group.items.map((ev) => (
-                        <button
-                          key={ev.id}
-                          type="button"
-                          onClick={() => setPanel({ kind: "detail", id: ev.id })}
-                          className="flex w-full items-stretch gap-2.5 rounded-field px-2 py-2 text-left transition-colors hover:bg-canvas"
-                        >
-                          <span className="w-1 shrink-0 rounded-full" style={{ background: ev.color }} />
-                          <span className="min-w-0 flex-1">
-                            <span className="flex items-center gap-2">
-                              <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-text">{ev.title}</span>
-                              <Badge variant={STATUS_META[ev.status].variant} className="shrink-0">
-                                {STATUS_META[ev.status].label}
-                              </Badge>
-                            </span>
-                            <span className="mt-0.5 flex items-center gap-1.5 text-[13px] text-text-muted">
-                              <Icon name={ev.telehealth ? "video" : "map-pin"} size={14} className="shrink-0 text-text-muted" />
-                              <span className="truncate">{ev.timeLabel}</span>
-                            </span>
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            {/* The rows live in components/calendar/agenda-list.tsx — /analytics
+                renders the same list in its "Next up" card. */}
+            <AgendaList groups={agenda} onSelect={(id) => setPanel({ kind: "detail", id })} />
           </div>
           {/* Dynamic sum of the range, pinned to the bottom of the panel */}
           <div className="border-t border-border pt-3 text-[13px] font-medium text-text-muted">

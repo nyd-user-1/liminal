@@ -41,6 +41,8 @@ export interface PracticeSnapshot {
   overdueCents: number;
   sessionsThisWeek: number;
   sessionsLastWeek: number;
+  /** Eight weeks of session volume, oldest first — the /analytics trend card. */
+  weeklySessions: Array<{ label: string; count: number }>;
   /** Photon orders still routing to a pharmacy. null = Photon not configured or unreachable. */
   rxRouting: number | null;
 }
@@ -107,6 +109,33 @@ const NEXT_UP_SQL = `
   LIMIT 5
 `;
 
+// Eight weeks of session volume. appointments is small (hundreds of rows), so
+// this is a trivial extra read — it's here rather than in analytics.ts because
+// it's a practice number and this is where practice numbers live.
+const WEEKLY_SQL = `
+  SELECT to_char(date_trunc('week', a.starts_at AT TIME ZONE $2), 'YYYY-MM-DD') AS wk, count(*)::int AS n
+  FROM appointments a
+  WHERE a.starts_at >= ((date_trunc('week', now() AT TIME ZONE $2) - interval '7 weeks') AT TIME ZONE $2)
+    AND a.starts_at < ((date_trunc('week', now() AT TIME ZONE $2) + interval '1 week') AT TIME ZONE $2)
+    AND a.status IN ('completed','confirmed','scheduled')
+    AND ($1::uuid IS NULL OR a.practitioner_id = $1)
+  GROUP BY wk ORDER BY wk
+`;
+
+/** Fill the empty weeks: a gap in the data is a zero, not a missing point. */
+function toWeekly(rows: Array<{ wk: string; n: number }>): Array<{ label: string; count: number }> {
+  const byWeek = new Map(rows.map((r) => [r.wk.slice(0, 10), Number(r.n)]));
+  const monday = new Date();
+  monday.setHours(0, 0, 0, 0);
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  return Array.from({ length: 8 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(d.getDate() - (7 - i) * 7 + 7);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return { label: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }), count: byWeek.get(key) ?? 0 };
+  });
+}
+
 /** Photon orders still routing to a pharmacy. Photon is a network hop, so a
  *  slow or down sandbox degrades this ONE number to "—" instead of taking the
  *  dashboard with it. Both list calls are already memoized 60s in lib/photon. */
@@ -126,11 +155,12 @@ export async function practiceSnapshot(user: { id: string; role: Role }): Promis
 
   if (!hasDb) return mockSnapshot(scope, pid);
 
-  const [rows, nextRows, rxRouting] = await Promise.all([
+  const [rows, nextRows, weeklyRows, rxRouting] = await Promise.all([
     sql.query(SNAPSHOT_SQL, [pid, PRACTICE_TZ]) as Promise<Array<Record<string, number>>>,
     sql.query(NEXT_UP_SQL, [pid, PRACTICE_TZ]) as unknown as Promise<
       Array<{ id: string; starts_at: string | Date; status: string; client_id: string; first_name: string; last_name: string }>
     >,
+    sql.query(WEEKLY_SQL, [pid, PRACTICE_TZ]) as unknown as Promise<Array<{ wk: string; n: number }>>,
     rxRoutingCount(),
   ]);
 
@@ -153,6 +183,7 @@ export async function practiceSnapshot(user: { id: string; role: Role }): Promis
     overdueCents: Number(r.overdue_cents ?? 0),
     sessionsThisWeek: Number(r.sessions_this_week ?? 0),
     sessionsLastWeek: Number(r.sessions_last_week ?? 0),
+    weeklySessions: toWeekly(weeklyRows),
     rxRouting,
   };
 }
@@ -231,6 +262,16 @@ function mockSnapshot(scope: "all" | "own", pid: string | null): PracticeSnapsho
     overdueCents: invoices.filter((i) => i.status === "overdue").reduce((s, i) => s + owed(i), 0),
     sessionsThisWeek: appts.filter((a) => at(a) >= weekStart && at(a) < now && counted.includes(a.status)).length,
     sessionsLastWeek: appts.filter((a) => at(a) >= prevWeekStart && at(a) < weekStart && counted.includes(a.status)).length,
+    weeklySessions: Array.from({ length: 8 }, (_, i) => {
+      const from = new Date(weekStart);
+      from.setDate(from.getDate() - (7 - i) * 7);
+      const to = new Date(from);
+      to.setDate(to.getDate() + 7);
+      return {
+        label: from.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        count: appts.filter((a) => at(a) >= from && at(a) < to && counted.includes(a.status)).length,
+      };
+    }),
     rxRouting: null,
   };
 }

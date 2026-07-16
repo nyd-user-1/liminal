@@ -14,6 +14,7 @@ import type { SessionUser } from "@/lib/auth";
 // Longest-prefix wins: order specific → general.
 const ROUTE_TITLES: Array<[prefix: string, icon: IconName, title: string]> = [
   ["/dashboard", "grid", "Dashboard"],
+  ["/analytics", "columns-3", "Analytics"],
   ["/calendar", "calendar", "Calendar"],
   ["/inbox", "inbox", "Inbox"],
   ["/clients", "users", "Clients"],
