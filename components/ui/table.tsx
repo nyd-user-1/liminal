@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode, type TdHTMLAttributes } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode, type TdHTMLAttributes } from "react";
 import { Icon } from "@/components/ui/icons";
 
 // Catalog `Table` — teal 14/600 header text on a surface-fill row, white
@@ -9,17 +9,23 @@ import { Icon } from "@/components/ui/icons";
 // `className`, e.g. `flex-1 min-h-0`) for a fixed header the rows scroll
 // under — the header fill sits on the `th` cells so it stays opaque through
 // the scroll. For sortable columns, pass a `SortableHead` element as that
-// column's head entry (pairs with the `useSort` hook).
+// column's head entry (pairs with the `useSort` hook). `onHeaderContextMenu`
+// makes the whole header row right-clickable — the standard place to hang a
+// column picker, so the toolbar keeps no chip for it (see clients-index).
 
 export function Table({
   head,
   className = "",
   stickyHeader = false,
+  onHeaderContextMenu,
   children,
 }: {
   head: ReactNode[];
   className?: string;
   stickyHeader?: boolean;
+  /** Right-click on ANY header cell. Callers preventDefault to replace the
+   *  native menu; the event carries clientX/clientY to anchor a popover. */
+  onHeaderContextMenu?: (e: MouseEvent<HTMLTableCellElement>) => void;
   children: ReactNode;
 }) {
   return (
@@ -29,7 +35,11 @@ export function Table({
           <tr>
             {head.map((h, i) => (
               // inset shadow, not border-b: sticky headers drop collapsed borders while scrolled
-              <th key={i} className="bg-surface px-4 py-3 text-sm font-semibold text-primary shadow-[inset_0_-1px_0_var(--color-border)]">
+              <th
+                key={i}
+                onContextMenu={onHeaderContextMenu}
+                className="bg-surface px-4 py-3 text-sm font-semibold text-primary shadow-[inset_0_-1px_0_var(--color-border)]"
+              >
                 {h}
               </th>
             ))}
@@ -106,7 +116,9 @@ export function SortableHead<Col extends string>({
     <button
       type="button"
       onClick={() => onSort(col)}
-      className={`-mx-1 flex items-center gap-1 whitespace-nowrap rounded px-1 transition-colors hover:text-primary-hover ${className}`}
+      // primary-deep, not primary-hover: teal-600 → teal-700 is a ~7% luminance
+      // step and reads as no change at 14px. teal-800 actually registers.
+      className={`-mx-1 flex items-center gap-1 whitespace-nowrap rounded px-1 transition-colors hover:text-primary-deep ${className}`}
     >
       {label}
       <Icon name={active && sort.dir === "asc" ? "chevron-up" : "chevron-down"} size={14} className={active ? "" : "opacity-30"} />

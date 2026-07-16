@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ColumnPicker } from "@/components/ui/column-picker";
+import { IconButton } from "@/components/ui/icon-button";
+import { TopBarActions } from "@/components/shell/topbar-slot";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { Icon } from "@/components/ui/icons";
@@ -162,6 +164,8 @@ export function DirectoryClient({
   // every list reload, so the map may no longer hold this NPI later.
   const [openTabs, setOpenTabs] = useState<Array<{ provider: DirectoryProvider; network: ProviderNetworkSummary | null }>>([]);
   const [view, setView] = useState<string>("list");
+  // Cursor position of a header right-click; null = column menu closed.
+  const [colMenu, setColMenu] = useState<{ x: number; y: number } | null>(null);
 
   // Pin/favorite (row kebab) — device-local, hydrated after mount so the
   // server render never touches localStorage. Pins store the WHOLE row, not
@@ -404,8 +408,15 @@ export function DirectoryClient({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      <TopBarActions>
+        <Button size="sm" leftIcon="plus" onClick={() => toast("New provider isn\u2019t wired up yet.", "info")}>
+          New provider
+        </Button>
+        <IconButton icon="bell" label="Notifications" onClick={() => toast("No new notifications.", "info")} />
+      </TopBarActions>
+
       <Tabs
-        className="mb-4 shrink-0"
+        className="mt-4 mb-4 shrink-0"
         active={view === "list" ? tab : view}
         onChange={(k) => {
           if (k === "providers" || k === "programs") {
@@ -475,10 +486,42 @@ export function DirectoryClient({
           </>
         )}
         {hasFilters && <TextLink onClick={resetFilters}>Reset</TextLink>}
-        {tab === "providers" && (
-          <ColumnPicker options={PROVIDER_COLUMNS} visible={visibleCols} onToggle={toggleCol} className="ml-auto" />
-        )}
+        <span className="ml-auto flex items-center gap-2">
+          {tab === "providers" && (
+            <ColumnPicker options={PROVIDER_COLUMNS} visible={visibleCols} onToggle={toggleCol} />
+          )}
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon="download"
+            onClick={() => toast("Export isn\u2019t wired up yet.", "info")}
+            className="!border-field-border !text-text-body hover:!border-field-border-focus"
+          >
+            Export
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon="refresh-cw"
+            onClick={() => load(1, true)}
+            className="!border-field-border !text-text-body hover:!border-field-border-focus"
+          >
+            Refresh
+          </Button>
+        </span>
       </Toolbar>
+
+      {/* Right-click any header for the column menu — same gesture the standard
+          DataTable ships; cursor-anchored + fixed, so the Table cannot clip it. */}
+      {tab === "providers" && (
+        <ColumnPicker
+          at={colMenu}
+          onDismiss={() => setColMenu(null)}
+          options={PROVIDER_COLUMNS}
+          visible={visibleCols}
+          onToggle={toggleCol}
+        />
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center rounded-card border border-border bg-surface py-24 shadow-card">
@@ -497,6 +540,10 @@ export function DirectoryClient({
         <Table
           className="min-h-0 flex-1"
           stickyHeader
+          onHeaderContextMenu={(e) => {
+            e.preventDefault();
+            setColMenu({ x: e.clientX, y: e.clientY });
+          }}
           head={[
             <Checkbox key="all" aria-label="Select all loaded" checked={allLoadedChecked} onChange={toggleAllLoaded} />,
             <SortableHead key="name" label="Provider" col="name" sort={providerSort} onSort={toggleProviderSort} />,

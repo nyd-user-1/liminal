@@ -96,11 +96,7 @@ export function PlansIndex({ employers }: { employers: Employer[] }) {
           {rows.map((e) => (
             <Tr key={e.ein} onClick={() => router.push(`/plans/${e.ein}`)}>
               <Td className="whitespace-nowrap">
-                <TextLink
-                  href={`/plans/${e.ein}`}
-                  onClick={(ev) => ev.stopPropagation()}
-                  className="!font-medium"
-                >
+                <TextLink href={`/plans/${e.ein}`} onClick={(ev) => ev.stopPropagation()} variant="name">
                   {titleCase(e.name)}
                 </TextLink>
               </Td>

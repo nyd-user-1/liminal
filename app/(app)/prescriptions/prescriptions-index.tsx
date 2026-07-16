@@ -1,12 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { ChoiceChip } from "@/components/ui/choice-chip";
+import { Button } from "@/components/ui/button";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { MenuItem } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
+import { IconButton } from "@/components/ui/icon-button";
+import { KebabMenu } from "@/components/ui/kebab-menu";
 import { SearchInput } from "@/components/ui/search-input";
+import { Tabs } from "@/components/ui/tabs";
 import { TextLink } from "@/components/ui/text-link";
+import { useToast } from "@/components/ui/toast";
+import { TopBarActions } from "@/components/shell/topbar-slot";
+import { ChipMenu } from "@/components/rates/chip-menu";
 import { RX_STATE_LABEL, RX_STATE_VARIANT, quantityLabel } from "@/components/photon/status";
 import { RxDetailPanel } from "@/components/photon/rx-detail-panel";
 import { formatDate } from "@/lib/format";
@@ -22,10 +30,23 @@ export type Row = PhotonRxListRow & { clientId: string };
 // shows up it still renders its badge, it just isn't filterable.
 const STATES: PhotonRxState[] = ["ACTIVE", "DEPLETED", "EXPIRED", "CANCELED"];
 
+// Placeholder until this page earns real sections — the standard index layout
+// carries a tab row (see /clients).
+const TABS = [
+  { key: "all", label: "All Prescriptions" },
+  { key: "tab2", label: "Tab 2" },
+  { key: "tab3", label: "Tab 3" },
+  { key: "tab4", label: "Tab 4" },
+];
+
 export function PrescriptionsIndex({ rows, truncated }: { rows: Row[]; truncated: boolean }) {
+  const router = useRouter();
+  const toast = useToast();
   const [term, setTerm] = useState("");
   const [states, setStates] = useState<Set<PhotonRxState>>(new Set());
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [tab, setTab] = useState("all");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const filtered = useMemo(() => {
     const q = term.trim().toLowerCase();
@@ -111,36 +132,54 @@ export function PrescriptionsIndex({ rows, truncated }: { rows: Row[]; truncated
 
   return (
     <>
+      <TopBarActions>
+        <Button size="sm" leftIcon="plus" onClick={() => toast("New prescription isn\u2019t wired up yet.", "info")}>
+          New prescription
+        </Button>
+        <IconButton icon="bell" label="Notifications" onClick={() => toast("No new notifications.", "info")} />
+      </TopBarActions>
+
+      <Tabs className="mt-4 mb-4 shrink-0" slideActive active={tab} onChange={setTab} items={TABS} />
+
       <DataTable
         columns={columns}
         rows={filtered}
         rowKey={(r) => r.id}
         storageKey="photon.prescriptions.columns"
         onRowClick={(r) => setDetailId(r.id)}
+        selected={selected}
+        onSelectedChange={setSelected}
+        onExport={() => toast("Export isn\u2019t wired up yet.", "info")}
+        onRefresh={() => router.refresh()}
+        filter={
+          <ChipMenu
+            label="Filter"
+            icon="list-filter"
+            options={STATES.map((s) => ({ value: s, label: RX_STATE_LABEL[s] }))}
+            values={[...states]}
+            onToggle={(v) =>
+              setStates((prev) => {
+                const next = new Set(prev);
+                if (!next.delete(v as PhotonRxState)) next.add(v as PhotonRxState);
+                return next;
+              })
+            }
+            onClear={() => setStates(new Set())}
+          />
+        }
+        rowActions={(r) => (
+          <KebabMenu label={`Actions for ${r.patientName}`}>
+            <MenuItem icon="eye" label="View details" onClick={() => setDetailId(r.id)} />
+            <MenuItem icon="person-circle" label="Open patient" onClick={() => router.push(`/clients/${r.clientId}?tab=rx`)} />
+          </KebabMenu>
+        )}
         toolbarLeft={
-          <>
-            <SearchInput
-              className="w-64"
-              placeholder="Search by patient"
-              value={term}
-              onChange={(e) => setTerm(e.target.value)}
-            />
-            {STATES.map((s) => (
-              <ChoiceChip
-                key={s}
-                label={RX_STATE_LABEL[s]}
-                selected={states.has(s)}
-                onSelect={() =>
-                  setStates((prev) => {
-                    const next = new Set(prev);
-                    if (next.has(s)) next.delete(s);
-                    else next.add(s);
-                    return next;
-                  })
-                }
-              />
-            ))}
-          </>
+          <SearchInput
+            className="max-w-md flex-1"
+            placeholder="Search by patient"
+            value={term}
+            onChange={(e) => setTerm(e.target.value)}
+          />
         }
         footnote={
           truncated ? (

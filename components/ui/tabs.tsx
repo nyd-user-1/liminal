@@ -105,7 +105,13 @@ export function Tabs({
           <>
             {t.label}
             {t.count !== undefined && (
-              <span className="rounded-full bg-canvas px-1.5 text-[13px] text-text-muted">{t.count}</span>
+              <span
+                className={`rounded-full bg-canvas px-1.5 text-[13px] tabular-nums ${
+                  isActive ? "text-primary" : "text-text-muted"
+                }`}
+              >
+                {t.count.toLocaleString("en-US")}
+              </span>
             )}
             {t.closable && onClose && (
               <span

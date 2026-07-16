@@ -62,6 +62,12 @@ const clients: Client[] = [
   row("10", null, "Grace", "Tanaka", "1993-07-04", "grace.tanaka@example.com", "+1 347 555 0119", null, "Female", "she/her", "lead", ["website-inquiry"], P),
   row("11", null, "Victor", "Hughes", "1972-10-16", "victor.hughes@example.com", "+1 212 555 0108", "420 Riverside Dr, New York, NY 10025", "Male", "he/him", "archived", ["moved-away"], B),
   row("12", null, "Nina", "Petrov", "1990-05-27", "nina.petrov@example.com", "+1 929 555 0173", null, "Female", "she/her", "archived", ["completed-care"], P),
+  // Leads carry no address: nobody has taken an intake yet.
+  row("13", null, "Omar", "Haddad", "1987-03-22", "omar.haddad@example.com", "+1 718 555 0146", null, "Male", "he/him", "lead", ["referral", "intake-pending"], P),
+  row("14", null, "Tessa", "Byrne", "1995-11-13", "tessa.byrne@example.com", "+1 917 555 0158", null, "Female", "she/her", "lead", ["online-booking"], B),
+  row("15", null, "Dmitri", "Volkov", "1981-06-08", "dmitri.volkov@example.com", "+1 347 555 0184", "55 Bay Ridge Ave, Brooklyn, NY 11220", "Male", "he/him", "archived", ["completed-care"], B),
+  row("16", null, "Aisha", "Rahman", "1992-09-30", "aisha.rahman@example.com", "+1 929 555 0167", "37-15 74th St, Jackson Heights, NY 11372", "Female", "she/her", "archived", ["moved-away"], P),
+  row("17", null, "Colin", "Fitzgerald", "1975-01-19", "colin.fitzgerald@example.com", "+1 212 555 0193", "190 Bleecker St, New York, NY 10012", "Male", "he/him", "archived", ["completed-care", "superbill"], B),
 ];
 
 registerFixtures("clients", (store) => {

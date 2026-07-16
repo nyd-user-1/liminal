@@ -15,7 +15,7 @@ INSERT INTO users (id, role, name, email, password_hash, avatar_hue, phone, time
   ('00000000-0000-4000-8000-000000001003','client','Casey Morgan','casey@liminal.demo','$2b$12$u6VE5SYM19B.rkbXiFOR2.nuQR8hx3JTov74mALdnh9p0Y0JAYLl.','pink','+1 917 555 0182','America/New_York')
 ON CONFLICT (id) DO NOTHING;
 
--- ── clients (02): 12, varied statuses/tags; Casey has the portal login ────────
+-- ── clients (02): 17, varied statuses/tags; Casey has the portal login ────────
 INSERT INTO clients (id, user_id, first_name, last_name, dob, email, phone, address, gender, pronouns, status, tags, primary_practitioner_id) VALUES
   ('00000000-0000-4000-8000-000000002001','00000000-0000-4000-8000-000000001003','Casey','Morgan','1994-03-18','casey@liminal.demo','+1 917 555 0182','48 Carmine St, Apt 3B, New York, NY 10014','Non-binary','they/them','active','{portal,anxiety,weekly}','00000000-0000-4000-8000-000000001001'),
   ('00000000-0000-4000-8000-000000002002',NULL,'Jordan','Lee','1988-11-02','jordan.lee@example.com','+1 646 555 0113','210 E 14th St, New York, NY 10003','Male','he/him','active','{adhd,monthly}','00000000-0000-4000-8000-000000001001'),
@@ -28,7 +28,13 @@ INSERT INTO clients (id, user_id, first_name, last_name, dob, email, phone, addr
   ('00000000-0000-4000-8000-000000002009',NULL,'Eli','Rosen','1999-02-14','eli.rosen@example.com','+1 718 555 0121',NULL,'Male','he/him','lead','{referral,intake-pending}','00000000-0000-4000-8000-000000001002'),
   ('00000000-0000-4000-8000-000000002010',NULL,'Grace','Tanaka','1993-07-04','grace.tanaka@example.com','+1 347 555 0119',NULL,'Female','she/her','lead','{website-inquiry}','00000000-0000-4000-8000-000000001002'),
   ('00000000-0000-4000-8000-000000002011',NULL,'Victor','Hughes','1972-10-16','victor.hughes@example.com','+1 212 555 0108','420 Riverside Dr, New York, NY 10025','Male','he/him','archived','{moved-away}','00000000-0000-4000-8000-000000001001'),
-  ('00000000-0000-4000-8000-000000002012',NULL,'Nina','Petrov','1990-05-27','nina.petrov@example.com','+1 929 555 0173',NULL,'Female','she/her','archived','{completed-care}','00000000-0000-4000-8000-000000001002')
+  ('00000000-0000-4000-8000-000000002012',NULL,'Nina','Petrov','1990-05-27','nina.petrov@example.com','+1 929 555 0173',NULL,'Female','she/her','archived','{completed-care}','00000000-0000-4000-8000-000000001002'),
+  -- Leads carry no address: nobody has taken an intake yet.
+  ('00000000-0000-4000-8000-000000002013',NULL,'Omar','Haddad','1987-03-22','omar.haddad@example.com','+1 718 555 0146',NULL,'Male','he/him','lead','{referral,intake-pending}','00000000-0000-4000-8000-000000001002'),
+  ('00000000-0000-4000-8000-000000002014',NULL,'Tessa','Byrne','1995-11-13','tessa.byrne@example.com','+1 917 555 0158',NULL,'Female','she/her','lead','{online-booking}','00000000-0000-4000-8000-000000001001'),
+  ('00000000-0000-4000-8000-000000002015',NULL,'Dmitri','Volkov','1981-06-08','dmitri.volkov@example.com','+1 347 555 0184','55 Bay Ridge Ave, Brooklyn, NY 11220','Male','he/him','archived','{completed-care}','00000000-0000-4000-8000-000000001001'),
+  ('00000000-0000-4000-8000-000000002016',NULL,'Aisha','Rahman','1992-09-30','aisha.rahman@example.com','+1 929 555 0167','37-15 74th St, Jackson Heights, NY 11372','Female','she/her','archived','{moved-away}','00000000-0000-4000-8000-000000001002'),
+  ('00000000-0000-4000-8000-000000002017',NULL,'Colin','Fitzgerald','1975-01-19','colin.fitzgerald@example.com','+1 212 555 0193','190 Bleecker St, New York, NY 10012','Male','he/him','archived','{completed-care,superbill}','00000000-0000-4000-8000-000000001001')
 ON CONFLICT (id) DO NOTHING;
 
 -- ── services (03) ─────────────────────────────────────────────────────────────

@@ -8,6 +8,13 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { SearchInput } from "@/components/ui/search-input";
 import { SortableHead, Table, Td, Tr, useSort } from "@/components/ui/table";
+import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import type { IconName } from "@/components/ui/icons";
+import { IconButton } from "@/components/ui/icon-button";
+import { KebabMenu } from "@/components/ui/kebab-menu";
+import { MenuItem } from "@/components/ui/dropdown-menu";
+import { useToast } from "@/components/ui/toast";
+import { TopBarActions } from "@/components/shell/topbar-slot";
 import { Tabs } from "@/components/ui/tabs";
 import { TextLink } from "@/components/ui/text-link";
 import { Toolbar } from "@/components/ui/toolbar";
@@ -35,12 +42,14 @@ function ChipMenu({
   options,
   onSelect,
   onClear,
+  icon,
 }: {
   label: string;
   value?: string;
   options: readonly string[];
   onSelect: (v: string) => void;
   onClear: () => void;
+  icon?: IconName;
 }) {
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState("");
@@ -60,7 +69,7 @@ function ChipMenu({
   const shown = searchable && term ? options.filter((o) => o.toLowerCase().includes(term.toLowerCase())) : options;
   return (
     <span ref={ref} className="relative">
-      <FilterChip label={label} value={value} onClick={() => setOpen((o) => !o)} onClear={onClear} />
+      <FilterChip label={label} value={value} icon={icon} onClick={() => setOpen((o) => !o)} onClear={onClear} />
       {open && (
         <div className="absolute left-0 top-full z-40 mt-1.5 w-72 rounded-card border border-border bg-surface p-2 shadow-menu">
           {searchable && (
@@ -138,100 +147,133 @@ export function OrgsIndex({ initial, payerOptions }: { initial: OrgListRow[]; pa
     setType(undefined);
   }
   const hasFilters = !!(q || payer || type);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const toast = useToast();
 
   const sorted = sortRows(rows, sort.col, sort.dir);
 
+  const columns: DataTableColumn<OrgListRow>[] = [
+    {
+      key: "org",
+      label: "Organization",
+      fixed: true,
+      sortValue: (o) => o.name ?? o.label,
+      cellClassName: "max-w-[28rem]",
+      render: (o) =>
+        o.name ? (
+          <span className="block truncate font-medium text-text" title={o.name}>
+            {o.name}
+          </span>
+        ) : (
+          <span className="flex items-center gap-2">
+            <span className="font-medium tabular-nums text-text-body">{o.label}</span>
+            <Badge variant="neutral" className="!font-normal">
+              unnamed
+            </Badge>
+          </span>
+        ),
+    },
+    {
+      key: "npis",
+      label: "Clinicians",
+      sortValue: (o) => o.npis,
+      render: (o) => <span className="tabular-nums font-medium text-text">{o.npis.toLocaleString()}</span>,
+    },
+    { key: "payers", label: "Payer books", sortValue: (o) => o.payerCount, render: (o) => <span className="tabular-nums text-text-body">{o.payerCount}</span> },
+    { key: "seen", label: "Last seen", sortValue: (o) => o.lastFileDate ?? "", render: (o) => <span className="text-text-muted">{o.lastFileDate ?? "—"}</span> },
+  ];
+
   return (
     <div className="flex h-full min-h-0 flex-col">
+      <TopBarActions>
+        <Button size="sm" leftIcon="plus" onClick={() => toast("New organization isn\u2019t wired up yet.", "info")}>
+          New organization
+        </Button>
+        <IconButton icon="bell" label="Notifications" onClick={() => toast("No new notifications.", "info")} />
+      </TopBarActions>
+
       <Tabs
-        className="mb-4 shrink-0"
+        className="mt-4 mb-4 shrink-0"
+        slideActive
         active={tab}
         onChange={(k) => setTab(k as Tab)}
         items={[
           { key: "all", label: "All" },
           { key: "named", label: "Named" },
+          { key: "tab3", label: "Tab 3" },
+          { key: "tab4", label: "Tab 4" },
         ]}
       />
 
       <div className="flex min-h-0 flex-1 flex-col">
-        <Toolbar className="mb-4 shrink-0 flex-wrap md:mb-6">
-          <SearchInput
-            aria-label="Search organizations"
-            placeholder="Search organizations by name"
-            className="max-w-md flex-1"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") setQ("");
-              if (e.key === "Enter") load();
-            }}
-          />
-          <ChipMenu
-            label="Payer"
-            value={payer}
-            options={payerOptions}
-            onSelect={setPayer}
-            onClear={() => setPayer(undefined)}
-          />
-          <ChipMenu
-            label="Type"
-            value={type}
-            options={TYPE_OPTIONS}
-            onSelect={(v) => setType(v as (typeof TYPE_OPTIONS)[number])}
-            onClear={() => setType(undefined)}
-          />
-          {hasFilters && <TextLink onClick={resetFilters}>Reset</TextLink>}
-        </Toolbar>
-
-        {sorted.length === 0 ? (
-          <div className="rounded-card border border-border bg-surface shadow-card">
-            <EmptyState
-              icon="id-card"
-              title="No organizations"
-              subtext={hasFilters ? "Try a broader search or clear the filters." : "No organizations on file yet."}
-              actions={
-                hasFilters ? (
-                  <Button variant="secondary" onClick={resetFilters}>
-                    Clear filters
-                  </Button>
-                ) : undefined
+        <DataTable
+          columns={columns}
+          rows={sorted}
+          rowKey={(o) => o.tin}
+          storageKey="orgs.columns"
+          lazy
+          fillHeight
+          className="min-h-0 flex-1"
+          onRowClick={(o) => router.push(href(o.tin))}
+          selected={selected}
+          onSelectedChange={setSelected}
+          onExport={() => toast("Export isn\u2019t wired up yet.", "info")}
+          onRefresh={() => load()}
+          filter={
+            <ChipMenu
+              label="Filter"
+              icon="list-filter"
+              value={payer ?? type}
+              options={[...payerOptions, ...TYPE_OPTIONS]}
+              onSelect={(v) =>
+                (TYPE_OPTIONS as readonly string[]).includes(v) ? setType(v as (typeof TYPE_OPTIONS)[number]) : setPayer(v)
               }
+              onClear={() => {
+                setPayer(undefined);
+                setType(undefined);
+              }}
             />
-          </div>
-        ) : (
-          <Table
-            className="min-h-0 flex-1"
-            stickyHeader
-            head={[
-              <SortableHead key="org" label="Organization" col="org" sort={sort} onSort={toggleSort} />,
-              <SortableHead key="npis" label="Clinicians" col="npis" sort={sort} onSort={toggleSort} />,
-              <SortableHead key="payers" label="Payer books" col="payers" sort={sort} onSort={toggleSort} />,
-              <SortableHead key="seen" label="Last seen" col="seen" sort={sort} onSort={toggleSort} />,
-            ]}
-          >
-            {sorted.map((o) => (
-              <Tr key={o.tin} onClick={() => router.push(href(o.tin))}>
-                <Td className="max-w-[28rem]">
-                  {o.name ? (
-                    <span className="block truncate font-medium text-text" title={o.name}>
-                      {o.name}
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-2">
-                      <span className="font-medium tabular-nums text-text-body">{o.label}</span>
-                      <Badge variant="neutral" className="!font-normal">
-                        unnamed
-                      </Badge>
-                    </span>
-                  )}
-                </Td>
-                <Td className="whitespace-nowrap tabular-nums font-medium text-text">{o.npis.toLocaleString()}</Td>
-                <Td className="whitespace-nowrap tabular-nums text-text-body">{o.payerCount}</Td>
-                <Td className="whitespace-nowrap text-text-muted">{o.lastFileDate ?? "—"}</Td>
-              </Tr>
-            ))}
-          </Table>
-        )}
+          }
+          rowActions={(o) => (
+            <KebabMenu label={`Actions for ${o.name ?? o.label}`}>
+              <MenuItem icon="id-card" label="Open organization" onClick={() => router.push(href(o.tin))} />
+            </KebabMenu>
+          )}
+          toolbarLeft={
+            <>
+              <SearchInput
+                aria-label="Search organizations"
+                placeholder="Search organizations by name"
+                className="max-w-md flex-1"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setQ("");
+                  if (e.key === "Enter") load();
+                }}
+              />
+              {hasFilters && <TextLink onClick={resetFilters}>Reset</TextLink>}
+            </>
+          }
+          footnote={
+            sorted.length === 0 ? (
+              <div className="rounded-card border border-border bg-surface shadow-card">
+                <EmptyState
+                  icon="id-card"
+                  title="No organizations"
+                  subtext={hasFilters ? "Try a broader search or clear the filters." : "No organizations on file yet."}
+                  actions={
+                    hasFilters ? (
+                      <Button variant="secondary" onClick={resetFilters}>
+                        Clear filters
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              </div>
+            ) : null
+          }
+        />
       </div>
     </div>
   );

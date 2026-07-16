@@ -9,6 +9,7 @@ import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { MenuItem } from "@/components/ui/dropdown-menu";
 import { Field } from "@/components/ui/field";
+import { IconButton } from "@/components/ui/icon-button";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { KebabMenu } from "@/components/ui/kebab-menu";
 import { LibraryCard } from "@/components/ui/library-card";
@@ -521,13 +522,14 @@ export function TemplatesIndex() {
       {!openForm && (
         <TopBarActions>
           <Button leftIcon="plus" size="sm" onClick={newAction}>
-            New
+            New template
           </Button>
+          <IconButton icon="bell" label="Notifications" onClick={() => toast("No new notifications.", "info")} />
         </TopBarActions>
       )}
 
       <Tabs
-        className="mb-4 shrink-0"
+        className="mt-4 mb-4 shrink-0"
         active={tab}
         onChange={setTab}
         items={primaryTabItems}

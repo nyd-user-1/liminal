@@ -7,6 +7,7 @@ import { InvoiceStatusBadge } from "@/components/billing/invoice-status-badge";
 import { NewInvoicePanel, type ClientOption, type ServiceOption } from "@/components/billing/new-invoice-panel";
 import { PayerPanel } from "@/components/billing/payer-panel";
 import { ChipMenu } from "@/components/rates/chip-menu";
+import { IconButton } from "@/components/ui/icon-button";
 import { TopBarActions } from "@/components/shell/topbar-slot";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -180,10 +181,11 @@ export function BillingShell({
             New invoice
           </Button>
         )}
+        <IconButton icon="bell" label="Notifications" onClick={() => toast("No new notifications.", "info")} />
       </TopBarActions>
 
       <Tabs
-        className="mb-4 shrink-0"
+        className="mt-4 mb-4 shrink-0"
         items={[
           { key: "overview", label: "Overview" },
           { key: "clients", label: "Clients", count: invoices.length },

@@ -9,6 +9,10 @@ import { SearchInput } from "@/components/ui/search-input";
 import { SidePanel } from "@/components/ui/side-panel";
 import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/components/ui/toast";
+import { IconButton } from "@/components/ui/icon-button";
+import { KebabMenu } from "@/components/ui/kebab-menu";
+import { MenuItem } from "@/components/ui/dropdown-menu";
+import { Tabs } from "@/components/ui/tabs";
 import { TopBarActions } from "@/components/shell/topbar-slot";
 import type { PhotonTreatment, TreatmentSearchHit } from "@/lib/photon";
 
@@ -16,7 +20,18 @@ import type { PhotonTreatment, TreatmentSearchHit } from "@/lib/photon";
 // search-to-add panel, and remove. Both mutations are real (addToCatalog /
 // removeFromCatalog) — verified against the sandbox with the M2M token.
 
+// Placeholder until this page earns real sections — the standard index layout
+// carries a tab row (see /clients).
+const TABS = [
+  { key: "all", label: "All Treatments" },
+  { key: "tab2", label: "Tab 2" },
+  { key: "tab3", label: "Tab 3" },
+  { key: "tab4", label: "Tab 4" },
+];
+
 export function CatalogIndex({ catalogName, treatments }: { catalogName: string; treatments: PhotonTreatment[] }) {
+  const [tab, setTab] = useState("all");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const router = useRouter();
   const toast = useToast();
   const [filter, setFilter] = useState("");
@@ -63,26 +78,18 @@ export function CatalogIndex({ catalogName, treatments }: { catalogName: string;
         </div>
       ),
     },
-    {
-      key: "actions",
-      label: "",
-      fixed: true,
-      align: "right",
-      render: (t) => (
-        <Button variant="secondary" leftIcon="trash" onClick={() => remove(t)} disabled={busyId === t.id}>
-          {busyId === t.id ? "Removing…" : "Remove"}
-        </Button>
-      ),
-    },
   ];
 
   return (
     <>
       <TopBarActions>
-        <Button leftIcon="plus" onClick={() => setAddOpen(true)}>
-          Add treatment
+        <Button size="sm" leftIcon="plus" onClick={() => setAddOpen(true)}>
+          New treatment
         </Button>
+        <IconButton icon="bell" label="Notifications" onClick={() => toast("No new notifications.", "info")} />
       </TopBarActions>
+
+      <Tabs className="mt-4 mb-4 shrink-0" slideActive active={tab} onChange={setTab} items={TABS} />
 
       {treatments.length === 0 ? (
         <div className="rounded-card border border-border bg-surface shadow-card">
@@ -102,10 +109,19 @@ export function CatalogIndex({ catalogName, treatments }: { catalogName: string;
           columns={columns}
           rows={shown}
           rowKey={(t) => t.id}
+          selected={selected}
+          onSelectedChange={setSelected}
+          onExport={() => toast("Export isn\u2019t wired up yet.", "info")}
+          onRefresh={() => router.refresh()}
+          rowActions={(t) => (
+            <KebabMenu label={`Actions for ${t.name}`}>
+              <MenuItem icon="trash" label={busyId === t.id ? "Removing…" : "Remove"} danger onClick={() => remove(t)} />
+            </KebabMenu>
+          )}
           toolbarLeft={
             <SearchInput
-              className="w-64"
-              placeholder="Filter catalog"
+              className="max-w-md flex-1"
+              placeholder="Search the catalog"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
             />

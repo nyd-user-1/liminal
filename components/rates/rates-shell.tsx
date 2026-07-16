@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { IconButton } from "@/components/ui/icon-button";
+import { useToast } from "@/components/ui/toast";
 import { TopBarActions } from "@/components/shell/topbar-slot";
 import { Button } from "@/components/ui/button";
 import { Tabs } from "@/components/ui/tabs";
@@ -28,6 +30,7 @@ const TABS = [
 ];
 
 export function RatesShell({ userEmail }: { userEmail?: string }) {
+  const toast = useToast();
   const [tab, setTab] = useState("bands");
   // Empty = no code filter applied (the negotiation card shows every code by
   // default, sorted A-Z) — codes narrow the table, they don't gate it.
@@ -50,9 +53,10 @@ export function RatesShell({ userEmail }: { userEmail?: string }) {
         >
           Print rate card
         </Button>
+        <IconButton icon="bell" label="Notifications" onClick={() => toast("No new notifications.", "info")} />
       </TopBarActions>
 
-      <Tabs className="shrink-0" items={TABS} active={tab} onChange={setTab} slideActive />
+      <Tabs className="mt-4 mb-4 shrink-0" items={TABS} active={tab} onChange={setTab} slideActive />
 
       {/* Bands + Panels own their scroll internally (sticky-header table); Spread
           is a form-then-small-result screen, so its tab body scrolls normally. */}

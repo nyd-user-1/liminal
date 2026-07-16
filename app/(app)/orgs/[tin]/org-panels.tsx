@@ -60,7 +60,7 @@ export function OrgPanels({
   rosterInitial: OrgRosterRow[];
   rosterTotal: number;
 }) {
-  const [view, setView] = useState<View>("rates");
+  const [view, setView] = useState<View>("roster");
 
   // Rates groups collapse from their sub-header row (accordion); default open.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -159,11 +159,11 @@ export function OrgPanels({
   return (
     <>
       <div className="mb-3 flex shrink-0 items-center gap-2">
-        <ToggleChip active={view === "rates"} onClick={() => setView("rates")}>
-          Rates
-        </ToggleChip>
         <ToggleChip active={view === "roster"} onClick={() => setView("roster")}>
           Roster
+        </ToggleChip>
+        <ToggleChip active={view === "rates"} onClick={() => setView("rates")}>
+          Rates
         </ToggleChip>
         <ToggleChip active={view === "participation"} onClick={() => setView("participation")}>
           Participation

@@ -13,6 +13,31 @@ const paths: Record<string, ReactNode> = {
       <rect x="3" y="14" width="7" height="7" rx="1" />
     </>
   ),
+  // lucide `refresh-cw` — two arced arrows chasing clockwise.
+  "refresh-cw": (
+    <>
+      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+      <path d="M21 3v5h-5" />
+      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+      <path d="M8 16H3v5" />
+    </>
+  ),
+  // lucide `columns-3` — a framed table split into three columns.
+  "columns-3": (
+    <>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M9 3v18" />
+      <path d="M15 3v18" />
+    </>
+  ),
+  // lucide `list-filter` — three stacked rules narrowing downward.
+  "list-filter": (
+    <>
+      <path d="M3 6h18" />
+      <path d="M7 12h10" />
+      <path d="M10 18h4" />
+    </>
+  ),
   inbox: (
     <>
       <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />

@@ -66,7 +66,7 @@ function ToggleChip({ active, onClick, children }: { active: boolean; onClick: (
 export function ProviderRates({ npi }: { npi: string | null }) {
   const [rates, setRates] = useState<ProviderRateRow[] | null>(null);
   const [memberships, setMemberships] = useState<NetworkMembershipRow[] | null>(null);
-  const [view, setView] = useState<"networks" | "rates">("networks");
+  const [view, setView] = useState<"networks" | "rates">("rates");
   const [sort, toggleSort] = useSort<MemberCol>({ col: "insurer", dir: "asc" });
 
   // Column state is an ORDERED array, not a set: hiding removes; re-adding
@@ -148,11 +148,11 @@ export function ProviderRates({ npi }: { npi: string | null }) {
   return (
     <>
       <div className="mb-3 flex shrink-0 items-center gap-2">
-        <ToggleChip active={view === "networks"} onClick={() => setView("networks")}>
-          Networks
-        </ToggleChip>
         <ToggleChip active={view === "rates"} onClick={() => setView("rates")}>
           All rates
+        </ToggleChip>
+        <ToggleChip active={view === "networks"} onClick={() => setView("networks")}>
+          Networks
         </ToggleChip>
         {view === "networks" && (
           <ColumnPicker options={NETWORK_COLUMNS} visible={visibleCols} onToggle={toggleCol} className="ml-auto" />

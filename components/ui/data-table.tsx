@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ColumnPicker } from "@/components/ui/column-picker";
 import { LoadMoreRow, SortableHead, Table, Td, Tr, useLazyBatch, useSort, type SortState } from "@/components/ui/table";
 import { Toolbar } from "@/components/ui/toolbar";
@@ -79,6 +81,12 @@ export function DataTable<T>({
   fillHeight,
   subRows,
   isSubRow,
+  selected,
+  onSelectedChange,
+  rowActions,
+  filter,
+  onExport,
+  onRefresh,
 }: {
   columns: DataTableColumn<T>[];
   rows: T[];
@@ -133,9 +141,28 @@ export function DataTable<T>({
   subRows?: (row: T) => T[] | undefined;
   /** True for a child row — drives the indent. Required with `subRows`. */
   isSubRow?: (row: T) => boolean;
+  /**
+   * THE INDEX-PAGE STANDARD (see /clients). Leading select column + trailing
+   * kebab column + the Filter/Columns/Export/Refresh cluster. All opt-in, so
+   * the analytical tables that are just a grid of numbers stay a grid.
+   */
+  selected?: Set<string>;
+  onSelectedChange?: (next: Set<string>) => void;
+  /** Trailing kebab cell. Its own click-stop is handled here. */
+  rowActions?: (row: T) => ReactNode;
+  /** The page's filter chip — sits left of Columns in the actions cluster. */
+  filter?: ReactNode;
+  onExport?: () => void;
+  onRefresh?: () => void;
 }) {
   const [visible, toggle] = useColumnVisibility(storageKey, columns);
   const shown = columns.filter((c) => c.fixed || !storageKey || visible.has(c.key));
+  // Cursor position of a header right-click; null = column menu closed.
+  const [colMenu, setColMenu] = useState<{ x: number; y: number } | null>(null);
+  const pickerOptions = useMemo(
+    () => columns.filter((c) => !c.fixed).map((c) => ({ key: c.key, label: c.label })),
+    [columns],
+  );
 
   // No sort active until the user clicks a header — `col: ""` matches no
   // column key, so sortedRows below falls through to the given row order
@@ -153,7 +180,7 @@ export function DataTable<T>({
     });
   }, [rows, sort, columns]);
 
-  const head = shown.map((c) => {
+  const dataHead = shown.map((c) => {
     const inner = c.sortValue ? <SortableHead label={c.label} col={c.key} sort={sort} onSort={toggleSort} /> : c.label;
     if (c.align !== "right" && !c.headTitle) return inner;
     return (
@@ -162,6 +189,35 @@ export function DataTable<T>({
       </div>
     );
   });
+
+  // ── select-all ────────────────────────────────────────────────────────────
+  // Scoped to the rows currently in view (post-filter), not the whole dataset:
+  // "select all" must mean the same thing the user can see.
+  const selectable = !!selected && !!onSelectedChange;
+  const allSelected = selectable && rows.length > 0 && rows.every((r) => selected!.has(rowKey(r)));
+  const toggleAll = () => {
+    const next = new Set(selected);
+    for (const r of rows) {
+      const k = rowKey(r);
+      if (allSelected) next.delete(k);
+      else next.add(k);
+    }
+    onSelectedChange!(next);
+  };
+  const toggleOne = (key: string) => {
+    const next = new Set(selected);
+    if (!next.delete(key)) next.add(key);
+    onSelectedChange!(next);
+  };
+
+  const head = [
+    ...(selectable
+      ? [<Checkbox key="__sel" aria-label="Select all" checked={allSelected} onChange={toggleAll} />]
+      : []),
+    ...dataHead,
+    // Reserved for the kebab — deliberately unlabelled.
+    ...(rowActions ? [""] : []),
+  ];
 
   // ── tree ─────────────────────────────────────────────────────────────────
   // Expansion splices each open parent's children in directly after it, so
@@ -236,18 +292,35 @@ export function DataTable<T>({
       ref={wrapRef}
       className={`flex min-w-0 flex-col gap-3 ${fillHeight ? "min-h-0 flex-1" : ""} ${className ?? ""}`}
     >
-      {(toolbarExtra || toolbarLeft || storageKey) && (
+      {(toolbarExtra || toolbarLeft || storageKey || filter || onExport || onRefresh) && (
         <Toolbar
           className="shrink-0 flex-wrap"
           actions={
             <>
               {toolbarExtra}
-              {storageKey && (
-                <ColumnPicker
-                  options={columns.filter((c) => !c.fixed).map((c) => ({ key: c.key, label: c.label }))}
-                  visible={visible}
-                  onToggle={toggle}
-                />
+              {filter}
+              {storageKey && <ColumnPicker options={pickerOptions} visible={visible} onToggle={toggle} />}
+              {onExport && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  leftIcon="download"
+                  onClick={onExport}
+                  className="!border-field-border !text-text-body hover:!border-field-border-focus"
+                >
+                  Export
+                </Button>
+              )}
+              {onRefresh && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  leftIcon="refresh-cw"
+                  onClick={onRefresh}
+                  className="!border-field-border !text-text-body hover:!border-field-border-focus"
+                >
+                  Refresh
+                </Button>
               )}
             </>
           }
@@ -255,7 +328,31 @@ export function DataTable<T>({
           {toolbarLeft}
         </Toolbar>
       )}
-      <Table head={head} stickyHeader={fillHeight} className={`min-w-0 ${fillHeight ? "min-h-0 flex-1" : ""}`}>
+      {/* Right-click ANY header for the column menu — the picker chip is the
+          visible path, this is the fast one. Cursor-anchored + position:fixed,
+          so the Table's overflow-auto cannot clip it. */}
+      {storageKey && (
+        <ColumnPicker
+          at={colMenu}
+          onDismiss={() => setColMenu(null)}
+          options={pickerOptions}
+          visible={visible}
+          onToggle={toggle}
+        />
+      )}
+      <Table
+        head={head}
+        stickyHeader={fillHeight}
+        onHeaderContextMenu={
+          storageKey
+            ? (e) => {
+                e.preventDefault();
+                setColMenu({ x: e.clientX, y: e.clientY });
+              }
+            : undefined
+        }
+        className={`min-w-0 ${fillHeight ? "min-h-0 flex-1" : ""}`}
+      >
         {rendered.map((row) => {
           const key = rowKey(row);
           const kids = subRows?.(row);
@@ -269,6 +366,12 @@ export function DataTable<T>({
               // Tr already transitions colors, so the flash fades out on its own.
               className={`${rowClassName?.(row) ?? ""}${flashKey === key ? " bg-teal-100" : ""}`}
             >
+              {selectable && (
+                // stopPropagation: selecting a row must not also open it.
+                <Td className="w-10" onClick={(e) => e.stopPropagation()}>
+                  <Checkbox aria-label="Select row" checked={selected!.has(key)} onChange={() => toggleOne(key)} />
+                </Td>
+              )}
               {shown.map((c, i) => (
                 <Td
                   key={c.key}
@@ -312,10 +415,17 @@ export function DataTable<T>({
                   )}
                 </Td>
               ))}
+              {rowActions && (
+                <Td className="w-12" onClick={(e) => e.stopPropagation()}>
+                  {rowActions(row)}
+                </Td>
+              )}
             </Tr>
           );
         })}
-        {lazy && hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={shown.length} />}
+        {lazy && hasMore && (
+          <LoadMoreRow sentinelRef={sentinelRef} colSpan={shown.length + (selectable ? 1 : 0) + (rowActions ? 1 : 0)} />
+        )}
       </Table>
       {footnote}
     </div>

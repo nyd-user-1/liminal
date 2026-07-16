@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { FilterChip } from "@/components/ui/filter-chip";
-import { Icon } from "@/components/ui/icons";
+import { Icon, type IconName } from "@/components/ui/icons";
 import { SearchInput } from "@/components/ui/search-input";
 
 // FilterChip + attached popover — the Clients/Directory toolbar pattern,
@@ -24,6 +24,7 @@ export function ChipMenu({
   values,
   onToggle,
   onClear,
+  icon,
 }: {
   label: string;
   options: ChipOption[];
@@ -32,6 +33,8 @@ export function ChipMenu({
   values?: string[];
   onToggle?: (v: string) => void;
   onClear: () => void;
+  /** Leading glyph — "list-filter" for the standard index-page Filter chip. */
+  icon?: IconName;
 }) {
   const multi = values !== undefined;
   const [open, setOpen] = useState(false);
@@ -64,7 +67,7 @@ export function ChipMenu({
 
   return (
     <span ref={ref} className="relative">
-      <FilterChip label={label} value={chipValue} onClick={() => setOpen((o) => !o)} onClear={onClear} />
+      <FilterChip label={label} value={chipValue} icon={icon} onClick={() => setOpen((o) => !o)} onClear={onClear} />
       {open && (
         <div className="absolute left-0 top-full z-40 mt-1.5 w-72 rounded-card border border-border bg-surface p-2 shadow-menu">
           {searchable && (

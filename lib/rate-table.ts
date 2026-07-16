@@ -154,7 +154,11 @@ export interface RateTableData {
  *  they bill through, which is the whole point of showing them. */
 export function rateRowKey(r: RateTableRow): string {
   const base = `${r.payer}::${r.tin}`;
-  return r.isChild ? `${base}::${r.npis[0] ?? "?"}` : base;
+  // A child's grain is (payer, tin, npi, network, setting) — sql/032 — so the
+  // NPI alone is not identity: one clinician bills the same group under several
+  // networks, and office vs facility is a real price difference (Dart's 90791 is
+  // $137.47 vs $133.02). Keying on the NPI collapsed those onto one key.
+  return r.isChild ? `${base}::${r.npis[0] ?? "?"}::${r.network ?? ""}::${r.setting ?? ""}` : base;
 }
 
 // The billing IDENTIFIER — what the insurer publishes to say who it pays.
