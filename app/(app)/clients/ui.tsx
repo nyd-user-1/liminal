@@ -19,7 +19,9 @@ export function FieldDisplay({ label, value }: { label: string; value?: ReactNod
   );
 }
 
-const CLIENT_STATUS: Record<ClientStatus, { label: string; variant: "info" | "success" | "neutral" }> = {
+/** Exported so the filter menu's status dots come from the SAME map the chips
+ *  do — a dot that drifts from its badge is worse than no dot. */
+export const CLIENT_STATUS: Record<ClientStatus, { label: string; variant: "info" | "success" | "neutral" }> = {
   lead: { label: "Lead", variant: "info" },
   active: { label: "Active", variant: "success" },
   archived: { label: "Archived", variant: "neutral" },

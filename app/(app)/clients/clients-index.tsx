@@ -3,14 +3,15 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/ui/avatar";
+import { DotBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { IconButton } from "@/components/ui/icon-button";
-import type { IconName } from "@/components/ui/icons";
+import { Icon } from "@/components/ui/icons";
 import { KebabMenu } from "@/components/ui/kebab-menu";
-import { MenuItem } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, MenuItem } from "@/components/ui/dropdown-menu";
 import { TopBarActions } from "@/components/shell/topbar-slot";
 import { Tabs } from "@/components/ui/tabs";
 import { SearchInput } from "@/components/ui/search-input";
@@ -20,33 +21,48 @@ import { useToast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/format";
 import type { Client, ClientStatus } from "@/lib/types";
 import type { PractitionerOption } from "@/lib/repos/clients";
-import { ClientStatusBadge, clientHue, tagHue } from "./ui";
+import { CLIENT_STATUS, ClientStatusBadge, clientHue, tagHue } from "./ui";
 import { NewClientPanel } from "./new-client-panel";
 
 const STATUS_LABELS: Record<ClientStatus, string> = { lead: "Lead", active: "Active", archived: "Archived" };
 
-/** FilterChip + attached option popover (the tag picker in the Toolbar).
- *  Options carry a leading dot matching their badge/tag colour; long lists get
- *  a search field (reuses the SearchInput primitive). */
-function ChipMenu({
-  label,
-  value,
-  options,
+// The tag vocabulary is six taxonomies in one text[] column (measured
+// 2026-07-15): diagnoses, referral source, modality, cadence, lifecycle,
+// billing. The filter menu is where that finally shows: real categories up
+// front, values behind them. Anything uncategorised falls through to "Tags".
+const DIAGNOSIS_TAGS = ["adhd", "anxiety", "depression", "insomnia", "ptsd"];
+const SOURCE_TAGS = ["referral", "website-inquiry", "online-booking"];
+
+export type FilterSel = { cat: string; value: string };
+
+interface FilterCategory {
+  key: string;
+  label: string;
+  options: Array<{ value: string; label: string; dot?: ReactNode }>;
+}
+
+/**
+ * Two-level filter menu — categories, each opening a submenu of values on
+ * hover (the ⌘-palette / Claude-chat pattern). One flat list of 18 tags told
+ * you nothing about what you were filtering BY; this makes the dimension the
+ * first choice and the value the second.
+ *
+ * The submenu is a DOM CHILD of its category row, so travelling into it keeps
+ * the row hovered — no hover-intent timer, no gap to fall through.
+ */
+function FilterMenu({
+  categories,
+  selection,
   onSelect,
   onClear,
-  icon,
-  iconOnly,
 }: {
-  label: string;
-  value?: string;
-  options: Array<{ value: string; label: string; dot?: ReactNode }>;
-  onSelect: (value: string) => void;
+  categories: FilterCategory[];
+  selection?: FilterSel;
+  onSelect: (sel: FilterSel) => void;
   onClear: () => void;
-  icon?: IconName;
-  iconOnly?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [term, setTerm] = useState("");
+  const [openCat, setOpenCat] = useState<string | null>(null);
   const ref = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
@@ -54,54 +70,76 @@ function ChipMenu({
     const onDown = (e: MouseEvent) => {
       if (!ref.current?.contains(e.target as Node)) setOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
     window.addEventListener("mousedown", onDown);
-    return () => window.removeEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
   }, [open]);
   useEffect(() => {
-    if (!open) setTerm("");
+    if (!open) setOpenCat(null);
   }, [open]);
 
-  const searchable = options.length > 6;
-  const shown = searchable && term ? options.filter((o) => o.label.toLowerCase().includes(term.toLowerCase())) : options;
+  // The chip reads "Filter · Active", not "Filter · active" — the category is
+  // implied by the value, and the value is what you chose.
+  const chipValue = selection
+    ? categories.find((c) => c.key === selection.cat)?.options.find((o) => o.value === selection.value)?.label
+    : undefined;
 
   return (
     <span ref={ref} className="relative">
       <FilterChip
-        label={label}
-        value={value}
-        icon={icon}
-        iconOnly={iconOnly}
+        label="Filter"
+        icon="list-filter"
+        value={chipValue}
         onClick={() => setOpen((o) => !o)}
         onClear={onClear}
       />
       {open && (
-        <div className="absolute left-0 top-full z-40 mt-1.5 w-56 rounded-card border border-border bg-surface p-2 shadow-menu">
-          {searchable && (
-            <SearchInput
-              value={term}
-              onChange={(e) => setTerm(e.target.value)}
-              placeholder="Search…"
-              className="mb-1.5 w-full"
-            />
-          )}
-          <div className="max-h-64 overflow-y-auto">
-            {shown.map((o) => (
-              <button
-                key={o.value}
-                type="button"
-                onClick={() => {
-                  onSelect(o.value);
-                  setOpen(false);
-                }}
-                className={`flex w-full items-center gap-2 rounded-field px-2.5 py-2 text-left text-[15px] transition-colors hover:bg-[#F3F4F6] ${
-                  o.value === value ? "font-semibold text-primary" : "text-text"
-                }`}
-              >
-                {o.dot}
-                <span className="flex-1">{o.label}</span>
-              </button>
-            ))}
-          </div>
+        <div
+          className="absolute left-0 top-full z-40 mt-1.5 w-52 rounded-card border border-border bg-surface p-1.5 shadow-menu"
+          onMouseLeave={() => setOpenCat(null)}
+        >
+          {categories.map((cat) => {
+            const active = openCat === cat.key;
+            return (
+              <div key={cat.key} className="relative" onMouseEnter={() => setOpenCat(cat.key)}>
+                <button
+                  type="button"
+                  className={`flex w-full items-center gap-2 rounded-field px-2.5 py-2 text-left text-[15px] transition-colors ${
+                    active ? "bg-[#F3F4F6] text-text" : "text-text"
+                  }`}
+                >
+                  <span className="flex-1">{cat.label}</span>
+                  <Icon name="chevron-right" size={14} className="text-text-muted" />
+                </button>
+                {active && cat.options.length > 0 && (
+                  <div className="absolute left-full top-0 z-50 ml-1 max-h-72 w-52 overflow-y-auto rounded-card border border-border bg-surface p-1.5 shadow-menu">
+                    {cat.options.map((o) => (
+                      <button
+                        key={o.value}
+                        type="button"
+                        onClick={() => {
+                          onSelect({ cat: cat.key, value: o.value });
+                          setOpen(false);
+                        }}
+                        className={`flex w-full items-center gap-2 rounded-field px-2.5 py-2 text-left text-[15px] transition-colors hover:bg-[#F3F4F6] ${
+                          selection?.cat === cat.key && selection.value === o.value
+                            ? "font-semibold text-primary"
+                            : "text-text"
+                        }`}
+                      >
+                        {o.dot}
+                        <span className="flex-1 truncate">{o.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </span>
@@ -179,8 +217,7 @@ export function ClientsIndex({
   const router = useRouter();
   const toast = useToast();
   const [q, setQ] = useState("");
-  const [status, setStatus] = useState<ClientStatus | undefined>();
-  const [tag, setTag] = useState<string | undefined>();
+  const [filter, setFilter] = useState<FilterSel | undefined>();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [panelOpen, setPanelOpen] = useState(false);
 
@@ -191,21 +228,47 @@ export function ClientsIndex({
 
   const allTags = useMemo(() => [...new Set(clients.flatMap((c) => c.tags))].sort(), [clients]);
 
+  // Categories are derived from the live vocabulary, so a tag that stops being
+  // used stops being offered — and a new one lands in "Tags" rather than
+  // vanishing. Status dots come from CLIENT_STATUS, the chips' own map.
+  const filterCategories = useMemo(() => {
+    const tagOpt = (t: string) => ({ value: t, label: t, dot: <TagDot hue={tagHue(t)} /> });
+    const inUse = (list: string[]) => list.filter((t) => allTags.includes(t));
+    const categorised = new Set([...DIAGNOSIS_TAGS, ...SOURCE_TAGS]);
+    return [
+      {
+        key: "status",
+        label: "Status",
+        options: (Object.keys(STATUS_LABELS) as ClientStatus[]).map((s) => ({
+          value: s,
+          label: STATUS_LABELS[s],
+          dot: <DotBadge variant={CLIENT_STATUS[s].variant} />,
+        })),
+      },
+      { key: "diagnosis", label: "Diagnosis", options: inUse(DIAGNOSIS_TAGS).map(tagOpt) },
+      { key: "source", label: "Lead source", options: inUse(SOURCE_TAGS).map(tagOpt) },
+      { key: "tags", label: "Tags", options: allTags.filter((t) => !categorised.has(t)).map(tagOpt) },
+    ].filter((c) => c.options.length > 0);
+  }, [allTags]);
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return clients.filter((c) => {
-      if (status && c.status !== status) return false;
-      if (tag && !c.tags.includes(tag)) return false;
+      // status is a column; every other category is a tag by another name.
+      if (filter) {
+        const hit = filter.cat === "status" ? c.status === filter.value : c.tags.includes(filter.value);
+        if (!hit) return false;
+      }
       if (needle) {
         const hay = `${c.firstName} ${c.lastName} ${c.email ?? ""} ${c.phone ?? ""}`.toLowerCase();
         if (!hay.includes(needle)) return false;
       }
       return true;
     });
-  }, [clients, q, status, tag]);
+  }, [clients, q, filter]);
 
   const rxCounts = useRxCounts(filtered);
-  const hasFilters = !!(q || status || tag);
+  const hasFilters = !!(q || filter);
 
   const clientName = (c: Client) => `${c.firstName} ${c.lastName}`;
   const practitionerName = (c: Client) =>
@@ -280,7 +343,28 @@ export function ClientsIndex({
           key: "status",
           label: "Status",
           sortValue: (c) => STATUS_LABELS[c.status],
-          render: (c) => <ClientStatusBadge status={c.status} />,
+          // Editable in place — the same badge-as-trigger picker the client
+          // record header uses (clients/[id]/client-header.tsx), so the chip
+          // means the same thing and is changed the same way at both altitudes.
+          render: (c) => (
+            <span onClick={(e) => e.stopPropagation()}>
+              <DropdownMenu
+                label={`Change status for ${clientName(c)}`}
+                align="left"
+                width="w-44"
+                trigger={<ClientStatusBadge status={c.status} withChevron className="cursor-pointer hover:opacity-80" />}
+              >
+                {(Object.keys(STATUS_LABELS) as ClientStatus[]).map((s) => (
+                  <MenuItem
+                    key={s}
+                    label={STATUS_LABELS[s]}
+                    selected={s === c.status}
+                    onClick={() => setClientStatus(c, s)}
+                  />
+                ))}
+              </DropdownMenu>
+            </span>
+          ),
         },
         {
           key: "created",
@@ -339,20 +423,18 @@ export function ClientsIndex({
       </TopBarActions>
 
       <div className="flex h-full min-h-0 flex-col">
-      {/* Status is navigation, not a filter chip — the tabs ARE the status
-          filter, so `status` stays the single source of truth and there is no
-          second control to disagree with them. */}
+      {/* Route tabs, not filters: the four surfaces of one patient-record
+          section. Status left this row and became editable in its own column —
+          it is a property of the client, not a place to stand. `href` items
+          drive their own active state off the pathname (see Tabs). */}
       <Tabs
         className="mt-4 mb-4 shrink-0"
-        slideActive
-        active={status ?? "all"}
-        onChange={(k) => setStatus(k === "all" ? undefined : (k as ClientStatus))}
         items={[
           // The only in-content list heading — the TopBar H1 stays route-derived.
-          { key: "all", label: isAdmin ? "All Clients" : "My Clients" },
-          { key: "lead", label: STATUS_LABELS.lead },
-          { key: "active", label: STATUS_LABELS.active },
-          { key: "archived", label: STATUS_LABELS.archived },
+          { key: "clients", label: isAdmin ? "All Clients" : "My Clients", href: "/clients" },
+          { key: "prescriptions", label: "Prescriptions", href: "/prescriptions" },
+          { key: "orders", label: "Orders", href: "/orders" },
+          { key: "catalog", label: "Catalog", href: "/catalog" },
         ]}
       />
 
@@ -371,13 +453,11 @@ export function ClientsIndex({
         onExport={() => toast("Export isn\u2019t wired up yet.", "info")}
         onRefresh={() => router.refresh()}
         filter={
-          <ChipMenu
-            label="Filter"
-            icon="list-filter"
-            value={tag}
-            options={allTags.map((t) => ({ value: t, label: t, dot: <TagDot hue={tagHue(t)} /> }))}
-            onSelect={(v) => setTag(v)}
-            onClear={() => setTag(undefined)}
+          <FilterMenu
+            categories={filterCategories}
+            selection={filter}
+            onSelect={setFilter}
+            onClear={() => setFilter(undefined)}
           />
         }
         toolbarLeft={
@@ -392,8 +472,7 @@ export function ClientsIndex({
               <TextLink
                 onClick={() => {
                   setQ("");
-                  setStatus(undefined);
-                  setTag(undefined);
+                  setFilter(undefined);
                 }}
               >
                 Reset
