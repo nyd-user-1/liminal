@@ -346,3 +346,105 @@ export async function getOrgsForNpi(npi: string): Promise<OrgListRow[]> {
     lastFileDate: r.last_file_date ? isoDateOnly(r.last_file_date) : null,
   }));
 }
+
+// ── The NPI-2 registry (sql/034 organizations — NPPES-derived, NYS-41) ──────
+// Distinct from everything above: these are legal organizations enumerated in
+// NPPES (entity type 2), not billing TINs observed in rate files. The two
+// worlds join only where is_billing_tin is true (the org's NPI is itself
+// published as an npi-type TIN).
+
+export type OrganizationRow = {
+  npi: string;
+  name: string | null; // legal_business_name ?? tin_registry_name
+  otherNames: string[] | null;
+  city: string | null;
+  state: string | null;
+  phone: string | null;
+  taxonomy: string | null;
+  nyBook: boolean;
+  platformReferenced: boolean;
+  isBillingTin: boolean;
+  deactivated: boolean;
+  lastUpdate: string | null;
+};
+
+export type OrganizationFilter = "ny" | "platform" | "tin" | "deactivated";
+
+/** Server-side page over the 105k-row registry: name/DBA/NPI search + flag
+ *  filters. Always LIMITed — the client never sees the whole book. */
+export async function listOrganizations({
+  q = "",
+  filters = [],
+  limit = 300,
+}: {
+  q?: string;
+  filters?: OrganizationFilter[];
+  limit?: number;
+} = {}): Promise<{ rows: OrganizationRow[]; total: number }> {
+  if (!hasDb) return { rows: [], total: 0 };
+
+  const where: string[] = [];
+  const params: unknown[] = [];
+  const term = q.trim();
+  if (term) {
+    if (/^\d{4,10}$/.test(term)) {
+      params.push(`${term}%`);
+      where.push(`npi LIKE $${params.length}`);
+    } else {
+      params.push(`%${term}%`);
+      where.push(
+        `(legal_business_name ILIKE $${params.length} OR tin_registry_name ILIKE $${params.length} OR EXISTS (SELECT 1 FROM unnest(coalesce(other_names, '{}')) o WHERE o ILIKE $${params.length}))`,
+      );
+    }
+  }
+  if (filters.includes("ny")) where.push("ny_book");
+  if (filters.includes("platform")) where.push("platform_referenced");
+  if (filters.includes("tin")) where.push("is_billing_tin");
+  if (filters.includes("deactivated")) where.push("deactivated");
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+  params.push(limit);
+  const rows = (await sql.query(
+    `SELECT npi, coalesce(legal_business_name, tin_registry_name) AS name, other_names,
+            city, state, phone, coalesce(taxonomy_display, taxonomy_classification) AS taxonomy,
+            ny_book, platform_referenced, is_billing_tin, deactivated, last_update,
+            count(*) OVER ()::int AS total
+     FROM organizations
+     ${whereSql}
+     ORDER BY name NULLS LAST, npi
+     LIMIT $${params.length}`,
+    params,
+  )) as Array<{
+    npi: string;
+    name: string | null;
+    other_names: string[] | null;
+    city: string | null;
+    state: string | null;
+    phone: string | null;
+    taxonomy: string | null;
+    ny_book: boolean;
+    platform_referenced: boolean;
+    is_billing_tin: boolean;
+    deactivated: boolean;
+    last_update: Date | null;
+    total: number;
+  }>;
+
+  return {
+    total: rows[0]?.total ?? 0,
+    rows: rows.map((r) => ({
+      npi: r.npi,
+      name: r.name,
+      otherNames: r.other_names,
+      city: r.city,
+      state: r.state,
+      phone: r.phone,
+      taxonomy: r.taxonomy,
+      nyBook: r.ny_book,
+      platformReferenced: r.platform_referenced,
+      isBillingTin: r.is_billing_tin,
+      deactivated: r.deactivated,
+      lastUpdate: r.last_update ? isoDateOnly(r.last_update) : null,
+    })),
+  };
+}

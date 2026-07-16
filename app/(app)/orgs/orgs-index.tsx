@@ -196,12 +196,12 @@ export function OrgsIndex({ initial, payerOptions }: { initial: OrgListRow[]; pa
         className="mt-4 mb-4 shrink-0"
         slideActive
         active={tab}
-        onChange={(k) => setTab(k as Tab)}
+        onChange={(k) => (k === "registry" ? router.push("/orgs/registry") : setTab(k as Tab))}
         items={[
           { key: "all", label: "All" },
           { key: "named", label: "Named" },
-          { key: "tab3", label: "Tab 3" },
-          { key: "tab4", label: "Tab 4" },
+          // The NPPES legal-org book (sql/034) — a sibling surface, own route.
+          { key: "registry", label: "NPI-2 registry" },
         ]}
       />
 
