@@ -547,7 +547,9 @@ const SPECIALS_SQL = `
          (SELECT count(*) FROM rate_table_mv)                                     AS rate_table_rows,
          (SELECT count(*) FROM rate_table_mv WHERE display_name IS NOT NULL)      AS rate_table_named,
          (SELECT count(*) FROM payer_sources WHERE last_synced_at IS NOT NULL)    AS payers_live,
-         (SELECT count(*) FROM payer_sources)                                     AS payers_configured,
+         -- Retired sources (out-of-region, superseded — NYS-72) are history,
+         -- not aspiration: they don't belong in the "of N" denominator.
+         (SELECT count(*) FROM payer_sources WHERE status IS DISTINCT FROM 'retired') AS payers_configured,
          (SELECT count(DISTINCT payer_source_id) FROM payer_networks)             AS network_payers,
          (SELECT count(*) FROM clients WHERE photon_patient_id IS NOT NULL)       AS photon_clients,
          (SELECT count(*) FROM clients)                                           AS clients_total
