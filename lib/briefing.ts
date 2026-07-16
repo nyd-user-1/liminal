@@ -91,8 +91,19 @@ Write ~150 words of plain prose. No headings, no bullets, no preamble. Cover, in
 
 Be specific and use the real numbers. Do not flatter, do not hedge, and do not invent anything not in the data below.`;
 
-export async function platformBriefing(): Promise<BriefingResult> {
-  if (memo && Date.now() - memo.at < CACHE_MS) return memo.data;
+/**
+ * mode:
+ *  - "auto"   (default) return the 12h-cached briefing, generating on a miss —
+ *              the original behavior, kept for any server-render callers.
+ *  - "cached" NEVER call the API: return whatever is memoized (any age), or
+ *              state:"off" if nothing has been generated this process.
+ *  - "fresh"  always call the API and replace the memo — the Insights switch.
+ */
+export async function platformBriefing(mode: "auto" | "cached" | "fresh" = "auto"): Promise<BriefingResult> {
+  if (mode === "cached") {
+    return memo?.data ?? { state: "off", reason: "No briefing generated yet." };
+  }
+  if (mode !== "fresh" && memo && Date.now() - memo.at < CACHE_MS) return memo.data;
 
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return { state: "off", reason: "AI briefing off — add ANTHROPIC_API_KEY to .env.local" };

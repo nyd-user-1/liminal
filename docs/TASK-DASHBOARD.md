@@ -4,12 +4,29 @@ Brendan can no longer see what the platform holds: what's in the database, what
 powers each page, how many plans/networks/orgs/rates exist, what connects to
 what. Build a dashboard that is (a) genuinely useful to an end-user
 practitioner and (b) quietly a complete inventory of everything we have.
-Design DNA: hq's analytics/KPI board — read `~/Code/hq/app/ui/kpi-panel.tsx`,
-`kpi-state.tsx`, `fleet-grid.tsx`/`fleet-view.tsx` for the card language
-(metric cards tagged by chart shape, calm grid, mono labels). Translate into
-Liminal's tokens and primitives — this is a Liminal page, not an hq clone.
-v1 is a SERVER-RENDERED page of real numbers: no drag-and-drop, no saved
-views, no client state beyond tabs/links.
+Design: FAITHFUL TRANSPLANT of hq's analytics board (CORRECTED 2026-07-16 —
+the first build read "translate, don't clone" as license for generic white
+SaaS cards; wrong). The reference design is final and it is the hq board:
+read `~/Code/hq/app/ui/{kpi-panel,fleet-grid,fleet-view,interior-panel}.tsx`
+and copy the visual system. Its anatomy, all REQUIRED:
+- Dark instrument surface for the page content area (near-black board, hairline
+  grid borders — the `variant="spec"` tokens from the panel reskin are the
+  palette: #0f1011 ground, #23252a hairlines, #f7f8f8/#8a9f98-range text).
+  The app shell (sidebar/topbar) stays light; the dashboard reads as an
+  instrument panel inside it.
+- Stat cards: MONO UPPERCASE label, huge number with semantic accent color
+  (teal ok / amber attention / red overdue), small unit-or-delta subline
+  ("11 to go", "+20 vs last wk", "$7.4k wk"-style).
+- Charts, hand-rolled inline SVG like hq's own (no libraries): one AREA chart
+  (appointments or sessions per day, last 30d), RANKED HORIZONTAL BARS with
+  right-aligned values (rate rows by payer; providers by network), a
+  DISTRIBUTION strip (e.g. 90837 negotiated-rate spread), more where the data
+  suggests a shape. Every observatory number that can be a bar chart should be
+  one — a wall of dense small multiples, not whitespace.
+- Density: tight grid, small paddings, mono micro-labels ("RANKING",
+  "DISTRIBUTION" chips) — the hq screenshot's texture, not rounded-card air.
+v1 is still SERVER-RENDERED: no drag-and-drop, no saved views, no client
+state beyond tabs/links.
 
 ## Route + shell
 `app/(app)/dashboard/page.tsx`. Add to ROUTE_TITLES in

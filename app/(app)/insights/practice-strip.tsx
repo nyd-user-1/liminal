@@ -7,6 +7,7 @@ import { StatCard } from "@/components/ui/stat-card";
 import { TextLink } from "@/components/ui/text-link";
 import { formatCents, formatTime } from "@/lib/format";
 import type { PracticeSnapshot } from "@/lib/repos/dashboard";
+import { CopyCard } from "./copy-card";
 
 // Layer 1 — the practice strip: the numbers a practitioner opens the day on.
 // Scoped upstream in lib/repos/dashboard.ts (admin = whole practice,
@@ -34,26 +35,44 @@ export function PracticeStrip({ snapshot }: { snapshot: PracticeSnapshot }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Today's appointments"
-          value={s.todayTotal}
-          corner={s.todayRemaining > 0 ? <Badge variant="info">{s.todayRemaining} to go</Badge> : undefined}
-        />
-        <StatCard label="Active clients" value={s.activeClients} />
-        <StatCard
-          label="Unread messages"
-          value={s.unreadThreads}
-          corner={s.unreadThreads > 0 ? <Badge variant="warning">Needs reply</Badge> : undefined}
-        />
-        <StatCard
-          label="Outstanding"
-          value={formatCents(s.outstandingCents)}
-          corner={s.overdueCount > 0 ? <Badge variant="danger">{s.overdueCount} overdue</Badge> : undefined}
-        />
+        <CopyCard chip="bottom" text={`Today's appointments: ${s.todayTotal}${s.todayRemaining > 0 ? ` (${s.todayRemaining} to go)` : ""}`}>
+          <StatCard
+            label="Today's appointments"
+            value={s.todayTotal}
+            corner={s.todayRemaining > 0 ? <Badge variant="info">{s.todayRemaining} to go</Badge> : undefined}
+          />
+        </CopyCard>
+        <CopyCard chip="bottom" text={`Active clients: ${s.activeClients}`}>
+          <StatCard label="Active clients" value={s.activeClients} />
+        </CopyCard>
+        <CopyCard chip="bottom" text={`Unread messages: ${s.unreadThreads}`}>
+          <StatCard
+            label="Unread messages"
+            value={s.unreadThreads}
+            corner={s.unreadThreads > 0 ? <Badge variant="warning">Needs reply</Badge> : undefined}
+          />
+        </CopyCard>
+        <CopyCard
+          chip="bottom"
+          text={`Outstanding invoices: ${formatCents(s.outstandingCents)}${s.overdueCount > 0 ? ` (${s.overdueCount} overdue)` : ""}`}
+        >
+          <StatCard
+            label="Outstanding"
+            value={formatCents(s.outstandingCents)}
+            corner={s.overdueCount > 0 ? <Badge variant="danger">{s.overdueCount} overdue</Badge> : undefined}
+          />
+        </CopyCard>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card className="flex min-w-0 flex-col gap-3 p-5">
+        <CopyCard
+          text={
+            s.nextUp.length === 0
+              ? "Next up: nothing left today"
+              : `Next up: ${s.nextUp.map((a) => `${a.clientName} ${formatTime(a.startsAt)}`).join("; ")}`
+          }
+        >
+        <Card className="flex h-full min-w-0 flex-col gap-3 p-5">
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-[15px] font-semibold text-text">Next up</h3>
             <TextLink href="/calendar" className="text-sm">
@@ -76,8 +95,10 @@ export function PracticeStrip({ snapshot }: { snapshot: PracticeSnapshot }) {
             </div>
           )}
         </Card>
+        </CopyCard>
 
         <div className="flex min-w-0 flex-col gap-4">
+          <CopyCard text={`Sessions this week: ${s.sessionsThisWeek} (${s.sessionsThisWeek - s.sessionsLastWeek >= 0 ? "+" : ""}${s.sessionsThisWeek - s.sessionsLastWeek} vs last week, ${s.sessionsLastWeek})`}>
           <Card className="flex flex-col gap-1.5 p-5">
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm font-medium text-text-muted">Sessions this week</span>
@@ -88,7 +109,15 @@ export function PracticeStrip({ snapshot }: { snapshot: PracticeSnapshot }) {
             <span className="text-[32px] font-bold leading-tight text-text">{s.sessionsThisWeek}</span>
             <WeekDelta now={s.sessionsThisWeek} prev={s.sessionsLastWeek} />
           </Card>
+          </CopyCard>
 
+          <CopyCard
+            text={
+              s.rxRouting === null
+                ? "Awaiting pharmacy: e-prescribing not connected"
+                : `Awaiting pharmacy: ${s.rxRouting} prescriptions still routing to a pharmacy`
+            }
+          >
           <Card className="flex flex-col gap-1.5 p-5">
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm font-medium text-text-muted">Awaiting pharmacy</span>
@@ -101,6 +130,7 @@ export function PracticeStrip({ snapshot }: { snapshot: PracticeSnapshot }) {
               {s.rxRouting === null ? "e-prescribing not connected" : "prescriptions still routing to a pharmacy"}
             </span>
           </Card>
+          </CopyCard>
         </div>
       </div>
     </div>

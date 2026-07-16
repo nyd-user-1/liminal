@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { TextLink } from "@/components/ui/text-link";
 import type { DictionaryGroup, DictionaryTable } from "@/lib/repos/admin";
+import { CopyCard } from "./copy-card";
 
 // The observatory — the platform inventory as cards. Every card answers four
 // questions in the same order: how much (the number), what is it (plain
@@ -17,10 +18,24 @@ function formatCount(t: DictionaryTable): string {
   return `${t.countKind === "estimate" ? "≈" : ""}${t.count.toLocaleString("en-US")}`;
 }
 
+/** The card as one terminal-paste-ready line — what a click puts on the
+ *  clipboard. Reads like the card, front to back. */
+function copyText(t: DictionaryTable): string {
+  const parts: string[] = [];
+  if (t.planned) parts.push(`${t.name} — NOT BUILT YET (${t.planned})`);
+  else if (t.missing) parts.push(`${t.name} — not yet loaded`);
+  else parts.push(`${t.name} — ${formatCount(t)} rows`);
+  parts.push(t.blurb ?? t.meaning);
+  for (const f of t.facts ?? []) parts.push(`${f.label}: ${f.value}`);
+  if (t.powers) parts.push(`powers ${t.powers.label} (${t.powers.href})`);
+  return parts.join(" · ");
+}
+
 function TableCard({ t }: { t: DictionaryTable }) {
   const dim = t.planned || t.missing;
   return (
-    <Card className={`flex min-w-0 flex-col gap-3 p-5 ${dim ? "opacity-70" : ""}`}>
+    <CopyCard text={copyText(t)}>
+      <Card className={`flex h-full min-w-0 flex-col gap-3 p-5 ${dim ? "opacity-70" : ""}`}>
       {t.planned ? (
         <Badge variant="neutral" className="self-start">
           Not built yet
@@ -59,7 +74,8 @@ function TableCard({ t }: { t: DictionaryTable }) {
           </TextLink>
         )}
       </div>
-    </Card>
+      </Card>
+    </CopyCard>
   );
 }
 
