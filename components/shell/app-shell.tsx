@@ -9,6 +9,9 @@ import type { SessionUser } from "@/lib/auth";
 // Server component; layouts pass the session user down.
 
 const WORKSPACE_NAV: SidebarNavItem[] = [
+  // The front door: today's caseload for everyone, plus the platform
+  // inventory for the founder. First item because it's where a day starts.
+  { label: "Dashboard", href: "/dashboard", icon: "grid" },
   { label: "Calendar", href: "/calendar", icon: "calendar" },
   { label: "Inbox", href: "/inbox", icon: "inbox" },
   { label: "Clients", href: "/clients", icon: "users" },

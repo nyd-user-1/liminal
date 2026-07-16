@@ -8,6 +8,7 @@
     "start": "next start -p 3010"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.111.0",
     "@neondatabase/serverless": "^1.1.0",
     "@photonhealth/elements": "^0.23.10",
     "@vercel/blob": "^2.5.0",
