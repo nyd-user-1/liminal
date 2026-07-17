@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BoardGrid, reorderIds, type BoardCardSize } from "@/components/board/board-grid";
+import { BoardGrid, type BoardItem } from "@/components/board/board-grid";
 import { BoardCard } from "@/components/board/board-card";
 import { Button } from "@/components/ui/button";
+import { KebabMenu } from "@/components/ui/kebab-menu";
 import { DropdownMenu, MenuItem } from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
 import { Tag } from "@/components/ui/tag";
@@ -69,35 +70,17 @@ export interface ClientRecordBundle {
   photonEnv: string;
 }
 
-// The client board's size ladder. These cards hold tables and forms, not stat
-// tiles, so the ladder starts where /analytics' ends: three columns beside a
-// 320px rail, and heights that fit a handful of rows without an inner scroll.
-// BoardGrid takes the ladder as config — no new step in the primitive.
-//
-// Expressed in TWELFTHS, because the board is a 12-column grid under visible
-// gridlines: 12 divides by 3, so "three columns" is four twelfths and the card
-// edges still land on the lines. Same layout as the 1/2/3-col version it
-// replaces, breakpoint for breakpoint — the grid track and the 16px gutter are
-// the primitive's now (`gap`), so neither belongs in a class here.
-//
-// One column, then two, then three — so a step is only ever a step: `md` must
-// stay at half while the grid shows 2, or every medium card eats a whole row
-// and the ladder collapses into "full width, taller".
-//
-// A card carrying a DataTable (Rx, Orders, Billing) defaults to `lg`: its
-// toolbar alone wants ~700px, and half a board beside the rail is ~430px.
-const CLIENT_SPAN: Record<BoardCardSize, string> = {
-  sm: "col-span-12 lg:col-span-6 2xl:col-span-4",
-  md: "col-span-12 lg:col-span-6 2xl:col-span-8",
-  lg: "col-span-12",
-};
-const CLIENT_HEIGHT: Record<BoardCardSize, string> = {
-  sm: "h-[320px]",
-  md: "h-[420px]",
-  lg: "h-[520px]",
-};
-const SIZE_ORDER: BoardCardSize[] = ["sm", "md", "lg"];
-const NEXT_SIZE: Record<BoardCardSize, BoardCardSize> = { sm: "md", md: "lg", lg: "sm" };
+// The client board's card footprints, in grid units (12 cols × 24px rows).
+// These cards hold tables and forms, not stat tiles: a third of the board
+// beside the rail, half, or the full width — and free-form from there, the
+// corner handle resizes in live grid steps. A card carrying a DataTable (Rx,
+// Orders, Billing) defaults to full width: its toolbar alone wants ~700px.
+const SIZE_DIMS = {
+  sm: { w: 4, h: 13, minW: 3, minH: 8 },
+  md: { w: 8, h: 18, minW: 4, minH: 10 },
+  lg: { w: 12, h: 22, minW: 6, minH: 10 },
+} as const;
+type CardSizeKey = keyof typeof SIZE_DIMS;
 
 const STATUSES: Array<{ value: ClientStatus; label: string }> = [
   { value: "lead", label: "Lead" },
@@ -112,7 +95,7 @@ const STATUSES: Array<{ value: ClientStatus; label: string }> = [
 interface CardDef extends Omit<LibraryCard, "key" | "title"> {
   key: string;
   title: string;
-  size: BoardCardSize;
+  size: CardSizeKey;
   count?: (r: ClientRecordBundle) => number | undefined;
   action?: (r: ClientRecordBundle) => React.ReactNode;
   render: (r: ClientRecordBundle) => React.ReactNode;
@@ -129,7 +112,6 @@ const DEFAULT_KEYS = ["appointments", "billing-summary", "rx", "insurance", "fil
 
 interface BoardState {
   ids: string[];
-  sizes: Record<string, BoardCardSize>;
 }
 
 function readBoard(): BoardState | null {
@@ -365,7 +347,9 @@ export function ClientRecord({
   const CARD_BY_KEY = useMemo(() => Object.fromEntries(CARDS.map((c) => [c.key, c])), [CARDS]);
   const DEFAULT_IDS = useMemo(() => DEFAULT_KEYS.filter((k) => CARDS.some((c) => c.key === k)), [CARDS]);
 
-  const [board, setBoard] = useState<BoardState>(() => ({ ids: DEFAULT_IDS, sizes: {} }));
+  const [board, setBoard] = useState<BoardState>(() => ({ ids: DEFAULT_IDS }));
+  // Bumping this rebuilds the grid's arrangement from defaults — Reset.
+  const [layoutEpoch, setLayoutEpoch] = useState(0);
   const [ready, setReady] = useState(false);
 
   // Server render has no localStorage, so first paint is the default board;
@@ -377,7 +361,7 @@ export function ClientRecord({
     // A deep link names a card: put it on the board if this browser had removed
     // it, so ?tab=rx can never land on a record that doesn't show prescriptions.
     if (initialCard && CARD_BY_KEY[initialCard] && !ids.includes(initialCard)) ids.push(initialCard);
-    setBoard({ ids, sizes: saved?.sizes ?? {} });
+    setBoard({ ids });
     setReady(true);
   }, [DEFAULT_IDS, CARD_BY_KEY, initialCard]);
 
@@ -396,37 +380,14 @@ export function ClientRecord({
     [ready],
   );
 
-  const sizeOf = useCallback(
-    (key: string) => board.sizes[key] ?? CARD_BY_KEY[key]?.size ?? "md",
-    [board.sizes, CARD_BY_KEY],
-  );
 
   const removeCard = useCallback(
     (key: string) => commit({ ...board, ids: board.ids.filter((k) => k !== key) }),
     [board, commit],
   );
 
-  const resizeCard = useCallback(
-    (key: string) => commit({ ...board, sizes: { ...board.sizes, [key]: NEXT_SIZE[sizeOf(key)] } }),
-    [board, commit, sizeOf],
-  );
 
-  /** Corner-handle resize: step the ladder, clamped at both ends (the kebab
-   *  cycles instead) — same rule the analytics board follows. */
-  const stepCard = useCallback(
-    (key: string, dir: 1 | -1) => {
-      const cur = sizeOf(key);
-      const idx = Math.min(Math.max(SIZE_ORDER.indexOf(cur) + dir, 0), SIZE_ORDER.length - 1);
-      if (SIZE_ORDER[idx] === cur) return;
-      commit({ ...board, sizes: { ...board.sizes, [key]: SIZE_ORDER[idx] } });
-    },
-    [board, commit, sizeOf],
-  );
 
-  const reorder = useCallback(
-    (from: string, to: string) => commit({ ...board, ids: reorderIds(board.ids, from, to) }),
-    [board, commit],
-  );
 
   const addCard = useCallback(
     (key: string) => {
@@ -436,10 +397,16 @@ export function ClientRecord({
     [board, commit, CARD_BY_KEY],
   );
 
-  const resetBoard = useCallback(
-    () => commit({ ids: DEFAULT_IDS, sizes: {} }),
-    [commit, DEFAULT_IDS],
-  );
+  const resetBoard = useCallback(() => {
+    commit({ ids: DEFAULT_IDS });
+    // The arrangement lives with the grid — clear it and rebuild from defaults.
+    try {
+      localStorage.removeItem(`${BOARD_KEY}:layout`);
+    } catch {
+      /* ignore */
+    }
+    setLayoutEpoch((e) => e + 1);
+  }, [commit, DEFAULT_IDS]);
 
   async function setStatus(status: ClientStatus) {
     if (status === client.status) return;
@@ -465,9 +432,19 @@ export function ClientRecord({
   }
 
   const placed = board.ids.filter((id) => CARD_BY_KEY[id]);
+  const boardItems: BoardItem[] = placed.map((key) => ({ id: key, ...SIZE_DIMS[CARD_BY_KEY[key].size] }));
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 lg:flex-row">
+    <div className="relative flex h-full min-h-0 flex-col gap-4 lg:flex-row">
+      {/* The board menu rides the tab rail's hairline, top-right — one quiet
+          control instead of a toolbar row (the count told nobody anything).
+          -top-[52px] reaches up across the rail's mb-4 into the tab row. */}
+      <div className="absolute -top-[52px] right-0 z-10">
+        <KebabMenu label="Board options">
+          <MenuItem icon="plus" label="Add card" onClick={() => setLibraryOpen(true)} />
+          <MenuItem icon="refresh-cw" label="Reset layout" onClick={resetBoard} />
+        </KebabMenu>
+      </div>
       {/* The rail: narrow, full height of the column, and it does not move.
           The board beside it scrolls under the tab line and away. */}
       <aside className="shrink-0 lg:h-full lg:w-80">
@@ -519,22 +496,6 @@ export function ClientRecord({
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {/* Board toolbar — the standard placement: what's on the board, and the
-            two ways to change it. */}
-        <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
-          <span className="text-[13px] text-text-muted">
-            {placed.length} {placed.length === 1 ? "card" : "cards"}
-          </span>
-          <span className="flex shrink-0 items-center gap-2">
-            <Button size="sm" variant="ghost" leftIcon="refresh-cw" onClick={resetBoard}>
-              Reset
-            </Button>
-            <Button size="sm" variant="secondary" leftIcon="plus" onClick={() => setLibraryOpen(true)}>
-              Add card
-            </Button>
-          </span>
-        </div>
-
         {/* The drop surface: a card dragged in from the library lands here. */}
         <div
           onDragOver={(e) => {
@@ -569,12 +530,9 @@ export function ClientRecord({
           />
         ) : (
           <BoardGrid
-            items={placed}
-            size={sizeOf}
-            onReorder={reorder}
-            span={CLIENT_SPAN}
-            height={CLIENT_HEIGHT}
-            gap={16}
+            items={boardItems}
+            storageKey={`${BOARD_KEY}:layout`}
+            epoch={layoutEpoch}
             renderCard={(key) => {
               const def = CARD_BY_KEY[key];
               const count = def.count?.(record);
@@ -594,8 +552,6 @@ export function ClientRecord({
                   titleText={def.title}
                   menu={def.action?.(record)}
                   onRemove={() => removeCard(key)}
-                  onResizeStep={(dir) => stepCard(key, dir)}
-                  onResizeCycle={() => resizeCard(key)}
                 >
                   {/* Each card is a window onto its section: the section keeps
                       its own scroll, the card keeps the board's geometry. */}

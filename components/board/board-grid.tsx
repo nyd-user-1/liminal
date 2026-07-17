@@ -5,188 +5,315 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
 
-// A board: cards flow in a responsive CSS grid, carry a SIZE STEP, and reorder
-// by picking the WHOLE CARD up. hq's fleet-grid (app/ui/fleet-grid.tsx) is the
-// feel spec — click-and-hold to engage, grab/grabbing cursors, corner
-// affordances that fade in on hover — translated to a flow grid and this
-// theme's light surfaces.
+// A board: cards live on a 12-column canvas in grid units, exactly hq's
+// fleet-grid (~/Code/hq/app/ui/fleet-grid.tsx) — absolute positions, a 24px row
+// unit, drag that tracks the pointer 1:1 with the neighbours reflowing LIVE,
+// and a corner resize that is continuous, not a ladder. That model is the whole
+// feel: the first cut here was a CSS flow grid ("responsive stacking for
+// free"), and it cost the fluidity — cards teleported on drop and resize moved
+// one step per gesture. This is the faithful port, in this theme's chrome.
 //
-// Why a flow grid and not hq's absolute-positioned 12-col canvas: hq's grid
-// exists to let a card sit anywhere on the canvas, and pays for it with
-// collision resolution and a px-height model. A board here needs order + width,
-// and a flow grid gets responsive stacking for free.
-//
-// Generic by construction: this file knows ids, an order, and a size per id.
-// What a card CONTAINS is entirely the caller's (renderCard). Nothing here may
-// import a feature — see /analytics for the reference composition.
+// Generic by construction: this file knows ids and boxes. What a card CONTAINS
+// is entirely the caller's (renderCard). Nothing here may import a feature.
 
-export type BoardCardSize = "sm" | "md" | "lg";
+export type BoardBox = { x: number; y: number; w: number; h: number };
+/** Presence + the card's default/minimum footprint, in grid units. */
+export type BoardItem = { id: string; w: number; h: number; minW?: number; minH?: number };
+
+export const BOARD_COLS = 12;
+/** px per grid row — hq's unit. Card heights are h × this. */
+export const BOARD_ROW = 24;
+const MINW = 2;
+const MINH = 4;
+/** Gutter = padding inside each cell wrapper, so 2× this separates cards. */
+const CELL_PAD = 6;
+
+const HOLD_MS = 150; // hq's whole-card engage delay…
+const SLOP_PX = 4; // …or this much travel, whichever lands first
 
 /** Per-card drag state, published by BoardGrid and read by BoardCard. Null
  *  outside a grid — a BoardCard on its own is simply a static card. */
 export interface BoardCardDrag {
   isDragging: boolean;
-  /** A drag is in flight and this card is the one under the pointer. */
-  isOver: boolean;
-  /** Pointer-down on the grip: engages the move immediately. */
+  /** Pointer-down on the ⠿ grip: engages the move immediately (no hold). */
   grab: (e: ReactPointerEvent) => void;
+  /** Pointer-down on the corner handle: engages a live resize. */
+  resizeStart: (e: ReactPointerEvent) => void;
 }
 const BoardCardContext = createContext<BoardCardDrag | null>(null);
 export const useBoardCardDrag = () => useContext(BoardCardContext);
 
-// TWELVE columns, under faint always-on gridlines — hq's board is a 12-col
-// canvas and the visible grid is what makes arranging legible: you can see what
-// you are snapping to (`~/Code/hq/app/ui/fleet-grid.tsx:234-242`, the only place
-// hq draws them). Twelve is the number because it divides by 1, 2, 3, 4 and 6,
-// so one set of lines serves a 4-col metrics board AND a 3-col record board —
-// every consumer's card edges land on the same grid.
-export const BOARD_COLS = 12;
-
-/** The default ladder — a quarter, a half, the full width at the top breakpoint. */
-export const BOARD_SPAN: Record<BoardCardSize, string> = {
-  sm: "col-span-12 sm:col-span-6 xl:col-span-3",
-  md: "col-span-12 xl:col-span-6",
-  lg: "col-span-12",
-};
-export const BOARD_HEIGHT: Record<BoardCardSize, string> = {
-  sm: "h-[180px]",
-  md: "h-[264px]",
-  lg: "h-[340px]",
-};
-/** The gutter, in px. The grid owns this as a NUMBER rather than a `gap-*`
- *  class because the gridline geometry is derived from it (see below) — a class
- *  would be a second source of truth, free to drift from the lines. */
-export const BOARD_GAP = 12;
-
-// The hairlines. hq paints zinc-500 at 15% over near-black; the light-theme
-// translation is the border token — the faintest ink this theme owns — and hq's
-// idle-vs-drag opacity (0.7 → 1) becomes idle-vs-drag alpha: always on, livelier
-// the moment you pick a card up.
-const LINE_IDLE = "color-mix(in srgb, var(--color-border) 70%, transparent)";
-const LINE_DRAG = "var(--color-border)";
-
-/** The board's reorder rule, as a pure function so every caller agrees: the
- *  card you carried lands on the far side of the card you dropped it on —
- *  after it when you dragged right, before it when you dragged left. (Insert
- *  always-before instead and a drop on your right-hand neighbour is a no-op.) */
-export function reorderIds(ids: string[], from: string, to: string): string[] {
-  const i = ids.indexOf(from);
-  const j = ids.indexOf(to);
-  if (i < 0 || j < 0 || i === j) return ids;
-  const next = ids.filter((id) => id !== from);
-  const at = next.indexOf(to);
-  next.splice(i < j ? at + 1 : at, 0, from);
-  return next;
+// Shelf-pack in reading order → the default layout mirrors a sensible static
+// one (small tiles banding across, big cards below).
+function defaults(items: BoardItem[]): Record<string, BoardBox> {
+  const out: Record<string, BoardBox> = {};
+  let cx = 0,
+    cy = 0,
+    rowH = 0;
+  for (const it of items) {
+    const w = Math.min(BOARD_COLS, it.w);
+    if (cx + w > BOARD_COLS) {
+      cx = 0;
+      cy += rowH;
+      rowH = 0;
+    }
+    out[it.id] = { x: cx, y: cy, w, h: it.h };
+    cx += w;
+    rowH = Math.max(rowH, it.h);
+  }
+  return out;
 }
 
-// Pointer-down on a control never picks the card up: a press that lands on
-// something clickable belongs to that thing. This is what lets the whole card
-// be the drag surface without stealing the kebab, a link, or an input.
-const INTERACTIVE =
-  'a, button, input, select, textarea, label, [role="button"], [role="menuitem"], [contenteditable="true"], [data-board-no-drag]';
-const HOLD_MS = 150; // hq's engage delay
-const SLOP_PX = 4; // …or this much travel, whichever lands first
+function overlaps(a: BoardBox, b: BoardBox): boolean {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+/** hq's collision rule, verbatim: the anchor stays put; anything it overlaps is
+ *  pushed straight DOWN until clear, cascading. O(n²·passes) — trivial at
+ *  board scale. This is what makes a drag feel alive: it runs on every render
+ *  of an in-flight drag, so the neighbours slide out of the way in real time. */
+function resolve(input: Record<string, BoardBox>, anchorId: string): Record<string, BoardBox> {
+  const boxes: Record<string, BoardBox> = {};
+  for (const k of Object.keys(input)) boxes[k] = { ...input[k] };
+  const ids = Object.keys(boxes);
+  let guard = 0;
+  let moved = true;
+  while (moved && guard++ < 200) {
+    moved = false;
+    const order = ids.slice().sort((a, b) => {
+      if (a === anchorId) return -1;
+      if (b === anchorId) return 1;
+      return boxes[a].y - boxes[b].y || boxes[a].x - boxes[b].x;
+    });
+    for (let i = 0; i < order.length; i++) {
+      for (let j = i + 1; j < order.length; j++) {
+        const A = boxes[order[i]];
+        const B = boxes[order[j]];
+        if (overlaps(A, B)) {
+          boxes[order[j]] = { ...B, y: A.y + A.h };
+          moved = true;
+        }
+      }
+    }
+  }
+  return boxes;
+}
+
+/** Float every box up until it rests on another card or the top — so removing
+ *  or shrinking something doesn't leave a permanent hole. hq lives without
+ *  this; a record board adds/removes cards constantly and wants the tidy-up. */
+function compact(input: Record<string, BoardBox>): Record<string, BoardBox> {
+  const boxes: Record<string, BoardBox> = {};
+  for (const k of Object.keys(input)) boxes[k] = { ...input[k] };
+  const order = Object.keys(boxes).sort((a, b) => boxes[a].y - boxes[b].y || boxes[a].x - boxes[b].x);
+  for (const id of order) {
+    const b = boxes[id];
+    let y = b.y;
+    while (y > 0) {
+      const probe = { ...b, y: y - 1 };
+      if (order.some((o) => o !== id && overlaps(probe, boxes[o]))) break;
+      y -= 1;
+    }
+    boxes[id] = { ...b, y };
+  }
+  return boxes;
+}
 
 export function BoardGrid({
   items,
-  size = () => "md",
-  onReorder,
+  storageKey,
+  epoch = 0,
   renderCard,
   className = "",
-  span = BOARD_SPAN,
-  height = BOARD_HEIGHT,
-  gap = BOARD_GAP,
 }: {
-  /** Card ids, in board order. */
-  items: string[];
-  /** This id's size step. The caller owns the sizes map and its per-id default. */
-  size?: (id: string) => BoardCardSize;
-  /** `from` was dropped on `to` — splice `from` in ahead of `to`. */
-  onReorder: (from: string, to: string) => void;
+  /** Cards on the board, in reading order (drives defaults for new ids). */
+  items: BoardItem[];
+  /** Persist the arrangement (boxes) under this key. Omit = session-only. */
+  storageKey?: string;
+  /** Bump to rebuild from defaults — the caller's "reset layout". */
+  epoch?: number;
   renderCard: (id: string) => ReactNode;
-  /** Extra classes for the board surface. The twelve-column track and the
-   *  gutter belong to the primitive — never pass `grid-cols-*` or `gap-*`, or
-   *  the gridlines stop describing where the cards actually are. */
   className?: string;
-  /** Per-size col-spans, in twelfths. */
-  span?: Record<BoardCardSize, string>;
-  height?: Record<BoardCardSize, string>;
-  /** Gutter in px. */
-  gap?: number;
 }) {
-  const [dragId, setDragId] = useState<string | null>(null);
-  const [overId, setOverId] = useState<string | null>(null);
-  const overRef = useRef<string | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+  const [cellW, setCellW] = useState(0);
+  const [layout, setLayout] = useState<Record<string, BoardBox>>(() => defaults(items));
+  const [drag, setDrag] = useState<{ id: string; mode: "move" | "resize"; box: BoardBox } | null>(null);
+  const startRef = useRef<{ px: number; py: number; box: BoardBox; minW: number; minH: number } | null>(null);
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
 
-  // hq's startHold: a press engages the move after a short hold OR as soon as
-  // the pointer travels a few px — whichever comes first — so a plain click
-  // never nudges the board.
-  const hold = useCallback((id: string, e: ReactPointerEvent) => {
-    if (e.button !== 0) return;
-    if ((e.target as HTMLElement).closest(INTERACTIVE)) return;
-    const px = e.clientX;
-    const py = e.clientY;
-    let timer = 0;
-    function cleanup() {
-      clearTimeout(timer);
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", cleanup);
-      window.removeEventListener("pointercancel", cleanup);
-    }
-    function engage() {
-      cleanup();
-      setDragId(id);
-    }
-    function move(ev: PointerEvent) {
-      if (Math.hypot(ev.clientX - px, ev.clientY - py) > SLOP_PX) engage();
-    }
-    timer = window.setTimeout(engage, HOLD_MS);
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", cleanup);
-    window.addEventListener("pointercancel", cleanup);
-  }, []);
+  const persist = useCallback(
+    (l: Record<string, BoardBox>) => {
+      if (!storageKey) return;
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(l));
+      } catch {
+        /* storage disabled — the board still works, it just won't persist */
+      }
+    },
+    [storageKey],
+  );
 
-  const grab = useCallback((id: string, e: ReactPointerEvent) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    e.stopPropagation();
-    setDragId(id);
-  }, []);
-
-  // The live drag: track the card under the pointer, commit the reorder on the
-  // way up. Window-level so the drag survives leaving the board.
+  // Rebuild whenever the item set, the storage key, or the epoch changes:
+  // defaults for everything, saved boxes overlaid for ids still present, ids
+  // the save has never seen placed on a fresh shelf BELOW the saved layout
+  // (a new card must never land on top of an arrangement someone made).
+  const idKey = items.map((i) => i.id).join(",");
   useEffect(() => {
-    if (!dragId) return;
+    let saved: Record<string, BoardBox> | null = null;
+    if (storageKey) {
+      try {
+        const raw = JSON.parse(localStorage.getItem(storageKey) || "null");
+        if (raw && typeof raw === "object" && !Array.isArray(raw)) saved = raw as Record<string, BoardBox>;
+      } catch {
+        /* ignore */
+      }
+    }
+    const next = defaults(itemsRef.current);
+    if (saved) {
+      const known = itemsRef.current.filter((it) => saved[it.id]);
+      const fresh = itemsRef.current.filter((it) => !saved[it.id]);
+      for (const it of known) next[it.id] = saved[it.id];
+      let shelf = known.length ? Math.max(...known.map((it) => saved[it.id].y + saved[it.id].h)) : 0;
+      let cx = 0;
+      let rowH = 0;
+      for (const it of fresh) {
+        const w = Math.min(BOARD_COLS, it.w);
+        if (cx + w > BOARD_COLS) {
+          cx = 0;
+          shelf += rowH;
+          rowH = 0;
+        }
+        next[it.id] = { x: cx, y: shelf, w, h: it.h };
+        cx += w;
+        rowH = Math.max(rowH, it.h);
+      }
+      // Ids removed since the save fall out here; float the rest up.
+      const merged = compact(next);
+      for (const k of Object.keys(merged)) next[k] = merged[k];
+    }
+    setLayout(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey, idKey, epoch]);
+
+  // Measure the canvas → cell width (the only measurement; positions are math).
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const m = () => setCellW(el.clientWidth / BOARD_COLS);
+    m();
+    const ro = new ResizeObserver(m);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const begin = useCallback(
+    (id: string, mode: "move" | "resize", e: { clientX: number; clientY: number }) => {
+      const it = itemsRef.current.find((i) => i.id === id);
+      setLayout((cur) => {
+        const box = cur[id];
+        if (box) {
+          startRef.current = {
+            px: e.clientX,
+            py: e.clientY,
+            box,
+            minW: Math.max(MINW, it?.minW ?? MINW),
+            minH: Math.max(MINH, it?.minH ?? MINH),
+          };
+          setDrag({ id, mode, box });
+        }
+        return cur;
+      });
+    },
+    [],
+  );
+
+  // hq's startHold: a press on the card engages the move after a short hold OR
+  // a few px of travel — whichever lands first — so a plain click never nudges
+  // the board, and so text/controls inside the card stay usable.
+  const INTERACTIVE =
+    'a, button, input, select, textarea, label, [role="button"], [role="menuitem"], [contenteditable="true"], [data-board-no-drag]';
+  const hold = useCallback(
+    (id: string, e: ReactPointerEvent) => {
+      if (e.button !== 0) return;
+      if ((e.target as HTMLElement).closest(INTERACTIVE)) return;
+      const px = e.clientX;
+      const py = e.clientY;
+      let timer = 0;
+      function cleanup() {
+        clearTimeout(timer);
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", cleanup);
+        window.removeEventListener("pointercancel", cleanup);
+      }
+      function engage(ev: { clientX: number; clientY: number }) {
+        cleanup();
+        begin(id, "move", ev);
+      }
+      function move(ev: PointerEvent) {
+        if (Math.hypot(ev.clientX - px, ev.clientY - py) > SLOP_PX) engage(ev);
+      }
+      timer = window.setTimeout(() => engage({ clientX: px, clientY: py }), HOLD_MS);
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", cleanup);
+      window.addEventListener("pointercancel", cleanup);
+    },
+    [begin],
+  );
+
+  // The live drag: grid-unit deltas from the press point, clamped to the
+  // canvas; every render resolves collisions so the neighbours reflow under
+  // the pointer. Window-level so the drag survives leaving the board.
+  useEffect(() => {
+    if (!drag) return;
     const move = (e: PointerEvent) => {
-      const el = document.elementFromPoint(e.clientX, e.clientY);
-      const found = el?.closest<HTMLElement>("[data-board-card]")?.dataset.boardCard ?? null;
-      const id = found && found !== dragId ? found : null;
-      overRef.current = id;
-      setOverId(id);
+      const st = startRef.current;
+      if (!st || !cellW) return;
+      const dx = Math.round((e.clientX - st.px) / cellW);
+      const dy = Math.round((e.clientY - st.py) / BOARD_ROW);
+      const box: BoardBox =
+        drag.mode === "move"
+          ? {
+              ...st.box,
+              x: Math.max(0, Math.min(BOARD_COLS - st.box.w, st.box.x + dx)),
+              y: Math.max(0, st.box.y + dy),
+            }
+          : {
+              ...st.box,
+              w: Math.max(st.minW, Math.min(BOARD_COLS - st.box.x, st.box.w + dx)),
+              h: Math.max(st.minH, st.box.h + dy),
+            };
+      setDrag((d) => (d && (d.box.x !== box.x || d.box.y !== box.y || d.box.w !== box.w || d.box.h !== box.h) ? { ...d, box } : d));
     };
     const finish = (commit: boolean) => {
-      const to = overRef.current;
-      overRef.current = null;
-      setOverId(null);
-      setDragId(null);
-      if (commit && to) onReorder(dragId, to);
+      setDrag((d) => {
+        if (d && commit)
+          setLayout((cur) => {
+            const next = compact(resolve({ ...cur, [d.id]: d.box }, d.id));
+            persist(next);
+            return next;
+          });
+        return null;
+      });
+      startRef.current = null;
     };
     const up = () => finish(true);
     const cancel = () => finish(false);
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape") finish(false);
     };
-    // The card stays put in a flow grid, so the pointer spends the whole drag
-    // over OTHER cards — the grabbing cursor has to come from the document.
     const cursor = document.body.style.cursor;
     const select = document.body.style.userSelect;
-    document.body.style.cursor = "grabbing";
+    document.body.style.cursor = drag.mode === "move" ? "grabbing" : "nwse-resize";
     document.body.style.userSelect = "none";
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -200,46 +327,78 @@ export function BoardGrid({
       window.removeEventListener("pointercancel", cancel);
       window.removeEventListener("keydown", key);
     };
-  }, [dragId, onReorder]);
+  }, [drag, cellW, persist]);
 
-  // The gridlines, derived from the track geometry rather than measured, so they
-  // cannot drift from the cards. With 12 columns and gutter g the column period
-  // is exactly (W + g)/12 — so a 1px line every period, pulled left by half a
-  // gutter, lands each line dead-centre in a gutter: precisely the boundary a
-  // card edge snaps to. Percentages in background-size resolve against this
-  // element, so this needs no measurement and no resize listener (hq measures
-  // only because its cards are absolutely positioned and need cellW anyway).
-  // The line at x=0 falls off-canvas and the 12th past the right edge, leaving
-  // the 11 interior boundaries — texture between the cards, no frame around them.
-  const surface = {
-    gap: `${gap}px`,
-    backgroundImage: `linear-gradient(to right, ${dragId ? LINE_DRAG : LINE_IDLE} 1px, transparent 1px)`,
-    backgroundSize: `calc((100% + ${gap}px) / ${BOARD_COLS}) 100%`,
-    backgroundPosition: `-${gap / 2}px 0`,
-  };
+  // Live view: merge the in-flight box and resolve, so the board you see IS the
+  // board you'd get on release. Idle = the committed (already-resolved) layout.
+  const view = useMemo(() => (drag ? resolve({ ...layout, [drag.id]: drag.box }, drag.id) : layout), [drag, layout]);
+
+  const heightPx = Math.max(
+    BOARD_ROW * 8,
+    ...items.map((it) => {
+      const b = view[it.id];
+      return b ? (b.y + b.h) * BOARD_ROW : 0;
+    }),
+  );
+
+  // The guide grid — both axes, because both are real snap units here (columns
+  // AND 24px rows). hq paints zinc at 15%/11% over near-black; the light
+  // translation is the border token, faint at idle and awake during a drag.
+  const lineV = drag ? "var(--color-border)" : "color-mix(in srgb, var(--color-border) 62%, transparent)";
+  const lineH = drag ? "color-mix(in srgb, var(--color-border) 80%, transparent)" : "color-mix(in srgb, var(--color-border) 45%, transparent)";
 
   return (
-    <div className={`grid grid-cols-12 ${className}`} style={surface}>
-      {items.map((id) => {
-        const s = size(id);
+    <div ref={ref} className={`relative w-full ${className}`} style={{ height: `${heightPx}px` }}>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 transition-opacity duration-150"
+        style={{
+          backgroundImage: `linear-gradient(to right, ${lineV} 1px, transparent 1px), linear-gradient(to bottom, ${lineH} 1px, transparent 1px)`,
+          backgroundSize: `${cellW}px ${BOARD_ROW}px`,
+          opacity: cellW ? 1 : 0,
+        }}
+      />
+      {items.map((it) => {
+        const box = view[it.id];
+        if (!box || !cellW) return null;
+        const dragging = drag?.id === it.id;
         return (
           <div
-            key={id}
-            // data-board-card is both the drop hit-test target (elementFromPoint
-            // walks up to it) and the hook a browser test drives the board by.
-            data-board-card={id}
-            onPointerDown={(e) => hold(id, e)}
+            key={it.id}
+            data-board-card={it.id}
+            onPointerDown={(e) => hold(it.id, e)}
             title="Click and hold to drag"
-            className={`${span[s]} ${height[s]}`}
+            style={{
+              left: box.x * cellW,
+              top: box.y * BOARD_ROW,
+              width: box.w * cellW,
+              height: box.h * BOARD_ROW,
+              padding: CELL_PAD,
+            }}
+            className={
+              dragging
+                ? "absolute z-20"
+                : "absolute z-10 transition-[left,top,width,height] duration-100 ease-out motion-reduce:transition-none"
+            }
           >
             <BoardCardContext.Provider
               value={{
-                isDragging: dragId === id,
-                isOver: overId === id,
-                grab: (e) => grab(id, e),
+                isDragging: dragging,
+                grab: (e) => {
+                  if (e.button !== 0) return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  begin(it.id, "move", e);
+                },
+                resizeStart: (e) => {
+                  if (e.button !== 0) return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  begin(it.id, "resize", e);
+                },
               }}
             >
-              {renderCard(id)}
+              {renderCard(it.id)}
             </BoardCardContext.Provider>
           </div>
         );

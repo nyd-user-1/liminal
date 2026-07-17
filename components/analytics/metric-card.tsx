@@ -74,17 +74,11 @@ export function MetricCard({
   value,
   onRemove,
   onAbout,
-  onResize,
-  onResizeStep,
-  size,
 }: {
   def: MetricDef;
   value: MetricValue | undefined;
   onRemove: () => void;
   onAbout: () => void;
-  onResize: () => void;
-  onResizeStep: (dir: 1 | -1) => void;
-  size: string;
 }) {
   return (
     <BoardCard
@@ -92,12 +86,9 @@ export function MetricCard({
       title={def.label}
       titleText={def.label}
       onRemove={onRemove}
-      onResizeStep={onResizeStep}
-      onResizeCycle={onResize}
       menu={
         <KebabMenu label={`${def.label} actions`} align="right">
           <MenuItem icon="info" label="About this data" onClick={onAbout} />
-          <MenuItem icon="columns-3" label={`Resize (${size})`} onClick={onResize} />
           {def.poweredPage && <MenuItem icon="arrow-right" label={`Open ${def.poweredPage.label}`} onClick={() => (window.location.href = def.poweredPage!.href)} />}
           <MenuDivider />
           <MenuItem icon="trash" label="Remove from board" onClick={onRemove} danger />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BoardGrid, reorderIds, type BoardCardSize } from "@/components/board/board-grid";
+import { BoardGrid, type BoardItem } from "@/components/board/board-grid";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TopBarActions } from "@/components/shell/topbar-slot";
@@ -24,29 +24,25 @@ import type { DictionaryEntry } from "@/lib/repos/analytics";
 // also the drop surface for a drag-in from the KPI library (the same
 // dataTransfer handshake hq uses); click-to-add is the other route in.
 
-type CardSize = BoardCardSize;
-
-const NEXT_SIZE: Record<CardSize, CardSize> = { sm: "md", md: "lg", lg: "sm" };
-const SIZE_ORDER: CardSize[] = ["sm", "md", "lg"];
-const SIZE_LABEL: Record<CardSize, string> = { sm: "small", md: "wide", lg: "full width" };
-
-/** A metric's natural size — stats are tiles, everything else wants room. */
-function defaultSize(key: string): CardSize {
+/** A metric's natural footprint in grid units (12 cols × 24px rows) — stats
+ *  are tiles, everything else wants room. Resize is free-form from here. */
+function dims(key: string): Omit<BoardItem, "id"> {
   const kind = METRIC_BY_KEY[key]?.kind;
-  if (kind === "stat") return "sm";
-  if (kind === "table" || kind === "agenda") return "md";
-  return "md";
+  if (kind === "stat") return { w: 3, h: 8, minW: 2, minH: 6 };
+  return { w: 6, h: 11, minW: 3, minH: 8 };
 }
 
 interface BoardState {
   ids: string[];
-  sizes: Record<string, CardSize>;
 }
 
 const KEY_PREFIX = "liminal-analytics:";
 const VIEW_KEY = `${KEY_PREFIX}view`;
 const USER_VIEWS_KEY = `${KEY_PREFIX}views`;
 const boardKey = (view: string) => `${KEY_PREFIX}board:${view}`;
+/** Where the GRID persists the arrangement (boxes) for a view — the board
+ *  state above only remembers which cards are on it. */
+const layoutKey = (view: string) => `${KEY_PREFIX}layout:${view}`;
 
 function readJson<T>(key: string): T | null {
   try {
@@ -85,8 +81,9 @@ export function AnalyticsBoard({
   const [viewName, setViewName] = useState<string>(() => viewsForRole(BUILT_IN_VIEWS, isAdmin)[0]?.name ?? "Overview");
   const [board, setBoard] = useState<BoardState>(() => ({
     ids: viewsForRole(BUILT_IN_VIEWS, isAdmin)[0]?.ids ?? [],
-    sizes: {},
   }));
+  // Bumping this rebuilds the grid's arrangement from defaults — Reset.
+  const [layoutEpoch, setLayoutEpoch] = useState(0);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [aboutKey, setAboutKey] = useState<string | null>(null);
   const [dropHint, setDropHint] = useState(false);
@@ -105,7 +102,7 @@ export function AnalyticsBoard({
     const savedBoard = active ? readJson<BoardState>(boardKey(active.name)) : null;
     const ids = (savedBoard?.ids ?? active?.ids ?? []).filter((id) => allowed.has(id));
     setViewName(active?.name ?? BUILT_IN_VIEWS[0].name);
-    setBoard({ ids, sizes: savedBoard?.sizes ?? {} });
+    setBoard({ ids });
     setReady(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
@@ -152,41 +149,13 @@ export function AnalyticsBoard({
     [persist, viewName],
   );
 
-  const resizeMetric = useCallback(
-    (key: string) => {
-      setBoard((b) => {
-        const cur = b.sizes[key] ?? defaultSize(key);
-        const next = { ...b, sizes: { ...b.sizes, [key]: NEXT_SIZE[cur] } };
-        persist(viewName, next);
-        return next;
-      });
-    },
-    [persist, viewName],
-  );
 
-  /** Corner-handle resize: step up or down the size ladder, clamped at the
-   *  ends — dragging outward past lg (or inward past sm) is a no-op, unlike
-   *  the kebab's cycle. */
-  const stepMetricSize = useCallback(
-    (key: string, dir: 1 | -1) => {
-      setBoard((b) => {
-        const cur = b.sizes[key] ?? defaultSize(key);
-        const idx = Math.min(Math.max(SIZE_ORDER.indexOf(cur) + dir, 0), SIZE_ORDER.length - 1);
-        if (SIZE_ORDER[idx] === cur) return b;
-        const next = { ...b, sizes: { ...b.sizes, [key]: SIZE_ORDER[idx] } };
-        persist(viewName, next);
-        return next;
-      });
-    },
-    [persist, viewName],
-  );
 
   const applyView = useCallback(
     (v: BoardView) => {
       const saved = readJson<BoardState>(boardKey(v.name));
       const next: BoardState = {
         ids: (saved?.ids ?? v.ids).filter((id) => allowed.has(id)),
-        sizes: saved?.sizes ?? {},
       };
       setViewName(v.name);
       setBoard(next);
@@ -212,25 +181,20 @@ export function AnalyticsBoard({
   const resetView = useCallback(() => {
     const v = views.find((x) => x.name === viewName);
     if (!v) return;
-    const next: BoardState = { ids: v.ids.filter((id) => allowed.has(id)), sizes: {} };
+    const next: BoardState = { ids: v.ids.filter((id) => allowed.has(id)) };
     setBoard(next);
     persist(viewName, next);
+    // The arrangement lives with the grid — clear it and rebuild from defaults.
+    try {
+      localStorage.removeItem(layoutKey(viewName));
+    } catch {
+      /* ignore */
+    }
+    setLayoutEpoch((e) => e + 1);
   }, [views, viewName, allowed, persist]);
 
-  // Reorder: the dragged card lands on the far side of the card it was dropped
-  // on (reorderIds owns the rule — see the primitive).
-  const reorder = useCallback(
-    (from: string, to: string) => {
-      setBoard((b) => {
-        const next = { ...b, ids: reorderIds(b.ids, from, to) };
-        persist(viewName, next);
-        return next;
-      });
-    },
-    [persist, viewName],
-  );
-
   const placed = board.ids.filter((id) => METRIC_BY_KEY[id] && allowed.has(id));
+  const boardItems: BoardItem[] = placed.map((key) => ({ id: key, ...dims(key) }));
 
   return (
     <>
@@ -301,18 +265,15 @@ export function AnalyticsBoard({
           />
         ) : (
           <BoardGrid
-            items={placed}
-            size={(key) => board.sizes[key] ?? defaultSize(key)}
-            onReorder={reorder}
+            items={boardItems}
+            storageKey={layoutKey(viewName)}
+            epoch={layoutEpoch}
             renderCard={(key) => (
               <MetricCard
                 def={METRIC_BY_KEY[key]}
                 value={values[key]}
-                size={SIZE_LABEL[board.sizes[key] ?? defaultSize(key)]}
                 onRemove={() => removeMetric(key)}
                 onAbout={() => setAboutKey(key)}
-                onResize={() => resizeMetric(key)}
-                onResizeStep={(dir) => stepMetricSize(key, dir)}
               />
             )}
           />
