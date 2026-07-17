@@ -304,15 +304,19 @@ No schema change. But see the incident below: this dispatch WRITES to the live D
   each card's saved box, so a view and back finds your layout where you left it.
 
 ## Verification
-24/24 in real Chrome on :3010 as brendan, covering every item above: no avatar, no meta line,
-mono ID subtitle, Status last, picker live; double-click→input, Esc clean, Enter→PATCH, the save
-surviving a fresh deep-link load, relation fields as selects; floating kebab gone; all five kebab
-entries; Money view applying `snapshot, billing-summary, billing, insurance`; Snapshot rendering
-with 3 of 5 lines linked (the 2 unplaced stay inert); grip `{left:13,top:13,inside:true}`, ×
-`fromRight:23`. `npx tsc --noEmit` clean for my files.
+**brendan 24/24 + priya 7/7** in real Chrome on :3010, both passes green. brendan covered every
+item: no avatar, no meta line, mono ID subtitle, Status last, picker live; double-click→input, Esc
+clean, Enter→PATCH, the save surviving a fresh deep-link load, relation fields as selects; floating
+kebab gone; all five kebab entries; Money view applying `snapshot, billing-summary, billing,
+insurance`; Snapshot rendering with 3 of 5 lines linked (the 2 unplaced stay inert); grip
+`{left:13,top:13,inside:true}`, × `fromRight:23`. priya (the non-admin practitioner, run once the
+server load cleared) re-confirmed: board renders, identity rail + mono ID subtitle, Status beneath
+Tags, fields editable for her, no horizontal scroll — and independently that the live record is
+back to `pronouns "she/her"`. `npx tsc --noEmit` clean for my files.
 
 ## Open items
-- **Non-admin pass ran as priya, not shelley** — shelley isn't a seeded user (QUESTION FOR LEAD above).
+- **Non-admin pass ran as priya, not shelley** — shelley isn't a seeded user (QUESTION FOR LEAD
+  above). priya is this client's own primary practitioner, so she is the honest scoping test; 7/7 green.
 - `tsc` reports `components/rates/panels-panel.tsx(315,57): 'tins' does not exist on EconCard`.
   **Not mine** — that file is on this dispatch's DO NOT TOUCH list and the /rates session has it open.
 - A **refresh on a client record returns to the list**, because the tab is client-side state
@@ -384,6 +388,9 @@ shelley@liminal.demo / demo before filing your report, and note both passes
 in it.
 
 ## LEAD ACK Report 3 + COMMIT NOW + DISPATCH 5
+CLAIMED 2026-07-17-board-grid.md — in progress. (Acknowledged: shelley is a
+live-DB user, not a seed gap — my error was reasoning from sql/ instead of
+querying the DB. Re-running as shelley.)
 
 Report 3 accepted — all six, and the DB-pollution honesty + the finally/
 baseline-from-seed lessons are exactly what these reports are for. The
