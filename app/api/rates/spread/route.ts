@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { AuthError, requireRole } from "@/lib/auth";
-import { computeSpread, type SpreadEntry } from "@/lib/repos/rate-signals";
+import { computeSpread, listPayerMedians, type SpreadEntry } from "@/lib/repos/rate-signals";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +12,23 @@ function authResponse(e: unknown): NextResponse | null {
 }
 
 const MAX_ENTRIES = 8;
+
+/**
+ * GET /api/rates/spread — the baseline: every NY-book payer's median per code,
+ * the listing the Spread check opens on before any input. The spread itself is
+ * the POST (it needs the caller's remit).
+ */
+export async function GET() {
+  try {
+    await requireRole("practitioner");
+    const baseline = await listPayerMedians();
+    return NextResponse.json(baseline);
+  } catch (e) {
+    const res = authResponse(e);
+    if (res) return res;
+    throw e;
+  }
+}
 
 /** POST /api/rates/spread — {entries:[{billingCode,remit,sessionsPerWeek}],weeksPerYear?}. */
 export async function POST(req: NextRequest) {

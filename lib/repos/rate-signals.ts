@@ -1401,3 +1401,46 @@ export async function listRateBooks(
     truncated: rows.length > limit,
   };
 }
+
+// ── the spread baseline (Spread check's base content) ─────────────────────────
+
+export interface PayerMedianRow {
+  payer: string;
+  /** billingCode → the wrapped median figure + as-of, or null when this payer
+   *  publishes no band for that code. Never a bare number (display rule 1). */
+  medians: Record<string, { figure: string; asOf: string } | null>;
+}
+
+/**
+ * Every NY-book payer's median in-network rate per behavioral-five code — the
+ * LISTING the Spread check opens on, before the user enters a single number.
+ *
+ * A spread is remit-vs-median, so it has no honest default remit. What it DOES
+ * have is the median half: the payer × CPT table of what each book pays at the
+ * median. That's the base listing; the user's remit adds the spread column
+ * (computeSpread). Reads the same aggregate bands the negotiation card does
+ * (sql/024-backed), never the fact table.
+ */
+export async function listPayerMedians(): Promise<{ codes: string[]; rows: PayerMedianRow[] }> {
+  const codes = BEHAVIORAL_FIVE;
+  const bands = await bandNumbers(codes, DEFAULT_MIN_CLINICIANS, false);
+  const byPayer = new Map<string, PayerMedianRow>();
+  for (const b of bands) {
+    let row = byPayer.get(b.payer);
+    if (!row) {
+      row = { payer: b.payer, medians: Object.fromEntries(codes.map((c) => [c, null])) };
+      byPayer.set(b.payer, row);
+    }
+    row.medians[b.billing_code] = {
+      figure: figureDisplay(b.median, "negotiated").replace(" in-network rate", " in-network"),
+      asOf: b.as_of,
+    };
+  }
+  // Rank by 90837 median desc — the workhorse code leads the table.
+  const rows = [...byPayer.values()].sort((a, b) => {
+    const am = medianFor90837(bands, a.payer);
+    const bm = medianFor90837(bands, b.payer);
+    return (bm ?? -1) - (am ?? -1);
+  });
+  return { codes, rows };
+}
