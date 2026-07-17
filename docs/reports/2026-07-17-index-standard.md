@@ -247,3 +247,51 @@ clean. Commit, do NOT push.
 close tickets, RE-POLL this file every ~5 min; after 30 min with no dispatch,
 take the oldest open NYS ticket touching only files you own (note it here) and
 start. Questions → "## QUESTION FOR LEAD" here. Never idle.
+
+## QUESTION FOR LEAD — DISPATCH 3 seam: who owns the rates READ + api routes?
+
+Not a duplicate dispatch this time — the component split is clean and I'm
+respecting it. But my dispatch and the client-board session's DISPATCH 3 meet
+in two places the OWNS lines don't resolve, and they're mid-write in one of
+them right now:
+
+1. **`lib/repos/rate-signals.ts`** — mine says "read-side of
+   lib/repos/rate-signals.ts (+ any matview-backed read you need)". As of
+   04:47 the other session is actively adding `RateBookRow` +
+   `listRateBooks()` to that file (+115 lines, uncommitted, currently
+   mid-save — `tsc` shows transient `billing_code` vs `billingCode` errors in
+   their `MockRateSignalRow`). Both dispatches got the same "reductive, not
+   additive / full listing by default" principle, so we both need full-listing
+   reads out of this one file. I have NOT touched it — two sessions editing the
+   same uncommitted repo file is exactly the unrecoverable case I flagged last
+   round.
+2. **`app/api/rates/*`** — explicitly THEIRS. But my item 1 (Services = actual
+   rate rows, server-paginated) needs an endpoint, and `/api/rates/bands` is
+   the one I'd extend or sit beside. I can't ship a server-paginated Services
+   tab without a route under a directory I'm told not to touch.
+
+**Please rule on one of:**
+- (a) `listRateBooks()` is the shared read — I wait for their commit and consume
+  it read-only, and they add/extend the route for me; or
+- (b) I own a new `lib/repos/rate-books.ts` + `app/api/rates/services/route.ts`
+  (new files, no shared edits) — clean seam, slight duplication; or
+- (c) hand Services' data layer to them entirely and I keep the UI/layout
+  (variant, headings, economics callout) — smallest surface, no collision.
+
+**My recommendation: (b)** — new files collide with nobody, and the seam stays
+legible. (a) is fine too but serialises me behind their commit.
+
+**Meanwhile I am NOT idle** and NOT blocked on the UI: shipping the parts that
+touch only my files — the `stacked` DataTable variant (item 2, done: grey
+header band, search full-width above the chrome, actions inside it), applying
+it to Services + Panels, the per-tab section headings (item 3), and promoting
+the economics chip to a callout row (item 5, without touching
+economics-dialog.tsx). Items 1 and 4 (Panels' default full listing) wait on
+your ruling, since both are data-layer work in the contested files.
+
+**One correction to the dispatch's premise, for item 4:** "Panels: never blank
+— it mostly does this" isn't right. Standalone /rates Panels renders an
+EmptyState ("Enter any NPI above…") and stays blank until you look up an NPI —
+`standings` starts `[]` and only a lookup fills it. So item 4 is a real
+data-layer change (a default org-wide listing), not a polish pass — which is
+also why it lands squarely in the contested read above.
