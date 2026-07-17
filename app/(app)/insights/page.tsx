@@ -5,7 +5,9 @@ import { TextLink } from "@/components/ui/text-link";
 import { requireUser } from "@/lib/auth";
 import { platformInventory } from "@/lib/repos/admin";
 import { practiceSnapshot } from "@/lib/repos/dashboard";
+import { latestLeadReport } from "@/lib/repos/lead-reports";
 import { InsightsHeader } from "./insights-header";
+import { NightReport } from "./night-report";
 import { Observatory } from "./observatory";
 import { PracticeStrip } from "./practice-strip";
 
@@ -36,9 +38,10 @@ export default async function InsightsPage() {
 
   // The observatory reads no PHI and the strip reads no platform tables, so
   // both flights go out together; each is independently memoized in its repo.
-  const [snapshot, inventory] = await Promise.all([
+  const [snapshot, inventory, report] = await Promise.all([
     practiceSnapshot(user),
     isAdmin ? platformInventory() : null,
+    isAdmin ? latestLeadReport() : null,
   ]);
 
   const firstName = user.name.split(" ")[0];
@@ -55,6 +58,15 @@ export default async function InsightsPage() {
         <InsightsHeader greeting={greeting} canBrief={isAdmin} />
         <PracticeStrip snapshot={snapshot} />
       </section>
+
+      {isAdmin && report && (
+        <>
+          <Divider />
+          <section className="flex min-w-0 flex-col gap-4">
+            <NightReport report={report} />
+          </section>
+        </>
+      )}
 
       {isAdmin && inventory && (
         <>
