@@ -15,7 +15,8 @@
       "run": "node --env-file=.env.local .harvest/status.mjs",
       "timeoutMinutes": 20,
       "attempts": 1,
-      "memo": "Directory-side coverage snapshot (participation, accepting, unmatched)."
+      "disabled": true,
+      "memo": "Directory-side coverage snapshot. DISABLED 2026-07-17: status.mjs aggregates 2.4M participation rows through the Neon HTTP driver and now trips undici's 300s headersTimeout (same failure family as NYS-65). Re-enable once it runs via psql or the query is matview-backed."
     },
     {
       "id": "nppes-weekly",
