@@ -5,9 +5,11 @@ import { IconButton } from "@/components/ui/icon-button";
 import { useToast } from "@/components/ui/toast";
 import { TopBarActions } from "@/components/shell/topbar-slot";
 import { Button } from "@/components/ui/button";
+import { ChoiceChip } from "@/components/ui/choice-chip";
 import { Tabs } from "@/components/ui/tabs";
 import { ApplyNextPanel } from "@/components/rates/apply-next-panel";
 import { BandsPanel } from "@/components/rates/bands-panel";
+import { ServicesPanel } from "@/components/rates/services-panel";
 import { PanelsPanel } from "@/components/rates/panels-panel";
 import { RosterPanel } from "@/components/rates/roster-panel";
 import { SpreadPanel } from "@/components/rates/spread-panel";
@@ -32,7 +34,8 @@ const TABS = [
 // One line per tab, in the space the search vacated when it moved above the
 // table: say what the table IS before the reader has to infer it from columns.
 const BLURBS: Record<string, string> = {
-  bands: "Every negotiated rate we hold for a service, as the insurer published it — by insurer, network and licence tier.",
+  rates: "Every rate we hold for a service, exactly as the insurer published it — clinician, plan and place of service.",
+  bands: "The spread across a cohort: 25th / median / 75th percentile per insurer, plan and licence tier.",
   panels: "Panels are the payer × network contracts a clinician is listed under, and what each one pays.",
   roster: "Who is still publishing you, and what that listing was worth.",
   "apply-next": "Where to apply next, ranked by what the book already pays people like you.",
@@ -42,14 +45,19 @@ const BLURBS: Record<string, string> = {
 export function RatesShell({ userEmail }: { userEmail?: string }) {
   const toast = useToast();
   const [tab, setTab] = useState("bands");
+  // Services leads with the rates themselves; the quartile bands keep a view.
+  const [servicesView, setServicesView] = useState<"rates" | "bands">("rates");
   // Empty = no code filter applied (the negotiation card shows every code by
   // default, sorted A-Z) — codes narrow the table, they don't gate it.
   const [codes, setCodes] = useState<string[]>([]);
   const [activeNpi, setActiveNpi] = useState<string | null>(null);
   const [pin, setPin] = useState<{ payer: string; billingCode: string } | null>(null);
 
+  // The economics dialog's "renegotiate" CTA pins an insurer+code — it means
+  // the cohort spread, so it must land on the Bands view, not the raw rows.
   const onPinBands = (payer: string, billingCode: string) => {
     setPin({ payer, billingCode });
+    setServicesView("bands");
     setTab("bands");
   };
 
@@ -69,13 +77,28 @@ export function RatesShell({ userEmail }: { userEmail?: string }) {
       <Tabs className="mt-4 shrink-0" items={TABS} active={tab} onChange={setTab} slideActive />
 
       {/* Sits under the tab hairline, above the tab body — one line saying what
-          this tab's table is. */}
-      <p className="mb-4 mt-3 shrink-0 text-[15px] text-text-body">{BLURBS[tab]}</p>
+          this tab's table is, and (on Services) the Rates/Bands switch. */}
+      <div className="mb-4 mt-3 flex shrink-0 flex-wrap items-center justify-between gap-3">
+        <p className="text-[15px] text-text-body">{tab === "bands" ? BLURBS[servicesView] : BLURBS[tab]}</p>
+        {tab === "bands" && (
+          // The quartiles came OFF the main table — they were being read as the
+          // rate. They keep their own view rather than being deleted: a spread
+          // across a cohort is a different question from what a payer published.
+          <span className="flex shrink-0 items-center gap-1.5">
+            <ChoiceChip label="Rates" selected={servicesView === "rates"} onSelect={() => setServicesView("rates")} />
+            <ChoiceChip label="Bands" selected={servicesView === "bands"} onSelect={() => setServicesView("bands")} />
+          </span>
+        )}
+      </div>
 
       {/* Bands + Panels own their scroll internally (sticky-header table); Spread
           is a form-then-small-result screen, so its tab body scrolls normally. */}
-      <div className="min-h-0 flex-1" hidden={tab !== "bands"}>
-        <BandsPanel codes={codes} onCodesChange={setCodes} pin={pin} />
+      <div className="min-h-0 flex-1 flex flex-col" hidden={tab !== "bands"}>
+        {servicesView === "rates" ? (
+          <ServicesPanel />
+        ) : (
+          <BandsPanel codes={codes} onCodesChange={setCodes} pin={pin} />
+        )}
       </div>
       <div className="min-h-0 flex-1" hidden={tab !== "panels"}>
         <PanelsPanel
