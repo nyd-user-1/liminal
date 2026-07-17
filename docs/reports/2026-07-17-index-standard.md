@@ -136,18 +136,18 @@ Commits `893f902` (IndexHeader + docs) + `71ff512` (sweep), local only, not push
   IndexHeader exists to refuse. Its dead cards are lorem with no repo behind them.
 
 ### Open items
-1. **NYS-89 (urgent) — /design-system 500s right now, and it is not mine.** The board
-   session's uncommitted `board-grid.tsx` dropped the `reorderIds`/`BoardCardSize`
-   exports `design-system/page.tsx:9` imports. Their API change, their consumer: I left
-   `components/board/*` untouched, and did not paper over it in design-system either —
-   that would collide with their in-flight edit.
+1. **NYS-89 — CLOSED by the board session.** Their in-flight `board-grid.tsx` had
+   dropped the `reorderIds`/`BoardCardSize` exports `design-system/page.tsx:9`
+   imported, 500ing the page. I left `components/board/*` untouched and did not paper
+   over it in design-system — their API change, their consumer. They fixed the import.
 2. **NYS-90 (medium)** — /library: scaffold cards + the chrome fusion problem above.
 3. NYS-78 (Export/Refresh ghost drift) + NYS-79 (dead duplicate) still open.
 
 ### Gotchas
-- **NYS-76's docs could not be verified in a browser** — blocked by NYS-89; the page
-  typechecks and its own hunks are clean. Everything else verified on :3010 as brendan
-  (all seven 200; toolbars, new columns and facets present in the HTML).
+- Verified on :3010 as brendan: all seven 200; toolbars, new columns and facets in the
+  HTML. /design-system 200 with the IndexHeader + RelatedLink cards and count 45, once
+  the board session fixed its own import (NYS-89). The Start-here paragraph is absent
+  from SSR HTML *correctly* — that block is tab-gated, as is the pre-existing text.
 - The registry's RelatedLink is absent from page 1's HTML *correctly*: only 3,113 of
   105k rows are billing TINs, and they arrive via the client-side filter. The same
   treatment is confirmed rendering in /published-rates' SSR HTML.
