@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { BoardGrid, reorderIds, type BoardCardSize } from "@/components/board/board-grid";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Icon } from "@/components/ui/icons";
 import { TopBarActions } from "@/components/shell/topbar-slot";
 import {
   BUILT_IN_VIEWS,
@@ -18,30 +18,14 @@ import { KpiLibraryPanel, DRAG_TYPE } from "./kpi-library-panel";
 import { MetricCard } from "./metric-card";
 import type { DictionaryEntry } from "@/lib/repos/analytics";
 
-// The board — hq's fleet-view/fleet-grid, rebuilt to this brief's simpler
-// contract: cards flow in a responsive CSS grid and carry a SIZE STEP
-// (1-col / 2-col / full-width) rather than hq's free-form 12-col pixel grid.
-// Reordering is drag-and-drop; adding is drag-in from the library (the same
-// dataTransfer handshake hq uses) or click-to-add.
-//
-// Why a flow grid and not hq's absolute-positioned one: hq's grid exists to let
-// a card sit anywhere on a 12-col canvas, and pays for it with collision
-// resolution + a px-height model. This board only needs order + width, and a
-// flow grid gets responsive stacking for free — the same reason the rest of
-// Liminal's pages use grids, not canvases.
+// The analytics board — this is now composition, not machinery: BoardGrid owns
+// the layout, the reorder drag, and the card affordances; this file owns which
+// metrics are placed, the size ladder, views, and persistence. The board is
+// also the drop surface for a drag-in from the KPI library (the same
+// dataTransfer handshake hq uses); click-to-add is the other route in.
 
-export type CardSize = "sm" | "md" | "lg";
+type CardSize = BoardCardSize;
 
-const SPAN: Record<CardSize, string> = {
-  sm: "col-span-1",
-  md: "col-span-1 sm:col-span-2",
-  lg: "col-span-1 sm:col-span-2 xl:col-span-4",
-};
-const HEIGHT: Record<CardSize, string> = {
-  sm: "h-[180px]",
-  md: "h-[264px]",
-  lg: "h-[340px]",
-};
 const NEXT_SIZE: Record<CardSize, CardSize> = { sm: "md", md: "lg", lg: "sm" };
 const SIZE_ORDER: CardSize[] = ["sm", "md", "lg"];
 const SIZE_LABEL: Record<CardSize, string> = { sm: "small", md: "wide", lg: "full width" };
@@ -105,7 +89,6 @@ export function AnalyticsBoard({
   }));
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [aboutKey, setAboutKey] = useState<string | null>(null);
-  const [dragId, setDragId] = useState<string | null>(null);
   const [dropHint, setDropHint] = useState(false);
   const [ready, setReady] = useState(false);
 
@@ -234,15 +217,12 @@ export function AnalyticsBoard({
     persist(viewName, next);
   }, [views, viewName, allowed, persist]);
 
-  // Reorder: the dragged card is spliced in ahead of whatever card it's over.
+  // Reorder: the dragged card lands on the far side of the card it was dropped
+  // on (reorderIds owns the rule — see the primitive).
   const reorder = useCallback(
     (from: string, to: string) => {
-      if (from === to) return;
       setBoard((b) => {
-        const ids = b.ids.filter((k) => k !== from);
-        const at = ids.indexOf(to);
-        ids.splice(at < 0 ? ids.length : at, 0, from);
-        const next = { ...b, ids };
+        const next = { ...b, ids: reorderIds(b.ids, from, to) };
         persist(viewName, next);
         return next;
       });
@@ -320,58 +300,22 @@ export function AnalyticsBoard({
             }
           />
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {placed.map((key) => {
-              const def = METRIC_BY_KEY[key];
-              const size = board.sizes[key] ?? defaultSize(key);
-              return (
-                <div
-                  key={key}
-                  // data-card is a test hook: the board's interactions are only
-                  // real if a browser can drive them (see an-verify).
-                  data-card={key}
-                  onDragOver={(e) => {
-                    if (dragId && dragId !== key) e.preventDefault();
-                  }}
-                  onDrop={(e) => {
-                    if (dragId) {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      reorder(dragId, key);
-                      setDragId(null);
-                    }
-                  }}
-                  className={`${SPAN[size]} ${HEIGHT[size]} ${dragId === key ? "opacity-40" : ""}`}
-                >
-                  <MetricCard
-                    def={def}
-                    value={values[key]}
-                    size={SIZE_LABEL[size]}
-                    onRemove={() => removeMetric(key)}
-                    onAbout={() => setAboutKey(key)}
-                    onResize={() => resizeMetric(key)}
-                    onResizeStep={(dir) => stepMetricSize(key, dir)}
-                    dragHandle={
-                      <span
-                        draggable
-                        onDragStart={(e) => {
-                          setDragId(key);
-                          e.dataTransfer.effectAllowed = "move";
-                          e.dataTransfer.setData("text/plain", key);
-                        }}
-                        onDragEnd={() => setDragId(null)}
-                        title="Drag to reorder"
-                        aria-label={`Reorder ${def.label}`}
-                        className="cursor-grab rounded p-1 text-text-muted opacity-0 transition hover:bg-canvas hover:text-text group-hover/card:opacity-100 active:cursor-grabbing"
-                      >
-                        <Icon name="dots-horizontal" size={14} />
-                      </span>
-                    }
-                  />
-                </div>
-              );
-            })}
-          </div>
+          <BoardGrid
+            items={placed}
+            size={(key) => board.sizes[key] ?? defaultSize(key)}
+            onReorder={reorder}
+            renderCard={(key) => (
+              <MetricCard
+                def={METRIC_BY_KEY[key]}
+                value={values[key]}
+                size={SIZE_LABEL[board.sizes[key] ?? defaultSize(key)]}
+                onRemove={() => removeMetric(key)}
+                onAbout={() => setAboutKey(key)}
+                onResize={() => resizeMetric(key)}
+                onResizeStep={(dir) => stepMetricSize(key, dir)}
+              />
+            )}
+          />
         )}
       </div>
 

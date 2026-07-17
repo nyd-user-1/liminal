@@ -5,6 +5,8 @@ import { AccordionSection } from "@/components/ui/accordion-section";
 import { Avatar, AvatarGroup } from "@/components/ui/avatar";
 import { Badge, CountBadge, DotBadge } from "@/components/ui/badge";
 import { Banner } from "@/components/ui/banner";
+import { BoardCard } from "@/components/board/board-card";
+import { BoardGrid, reorderIds, type BoardCardSize } from "@/components/board/board-grid";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { Card, SettingsCard } from "@/components/ui/card";
@@ -399,6 +401,8 @@ const KIT_IMPORTS: Record<string, string> = {
   EmptyState: 'import { EmptyState } from "@/components/ui/empty-state";',
   AccordionSection: 'import { AccordionSection } from "@/components/ui/accordion-section";',
   Card: 'import { Card, SettingsCard } from "@/components/ui/card";',
+  "BoardGrid / BoardCard":
+    'import { BoardGrid } from "@/components/board/board-grid";\nimport { BoardCard } from "@/components/board/board-card";',
   LibraryCard: 'import { LibraryCard } from "@/components/ui/library-card";',
   Divider: 'import { Divider } from "@/components/ui/divider";',
   PageHeader: 'import { PageHeader } from "@/components/ui/page-header";',
@@ -730,6 +734,66 @@ INTERACTION / HOVER SYSTEM:
 DATA: everything through lib/repos/* (dual-mode: hasDb ? sql : mock). Repos return dates as ISO strings (isoDateTime/isoDateOnly), never driver Date objects.
 
 VERIFY: npx tsc --noEmit clean, and exercise the change in headless Chrome (playwright-core, channel:"chrome") before claiming done.`;
+
+// The board primitive, live. Everything the pack does is on this demo: hold the
+// card (or its ⠿) and drag it onto another to reorder, drag the bottom-right
+// grip out/in to step the size, click the × to drop a card.
+const BOARD_DEMO: Record<string, { value: string; sub: string }> = {
+  sessions: { value: "128", sub: "this week · +12%" },
+  revenue: { value: "$18.4k", sub: "collected · 30 days" },
+  noshows: { value: "4.1%", sub: "of booked · 30 days" },
+};
+const BOARD_IDS = Object.keys(BOARD_DEMO);
+const BOARD_LABEL: Record<string, string> = { sessions: "Sessions", revenue: "Revenue", noshows: "No-show rate" };
+const BOARD_NEXT: Record<BoardCardSize, BoardCardSize> = { sm: "md", md: "lg", lg: "sm" };
+const BOARD_ORDER: BoardCardSize[] = ["sm", "md", "lg"];
+
+function BoardDemo() {
+  const [ids, setIds] = useState(BOARD_IDS);
+  const [sizes, setSizes] = useState<Record<string, BoardCardSize>>({});
+  const sizeOf = (id: string) => sizes[id] ?? "sm";
+  const step = (id: string, dir: 1 | -1) =>
+    setSizes((s) => {
+      const i = Math.min(Math.max(BOARD_ORDER.indexOf(sizeOf(id)) + dir, 0), BOARD_ORDER.length - 1);
+      return { ...s, [id]: BOARD_ORDER[i] };
+    });
+
+  return (
+    <div className="w-full">
+      <BoardGrid
+        items={ids}
+        size={sizeOf}
+        onReorder={(from, to) => setIds((cur) => reorderIds(cur, from, to))}
+        renderCard={(id) => (
+          <BoardCard
+            label={BOARD_LABEL[id]}
+            title={BOARD_LABEL[id]}
+            onRemove={() => setIds((cur) => cur.filter((k) => k !== id))}
+            onResizeStep={(dir) => step(id, dir)}
+            onResizeCycle={() => setSizes((s) => ({ ...s, [id]: BOARD_NEXT[sizeOf(id)] }))}
+            menu={
+              <KebabMenu label={`${BOARD_LABEL[id]} actions`} align="right">
+                <MenuItem icon="info" label="About this data" onClick={() => {}} />
+                <MenuItem icon="columns-3" label={`Resize (${sizeOf(id)})`} onClick={() => setSizes((s) => ({ ...s, [id]: BOARD_NEXT[sizeOf(id)] }))} />
+              </KebabMenu>
+            }
+            footer={<span className="font-mono text-[11px] text-text-muted">appointments</span>}
+          >
+            <div className="flex min-h-0 flex-1 flex-col justify-center">
+              <span className="text-[26px] font-semibold leading-none text-text">{BOARD_DEMO[id].value}</span>
+              <span className="mt-1.5 text-[13px] text-text-muted">{BOARD_DEMO[id].sub}</span>
+            </div>
+          </BoardCard>
+        )}
+      />
+      {ids.length < BOARD_IDS.length && (
+        <Button size="sm" variant="ghost" leftIcon="refresh-cw" className="mt-3" onClick={() => setIds(BOARD_IDS)}>
+          Put them back
+        </Button>
+      )}
+    </div>
+  );
+}
 
 function DesignRules() {
   const [open, setOpen] = useState(true);
@@ -1521,6 +1585,13 @@ export default function DesignSystemPage() {
           </Group>
 
           <Group title="Layout & brand">
+            <Spec
+              name="BoardGrid / BoardCard"
+              desc="Dashboard board: cards flow in a 4-col grid, carry a size step, and reorder by picking the whole card up. Hover for the pack — × top-left, ⠿ top-right, resize grip bottom-right; hold anywhere and drag."
+              wide
+            >
+              <BoardDemo />
+            </Spec>
             <Spec name="Card" desc="Base Card + SettingsCard header." wide>
               <div className="grid w-full gap-3 sm:grid-cols-2">
                 <Card>
