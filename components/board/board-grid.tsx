@@ -40,18 +40,36 @@ export interface BoardCardDrag {
 const BoardCardContext = createContext<BoardCardDrag | null>(null);
 export const useBoardCardDrag = () => useContext(BoardCardContext);
 
-/** The default ladder: one column, two, then the full four. */
-export const BOARD_GRID = "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4";
+// TWELVE columns, under faint always-on gridlines — hq's board is a 12-col
+// canvas and the visible grid is what makes arranging legible: you can see what
+// you are snapping to (`~/Code/hq/app/ui/fleet-grid.tsx:234-242`, the only place
+// hq draws them). Twelve is the number because it divides by 1, 2, 3, 4 and 6,
+// so one set of lines serves a 4-col metrics board AND a 3-col record board —
+// every consumer's card edges land on the same grid.
+export const BOARD_COLS = 12;
+
+/** The default ladder — a quarter, a half, the full width at the top breakpoint. */
 export const BOARD_SPAN: Record<BoardCardSize, string> = {
-  sm: "col-span-1",
-  md: "col-span-1 sm:col-span-2",
-  lg: "col-span-1 sm:col-span-2 xl:col-span-4",
+  sm: "col-span-12 sm:col-span-6 xl:col-span-3",
+  md: "col-span-12 xl:col-span-6",
+  lg: "col-span-12",
 };
 export const BOARD_HEIGHT: Record<BoardCardSize, string> = {
   sm: "h-[180px]",
   md: "h-[264px]",
   lg: "h-[340px]",
 };
+/** The gutter, in px. The grid owns this as a NUMBER rather than a `gap-*`
+ *  class because the gridline geometry is derived from it (see below) — a class
+ *  would be a second source of truth, free to drift from the lines. */
+export const BOARD_GAP = 12;
+
+// The hairlines. hq paints zinc-500 at 15% over near-black; the light-theme
+// translation is the border token — the faintest ink this theme owns — and hq's
+// idle-vs-drag opacity (0.7 → 1) becomes idle-vs-drag alpha: always on, livelier
+// the moment you pick a card up.
+const LINE_IDLE = "color-mix(in srgb, var(--color-border) 70%, transparent)";
+const LINE_DRAG = "var(--color-border)";
 
 /** The board's reorder rule, as a pure function so every caller agrees: the
  *  card you carried lands on the far side of the card you dropped it on —
@@ -80,9 +98,10 @@ export function BoardGrid({
   size = () => "md",
   onReorder,
   renderCard,
-  className = BOARD_GRID,
+  className = "",
   span = BOARD_SPAN,
   height = BOARD_HEIGHT,
+  gap = BOARD_GAP,
 }: {
   /** Card ids, in board order. */
   items: string[];
@@ -91,10 +110,15 @@ export function BoardGrid({
   /** `from` was dropped on `to` — splice `from` in ahead of `to`. */
   onReorder: (from: string, to: string) => void;
   renderCard: (id: string) => ReactNode;
-  /** Grid classes. Defaults to the 4-col board. */
+  /** Extra classes for the board surface. The twelve-column track and the
+   *  gutter belong to the primitive — never pass `grid-cols-*` or `gap-*`, or
+   *  the gridlines stop describing where the cards actually are. */
   className?: string;
+  /** Per-size col-spans, in twelfths. */
   span?: Record<BoardCardSize, string>;
   height?: Record<BoardCardSize, string>;
+  /** Gutter in px. */
+  gap?: number;
 }) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -178,8 +202,24 @@ export function BoardGrid({
     };
   }, [dragId, onReorder]);
 
+  // The gridlines, derived from the track geometry rather than measured, so they
+  // cannot drift from the cards. With 12 columns and gutter g the column period
+  // is exactly (W + g)/12 — so a 1px line every period, pulled left by half a
+  // gutter, lands each line dead-centre in a gutter: precisely the boundary a
+  // card edge snaps to. Percentages in background-size resolve against this
+  // element, so this needs no measurement and no resize listener (hq measures
+  // only because its cards are absolutely positioned and need cellW anyway).
+  // The line at x=0 falls off-canvas and the 12th past the right edge, leaving
+  // the 11 interior boundaries — texture between the cards, no frame around them.
+  const surface = {
+    gap: `${gap}px`,
+    backgroundImage: `linear-gradient(to right, ${dragId ? LINE_DRAG : LINE_IDLE} 1px, transparent 1px)`,
+    backgroundSize: `calc((100% + ${gap}px) / ${BOARD_COLS}) 100%`,
+    backgroundPosition: `-${gap / 2}px 0`,
+  };
+
   return (
-    <div className={className}>
+    <div className={`grid grid-cols-12 ${className}`} style={surface}>
       {items.map((id) => {
         const s = size(id);
         return (

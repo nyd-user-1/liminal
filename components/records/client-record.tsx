@@ -73,17 +73,23 @@ export interface ClientRecordBundle {
 // tiles, so the ladder starts where /analytics' ends: three columns beside a
 // 320px rail, and heights that fit a handful of rows without an inner scroll.
 // BoardGrid takes the ladder as config — no new step in the primitive.
-const CLIENT_GRID = "grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3";
+//
+// Expressed in TWELFTHS, because the board is a 12-column grid under visible
+// gridlines: 12 divides by 3, so "three columns" is four twelfths and the card
+// edges still land on the lines. Same layout as the 1/2/3-col version it
+// replaces, breakpoint for breakpoint — the grid track and the 16px gutter are
+// the primitive's now (`gap`), so neither belongs in a class here.
+//
 // One column, then two, then three — so a step is only ever a step: `md` must
-// stay at 1 column while the grid has 2, or every medium card eats a whole row
+// stay at half while the grid shows 2, or every medium card eats a whole row
 // and the ladder collapses into "full width, taller".
 //
 // A card carrying a DataTable (Rx, Orders, Billing) defaults to `lg`: its
 // toolbar alone wants ~700px, and half a board beside the rail is ~430px.
 const CLIENT_SPAN: Record<BoardCardSize, string> = {
-  sm: "col-span-1",
-  md: "col-span-1 2xl:col-span-2",
-  lg: "col-span-1 lg:col-span-2 2xl:col-span-3",
+  sm: "col-span-12 lg:col-span-6 2xl:col-span-4",
+  md: "col-span-12 lg:col-span-6 2xl:col-span-8",
+  lg: "col-span-12",
 };
 const CLIENT_HEIGHT: Record<BoardCardSize, string> = {
   sm: "h-[320px]",
@@ -566,9 +572,9 @@ export function ClientRecord({
             items={placed}
             size={sizeOf}
             onReorder={reorder}
-            className={CLIENT_GRID}
             span={CLIENT_SPAN}
             height={CLIENT_HEIGHT}
+            gap={16}
             renderCard={(key) => {
               const def = CARD_BY_KEY[key];
               const count = def.count?.(record);

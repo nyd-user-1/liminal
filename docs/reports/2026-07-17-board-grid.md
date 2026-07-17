@@ -63,3 +63,89 @@ reload — plus the `/design-system` demo rendering and reordering. `npx tsc --n
 - `touch-none` is on the grip/resize only (hq's choice), so whole-card hold-drag won't engage on touch
   — page scrolling wins. Desktop board, as briefed.
 - `data-board-card={id}` is both the drop hit-test target and the browser-test hook (replaced `data-card`).
+
+---
+## LEAD INSTRUCTIONS — next task (from last-fable-standing, 2026-07-17)
+
+**The board is missing hq's actual grid.** Look at hq's board again — there is
+a faint 12-column grid with visible gridlines in the background of the whole
+board surface, always on. It makes arranging and resizing dramatically easier
+(you can see what you're snapping to). Our BoardGrid has no grid you can see
+and a coarse 4-col flow. Fix both, in `components/board/`:
+
+1. READ THE HQ CODE for the real implementation — search ~/Code/hq for how the
+   board background gridlines are drawn (likely a CSS background on the board
+   container in fleet-view/fleet-grid/globals.css — find it, don't guess).
+2. Port it: BoardGrid gets a TWELVE-column underlying grid with faint
+   always-on gridlines, translated to our light theme (hairlines at low alpha
+   — border-border at reduced opacity; they must read as texture, not chrome).
+   Sizes map onto col-spans (sm=3, md=6, lg=12 — or what hq's ratios imply);
+   the size ladder semantics and both consumers (/analytics, the client board)
+   must keep working unchanged. Resize/drag should visibly relate to the grid.
+3. Verify in a real browser like your last pass: gridlines render on both
+   boards, light theme, no contrast complaints at normal zoom; drag/resize
+   feel snappier against the visible grid; reload persistence intact.
+
+Working agreements unchanged (own files only, commit, NO push). File your
+report by APPENDING "## Report 2 — board gridlines" to this file. Linear: file
+a ticket, close it on done. Questions: append "## QUESTION FOR LEAD" here —
+this file is monitored.
+
+---
+## Report 2 — board gridlines (NYS-86)
+
+## Shipped
+- **BoardGrid is a twelve-column grid** with faint always-on vertical gridlines, hq's
+  `fleet-grid.tsx:234-242` translated to the light kit. `grid-cols-12` is now structural
+  (hard-coded in the primitive, not a class a consumer can pass), because the lines only
+  tell the truth if the track count is fixed.
+- **The ladder is twelfths**: default `sm=3 / md=6 / lg=12` at the top breakpoint.
+- **`gap` is a prop (px number, default 12)**, and the gridline geometry is derived from it.
+- **Lines brighten on drag** — border token at 70% idle → 100% held, hq's `opacity: drag ? 1 : 0.7`.
+- **Consumers**: `/analytics` and the `/design-system` demo needed **no change** — they take the
+  defaults. The client board's 1/2/3-col ladder was re-expressed in twelfths (4/8/12) and now
+  passes `gap={16}` instead of `gap-4` in a class; same layout, breakpoint for breakpoint.
+
+## DB changes
+None — UI only.
+
+## Decisions
+- **The lines are computed, not measured.** With 12 columns and gutter g, the column period is
+  exactly `(W + g)/12`, so `background-size: calc((100% + Gpx)/12)` with `background-position: -G/2`
+  puts a 1px line dead-centre in every gutter — the exact boundary a card edge snaps to. No
+  ResizeObserver, no measurement, nothing to drift. hq measures `cellW` only because its cards
+  are absolutely positioned and need the number anyway; ours don't.
+- **Why the gutter had to become a number.** A `gap-*` class would be a second source of truth
+  the line math can't read, free to drift from the lines. One number now feeds both.
+- **Twelve serves every board.** 12 divides by 1, 2, 3, 4 and 6, so the same lines fit the 4-col
+  metrics board (3/6/12) and the 3-col record board (4/8/12) — which is why the client board
+  didn't need a bespoke grid, and why a future 6-col board won't either.
+- **Vertical lines only — deliberate, flagging it.** hq also draws horizontals because its rows
+  *are* a unit (24px, cards sized in row counts). Ours are a flow grid whose row heights are
+  180/264/340 (client: 320/420/520) with no common divisor above 4px. A horizontal rule here
+  would align with nothing — chrome, not texture, which is the one thing the brief said to avoid.
+  Every line we draw is a real snap boundary. If you want the graph-paper look regardless, say so
+  and I'll add it, but it would be decoration.
+- **Colour**: `--color-border` (#e6e7eb) is only ~12 RGB units off the canvas (#f2f3f6), so
+  "reduced opacity" bottoms out fast; 70% is as faint as it can go and still read. Tuned against
+  a real screenshot at 1600px, not guessed.
+
+## Verification
+18/18 in real Chrome on :3010 at 1600px, plus a 4-width breakpoint sweep. The load-bearing check:
+**every card edge lands on the grid** — for all 3 boards, each card's `left/period` and
+`(right+gap)/period` are whole numbers (analytics 3/6 twelfths, client board 4/8/12, demo 3), and
+the line period equals the browser's *own* resolved track period (e.g. track 97.66px + gap 12 =
+109.66 vs line period 109.67). Confirmed 12 real tracks on each board; lines brighten on drag;
+order still persists across reload; no page-level horizontal scroll. Breakpoint sweep proves the
+ladder is unchanged: a `sm` card fills 1.000 / 0.500 / 0.500 / 0.250 of the board at 520 / 800 /
+1100 / 1500px — identical to the old 1/2/4-col grid. `npx tsc --noEmit` clean.
+
+## Open items
+- None new. NYS-74 (library scrim) was fixed by the client-board session in `87fd1c2`.
+
+## Gotchas
+- **Never pass `grid-cols-*` or `gap-*` to BoardGrid** — the track and gutter are the primitive's;
+  a class would silently decouple the cards from the lines. `className` is for extras, `gap` is a number.
+- Spans must be twelfths. A `col-span-1` left over from the old ladder is a 1/12 card, not a full one.
+- The lines paint on the grid container itself (no extra layer), so they cover exactly the board
+  surface and sit under the cards by paint order — nothing to keep in sync.
