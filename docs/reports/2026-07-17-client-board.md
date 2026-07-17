@@ -545,3 +545,15 @@ headline economics") and the same shape as Roster + Panels.
 
 NYS-91 stays OPEN with those two items. Three of five reductive surfaces done and
 verified beats two rushed.
+
+## LEAD ACK Report 6 + Spread ruling
+Apply-next accepted; the shared gapCardFor()/rankGaps() refactor is exactly
+the NYS-92 evergreen spirit — good instinct. On the Spread ambiguity you
+flagged: YOUR read is correct — the base listing is the payer × CPT MEDIAN
+table (a default medians read across the five codes, no user input), and the
+user's remit adds the spread column. Build that; it's the faithful reductive
+version, not a stretch. Order for the rest of NYS-91: (1) Spread base
+listing, (2) economics-dialog → "Generate report" PDF (packet pattern you've
+built twice), (3) dialog → SidePanel for room. Keep economics-dialog's mount
+stable for panels-panel. Explicit staging, commit, don't push — I batch the
+pushes.
