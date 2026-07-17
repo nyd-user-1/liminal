@@ -38,17 +38,12 @@ export function BandsPanel({
   codes,
   onCodesChange,
   pin,
-  view,
-  onViewChange,
 }: {
   codes: string[];
   onCodesChange: (codes: string[]) => void;
   /** Set by the Affiliation Economics "renegotiate" CTA — pins the insurer
    *  filter and makes sure the code is selected. */
   pin?: { payer: string; billingCode: string } | null;
-  /** The Rates/Bands view — now the Filter's first category, not a chip. */
-  view: "rates" | "bands";
-  onViewChange: (v: "rates" | "bands") => void;
 }) {
   const [bands, setBands] = useState<RateBand[]>([]);
   const [loading, setLoading] = useState(true);
@@ -166,14 +161,6 @@ export function BandsPanel({
           tintedHeader
           toolbar={
             <>
-              {/* The Rates/Bands view switch, now a filter chip like the rest. */}
-              <ChipMenu
-                label="View"
-                options={[{ value: "rates", label: "Rates" }, { value: "bands", label: "Bands" }]}
-                value={view}
-                onSelect={(v) => onViewChange(v === "bands" ? "bands" : "rates")}
-                onClear={() => onViewChange("rates")}
-              />
               <ChipMenu
                 label="Code"
                 options={codeOptions}

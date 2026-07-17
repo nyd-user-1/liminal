@@ -23,7 +23,8 @@ import { SpreadPanel } from "@/components/rates/spread-panel";
 // either can set it (KYR phase 2).
 
 const TABS = [
-  { key: "bands", label: "Services" },
+  { key: "rates", label: "Rates" },
+  { key: "bands", label: "Bands" },
   { key: "panels", label: "Panels" },
   { key: "roster", label: "Roster check" },
   { key: "apply-next", label: "Apply next" },
@@ -43,9 +44,7 @@ const BLURBS: Record<string, string> = {
 
 export function RatesShell({ userEmail }: { userEmail?: string }) {
   const toast = useToast();
-  const [tab, setTab] = useState("bands");
-  // Services leads with the rates themselves; the quartile bands keep a view.
-  const [servicesView, setServicesView] = useState<"rates" | "bands">("rates");
+  const [tab, setTab] = useState("rates");
   // Empty = no code filter applied (the negotiation card shows every code by
   // default, sorted A-Z) — codes narrow the table, they don't gate it.
   const [codes, setCodes] = useState<string[]>([]);
@@ -53,15 +52,12 @@ export function RatesShell({ userEmail }: { userEmail?: string }) {
   const [pin, setPin] = useState<{ payer: string; billingCode: string } | null>(null);
 
   // The economics dialog's "renegotiate" CTA pins an insurer+code — it means
-  // the cohort spread, so it must land on the Bands view, not the raw rows.
+  // the cohort spread, so it lands on the Bands tab, not the raw rates.
   const onPinBands = (payer: string, billingCode: string) => {
     setPin({ payer, billingCode });
-    setServicesView("bands");
     setTab("bands");
   };
 
-  // The Rates/Bands view switch is owned here (rates-shell holds the state) but
-  // now lives inside each panel's Filter — passed as state, not a rendered chip.
   return (
     <div className="flex h-full min-h-0 flex-col">
       <TopBarActions>
@@ -78,20 +74,19 @@ export function RatesShell({ userEmail }: { userEmail?: string }) {
       <Tabs className="mt-4 shrink-0" items={TABS} active={tab} onChange={setTab} slideActive />
 
       {/* Sits under the tab hairline, above the tab body — one line saying what
-          this tab's table is. The Rates/Bands switch used to live here; it now
-          rides in the panel's own toolbar, beside the search (below). */}
+          this tab's table is. */}
       <div className="mb-4 mt-3 flex shrink-0 flex-wrap items-center justify-between gap-3">
-        <p className="text-[15px] text-text-body">{tab === "bands" ? BLURBS[servicesView] : BLURBS[tab]}</p>
+        <p className="text-[15px] text-text-body">{BLURBS[tab]}</p>
       </div>
 
-      {/* Bands + Panels own their scroll internally (sticky-header table); Spread
-          is a form-then-small-result screen, so its tab body scrolls normally. */}
+      {/* Each table owns its scroll internally (sticky-header table); Spread is a
+          form-then-small-result screen, so its tab body scrolls normally. Rates
+          and Bands stay mounted (hidden) so a search or lookup survives a switch. */}
+      <div className="min-h-0 flex-1 flex flex-col" hidden={tab !== "rates"}>
+        <ServicesPanel />
+      </div>
       <div className="min-h-0 flex-1 flex flex-col" hidden={tab !== "bands"}>
-        {servicesView === "rates" ? (
-          <ServicesPanel view={servicesView} onViewChange={setServicesView} />
-        ) : (
-          <BandsPanel codes={codes} onCodesChange={setCodes} pin={pin} view={servicesView} onViewChange={setServicesView} />
-        )}
+        <BandsPanel codes={codes} onCodesChange={setCodes} pin={pin} />
       </div>
       <div className="min-h-0 flex-1" hidden={tab !== "panels"}>
         <PanelsPanel

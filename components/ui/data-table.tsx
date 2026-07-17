@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ColumnPicker } from "@/components/ui/column-picker";
 import { KebabMenu } from "@/components/ui/kebab-menu";
 import { MenuItem } from "@/components/ui/dropdown-menu";
-import { LoadMoreRow, SortableHead, Table, Td, Tr, useLazyBatch, useSort, type SortState } from "@/components/ui/table";
+import { LoadMoreRow, SortableHead, Table, Td, Tr, useLazyBatch, useSentinel, useSort, type SortState } from "@/components/ui/table";
 import { Toolbar } from "@/components/ui/toolbar";
 
 // Catalog `DataTable` — the canonical table standard (docs/TASK-TABLE-STANDARD.md)
@@ -77,6 +77,8 @@ export function DataTable<T>({
   toolbarExtra,
   toolbarLeft,
   footnote,
+  tableFooter,
+  onEndReached,
   className,
   lazy,
   scrollToKey,
@@ -109,6 +111,13 @@ export function DataTable<T>({
    */
   toolbarLeft?: ReactNode;
   footnote?: ReactNode;
+  /** A summary line rendered as a sticky footer INSIDE the table card (via the
+   *  Table `footer` slot), instead of `footnote` below it. */
+  tableFooter?: ReactNode;
+  /** Fired when the user scrolls to the bottom of the rows — for server-paged
+   *  tables that grow on scroll instead of a "Load more" button. Guard the
+   *  callback (skip when already loading or exhausted). */
+  onEndReached?: () => void;
   className?: string;
   /**
    * Render in growing batches (useLazyBatch + a LoadMoreRow sentinel) instead
@@ -296,6 +305,11 @@ export function DataTable<T>({
   });
   const rendered = lazy ? batch : treeRows;
 
+  // Server-paged infinite scroll: once client batching has nothing left to
+  // reveal (or lazy is off entirely), a bottom sentinel asks the caller for the
+  // next page. Kept separate from the lazy sentinel so the two never fight.
+  const endSentinelRef = useSentinel(() => onEndReached?.(), !!onEndReached && !(lazy && hasMore));
+
   useEffect(() => {
     if (!lazy || !scrollToKey || targetIndex < 0) return;
     // The anchor already put the row in `rendered` in this same commit, so it's
@@ -393,6 +407,7 @@ export function DataTable<T>({
       <Table
         head={head}
         stickyHeader={fillHeight}
+        footer={tableFooter}
         toolbar={
           // Stacked: the toolbar IS the card's header section — search + filter
           // flex-grow on the left, the utilities kebab pinned right. The column
@@ -492,6 +507,9 @@ export function DataTable<T>({
         })}
         {lazy && hasMore && (
           <LoadMoreRow sentinelRef={sentinelRef} colSpan={shown.length + (selectable ? 1 : 0) + (rowActions ? 1 : 0)} />
+        )}
+        {onEndReached && !(lazy && hasMore) && (
+          <LoadMoreRow sentinelRef={endSentinelRef} colSpan={shown.length + (selectable ? 1 : 0) + (rowActions ? 1 : 0)} />
         )}
       </Table>
       {footnote}

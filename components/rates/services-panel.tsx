@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Banner } from "@/components/ui/banner";
-import { Button } from "@/components/ui/button";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FilterMenu } from "@/components/ui/filter-menu";
@@ -35,7 +34,7 @@ const CODES = ["90791", "90834", "90837", "90853", "99214"] as const;
 
 type Result = { rows: RateRow[]; total: number; facets: { payers: string[]; networks: string[] } };
 
-export function ServicesPanel({ view, onViewChange }: { view: "rates" | "bands"; onViewChange: (v: "rates" | "bands") => void }) {
+export function ServicesPanel() {
   const [q, setQ] = useState("");
   const [payer, setPayer] = useState<string | undefined>();
   const [code, setCode] = useState<string | undefined>();
@@ -82,7 +81,11 @@ export function ServicesPanel({ view, onViewChange }: { view: "rates" | "bands";
 
   const rows = data ? [...data.rows, ...more] : [];
 
+  // Grows the loaded set on scroll (no "Load more" button). Guarded so the
+  // bottom sentinel can fire repeatedly without stacking fetches or running
+  // past the total.
   const loadMore = async () => {
+    if (busy || !data || rows.length >= data.total) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/rates/services?${params(rows.length)}`);
@@ -150,17 +153,13 @@ export function ServicesPanel({ view, onViewChange }: { view: "rates" | "bands";
   // One two-level Filter in place of three chips: the dimension first, its
   // values behind it — Insurer/Plan searchable (long facet lists), Code short.
   const filterCategories = [
-    // The Rates/Bands view switch lives in the Filter now, not a chip beside the
-    // search — its options are the two views, and picking one swaps the panel.
-    { key: "view", label: "View", options: [{ value: "rates", label: "Rates" }, { value: "bands", label: "Bands" }] },
     { key: "payer", label: "Insurer", options: data.facets.payers.map((p) => ({ value: p, label: p })) },
     { key: "network", label: "Plan", options: data.facets.networks.map((n) => ({ value: n, label: n })) },
     { key: "code", label: "Code", options: CODES.map((c) => ({ value: c, label: `${c} · ${cptLabel(c)}` })) },
   ];
-  const filterSelected = { view, payer, network, code };
+  const filterSelected = { payer, network, code };
   const onFilterSelect = (key: string, value: string | undefined) => {
-    if (key === "view") onViewChange(value === "bands" ? "bands" : "rates");
-    else if (key === "payer") setPayer(value);
+    if (key === "payer") setPayer(value);
     else if (key === "network") setNetwork(value);
     else if (key === "code") setCode(value);
   };
@@ -172,15 +171,14 @@ export function ServicesPanel({ view, onViewChange }: { view: "rates" | "bands";
       rowKey={(r) => `${r.payer}|${r.tin}|${r.npi}|${r.network}|${r.setting}|${r.billingCode}`}
       storageKey="rates.services.columns"
       fillHeight
-      lazy
       stacked
       collapseActions
       className="min-h-0 flex-1"
       onExport={() => setError(null)}
+      onEndReached={loadMore}
       toolbarLeft={
-        // Search leads, then the one Filter (which now carries the Rates/Bands
-        // view switch as its first category). The utility cluster
-        // (Columns/Export) folds into the kebab on the right (collapseActions).
+        // Search leads, then the one Filter. The utility cluster (Columns/Export)
+        // folds into the kebab on the right (collapseActions).
         <div className="flex flex-1 flex-wrap items-center gap-2.5">
           <SearchInput
             value={q}
@@ -196,20 +194,14 @@ export function ServicesPanel({ view, onViewChange }: { view: "rates" | "bands";
           <div className="rounded-card border border-border bg-surface shadow-card">
             <EmptyState icon="clipboard" title="No published rates match" subtext="Clear the search or a filter." />
           </div>
-        ) : (
-          <div className="flex flex-wrap items-center gap-3">
-            <p className="text-[13px] text-text-muted">
-              Search <span className="tabular-nums">{data.total.toLocaleString("en-US")}</span> published rates. For
-              Billing groups with more than 100 published rate rows see the corresponding{" "}
-              <TextLink href="/orgs">Organization</TextLink>.
-            </p>
-            {rows.length < data.total && (
-              <Button variant="secondary" size="sm" onClick={loadMore} loading={busy}>
-                Load more
-              </Button>
-            )}
-          </div>
-        )
+        ) : undefined
+      }
+      tableFooter={
+        <p className="text-[13px] text-text-muted">
+          Search <span className="tabular-nums">{data.total.toLocaleString("en-US")}</span> published rates. For Billing
+          groups with more than 100 published rate rows see the corresponding <TextLink href="/orgs">organization</TextLink>.
+          {busy && <span className="ml-2">Loading…</span>}
+        </p>
       }
     />
   );

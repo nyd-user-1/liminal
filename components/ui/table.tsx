@@ -19,22 +19,21 @@ export function Table({
   stickyHeader = false,
   tintedHeader = false,
   toolbar,
+  footer,
   onHeaderContextMenu,
   children,
 }: {
   head: ReactNode[];
   className?: string;
   stickyHeader?: boolean;
-  /**
-   * Grey header band (the `stacked` DataTable variant) instead of the default
-   * white-on-white. GREY, not teal, on purpose: teal means focus/active in this
-   * kit, and a permanent teal band across every header spends that signal on
-   * chrome — see the Start-here rules.
-   */
+  /** Grey header band (a variant); the default is white with teal text. */
   tintedHeader?: boolean;
   /** A row rendered INSIDE the table chrome, above the header — the `stacked`
    *  variant's toolbar. Sticks with the header while the body scrolls. */
   toolbar?: ReactNode;
+  /** A row rendered INSIDE the chrome at the BOTTOM (a count/summary line).
+   *  Sticks to the bottom of the scroll area while the body scrolls. */
+  footer?: ReactNode;
   /** Right-click on ANY header cell. Callers preventDefault to replace the
    *  native menu; the event carries clientX/clientY to anchor a popover. */
   onHeaderContextMenu?: (e: MouseEvent<HTMLTableCellElement>) => void;
@@ -67,6 +66,9 @@ export function Table({
         </thead>
         <tbody>{children}</tbody>
       </table>
+      {footer && (
+        <div className="sticky bottom-0 z-20 border-t border-border bg-surface px-4 py-2.5">{footer}</div>
+      )}
     </div>
   );
 }
