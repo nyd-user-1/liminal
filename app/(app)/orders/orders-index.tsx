@@ -1,9 +1,6 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { IconButton } from "@/components/ui/icon-button";
-import { Tabs } from "@/components/ui/tabs";
-import { TopBarActions } from "@/components/shell/topbar-slot";
+import { IndexHeader } from "@/components/ui/index-header";
 import { useToast } from "@/components/ui/toast";
 import { OrdersTable, type OrderRow } from "@/components/tables/orders-table";
 
@@ -15,17 +12,14 @@ export function OrdersIndex({ rows, truncated }: { rows: OrderRow[]; truncated: 
 
   return (
     <>
-      <TopBarActions>
-        <Button size="sm" leftIcon="plus" onClick={() => toast("New order isn’t wired up yet.", "info")}>
-          New order
-        </Button>
-        <IconButton icon="bell" label="Notifications" onClick={() => toast("No new notifications.", "info")} />
-      </TopBarActions>
-
-      {/* The only in-content list heading — the TopBar H1 stays route-derived.
-          One tab until this page earns real sections; the three placeholders
+      {/* One tab until this page earns real sections; the three placeholders
           that used to sit beside it named nothing. */}
-      <Tabs className="mt-4 mb-4 shrink-0" slideActive active="all" items={[{ key: "all", label: "All Orders" }]} />
+      <IndexHeader
+        tabs={[{ key: "all", label: "All Orders" }]}
+        active="all"
+        newLabel="New order"
+        onNew={() => toast("New order isn’t wired up yet.", "info")}
+      />
 
       <OrdersTable rows={rows} truncated={truncated} />
     </>

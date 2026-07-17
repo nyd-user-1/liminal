@@ -387,6 +387,7 @@ const KIT_IMPORTS: Record<string, string> = {
   Stepper: 'import { Stepper } from "@/components/ui/stepper";',
   "Spinner / Skeleton": 'import { Spinner, Skeleton } from "@/components/ui/spinner";',
   Tabs: 'import { Tabs } from "@/components/ui/tabs";',
+  IndexHeader: 'import { IndexHeader } from "@/components/ui/index-header";',
   Breadcrumb: 'import { Breadcrumb } from "@/components/ui/breadcrumb";',
   Pagination: 'import { Pagination } from "@/components/ui/pagination";',
   Toolbar: 'import { Toolbar } from "@/components/ui/toolbar";',
@@ -711,7 +712,7 @@ const DEMO_ICONS: IconName[] = [
 
 const DESIGN_RULES = `Leuk design system — start here (read before you build)
 
-REUSE FIRST. ~44 UI primitives in components/ui/* and ~30 feature components. Compose what exists; if no primitive fits, compose several. Adding a genuinely new primitive requires saying so explicitly in your report. Never duplicate a feature component.
+REUSE FIRST. ~45 UI primitives in components/ui/* and ~30 feature components. Compose what exists; if no primitive fits, compose several. Adding a genuinely new primitive requires saying so explicitly in your report. Never duplicate a feature component.
 
 COLOR TOKENS (CSS vars in app/globals.css — never invent colors):
 • Brand: primary #3F8290 (teal) · primary-hover #35707C · primary-deep #2C5C66 (deep teal for large accent type) · primary-weak #B7D8DD (chip/fill pastel) · primary-wash #DCECEC (pale-teal field — the hero/section wash) · accent #F0AE55 (amber) · accent-ink #C58A2E (amber on white, AA).
@@ -722,6 +723,13 @@ COLOR TOKENS (CSS vars in app/globals.css — never invent colors):
 TYPOGRAPHY: Inter for all UI/body. Bricolage Grotesque (font-display) for MARKETING display headings only — never in the app UI.
 
 LAYOUT: One H1 per app page, and it lives in the TopBar (route-derived via ROUTE_TITLES in components/shell/topbar.tsx). Pages never render their own page-level H1. Exceptions: entity detail headers and full-screen/marketing surfaces (which own their H1).
+
+THE INDEX PAGE STANDARD (every object list wears this — do not re-invent it):
+• Top half = IndexHeader (components/ui/index-header.tsx): the TopBar's actions (New <entity> + bell) and the tab row, one thin piece. Its TopBar half portals into the real TopBar, so it renders wherever it sits in the page. The tab row carries the only in-content list heading.
+• Bottom half = DataTable (components/ui/data-table.tsx): it already owns the toolbar, the column picker, the table and the scroll. Toolbar anatomy is fixed — search LEFT (toolbarLeft), then the right group: Filter · Columns · Export · Refresh. Pass filter= for the Filter slot, storageKey= for Columns, onExport=, onRefresh=. Omit a button only where it is genuinely meaningless (e.g. /catalog has no facet to filter by), and say so.
+• The list itself is an OBJECT TABLE (components/tables/*): self-contained — its own columns, toolbar, filters, detail panel and data wiring, plus a scope prop and an onRowOpen callback — so the same table serves its own route AND an embedded rail (see /clients).
+• No page-level horizontal scroll: the Table owns the scroll, so give every flex ancestor min-w-0 (the recurring overflow bug is in the ancestor chain, never the table).
+• No dead rows: every row does something on click — a detail panel, a drill-down, or a record page. Kebab-only is the fallback when nothing exists to open.
 
 INTERACTION / HOVER SYSTEM:
 • Teal = focus/active only.
@@ -862,7 +870,7 @@ export default function DesignSystemPage() {
         active={tab}
         onChange={setTab}
         items={[
-          { key: "primitives", label: "Primitives", count: 44 },
+          { key: "primitives", label: "Primitives", count: 45 },
           { key: "foundations", label: "Foundations" },
           { key: "assets", label: "Assets" },
           { key: "components", label: "Components", count: featureTotal },
@@ -1452,6 +1460,38 @@ export default function DesignSystemPage() {
                   { key: "notes", label: "Notes" },
                 ]}
               />
+            </Spec>
+            {/* Static anatomy, not a live mount: IndexHeader's TopBar half
+                portals into the real TopBar, so rendering one here would put a
+                stray "New …" button in this page's own TopBar. */}
+            <Spec name="IndexHeader" desc="The index page standard, top half: New + bell, then the tab row." wide>
+              <div className="w-full space-y-3">
+                <div className="rounded-card border border-dashed border-border bg-canvas px-4 py-2.5">
+                  <p className="text-[13px] text-text-muted">
+                    TopBar (portalled) — <span className="font-mono text-text-body">route H1</span> · · ·{" "}
+                    <span className="font-mono text-text-body">New client</span> ·{" "}
+                    <span className="font-mono text-text-body">bell</span>
+                  </p>
+                </div>
+                <Tabs
+                  className="w-full"
+                  slideActive
+                  active={innerTab}
+                  onChange={setInnerTab}
+                  items={[
+                    { key: "overview", label: "All Clients" },
+                    { key: "billing", label: "Prescriptions" },
+                    { key: "notes", label: "Orders" },
+                  ]}
+                />
+                <p className="text-[13px] text-text-body">
+                  Pair with <span className="font-mono">DataTable</span> below it — that is the standard&rsquo;s bottom
+                  half and already owns the toolbar (search left; Filter · Columns · Export · Refresh), the column
+                  picker, the table and the scroll. The list itself belongs in{" "}
+                  <span className="font-mono">components/tables/*</span> as a self-contained object table, so the same
+                  table serves its route and an embedded rail. See the Start-here rules for the full standard.
+                </p>
+              </div>
             </Spec>
             <Spec name="Breadcrumb" desc="Muted link trail above a PageHeader.">
               <Breadcrumb items={[{ label: "Clients", href: "#" }, { label: "Amara Okafor", href: "#" }, { label: "Billing" }]} />

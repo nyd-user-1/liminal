@@ -1,10 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { IconButton } from "@/components/ui/icon-button";
-import { Tabs } from "@/components/ui/tabs";
-import { TopBarActions } from "@/components/shell/topbar-slot";
+import { IndexHeader } from "@/components/ui/index-header";
 import { useToast } from "@/components/ui/toast";
 import { ClientsTable } from "@/components/tables/clients-table";
 import { PrescriptionsTable } from "@/components/tables/prescriptions-table";
@@ -82,21 +79,15 @@ export function ClientsIndex({
 
   return (
     <>
-      <TopBarActions>
-        <Button size="sm" leftIcon="plus" onClick={newAction[section].onClick}>
-          {newAction[section].label}
-        </Button>
-        <IconButton icon="bell" label="Notifications" onClick={() => toast("No new notifications.", "info")} />
-      </TopBarActions>
-
       <div className="flex h-full min-h-0 flex-col">
         {/* Swaps the table in place — /directory's Providers/Programs model, not
             routing: the four surfaces of one patient-record section under one
             tab row. Status left this row and became editable in its own column —
-            it is a property of the client, not a place to stand. */}
-        <Tabs
-          className="mt-4 mb-4 shrink-0"
-          slideActive
+            it is a property of the client, not a place to stand.
+            (IndexHeader's TopBar half portals out of this div into the TopBar.) */}
+        <IndexHeader
+          newLabel={newAction[section].label}
+          onNew={newAction[section].onClick}
           active={view === "list" ? section : view}
           onChange={(k) => {
             if (isSection(k)) {
@@ -107,7 +98,7 @@ export function ClientsIndex({
             }
           }}
           onClose={closeTab}
-          items={[
+          tabs={[
             // The only in-content list heading — the TopBar H1 stays route-derived.
             { key: "clients", label: isAdmin ? "All Clients" : "My Clients" },
             { key: "prescriptions", label: "Prescriptions" },
