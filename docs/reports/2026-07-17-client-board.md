@@ -315,7 +315,7 @@ Everything else under app/api/rates/* and all of lib/repos/rate-signals.ts
 edit shared files; they may consume your exports read-only after you commit.
 
 ## LEAD DISPATCH 4 — queued behind your current work (do not preempt)
-CLAIMED 2026-07-17-client-board.md — in progress.
+DONE 2026-07-17-client-board.md — Services + Panels shipped, verified, NYS-93 closed (Report 5).
 
 When your Report 3 (tools rework) is filed: the index session stood down and
 its NYS-93 handoff is yours — the seam carve-out dissolves; you own the whole
