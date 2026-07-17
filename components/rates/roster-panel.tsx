@@ -8,9 +8,10 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Field } from "@/components/ui/field";
 import { Icon } from "@/components/ui/icons";
+import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { FilterMenu } from "@/components/ui/filter-menu";
 import { SearchInput } from "@/components/ui/search-input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { LoadMoreRow, Table, Td, Tr, useLazyBatch } from "@/components/ui/table";
 import { clinicianName } from "@/components/rates/clinician-name";
 import { cptLabel } from "@/components/rates/cpt";
 import { InsurerCell, InsurerMark } from "@/components/rates/insurer-mark";
@@ -349,47 +350,66 @@ function AffiliationCard({
 
 /** The base content: every payer×holder book we index. This is what "reductive"
  *  means here — the entirety is on screen, and the search takes things away. */
-function BookTable({ rows, total, truncated }: { rows: RateBookRow[]; total: number; truncated: boolean }) {
-  const { visible, hasMore, sentinelRef } = useLazyBatch(rows);
+const BOOK_COLS: DataTableColumn<RateBookRow>[] = [
+  { key: "payer", label: "Insurer", fixed: true, sortValue: (r) => r.payer, render: (r) => <InsurerCell payer={r.payer} /> },
+  {
+    key: "holder",
+    label: "Contract holder",
+    sortValue: (r) => r.holder,
+    cellClassName: "max-w-72",
+    render: (r) => (
+      <span className="min-w-0">
+        <span className="block truncate font-medium text-text" title={r.holder}>
+          {r.holder}
+        </span>
+        <span className="block truncate font-mono text-[12px] text-text-muted">{r.tin}</span>
+      </span>
+    ),
+  },
+  { key: "county", label: "County", sortValue: (r) => r.county ?? "", render: (r) => <span className="text-text-body">{r.county ?? "–"}</span> },
+  { key: "clinicians", label: "Clinicians", align: "right", sortValue: (r) => r.clinicians, render: (r) => r.clinicians.toLocaleString("en-US") },
+  { key: "workhorse", label: "90837 in-network rate", align: "right", sortValue: (r) => r.workhorse ?? "", render: (r) => <span className="text-text">{r.workhorse ?? "–"}</span> },
+  { key: "asOf", label: "As-of", sortValue: (r) => r.asOf, render: (r) => <span className="text-text-muted">{r.asOf}</span> },
+];
+
+function BookTable({ rows, total, truncated, toolbarLeft }: { rows: RateBookRow[]; total: number; truncated: boolean; toolbarLeft: React.ReactNode }) {
+  // Client-side Insurer facet over the loaded books — the "filter after search"
+  // the toolbar spec calls for. The search itself (server-side) is toolbarLeft.
+  const [payer, setPayer] = useState<string | undefined>();
+  const payers = [...new Set(rows.map((r) => r.payer))].sort();
+  const shown = payer ? rows.filter((r) => r.payer === payer) : rows;
   return (
-    <>
-      <Table
-        stickyHeader
-        head={["Insurer", "Contract holder", "County", "Clinicians", "90837 in-network rate", "As-of"]}
-      >
-        {visible.map((r) => (
-          <Tr key={`${r.payer}|${r.tin}`}>
-            <Td>
-              <InsurerCell payer={r.payer} />
-            </Td>
-            <Td className="max-w-72">
-              <span className="block truncate font-medium text-text" title={r.holder}>
-                {r.holder}
-              </span>
-              <span className="block truncate font-mono text-[12px] text-text-muted">{r.tin}</span>
-            </Td>
-            <Td className="whitespace-nowrap text-text-body">{r.county ?? "–"}</Td>
-            <Td className="whitespace-nowrap tabular-nums text-text-body">{r.clinicians.toLocaleString("en-US")}</Td>
-            <Td className="whitespace-nowrap tabular-nums text-text">{r.workhorse ?? "–"}</Td>
-            <Td className="whitespace-nowrap text-text-muted">{r.asOf}</Td>
-          </Tr>
-        ))}
-        {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={6} />}
-      </Table>
-      {/* Say what this covers. It is NOT every book we hold rates for: sql/027
-          allowlists the six insurers whose schedules resolve to one publishable
-          figure per billing ID, and excludes both Aetna labels (7.9M of 9.3M
-          rows, only ~4% single-rate) and the out-of-state Blues on purpose. A
-          listing that implied "everything" would be the additive screen's lie
-          told the other way round. */}
-      <p className="text-[13px] leading-relaxed text-text-muted">
-        {truncated
-          ? `Showing ${rows.length.toLocaleString("en-US")} of ${total.toLocaleString("en-US")} contract books — search to narrow, or enter a 10-digit NPI to see one clinician's.`
-          : `${total.toLocaleString("en-US")} contract ${total === 1 ? "book" : "books"}. Enter a 10-digit NPI to see one clinician's.`}{" "}
-        Covers the insurers whose published schedules resolve to a single rate per billing ID — Aetna and the
-        out-of-state Blues publish multi-rate schedules a single figure can&rsquo;t honestly represent.
-      </p>
-    </>
+    <DataTable
+      columns={BOOK_COLS}
+      rows={shown}
+      rowKey={(r) => `${r.payer}|${r.tin}`}
+      storageKey="rates.roster.columns"
+      lazy
+      stacked
+      collapseActions
+      onExport={() => {}}
+      toolbarLeft={toolbarLeft}
+      filter={
+        <FilterMenu
+          categories={[{ key: "payer", label: "Insurer", options: payers.map((p) => ({ value: p, label: p })) }]}
+          selected={{ payer }}
+          onSelect={(_k, v) => setPayer(v)}
+        />
+      }
+      footnote={
+        // Say what this covers. It is NOT every book we hold rates for: sql/027
+        // allowlists the six insurers whose schedules resolve to one publishable
+        // figure per billing ID, and excludes both Aetna labels and the
+        // out-of-state Blues on purpose.
+        <p className="text-[13px] leading-relaxed text-text-muted">
+          {truncated
+            ? `Showing ${rows.length.toLocaleString("en-US")} of ${total.toLocaleString("en-US")} contract books — search to narrow, or enter a 10-digit NPI to see one clinician's.`
+            : `${total.toLocaleString("en-US")} contract ${total === 1 ? "book" : "books"}. Enter a 10-digit NPI to see one clinician's.`}{" "}
+          Covers the insurers whose published schedules resolve to a single rate per billing ID — Aetna and the
+          out-of-state Blues publish multi-rate schedules a single figure can&rsquo;t honestly represent.
+        </p>
+      }
+    />
   );
 }
 
@@ -469,22 +489,32 @@ export function RosterPanel({
 
   const attByTin = new Map(attestations.map((a) => [a.tin, a]));
   const showingCards = !!npiCandidate;
+  const listingEmpty = !showingCards && !!books && books.rows.length === 0;
+
+  const searchNode = (
+    <SearchInput
+      value={term}
+      onChange={(e) => setTerm(e.target.value)}
+      placeholder="Search insurers and contract holders — or enter a 10-digit NPI"
+      className="w-full sm:w-[447px]"
+    />
+  );
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <SearchInput
-          value={term}
-          onChange={(e) => setTerm(e.target.value)}
-          placeholder="Search insurers and contract holders — or enter a 10-digit NPI"
-          className="w-full max-w-xl flex-1"
-        />
-        {showingCards && (
-          <Button variant="secondary" onClick={() => setTerm("")}>
-            Back to all books
-          </Button>
-        )}
-      </div>
+      {/* The search lives INSIDE the listing table's toolbar (BookTable). It
+          only floats up here when there's no table to host it: NPI-cards mode,
+          or a search that matched nothing. */}
+      {(showingCards || listingEmpty) && (
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="w-full max-w-xl flex-1">{searchNode}</span>
+          {showingCards && (
+            <Button variant="secondary" onClick={() => setTerm("")}>
+              Back to all books
+            </Button>
+          )}
+        </div>
+      )}
 
       {error && <Banner variant="danger">{error}</Banner>}
 
@@ -494,14 +524,14 @@ export function RosterPanel({
 
       {/* The listing — the screen's resting state, never blank. */}
       {!showingCards && books && !error && (
-        books.rows.length === 0 ? (
+        listingEmpty ? (
           <EmptyState
             icon="corner-down-right"
             title={`No published book matches “${term.trim()}”`}
             subtext="Search an insurer or a contract holder — or clear the box to see every book we index."
           />
         ) : (
-          <BookTable rows={books.rows} total={books.total} truncated={books.truncated} />
+          <BookTable rows={books.rows} total={books.total} truncated={books.truncated} toolbarLeft={searchNode} />
         )
       )}
 

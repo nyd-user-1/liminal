@@ -6,6 +6,8 @@ import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icons";
+import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { FilterMenu } from "@/components/ui/filter-menu";
 import { SearchInput } from "@/components/ui/search-input";
 import { LoadMoreRow, SortableHead, Table, Td, Tr, useLazyBatch, useSort } from "@/components/ui/table";
 import { Tag } from "@/components/ui/tag";
@@ -307,24 +309,32 @@ export function PanelsPanel({
     "Contract",
   ];
 
+  // The default org-wide listing hosts the search INSIDE its own toolbar
+  // (DefaultPanels, stacked). The search only floats up here when there's no
+  // such table: an NPI's standing view, a no-rows notice, or while loading.
+  const showingDefaults =
+    rows.length === 0 && !loading && noRowNpis.length === 0 && standings.length === 0 && defaults !== null && !defaultsError;
+
+  const searchNode = (
+    <div className="flex flex-1 flex-wrap items-center gap-2.5">
+      <SearchInput
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && lookup()}
+        placeholder="Search — or enter a 10-digit NPI to add a clinician"
+        className="w-full sm:w-[447px]"
+      />
+      {npiCandidate && (
+        <Button onClick={lookup} loading={loading}>
+          Look up NPI
+        </Button>
+      )}
+    </div>
+  );
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
-      {/* Stacked layout: the search spans the table column above the chrome;
-          the facets live inside it, under the search. */}
-      <div className="flex shrink-0 items-center gap-3">
-        <SearchInput
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && lookup()}
-          placeholder="Search — or enter a 10-digit NPI to add a clinician"
-          className="w-full flex-1"
-        />
-        {npiCandidate && (
-          <Button onClick={lookup} loading={loading}>
-            Look up NPI
-          </Button>
-        )}
-      </div>
+      {!showingDefaults && <div className="flex shrink-0 items-center gap-3">{searchNode}</div>}
       {error && <Banner className="shrink-0" variant="danger">{error}</Banner>}
 
       {noRowNpis.map((s) => (
@@ -390,7 +400,7 @@ export function PanelsPanel({
         ) : defaults === null ? (
           <TableSkeleton head={["Clinician", "Insurer", "Network", "Code", "Rate In-Ntwk", "Setting", "As-of"]} />
         ) : (
-          <DefaultPanels rows={defaults} q={q} />
+          <DefaultPanels rows={defaults} q={q} toolbarLeft={searchNode} />
         ))
       ) : (
         <Table
@@ -498,71 +508,96 @@ export function PanelsPanel({
  *  everyone (no On-TIN, no Solo/Group — those are per-NPI). Type into the search
  *  above and it narrows; enter a 10-digit NPI and the panel replaces this with
  *  that clinician's full standing. */
-function DefaultPanels({ rows, q }: { rows: DefaultRow[]; q: string }) {
-  const needle = q.trim().toLowerCase();
-  const filtered = needle
-    ? rows.filter((r) =>
-        `${r.displayName ?? r.npi} ${r.payer} ${r.network} ${r.tin} ${r.npi}`.toLowerCase().includes(needle),
-      )
-    : rows;
-  const { visible, hasMore, sentinelRef } = useLazyBatch(filtered, { resetKey: q });
+const DEFAULT_COLS: DataTableColumn<DefaultRow>[] = [
+  {
+    key: "clinician",
+    label: "Clinician",
+    fixed: true,
+    sortValue: (r) => r.displayName ?? r.npi,
+    render: (r) => <span className="font-medium text-text">{r.displayName ? providerDisplayName(r.displayName, "1") : `NPI ${r.npi}`}</span>,
+  },
+  {
+    key: "payer",
+    label: "Insurer",
+    sortValue: (r) => r.payer,
+    render: (r) => (
+      <span className="flex items-center gap-2.5">
+        <InsurerMark payer={r.payer} />
+        <span className="max-w-48 truncate text-text" title={r.payer}>
+          {r.payer}
+        </span>
+      </span>
+    ),
+  },
+  {
+    key: "network",
+    label: "Network",
+    sortValue: (r) => r.network,
+    cellClassName: "max-w-44 truncate",
+    render: (r) => <span title={r.network}>{networkLabel(r.network, r.payer) || r.network}</span>,
+  },
+  { key: "code", label: "Code", sortValue: (r) => r.billingCode, render: (r) => <span title={cptLabel(r.billingCode)}>{r.billingCode}</span> },
+  {
+    key: "rate",
+    label: "Rate In-Ntwk",
+    align: "right",
+    sortValue: (r) => r.rate ?? -1,
+    // nRates>1 means the payer published several rates for this exact cell, so
+    // there is no single figure to show — never a bare 0.
+    render: (r) =>
+      r.rate == null ? (
+        <span className="text-text-muted" title={`${r.nRates} rates published for this cell`}>
+          {r.nRates} rates
+        </span>
+      ) : (
+        <span className="font-medium text-text">${r.rate.toFixed(2)}</span>
+      ),
+  },
+  { key: "setting", label: "Setting", sortValue: (r) => r.setting, render: (r) => <span className="text-text-body" title={r.setting}>{settingLabel(r.setting) || "—"}</span> },
+  { key: "asOf", label: "As-of", sortValue: (r) => r.asOf ?? "", render: (r) => <span className="text-text-muted">{r.asOf ?? "—"}</span> },
+];
 
-  if (filtered.length === 0) {
-    return (
-      <EmptyState
-        icon="activity"
-        title={`No panel matches “${q.trim()}”`}
-        subtext="Search an insurer, network or contract holder — or enter a 10-digit NPI to see one clinician's full standing."
-      />
-    );
-  }
+function DefaultPanels({ rows, q, toolbarLeft }: { rows: DefaultRow[]; q: string; toolbarLeft: React.ReactNode }) {
+  const [payer, setPayer] = useState<string | undefined>();
+  const needle = q.trim().toLowerCase();
+  const filtered = rows.filter(
+    (r) =>
+      (!needle || `${r.displayName ?? r.npi} ${r.payer} ${r.network} ${r.tin} ${r.npi}`.toLowerCase().includes(needle)) &&
+      (!payer || r.payer === payer),
+  );
+  const payers = [...new Set(rows.map((r) => r.payer))].sort();
 
   return (
-    <Table
+    <DataTable
+      columns={DEFAULT_COLS}
+      rows={filtered}
+      rowKey={(r) => `${r.npi}|${r.payer}|${r.network}|${r.setting}|${r.billingCode}`}
+      storageKey="rates.panels.default.columns"
+      lazy
+      fillHeight
+      stacked
+      collapseActions
       className="min-h-0 flex-1"
-      stickyHeader
-      tintedHeader
-      head={["Clinician", "Insurer", "Network", "Code", nowrap("Rate In-Ntwk"), "Setting", nowrap("As-of")]}
-    >
-      {visible.map((r, i) => (
-        <Tr key={`${r.npi}|${r.payer}|${r.network}|${r.setting}|${r.billingCode}|${i}`}>
-          <Td className="whitespace-nowrap font-medium text-text">
-            {r.displayName ? providerDisplayName(r.displayName, "1") : `NPI ${r.npi}`}
-          </Td>
-          <Td className="whitespace-nowrap">
-            <span className="flex items-center gap-2.5">
-              <InsurerMark payer={r.payer} />
-              <span className="max-w-48 truncate text-text" title={r.payer}>
-                {r.payer}
-              </span>
-            </span>
-          </Td>
-          <Td>
-            <span className="block max-w-44 truncate" title={r.network}>
-              {networkLabel(r.network, r.payer) || r.network}
-            </span>
-          </Td>
-          <Td className="whitespace-nowrap" title={cptLabel(r.billingCode)}>
-            {r.billingCode}
-          </Td>
-          {/* nRates>1 means the payer published several rates for this exact
-              cell, so there is no single figure to show — never a bare 0. */}
-          <Td className="whitespace-nowrap font-medium text-text">
-            {r.rate == null ? (
-              <span className="text-text-muted" title={`${r.nRates} rates published for this cell`}>
-                {r.nRates} rates
-              </span>
-            ) : (
-              `$${r.rate.toFixed(2)}`
-            )}
-          </Td>
-          <Td className="whitespace-nowrap text-text-body" title={r.setting}>
-            {settingLabel(r.setting) || "—"}
-          </Td>
-          <Td className="whitespace-nowrap text-text-muted">{r.asOf ?? "—"}</Td>
-        </Tr>
-      ))}
-      {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={7} />}
-    </Table>
+      onExport={() => {}}
+      toolbarLeft={toolbarLeft}
+      filter={
+        <FilterMenu
+          categories={[{ key: "payer", label: "Insurer", options: payers.map((p) => ({ value: p, label: p })) }]}
+          selected={{ payer }}
+          onSelect={(_k, v) => setPayer(v)}
+        />
+      }
+      footnote={
+        filtered.length === 0 ? (
+          <div className="rounded-card border border-border bg-surface shadow-card">
+            <EmptyState
+              icon="activity"
+              title={`No panel matches “${q.trim()}”`}
+              subtext="Search an insurer, network or contract holder — or enter a 10-digit NPI to see one clinician's full standing."
+            />
+          </div>
+        ) : undefined
+      }
+    />
   );
 }

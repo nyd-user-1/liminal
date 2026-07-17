@@ -5,7 +5,6 @@ import { IconButton } from "@/components/ui/icon-button";
 import { useToast } from "@/components/ui/toast";
 import { TopBarActions } from "@/components/shell/topbar-slot";
 import { Button } from "@/components/ui/button";
-import { ChoiceChip } from "@/components/ui/choice-chip";
 import { Tabs } from "@/components/ui/tabs";
 import { ApplyNextPanel } from "@/components/rates/apply-next-panel";
 import { BandsPanel } from "@/components/rates/bands-panel";
@@ -61,16 +60,8 @@ export function RatesShell({ userEmail }: { userEmail?: string }) {
     setTab("bands");
   };
 
-  // The Rates/Bands view switch — owned here (rates-shell holds the state),
-  // rendered into whichever panel is showing so it sits in the panel's toolbar
-  // beside the search and survives the Rates↔Bands panel swap.
-  const viewToggle = (
-    <span className="flex shrink-0 items-center gap-1.5">
-      <ChoiceChip label="Rates" selected={servicesView === "rates"} onSelect={() => setServicesView("rates")} />
-      <ChoiceChip label="Bands" selected={servicesView === "bands"} onSelect={() => setServicesView("bands")} />
-    </span>
-  );
-
+  // The Rates/Bands view switch is owned here (rates-shell holds the state) but
+  // now lives inside each panel's Filter — passed as state, not a rendered chip.
   return (
     <div className="flex h-full min-h-0 flex-col">
       <TopBarActions>
@@ -97,9 +88,9 @@ export function RatesShell({ userEmail }: { userEmail?: string }) {
           is a form-then-small-result screen, so its tab body scrolls normally. */}
       <div className="min-h-0 flex-1 flex flex-col" hidden={tab !== "bands"}>
         {servicesView === "rates" ? (
-          <ServicesPanel viewToggle={viewToggle} />
+          <ServicesPanel view={servicesView} onViewChange={setServicesView} />
         ) : (
-          <BandsPanel codes={codes} onCodesChange={setCodes} pin={pin} viewToggle={viewToggle} />
+          <BandsPanel codes={codes} onCodesChange={setCodes} pin={pin} view={servicesView} onViewChange={setServicesView} />
         )}
       </div>
       <div className="min-h-0 flex-1" hidden={tab !== "panels"}>

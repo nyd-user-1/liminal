@@ -163,10 +163,10 @@ export function DataTable<T>({
    *
    *   index   — search LEFT in the toolbar, the Filter · Columns · Export ·
    *             Refresh cluster right, all of it ABOVE the table chrome.
-   *   stacked — `toolbarLeft` (the search) renders full-width above the chrome;
-   *             the actions cluster moves INSIDE the chrome, above a grey
-   *             header band. For dense analytical tables where the search IS
-   *             the primary control and the facets belong with the data.
+   *   stacked — the WHOLE toolbar lives INSIDE the table card as its header
+   *             section, above a grey column-header band: search + filter
+   *             left, the utilities kebab right. One bordered card wrapping
+   *             toolbar → headers → rows. For the analytical /rates tables.
    *
    * Same slots either way — a page changes layout, not its wiring.
    */
@@ -370,9 +370,9 @@ export function DataTable<T>({
       ref={wrapRef}
       className={`flex min-w-0 flex-col gap-3 ${fillHeight ? "min-h-0 flex-1" : ""} ${className ?? ""}`}
     >
-      {/* `stacked` puts the search full-width above the chrome and moves this
-          cluster inside it (see the variant note on the props). */}
-      {stacked && toolbarLeft && <div className="shrink-0">{toolbarLeft}</div>}
+      {/* `stacked` renders the whole toolbar INSIDE the table chrome (below) —
+          nothing floats above the card. The default index layout keeps the
+          toolbar above the chrome. */}
       {!stacked && hasToolbar && (
         <Toolbar className="shrink-0 flex-wrap" actions={actionsCluster}>
           {toolbarLeft}
@@ -393,8 +393,23 @@ export function DataTable<T>({
       <Table
         head={head}
         stickyHeader={fillHeight}
-        tintedHeader={stacked}
-        toolbar={stacked && hasToolbar ? actionsCluster : undefined}
+        toolbar={
+          // Stacked: the toolbar IS the card's header section — search + filter
+          // flex-grow on the left, the utilities kebab pinned right. The column
+          // header band stays white with teal text (Table's default), not tinted.
+          stacked && hasToolbar ? (
+            <>
+              <div className="flex flex-1 flex-wrap items-center gap-2.5">
+                {toolbarLeft}
+                {filter}
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {toolbarExtra}
+                {utilities}
+              </div>
+            </>
+          ) : undefined
+        }
         onHeaderContextMenu={
           storageKey
             ? (e) => {

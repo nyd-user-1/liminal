@@ -70,7 +70,7 @@ export async function listRateRows(
   f: RateRowFilters = {},
 ): Promise<{ rows: RateRow[]; total: number }> {
   if (!hasDb) return { rows: [], total: 0 };
-  const limit = Math.min(f.limit ?? 50, 200);
+  const limit = Math.min(f.limit ?? 50, 500);
   const offset = Math.max(f.offset ?? 0, 0);
   const q = f.q?.trim() ? `%${f.q.trim()}%` : null;
 

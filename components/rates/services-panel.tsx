@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { FilterMenu } from "@/components/ui/filter-menu";
 import { SearchInput } from "@/components/ui/search-input";
 import { cptLabel } from "@/components/rates/cpt";
 import { InsurerCell } from "@/components/rates/insurer-mark";
+import { TextLink } from "@/components/ui/text-link";
 import { TableSkeleton } from "@/components/rates/table-skeleton";
 import { networkLabel, settingLabel } from "@/lib/rate-table";
 import { formatDate, providerDisplayName } from "@/lib/format";
@@ -29,12 +30,12 @@ import type { RateRow } from "@/lib/repos/rate-rows";
 // see NYS-93. The old table read "All networks" on every row only because the
 // bands aggregated this away.
 
-const PAGE = 50;
+const PAGE = 500;
 const CODES = ["90791", "90834", "90837", "90853", "99214"] as const;
 
 type Result = { rows: RateRow[]; total: number; facets: { payers: string[]; networks: string[] } };
 
-export function ServicesPanel({ viewToggle }: { viewToggle?: ReactNode }) {
+export function ServicesPanel({ view, onViewChange }: { view: "rates" | "bands"; onViewChange: (v: "rates" | "bands") => void }) {
   const [q, setQ] = useState("");
   const [payer, setPayer] = useState<string | undefined>();
   const [code, setCode] = useState<string | undefined>();
@@ -97,9 +98,11 @@ export function ServicesPanel({ viewToggle }: { viewToggle?: ReactNode }) {
       key: "clinician",
       label: "Clinician",
       fixed: true,
-      cellClassName: "max-w-56 truncate",
+      // Truncate on the inner BLOCK, not the <td>: a table cell ignores
+      // max-width in auto-layout, so the column grows to the longest hospital
+      // name and shoves the sticky header sideways. A capped block holds it.
       render: (r) => (
-        <span className="font-medium text-text" title={r.displayName ?? r.npi}>
+        <span className="block max-w-56 truncate font-medium text-text" title={r.displayName ?? r.npi}>
           {r.displayName ? providerDisplayName(r.displayName, "1") : `NPI ${r.npi}`}
         </span>
       ),
@@ -111,8 +114,7 @@ export function ServicesPanel({ viewToggle }: { viewToggle?: ReactNode }) {
       key: "plan",
       label: "Plan",
       headTitle: "The plan/network the insurer published this rate under — their product, not an employer's plan",
-      cellClassName: "max-w-52 truncate",
-      render: (r) => <span title={r.network}>{networkLabel(r.network, r.payer)}</span>,
+      render: (r) => <span className="block max-w-52 truncate" title={r.network}>{networkLabel(r.network, r.payer)}</span>,
     },
     {
       key: "setting",
@@ -148,13 +150,17 @@ export function ServicesPanel({ viewToggle }: { viewToggle?: ReactNode }) {
   // One two-level Filter in place of three chips: the dimension first, its
   // values behind it — Insurer/Plan searchable (long facet lists), Code short.
   const filterCategories = [
+    // The Rates/Bands view switch lives in the Filter now, not a chip beside the
+    // search — its options are the two views, and picking one swaps the panel.
+    { key: "view", label: "View", options: [{ value: "rates", label: "Rates" }, { value: "bands", label: "Bands" }] },
     { key: "payer", label: "Insurer", options: data.facets.payers.map((p) => ({ value: p, label: p })) },
     { key: "network", label: "Plan", options: data.facets.networks.map((n) => ({ value: n, label: n })) },
     { key: "code", label: "Code", options: CODES.map((c) => ({ value: c, label: `${c} · ${cptLabel(c)}` })) },
   ];
-  const filterSelected = { payer, network, code };
+  const filterSelected = { view, payer, network, code };
   const onFilterSelect = (key: string, value: string | undefined) => {
-    if (key === "payer") setPayer(value);
+    if (key === "view") onViewChange(value === "bands" ? "bands" : "rates");
+    else if (key === "payer") setPayer(value);
     else if (key === "network") setNetwork(value);
     else if (key === "code") setCode(value);
   };
@@ -166,21 +172,22 @@ export function ServicesPanel({ viewToggle }: { viewToggle?: ReactNode }) {
       rowKey={(r) => `${r.payer}|${r.tin}|${r.npi}|${r.network}|${r.setting}|${r.billingCode}`}
       storageKey="rates.services.columns"
       fillHeight
+      lazy
+      stacked
       collapseActions
       className="min-h-0 flex-1"
       onExport={() => setError(null)}
       toolbarLeft={
-        // Search leads, the Rates/Bands view switch sits beside it, then the one
-        // Filter — the utility cluster (Columns/Export) folds into the kebab on
-        // the right (collapseActions).
+        // Search leads, then the one Filter (which now carries the Rates/Bands
+        // view switch as its first category). The utility cluster
+        // (Columns/Export) folds into the kebab on the right (collapseActions).
         <div className="flex flex-1 flex-wrap items-center gap-2.5">
           <SearchInput
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search by clinician, insurer, plan, TIN or NPI"
-            className="w-full sm:w-80"
+            className="w-full sm:w-[447px]"
           />
-          {viewToggle}
           <FilterMenu categories={filterCategories} selected={filterSelected} onSelect={onFilterSelect} />
         </div>
       }
@@ -191,9 +198,10 @@ export function ServicesPanel({ viewToggle }: { viewToggle?: ReactNode }) {
           </div>
         ) : (
           <div className="flex flex-wrap items-center gap-3">
-            <p className="text-[13px] tabular-nums text-text-muted">
-              Showing {rows.length.toLocaleString("en-US")} of {data.total.toLocaleString("en-US")} published rate
-              rows. Billing groups with more than 100 published rows for a payer live on /orgs, not here.
+            <p className="text-[13px] text-text-muted">
+              Search <span className="tabular-nums">{data.total.toLocaleString("en-US")}</span> published rates. For
+              Billing groups with more than 100 published rate rows see the corresponding{" "}
+              <TextLink href="/orgs">Organization</TextLink>.
             </p>
             {rows.length < data.total && (
               <Button variant="secondary" size="sm" onClick={loadMore} loading={busy}>
