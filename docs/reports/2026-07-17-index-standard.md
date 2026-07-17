@@ -312,60 +312,59 @@ plan/network). Proceed.
 ---
 ## Report 3 — /rates: the stacked layout, and what the "plan" column really is
 Commit `818624d`, local only, not pushed. Linear: NYS-90 closed (doc note, per your
-ruling), NYS-93 filed. Ruling (b) received and followed — I have NOT touched
-`lib/repos/rate-signals.ts` or `app/api/rates/*`.
+ruling); NYS-93 filed and carries every build fact. Ruling (b) followed — I have NOT
+touched `lib/repos/rate-signals.ts` or `app/api/rates/*`.
 
 ### Shipped (items 2, 3, 5)
-- **The stacked table layout, named and shared.** `DataTable` gains `stacked`;
-  `Table` gains the two pieces under it (`toolbar` — a row inside the chrome that
-  sticks with the header — and `tintedHeader`). Search spans the table column above
-  the chrome, facets/columns/export sit inside it, header is a band. Same slots
-  either way: a page changes layout, not wiring. /rates Services + Panels wear it
-  (both drive `Table` directly, so the variant lives in the primitive and they opt in).
-- **Grey band, not light-teal.** You offered either; I picked grey and documented why:
-  teal means focus/active in this kit, so a permanent teal header spends that signal
-  on chrome — and it would fight the sortable-header affordance, which is already teal.
-- **/design-system**: a rules paragraph naming the two layouts (index for object
-  lists, stacked for analytical tables) + a live card beside the default Table so the
-  contrast is visible.
+- **The stacked table layout, named and shared.** `DataTable` gains `stacked`; `Table`
+  gains the two pieces under it (`toolbar` — a row inside the chrome that sticks with
+  the header — and `tintedHeader`). Search spans the table column above the chrome,
+  facets/columns/export inside it, header a band. Same slots either way: a page
+  changes layout, not wiring. Services + Panels wear it (both drive `Table` directly,
+  so the variant lives in the primitive and they opt in).
+- **Grey band, not light-teal.** You offered either; grey, because teal means
+  focus/active in this kit — a permanent teal header spends that signal on chrome and
+  fights the sortable-header affordance, which is already teal. Documented on
+  /design-system: a rules paragraph naming both layouts + a live card beside the
+  default Table so the contrast is visible.
 - **Item 3** — a blurb per tab under the hairline, in the space the search vacated.
-- **Item 5** — the economics finding promoted from a stray chip to a callout row:
-  icon + sentence + action, now carrying which insurers and how many billing groups
-  with differing schedules (counted from the cards' distinct TINs — `EconCard` has no
-  count of its own). `economics-dialog.tsx` untouched (yours tonight).
-- Verified in real Chrome as brendan on :3010; shots in scratchpad
-  (`rates-services.png`, `rates-panels.png`, `ds-stacked-card.png`).
+- **Item 5** — the economics finding promoted from a stray chip to a callout row: icon
+  + sentence + action, now carrying which insurers and how many billing groups with
+  differing schedules (counted from the cards' distinct TINs; `EconCard` has no count
+  of its own). `economics-dialog.tsx` untouched — yours tonight.
+- Verified in real Chrome as brendan on :3010; shots in scratchpad. My first run
+  silently screenshotted the SIGN-IN page — worth knowing the trap exists.
 
-### DB changes — none. Reads only, and no repo file touched.
+### DB changes — none. Reads only; no repo file touched.
 
-### The finding that changes item 1 — NYS-93
-**The "plan" column cannot be an employer plan.** Measured, not assumed:
-- `plans` is **Aetna-only** (14 network_products: Aetna Choice POS II, Open Access
-  Aetna Select…). `rate_table_child_mv` has **no Aetna** — Empire/Cigna/Oxford/
-  Fidelis/Emblem/MetroPlus. `network_product ∩ plan_or_network` = **0**.
-- The only join (`source_file`, sql/020) is **1:many up to 499** — one rate row
-  prices up to 499 plans — and **no rate matview carries `source_file`**, so the key
-  lives only on the 9.3M fact table the perf rule forbids.
-- A joined Plan column would be empty on essentially every row.
+### Item 1's premise doesn't survive contact — three columns, measured (NYS-93)
+- **"Plan" can't be an employer plan.** `plans` is **Aetna-only** (14 products, all
+  Aetna); the rate matviews hold **no Aetna**; `network_product ∩ plan_or_network` =
+  **0**; the only join (`source_file`) is many:many up to **499 plans per file** and
+  is on **no** matview — it lives only on the 9.3M fact table the perf rule forbids.
+  It's disjoint BY DESIGN, in both files' comments: sql/020:16 (`aetna-mrf`) vs
+  sql/027:60-64 ("they'd render an almost entirely empty table").
+- **But the column he wants is real and free:** `plan_or_network` — "Cigna
+  national-oap", "Fidelis Exchange", "Optum Behavioral (OHBS)" — already on
+  `rate_table_child_mv.network`. Services reads "All networks" on every row *only
+  because the bands aggregate it away*. Item 1 populates it by doing what you asked:
+  stop aggregating. No join, no new matview.
+- **The schedule badge can't exist at row grain.** Flat/Group is `p25 === p75`, off
+  the AGGREGATE bands (sql/024). A child row has no p25/p75 — only `n<code>`, the
+  count of distinct rates for that cell. Substitute: flag multi-rate when `n<code>>1`.
+  Joining back to the bands would put a spread across OTHER NPIs on a row that isn't
+  about them.
+- **Services won't be "every rate row".** `rate_table_child_mv` covers ≤100-leaf TINs
+  only — **~48% of children excluded** (242 big TINs, Headway largest; /orgs owns
+  those rosters). The blurb must not claim completeness.
+- Also hidden by the aggregate: `setting` — sql/032 documents 99214 at $83.83 facility
+  vs $116.98 office for the same clinician. Worth a column.
 
-**But the column he wants is real and free:** it's `plan_or_network` — "Cigna
-national-oap", "Fidelis Exchange", "Optum Behavioral (OHBS)". It's already on
-`rate_table_child_mv.network`. Services shows **"All networks" on every row** today
-*only because the bands aggregate across it*. Item 1 populates the plan column by
-doing exactly what you asked — stop aggregating. No join, no new matview.
-Also hidden by the aggregate: `setting` — sql/032 documents 99214 at $83.83 facility
-vs $116.98 office for the same clinician. Worth a column.
-
-### Open — items 1 and 4, handed off with the build facts
-Not started as code: I hit the seam mid-item-1, and by the time your ruling landed I
-was too deep in this context to build a paginated read + API + unpivot UI carefully.
-A rushed half-read committed now would be worse than a precise handoff, so NYS-93
-carries everything needed: `rate_table_child_mv` = 129,490 rows, grain
-`(payer, tin, npi, network, setting)`, plain-column UNIQUE index (REFRESH
-CONCURRENTLY genuinely works here, unlike NYS-88's expression index), **pivoted**
-`c90791…c99214` + `n90791…` + `as_of` — one row per service = unpivot those five.
-`n<code> > 1` is the honest multi-rate badge. New files per your ruling:
-`lib/repos/rate-rows.ts` + `app/api/rates/services/route.ts`.
-
-**Item 4 correction stands** (screenshot proves it): Panels is **blank** by default —
-EmptyState until you look up an NPI. Not "mostly does this"; it's a data-layer change.
+### Open — items 1 and 4, handed off not half-built
+I hit the seam mid-item-1; your ruling landed after I was too deep in this context to
+build a paginated read + API + unpivot UI carefully. A rushed half-read committed now
+is worse than a precise handoff. NYS-93 has it all: grain, the pivot (unpivot
+`c90791…c99214`), the live index (sql/036 — plain columns, unlike NYS-88's dead md5
+one), the pagination precedent (`getOrgRoster` + `/api/orgs/roster`'s `?offset=&limit=`),
+and the new-files-only rule. **Item 4 correction stands, screenshot-proven:** Panels is
+blank by default — EmptyState until an NPI lookup. A data-layer change, not polish.
