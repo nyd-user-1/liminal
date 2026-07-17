@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { IndexHeader } from "@/components/ui/index-header";
 import { useToast } from "@/components/ui/toast";
 import { ClientsTable } from "@/components/tables/clients-table";
@@ -50,6 +50,22 @@ export function ClientsIndex({
     initialRecord ? [{ id: initialRecord.client.id, name: clientName(initialRecord.client) }] : [],
   );
   const [view, setView] = useState<string>(initialRecord ? initialRecord.client.id : "list");
+
+  // Keep the URL bar in step with the active tab, so ⌘R (or a bookmark, or a
+  // copied link) reopens the record you were on instead of the list. This is
+  // pure URL sync — the /clients/[id] route already server-renders the record
+  // as the open tab, so a reload lands exactly here. replaceState (not push)
+  // because tab switches are a workspace, not a history stack to walk back
+  // through; and we skip the write when the path already matches, which on a
+  // deep link's first paint leaves any ?tab= intact (the card-scroll already
+  // ran off the initialCard prop, not the URL). history.state is preserved so
+  // the App Router's own navigation record isn't clobbered.
+  useEffect(() => {
+    const target = view === "list" ? "/clients" : `/clients/${view}`;
+    if (window.location.pathname !== target) {
+      window.history.replaceState(window.history.state, "", target);
+    }
+  }, [view]);
 
   function openClient(c: Client) {
     setOpenTabs((tabs) => (tabs.some((t) => t.id === c.id) ? tabs : [...tabs, { id: c.id, name: clientName(c) }]));
