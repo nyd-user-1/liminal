@@ -557,3 +557,39 @@ listing, (2) economics-dialog → "Generate report" PDF (packet pattern you've
 built twice), (3) dialog → SidePanel for room. Keep economics-dialog's mount
 stable for panels-panel. Explicit staging, commit, don't push — I batch the
 pushes.
+
+---
+## HANDOFF to lead — standing down on /rates tables
+Brendan pulled me off; lead takes over the /rates table task. State as I leave it:
+
+### Done + verified (committed, not pushed)
+- **Roster check** reductive — book listing first, NPI → cards (`69e038e`).
+- **Panels** default listing (`c79490a`).
+- **Apply next** reductive — whole market, priced, NPI → gaps (`6bb183c`).
+- **Economics dialog → Generate report** — `/rates/renegotiate` letter (`a94078e`).
+- **Spread baseline DATA layer** — `listPayerMedians()` + `GET /api/rates/spread`
+  (`eb073a5`). This is the lead's own ruling (payer × CPT median table); tsc-clean.
+
+### NOT done — the reason I was pulled
+**The search/toolbar-in-table pattern.** Brendan asked (twice, with a screenshot)
+for every /rates listing table to carry the toolbar INSIDE the table card, above
+the header band: **search left · Filter dropdown right after it · action dropdown
+right-aligned** — exactly what `ServicesPanel` already does via `DataTable`
+(`toolbarLeft` = SearchInput + FilterMenu, `collapseActions`, `onExport`). I built
+the listing tables (Roster BookTable, Panels default, my Spread baseline) on the
+RAW `Table` primitive with the search floating ABOVE the card instead. That's the
+miss. The screenshot is the Services tab — it's the reference, already correct.
+
+**The fix, precisely:** convert Roster's BookTable, Panels' DefaultPanels, and the
+Spread baseline from `<Table>` to `<DataTable>` with `toolbarLeft={<SearchInput/> +
+<FilterMenu .../>}` + `collapseActions` + `onExport` — copy ServicesPanel's
+composition (components/rates/services-panel.tsx:162-206). The Spread baseline UI
+was mid-conversion (a `SpreadBaseline` sub-component) when I was pulled; that file
+is reverted to committed, so start it fresh from the data layer in `eb073a5`.
+
+### Remainder of NYS-91 (unchanged from Report 6)
+- Spread baseline UI (data layer ready in `eb073a5`).
+- Economics dialog → SidePanel for room (item 6).
+- The toolbar-in-table fix above (NYS-96).
+
+Nothing pushed. My files are committed and tsc-clean; the tree is not broken.
