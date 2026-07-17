@@ -155,17 +155,30 @@ export function EconomicsButton({
                   </p>
                 )}
                 {card.framing === "hours" && (
-                  <Button
-                    className="mt-3"
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => {
-                      setOpen(false);
-                      onPinBands(card.payer, pin.billingCode);
-                    }}
-                  >
-                    Renegotiate the lower schedule
-                  </Button>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {/* Item 5: the button that only pinned to Bands now WRITES
+                        the argument — a renegotiation letter citing this payer's
+                        own two schedules and the gap. PDFs are the product. */}
+                    <Button
+                      size="sm"
+                      leftIcon="download"
+                      onClick={() =>
+                        window.open(`/rates/renegotiate?npi=${npi}&payer=${encodeURIComponent(card.payer)}`, "_blank")
+                      }
+                    >
+                      Generate report
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setOpen(false);
+                        onPinBands(card.payer, pin.billingCode);
+                      }}
+                    >
+                      See the band on Services
+                    </Button>
+                  </div>
                 )}
               </div>
             );
