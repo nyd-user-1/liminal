@@ -142,6 +142,37 @@ function GapCardView({ npi, identity, gap }: { npi: string; identity: Credential
   );
 }
 
+/** A book in the whole-market listing, before an NPI is entered: the payer and
+ *  its headline economics, but none of the per-application readiness or packet —
+ *  those need a clinician. The opportunity is the reason to read on; the NPI is
+ *  how you turn it into an application. */
+function MarketCard({ gap }: { gap: GapCard }) {
+  const portal = portalFor(gap.payer);
+  return (
+    <Card>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <span className="flex items-center gap-2.5">
+            <InsurerMark payer={gap.payer} />
+            <h2 className="text-[17px] font-semibold text-text">{gap.payer}</h2>
+          </span>
+          <p className="text-[15px] text-text-body">{gap.headline}</p>
+          {gap.opportunity && <p className="text-xl font-semibold leading-snug text-text">{gap.opportunity}</p>}
+          {gap.asOf && <p className="text-sm text-text-muted">as-of {gap.asOf}</p>}
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <Badge variant={gap.negotiability === "flat" ? "neutral" : "info"}>{gap.negotiabilityLabel}</Badge>
+          {portal && (
+            <Button variant="secondary" size="sm" onClick={() => window.open(portal, "_blank")}>
+              Join-network portal
+            </Button>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export function ApplyNextPanel({
   activeNpi,
   onActiveNpi,
@@ -156,8 +187,14 @@ export function ApplyNextPanel({
   const [result, setResult] = useState<ApplyNextResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The default listing: every negotiable NY book with headline economics, so
+  // the tab opens on the whole market rather than a blank prompt. An NPI reduces
+  // it to that clinician's gaps (the readiness + packet the market can't have).
+  const [books, setBooks] = useState<GapCard[] | null>(null);
 
   const npiCandidate = /^\d{10}$/.test(npiInput.trim()) ? npiInput.trim() : null;
+  // Free text that isn't a 10-digit NPI filters the market listing by payer.
+  const filterTerm = !npiCandidate ? npiInput.trim().toLowerCase() : "";
 
   const fetchGaps = async (npi: string, sessions: number) => {
     setLoading(true);
@@ -183,6 +220,24 @@ export function ApplyNextPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeNpi]);
 
+  // The market listing — loaded once, re-priced when sessions/week changes.
+  // Only while no clinician is looked up (a result takes over the view).
+  useEffect(() => {
+    if (result) return;
+    let stale = false;
+    fetch(`/api/rates/apply-next?sessions=${Number(sessionsPerWeek) || 25}`)
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error ?? "Couldn't load the market.");
+        return d;
+      })
+      .then((d) => !stale && setBooks(d.books ?? []))
+      .catch((e) => !stale && setError(e instanceof Error ? e.message : "Couldn't load the market."));
+    return () => {
+      stale = true;
+    };
+  }, [result, sessionsPerWeek]);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-3">
@@ -190,7 +245,7 @@ export function ApplyNextPanel({
           value={npiInput}
           onChange={(e) => setNpiInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && npiCandidate && fetchGaps(npiCandidate, Number(sessionsPerWeek) || 25)}
-          placeholder="Enter your 10-digit NPI"
+          placeholder="Search insurers — or enter your 10-digit NPI to see your gaps"
           className="w-full max-w-md"
         />
         <Field
@@ -222,13 +277,35 @@ export function ApplyNextPanel({
 
       {loading && !result && <TableSkeleton head={["Payer", "Headline", "Packet"]} rows={2} />}
 
-      {!loading && !result && !error && (
-        <EmptyState
-          icon="wand-sparkles"
-          title="Find the gap with a fuse lit"
-          subtext="Enter your NPI to see every negotiable NY book you're absent from, ranked and priced, with a pre-filled packet ready to go."
-        />
+      {/* Default: the whole negotiable market, priced. Enter an NPI to reduce it
+          to your gaps. The listing is never blank. */}
+      {!loading && !result && !error && books === null && (
+        <TableSkeleton head={["Payer", "Headline", "Opportunity"]} rows={4} />
       )}
+
+      {!loading && !result && !error && books !== null && (() => {
+        const shown = filterTerm ? books.filter((b) => b.payer.toLowerCase().includes(filterTerm)) : books;
+        if (shown.length === 0) {
+          return (
+            <EmptyState
+              icon="wand-sparkles"
+              title={`No negotiable book matches “${npiInput.trim()}”`}
+              subtext="Search an insurer, or enter your 10-digit NPI to see the books you're absent from — ranked, priced, with a packet ready."
+            />
+          );
+        }
+        return (
+          <>
+            <p className="text-[13px] text-text-muted">
+              Every negotiable NY book we index, ranked by what it pays. Enter your NPI above to narrow this to the
+              books you&rsquo;re not in yet — each with a pre-filled packet.
+            </p>
+            {shown.map((gap) => (
+              <MarketCard key={gap.payer} gap={gap} />
+            ))}
+          </>
+        );
+      })()}
 
       {result && result.gaps.length === 0 && (
         <EmptyState

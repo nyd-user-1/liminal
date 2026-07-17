@@ -1126,6 +1126,73 @@ function medianFor90837(bands: BandNumbers[], payer: string): number | null {
   return bands.find((b) => b.payer === payer && b.billing_code === "90837")?.median ?? null;
 }
 
+/** One payer's GapCard economics from a set of pre-fetched bands — the shared
+ *  core of getApplyNext (per-NPI, over the candidate's own codes) and
+ *  listNegotiableBooks (org-wide, over the behavioral five). Kept in one place
+ *  so the two never drift on how a book is priced. */
+function gapCardFor(
+  payer: string,
+  bands: BandNumbers[],
+  sessionsPerWeek: number,
+  // "your codes" when the bands were fetched for a specific NPI's own codes;
+  // "these codes" for the org-wide behavioral-five market listing.
+  codesLabel: "your codes" | "these codes",
+): GapCard {
+  const payerBands = bands.filter((b) => b.payer === payer);
+  if (payerBands.length === 0) {
+    return {
+      payer,
+      headline: `No published band yet for ${codesLabel} in this book.`,
+      opportunity: null,
+      negotiability: "negotiated",
+      negotiabilityLabel: "Negotiated per group",
+      asOf: "",
+    };
+  }
+  const workhorse = payerBands.find((b) => b.billing_code === "90837") ?? payerBands[0];
+  const flat = workhorse.p25 === workhorse.p75;
+  const opportunityRaw = Math.round((workhorse.median * sessionsPerWeek * 48) / 100) * 100;
+  const asOf = payerBands.reduce((m, b) => (b.as_of > m ? b.as_of : m), payerBands[0].as_of);
+  const prefix = codesLabel === "your codes" ? "Median for your codes" : "Median";
+  return {
+    payer,
+    headline: `${prefix}: ${money(workhorse.median)} in-network (${workhorse.billing_code}) · top quartile ${money(workhorse.p75)}`,
+    opportunity: `≈ $${count(opportunityRaw)}/yr gross at ${sessionsPerWeek} sessions/wk at the median`,
+    negotiability: flat ? "flat" : "negotiated",
+    negotiabilityLabel: flat ? "Flat schedule" : "Negotiated per group",
+    asOf,
+  };
+}
+
+/** Rank GapCards by 90837 median descending; a payer with no 90837 band last. */
+function rankGaps(gaps: GapCard[], bands: BandNumbers[]): GapCard[] {
+  return [...gaps].sort((a, b) => {
+    const am = medianFor90837(bands, a.payer);
+    const bm = medianFor90837(bands, b.payer);
+    if (am === null && bm === null) return 0;
+    if (am === null) return 1;
+    if (bm === null) return -1;
+    return bm - am;
+  });
+}
+
+/**
+ * Every negotiable NY book, priced — the LISTING the Apply next tab opens on,
+ * before any NPI. The whole market: each checked payer with its headline
+ * economics over the behavioral five, ranked by 90837 median. An NPI then
+ * REDUCES this to the books that clinician is absent from (getApplyNext), and
+ * adds the per-application readiness the market view can't have.
+ */
+export async function listNegotiableBooks(
+  opts: { sessionsPerWeek?: number } = {},
+): Promise<{ books: GapCard[] }> {
+  const sessionsPerWeek = Math.min(60, Math.max(1, Math.round(opts.sessionsPerWeek ?? 25)));
+  const payers = await getCheckedBooks();
+  const bands = await bandNumbers(BEHAVIORAL_FIVE, DEFAULT_MIN_CLINICIANS, false);
+  const books = payers.map((p) => gapCardFor(p, bands, sessionsPerWeek, "these codes"));
+  return { books: rankGaps(books, bands) };
+}
+
 /**
  * The absent NY-book payers, ranked and priced — "Shelley needs to apply
  * tonight." Gaps come straight from the footprint; figures are the un-tiered
@@ -1144,43 +1211,8 @@ export async function getApplyNext(
   const codes = ownCodes.length > 0 ? ownCodes : BEHAVIORAL_FIVE;
   const bands = await bandNumbers(codes, DEFAULT_MIN_CLINICIANS, false);
 
-  const gaps: GapCard[] = footprint.absentFrom.map((payer) => {
-    const payerBands = bands.filter((b) => b.payer === payer);
-    if (payerBands.length === 0) {
-      return {
-        payer,
-        headline: "No published band yet for your codes in this book.",
-        opportunity: null,
-        negotiability: "negotiated" as const,
-        negotiabilityLabel: "Negotiated per group",
-        asOf: "",
-      };
-    }
-    const workhorse = payerBands.find((b) => b.billing_code === "90837") ?? payerBands[0];
-    const flat = workhorse.p25 === workhorse.p75;
-    const opportunityRaw = Math.round((workhorse.median * sessionsPerWeek * 48) / 100) * 100;
-    const asOf = payerBands.reduce((m, b) => (b.as_of > m ? b.as_of : m), payerBands[0].as_of);
-    return {
-      payer,
-      headline: `Median for your codes: ${money(workhorse.median)} in-network (${workhorse.billing_code}) · top quartile ${money(workhorse.p75)}`,
-      opportunity: `≈ $${count(opportunityRaw)}/yr gross at ${sessionsPerWeek} sessions/wk at the median`,
-      negotiability: flat ? "flat" : "negotiated",
-      negotiabilityLabel: flat ? "Flat schedule" : "Negotiated per group",
-      asOf,
-    };
-  });
-
-  // Rank by 90837 median descending; a payer with no 90837 band sorts last.
-  gaps.sort((a, b) => {
-    const am = medianFor90837(bands, a.payer);
-    const bm = medianFor90837(bands, b.payer);
-    if (am === null && bm === null) return 0;
-    if (am === null) return 1;
-    if (bm === null) return -1;
-    return bm - am;
-  });
-
-  return { npi, identity: footprint.identity, gaps };
+  const gaps = footprint.absentFrom.map((payer) => gapCardFor(payer, bands, sessionsPerWeek, "your codes"));
+  return { npi, identity: footprint.identity, gaps: rankGaps(gaps, bands) };
 }
 
 // ── Affiliation Economics ─────────────────────────────────────────────────
