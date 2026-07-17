@@ -15,7 +15,13 @@ import { cptLabel } from "@/components/rates/cpt";
 import { EconomicsButton } from "@/components/rates/economics-dialog";
 import { InsurerMark } from "@/components/rates/insurer-mark";
 import { TableSkeleton } from "@/components/rates/table-skeleton";
+import { providerDisplayName } from "@/lib/format";
+import { networkLabel, settingLabel } from "@/lib/rate-table";
+import type { RateRow } from "@/lib/repos/rate-rows";
 import type { Attestation, EconCard, NpiStanding } from "@/lib/repos/rate-signals";
+
+// The org-wide default rows are the Services read's shape (a new file of mine).
+type DefaultRow = RateRow;
 
 // Screen: Panels — look up an NPI, get every payer book that lists it as a
 // flat single-line-per-row table. Column model (settled with Brendan
@@ -99,6 +105,33 @@ export function PanelsPanel({
   const [attByNpi, setAttByNpi] = useState<Map<string, Attestation[]>>(new Map());
 
   const npiCandidate = /^\d{10}$/.test(q.trim()) ? q.trim() : null;
+
+  // The default listing, so the tab is never blank (dispatch 4 item 2). Panels'
+  // real value — Solo/Group/Platform, On-TIN, the economics callout — is
+  // computed per-NPI from cohort data, so it CAN'T be reproduced org-wide from
+  // the matviews. The honest default is therefore the org-wide rate rows we DO
+  // hold cheaply (the same read the Services tab uses), shown as-is. Entering an
+  // NPI reduces to that clinician AND switches on the contract framing, which is
+  // the reductive principle: the base listing is what's true for everyone, the
+  // NPI narrows-and-enriches. Only loads standalone (no initialNpi scoping) and
+  // only while nothing is looked up.
+  const [defaults, setDefaults] = useState<DefaultRow[] | null>(null);
+  const [defaultsError, setDefaultsError] = useState<string | null>(null);
+  useEffect(() => {
+    if (initialNpi || standings.length > 0 || defaults) return;
+    let stale = false;
+    fetch("/api/rates/services?limit=100")
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error ?? "Couldn't load the panels.");
+        return d;
+      })
+      .then((d) => !stale && setDefaults(d.rows ?? []))
+      .catch((e) => !stale && setDefaultsError(e instanceof Error ? e.message : "Couldn't load the panels."));
+    return () => {
+      stale = true;
+    };
+  }, [initialNpi, standings.length, defaults]);
 
   // Affiliation Economics — one lookup per looked-up NPI, cards render only
   // when a payer actually lists that NPI under 2+ TINs with differing
@@ -346,14 +379,19 @@ export function PanelsPanel({
       {loading && rows.length === 0 ? (
         <TableSkeleton head={head} />
       ) : rows.length === 0 ? (
+        // Never blank: the org-wide panels listing stands in until an NPI is
+        // entered. Its rows carry no cohort framing (Solo/Group/On-TIN) because
+        // that is per-clinician and can't be computed org-wide — the NPI lookup
+        // is what switches it on. A local text filter keeps it reductive.
         !loading &&
-        noRowNpis.length === 0 && (
-          <EmptyState
-            icon="activity"
-            title="Know what payers actually pay — before you credential"
-            subtext="Enter any NPI above to see every payer book that lists it, the network and TIN each contract rides under, and the payer's own published rates."
-          />
-        )
+        noRowNpis.length === 0 &&
+        (defaultsError ? (
+          <Banner variant="danger">{defaultsError}</Banner>
+        ) : defaults === null ? (
+          <TableSkeleton head={["Clinician", "Insurer", "Network", "Code", "Rate In-Ntwk", "Setting", "As-of"]} />
+        ) : (
+          <DefaultPanels rows={defaults} q={q} />
+        ))
       ) : (
         <Table
           className="min-h-0 flex-1"
@@ -452,5 +490,79 @@ export function PanelsPanel({
         </Table>
       )}
     </div>
+  );
+}
+
+/** The default org-wide listing — every published panel, before you name a
+ *  clinician. Honest by omission: it shows only the columns that are true for
+ *  everyone (no On-TIN, no Solo/Group — those are per-NPI). Type into the search
+ *  above and it narrows; enter a 10-digit NPI and the panel replaces this with
+ *  that clinician's full standing. */
+function DefaultPanels({ rows, q }: { rows: DefaultRow[]; q: string }) {
+  const needle = q.trim().toLowerCase();
+  const filtered = needle
+    ? rows.filter((r) =>
+        `${r.displayName ?? r.npi} ${r.payer} ${r.network} ${r.tin} ${r.npi}`.toLowerCase().includes(needle),
+      )
+    : rows;
+  const { visible, hasMore, sentinelRef } = useLazyBatch(filtered, { resetKey: q });
+
+  if (filtered.length === 0) {
+    return (
+      <EmptyState
+        icon="activity"
+        title={`No panel matches “${q.trim()}”`}
+        subtext="Search an insurer, network or contract holder — or enter a 10-digit NPI to see one clinician's full standing."
+      />
+    );
+  }
+
+  return (
+    <Table
+      className="min-h-0 flex-1"
+      stickyHeader
+      tintedHeader
+      head={["Clinician", "Insurer", "Network", "Code", nowrap("Rate In-Ntwk"), "Setting", nowrap("As-of")]}
+    >
+      {visible.map((r, i) => (
+        <Tr key={`${r.npi}|${r.payer}|${r.network}|${r.setting}|${r.billingCode}|${i}`}>
+          <Td className="whitespace-nowrap font-medium text-text">
+            {r.displayName ? providerDisplayName(r.displayName, "1") : `NPI ${r.npi}`}
+          </Td>
+          <Td className="whitespace-nowrap">
+            <span className="flex items-center gap-2.5">
+              <InsurerMark payer={r.payer} />
+              <span className="max-w-48 truncate text-text" title={r.payer}>
+                {r.payer}
+              </span>
+            </span>
+          </Td>
+          <Td>
+            <span className="block max-w-44 truncate" title={r.network}>
+              {networkLabel(r.network, r.payer) || r.network}
+            </span>
+          </Td>
+          <Td className="whitespace-nowrap" title={cptLabel(r.billingCode)}>
+            {r.billingCode}
+          </Td>
+          {/* nRates>1 means the payer published several rates for this exact
+              cell, so there is no single figure to show — never a bare 0. */}
+          <Td className="whitespace-nowrap font-medium text-text">
+            {r.rate == null ? (
+              <span className="text-text-muted" title={`${r.nRates} rates published for this cell`}>
+                {r.nRates} rates
+              </span>
+            ) : (
+              `$${r.rate.toFixed(2)}`
+            )}
+          </Td>
+          <Td className="whitespace-nowrap text-text-body" title={r.setting}>
+            {settingLabel(r.setting) || "—"}
+          </Td>
+          <Td className="whitespace-nowrap text-text-muted">{r.asOf ?? "—"}</Td>
+        </Tr>
+      ))}
+      {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={7} />}
+    </Table>
   );
 }
