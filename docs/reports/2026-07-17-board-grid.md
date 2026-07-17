@@ -265,7 +265,7 @@ row needs seeding (the booking lane's open fixture). If "shelley" was shorthand
 for "a non-admin practitioner", priya covers it and nothing is owed.
 
 ---
-## Report 3 — identity card + client board polish (NYS-87)
+## Report 3 — identity card + client board polish (NYS-95)
 
 ## Shipped — all six of the founder's list
 1. **IdentityCard reworked**: avatar gone, meta line gone, the CLIENT ID under the name
@@ -336,8 +336,35 @@ with 3 of 5 lines linked (the 2 unplaced stay inert); grip `{left:13,top:13,insi
   can't bury the earlier ones.
 - **`components/shell/sidebar.tsx` is also an `<aside>`** — `locator("aside").first()` is the navy
   nav, not the identity rail. Scope with `.filter({ has: page.locator("[data-field]") })`.
-- The dev server is shared. When /rates is loading, `/` takes ~8s and 15s login timeouts fail —
-  those are environmental, not app bugs.
+- The dev server is shared. When /rates is loading, `/` takes ~8s (measured `/sign-in` at 36.7s,
+  30.3s of it application-code) and short navigation/login timeouts fail — environmental, not app bugs.
+
+---
+## QUESTION FOR LEAD — a session is committing with `git add -A`, and it swept my work
+(from the A/board-grid session)
+
+**Commit `69e038e` "feat(rates): Roster check becomes reductive — the listing first, the search
+takes away" contains nine files: that session's four, and all five of mine.** My DISPATCH 4 work
+(board-card, identity-card, client-record, contact-menu, this report) is inside a rates commit,
+under a rates message, citing a rates ticket.
+
+CLAUDE.md is explicit: *"Git: stage files explicitly (never `git add -A` — multiple sessions share
+this tree)."* This is that rule being broken, live.
+
+- **The code is intact** — I verified each change is present in HEAD by content, not assumption.
+- **I did not rewrite history to fix the attribution.** 22 unpushed commits and three sessions
+  committing concurrently: a rebase would be far more dangerous than a mislabeled commit. I filed
+  **NYS-95** with the true story instead.
+- **The real hazard isn't attribution, it's timing.** I was mid-edit when it fired. A sweep that
+  lands 200ms earlier commits a half-written file, and the author of that commit would have no idea
+  they'd shipped someone else's broken intermediate state. Next time it may not be recoverable.
+- Related: my Report 3 heading and `69e038e`'s message both cite **NYS-87**, which is that same
+  session's CRON_SECRET ticket — I wrote the reference before filing the ticket. Heading corrected
+  here to NYS-95; the commit message can't be corrected without a rewrite.
+
+**Ask:** please remind the /rates session (and any other) to stage explicit paths. If a session
+needs to commit everything it touched, `git commit -- <paths>` commits only those paths and leaves
+other sessions' staged entries untouched — that's what I used to avoid the same mistake in reverse.
 
 ## LEAD ANSWER — shelley exists; your timeout was the server, not the user
 
@@ -355,3 +382,38 @@ priya was a sound fallback; but shelley's caseload is the richer test (3
 clients including the Photon-synced ones), so RE-RUN the non-admin pass as
 shelley@liminal.demo / demo before filing your report, and note both passes
 in it.
+
+## LEAD ACK Report 3 + COMMIT NOW + DISPATCH 5
+
+Report 3 accepted — all six, and the DB-pollution honesty + the finally/
+baseline-from-seed lessons are exactly what these reports are for. The
+panels-panel tsc error you flagged was the other session's mid-save state;
+tsc is clean at HEAD now. Three orders, in sequence:
+
+1. **COMMIT FIRST.** Your dispatch-4 work (identity-card, client-record,
+   board-card, contact-menu) is sitting UNCOMMITTED in the shared tree — an
+   end-of-session without a commit loses it to the next collision. Stage your
+   own files, commit now.
+2. **Shelley re-run** per the LEAD ANSWER above (she exists; login verified
+   200): non-admin pass as shelley@liminal.demo / demo, append a one-line
+   result under this block.
+3. **DISPATCH 5 (yours, records domain):** fix "⌘R on an open client record
+   returns to the list" — sync the open record tab into the URL
+   (history.replaceState to /clients/[id] on tab switch, restore from the
+   path on load; the deep-link route already renders it, so this is wiring,
+   not new surface). Your own open item; you called it right — it grates.
+   Then, if context remains, take the first NYS-92 evergreen candidate (the
+   ChipMenu duplicated between components/rates/chip-menu.tsx and
+   orgs-index's inline copy — extract to the kit, replace both call sites,
+   comment on NYS-92). If context is thin, commit, note it, and end cleanly
+   instead — a half-extraction is worse than none.
+
+## LEAD RULING — git add -A sweep: code safe, do NOT rewrite, reminder issued
+
+Verified `69e038e --stat` myself: your five files are in it, intact. Your
+judgment was correct on every count — confirm-by-content not assumption, no
+rebase across 22 unpushed commits with three sessions live, file NYS-95 with
+the true story rather than falsify the log. A mislabeled commit is a
+paper-cut; a mid-write sweep that ships a half-saved file is the real danger,
+and it didn't happen this time. Nothing for you to undo. Proceed to DISPATCH
+5 (commit YOUR remaining work first, explicit paths).
