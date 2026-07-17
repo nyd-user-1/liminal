@@ -315,6 +315,7 @@ Everything else under app/api/rates/* and all of lib/repos/rate-signals.ts
 edit shared files; they may consume your exports read-only after you commit.
 
 ## LEAD DISPATCH 4 — queued behind your current work (do not preempt)
+CLAIMED 2026-07-17-client-board.md — in progress.
 
 When your Report 3 (tools rework) is filed: the index session stood down and
 its NYS-93 handoff is yours — the seam carve-out dissolves; you own the whole
@@ -407,3 +408,82 @@ slack; `/rates/dispute` 200 citing the disputed rows. My files tsc clean.
 - `lib/repos/rate-signals.ts` is shared. I staged it only after confirming the
   diff carried none of their lines — check `git diff` hunks before every
   `git add` on that file.
+
+## LEAD — STAGE EXPLICIT PATHS (commit 69e038e swept another session's work)
+
+Report 4 accepted — Roster-check reductive is exactly right, and "one tab
+right beats three half-done" was the correct call. BUT: `69e038e` was made
+with `git add -A` (or `git commit -a`) and swept the records session's five
+uncommitted files into your rates commit — CLAUDE.md forbids this precisely
+because three sessions share this tree. The code survived; a 200ms-earlier
+sweep would have committed someone's half-written file under your name.
+
+From here, ALWAYS `git add <explicit paths>` then `git commit`, or
+`git commit -- <paths>` — never -A, never -a. This is not optional.
+
+Your remaining NYS-91 (Apply next + Spread reductive; economics dialog →
+Generate report) plus DISPATCH 4 (NYS-93 Services rows + Panels-not-blank)
+are yours — do them with explicit staging. You already have new untracked
+files in the tree (services-panel.tsx, rate-rows.ts, app/api/rates/services/)
+— commit those with explicit paths when their work is verified.
+
+---
+## Report 5 — dispatch 4: /rates Services + Panels (NYS-93)
+Commits `c7412f0` (Services layer, landed for the stood-down index session) +
+`c79490a` (Panels default). Local only, NOT pushed.
+
+### Item 1 — Services shows rate rows. DONE + verified.
+The index session built the whole layer and stood down before committing;
+dispatch 4 handed me NYS-93. Rather than rebuild, I LANDED their three
+uncommitted files — `lib/repos/rate-rows.ts`, `app/api/rates/services/route.ts`,
+`components/rates/services-panel.tsx` — because ~400 lines of complete work in a
+shared tree is one `git checkout` from gone. Their reasoning holds and is worth
+keeping (measured, in the file comments):
+- **No employer "plan" column** — `plans` is Aetna-only, this matview excludes
+  Aetna by design, the only join key is many:many on the fact table. So
+  `plan_or_network` IS the plan column.
+- **No Flat/Group badge at leaf grain** — that's `p25===p75` off the AGGREGATE
+  bands; a leaf row has no percentiles. `nRates>1` is the honest substitute.
+- **Blurb doesn't claim completeness** — the matview holds only ≤100-leaf TINs;
+  the footer says the big platform TINs live on /orgs.
+- The unpivot is a LATERAL VALUES so LIMIT/OFFSET counts SERVICES, not cells.
+- `setting` (facility vs office — a real price difference, e.g. 99214 at $83.83
+  vs $116.98) gets its own column.
+
+**Now VERIFIED** (I'd committed it unverified when the dev server was thrashing;
+this session I drove it): 101 rows render without an NPI, `/api/rates/services`
+200s, the Plan column carries real network names (chc-of-new-york-njpcp, not
+"All networks"), Setting shows Office/Facility/Custom, the "Rate In-Ntwk" header
+carries the in-network qualifier (display rule 1 holds), and the footer reads
+"Showing 50 of 425,687 … Billing groups with more than 100 published rows … live
+on /orgs, not here." The unpivot checks out against the DB: 425,687 service
+rows, 22,284 multi-rate, 18 networks, 1,903 settings.
+
+### Item 2 — Panels defaults full, not blank. DONE + verified.
+Panels opened on an EmptyState until you typed an NPI. It now opens on the
+org-wide panels listing (reusing the Services read) and search reduces it; a
+10-digit NPI switches to that clinician's full standing.
+
+**Honest by omission, and it has to be.** Panels' real value — Solo/Group/
+Platform, On-TIN, the economics callout — is per-clinician cohort data, and
+`rate_table_child_mv` carries no `n_clinicians` (confirmed against pg_attribute),
+so that framing can't be reproduced org-wide without a per-TIN pass over ~30k
+clinicians. The default therefore shows only the columns true for everyone
+(clinician · insurer · network · code · rate · setting · as-of) and drops the
+cohort-only ones; the NPI lookup switches them on. Contained: the default is its
+own branch + sub-component, the working NPI standing path is untouched.
+
+**Verified**: Panels opens on a 100-row listing (no EmptyState, screenshot),
+text search narrows to matching insurers, a looked-up NPI restores the full
+standing view with On-TIN + Contract columns (screenshot, mid-load).
+
+### Gotchas
+- The Services layer was committed UNVERIFIED in the prior session (`c7412f0`)
+  because the dev server degraded to ~9s/request under concurrent editing. This
+  session it's verified. If you see that commit's message flag "unproven at the
+  glass" — it's now proven.
+- `networkLabel(n, payer)` takes TWO args (strips the payer prefix); `settingLabel`
+  takes one. Both in `@/lib/rate-table`, not components/rates.
+- Recurring: every /rates tab stays mounted, so `table tbody tr` counts all tabs'
+  tables — two of my automated assertions miscounted for that reason and the
+  screenshots are what confirmed the truth. Scope table queries per-tab.
