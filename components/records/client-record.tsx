@@ -1,18 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BoardGrid, type BoardItem } from "@/components/board/board-grid";
 import { BoardCard } from "@/components/board/board-card";
 import { Button } from "@/components/ui/button";
-import { KebabMenu } from "@/components/ui/kebab-menu";
 import { DropdownMenu, MenuItem } from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
 import { Tag } from "@/components/ui/tag";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { IdentityCard } from "@/components/records/identity-card";
-import { ClientStatusBadge, clientHue, formatDob, tagHue } from "@/app/(app)/clients/ui";
+import { ClientStatusBadge, formatDob, tagHue } from "@/app/(app)/clients/ui";
 import { ContactMenu } from "@/app/(app)/clients/[id]/contact-menu";
 import { InsuranceTab } from "@/app/(app)/clients/[id]/insurance-tab";
 import { FilesTab } from "@/app/(app)/clients/[id]/files-tab";
@@ -28,6 +27,10 @@ import { PrescriptionsTable } from "@/components/tables/prescriptions-table";
 import { OrdersTable } from "@/components/tables/orders-table";
 import { PrescribePanel } from "@/components/photon/prescribe-panel";
 import { CardLibraryPanel, CARD_DRAG_TYPE, type LibraryCard } from "@/components/records/card-library-panel";
+import { useLazyRows } from "@/components/tables/use-lazy-rows";
+import { inScope } from "@/components/tables/scope";
+import type { PrescriptionRow } from "@/components/tables/prescriptions-table";
+import { formatCents, formatDateTime } from "@/lib/format";
 import type { ServiceOption } from "@/components/billing/new-invoice-panel";
 import type { InvoiceListItem } from "@/lib/repos/invoices";
 import type { PolicyWithPayer } from "@/lib/repos/policies";
@@ -110,6 +113,17 @@ const BOARD_KEY = "liminal-record:client:board";
  *  The rest of the catalog waits in the Add-card library. */
 const DEFAULT_KEYS = ["appointments", "billing-summary", "rx", "insurance", "files"];
 
+/** Pre-designed boards, the /analytics views pattern: a named set of cards for
+ *  a mode of work. The switcher is in the rail's kebab — the record already has
+ *  one menu, and a second control for three items would be a toolbar. */
+const VIEWS: Array<{ name: string; ids: string[] }> = [
+  { name: "Care", ids: ["snapshot", "appointments", "rx", "orders", "referrals"] },
+  { name: "Money", ids: ["snapshot", "billing-summary", "billing", "insurance"] },
+  { name: "Records", ids: ["snapshot", "personal", "documentation", "files"] },
+];
+
+const GENDERS = ["Female", "Male", "Non-binary", "Prefer to self-describe", "Prefer not to say"];
+
 interface BoardState {
   ids: string[];
 }
@@ -129,6 +143,89 @@ function writeBoard(state: BoardState) {
     /* storage disabled — the board still works, it just won't persist */
   }
 }
+
+/** The aggregate card: one line per section, each the headline number that
+ *  section exists to answer, and each a jump to that card when it's on the
+ *  board. A line for a card you've removed stays as plain text — it reports the
+ *  fact without pretending to a destination that isn't there. */
+function SnapshotCard({
+  record,
+  placed,
+  onJump,
+}: {
+  record: ClientRecordBundle;
+  placed: string[];
+  onJump: (key: string) => void;
+}) {
+  // The Rx list has no per-client count endpoint — the table fetches the book
+  // and scopes it client-side, so the snapshot does the same, and only once the
+  // client actually has a Photon record to count.
+  const lazy = useLazyRows<PrescriptionRow>(
+    "/api/photon/prescriptions/all",
+    "prescriptions",
+    !!record.client.photonPatientId,
+  );
+  const next = useMemo(
+    () =>
+      record.appointments
+        .filter((a) => new Date(a.startsAt).getTime() >= Date.now() && a.status !== "cancelled")
+        .sort((a, b) => a.startsAt.localeCompare(b.startsAt))[0],
+    [record.appointments],
+  );
+  const rx = !record.client.photonPatientId
+    ? "Not synced"
+    : lazy.rows === null
+      ? "…"
+      : lazy.rows.filter((r) => inScope({ clientId: record.client.id }, r) && r.state === "ACTIVE").length;
+
+  const rows: Array<{ key: string; label: string; value: React.ReactNode }> = [
+    { key: "appointments", label: "Next appointment", value: next ? formatDateTime(next.startsAt) : "None scheduled" },
+    { key: "billing-summary", label: "Balance outstanding", value: formatCents(record.billingSummary.balanceCents) },
+    { key: "rx", label: "Active prescriptions", value: rx },
+    { key: "insurance", label: "Policies on file", value: record.policies.length },
+    { key: "files", label: "Files", value: record.files.length },
+  ];
+
+  return (
+    <div className="flex min-h-0 flex-col">
+      {rows.map((r) => {
+        const on = placed.includes(r.key);
+        const line = (
+          <>
+            <span className="truncate text-[15px] text-text-muted">{r.label}</span>
+            <span className="shrink-0 text-[15px] font-semibold tabular-nums text-text">{r.value}</span>
+          </>
+        );
+        return on ? (
+          <button
+            key={r.key}
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => onJump(r.key)}
+            title={`Go to ${CARD_TITLES[r.key] ?? r.key}`}
+            className="-mx-1 flex items-center justify-between gap-3 rounded-field px-1 py-1.5 text-left transition-colors hover:bg-canvas"
+          >
+            {line}
+          </button>
+        ) : (
+          <span key={r.key} className="-mx-1 flex items-center justify-between gap-3 px-1 py-1.5">
+            {line}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Titles for the snapshot's jump tooltips — the CARDS list is built per render
+ *  inside the component, so the plain-text names live here. */
+const CARD_TITLES: Record<string, string> = {
+  appointments: "Upcoming appointments",
+  "billing-summary": "Billing summary",
+  rx: "Rx",
+  insurance: "Insurance",
+  files: "Files",
+};
 
 export function ClientRecord({
   record,
@@ -162,6 +259,17 @@ export function ClientRecord({
   // PrescribePanel still goes through the provider's own Photon login.
   const patientId = client.photonPatientId;
   const canPrescribe = !!record.photonClientId && !!record.orgId;
+
+  // The snapshot needs the CURRENT placement to know which of its lines lead
+  // anywhere, but the catalog must not rebuild every time a card moves on or
+  // off the board — a ref keeps the snapshot's render fresh without making
+  // CARDS depend on the board state it is itself a member of.
+  const placedRef = useRef<string[]>([]);
+  const jumpToCard = useCallback((key: string) => {
+    document
+      .querySelector(`[data-board-card="${CSS.escape(key)}"]`)
+      ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, []);
 
   const syncToPhoton = useCallback(async () => {
     setSyncing(true);
@@ -275,6 +383,15 @@ export function ClientRecord({
         render: (r) => <FilesTab clientId={r.client.id} files={r.files} bare />,
       },
       // Everything below is off the default board and lives in the library.
+      {
+        key: "snapshot",
+        title: "Snapshot",
+        size: "sm",
+        category: "Records",
+        icon: "activity",
+        blurb: "The record at a glance — each line jumps to its card",
+        render: (r) => <SnapshotCard record={r} placed={placedRef.current} onJump={jumpToCard} />,
+      },
       {
         key: "personal",
         title: "Personal",
@@ -397,6 +514,14 @@ export function ClientRecord({
     [board, commit, CARD_BY_KEY],
   );
 
+  /** Apply a pre-designed view: swap the card set, keep each card's saved box.
+   *  The grid overlays what it has and shelf-packs the rest, so switching to a
+   *  view and back finds your arrangement where you left it. */
+  const applyView = useCallback(
+    (ids: string[]) => commit({ ids: ids.filter((id) => CARD_BY_KEY[id]) }),
+    [commit, CARD_BY_KEY],
+  );
+
   const resetBoard = useCallback(() => {
     commit({ ids: DEFAULT_IDS });
     // The arrangement lives with the grid — clear it and rebuild from defaults.
@@ -407,6 +532,27 @@ export function ClientRecord({
     }
     setLayoutEpoch((e) => e + 1);
   }, [commit, DEFAULT_IDS]);
+
+  /** One field, straight to the record's existing write path. Throws so the
+   *  identity card keeps the editor open on failure — the practitioner's typing
+   *  is not thrown away because the server said no. */
+  const saveField = useCallback(
+    async (patch: Record<string, unknown>) => {
+      const res = await fetch(`/api/clients/${client.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        toast(data?.error ?? "Could not save that change.", "danger");
+        throw new Error("save failed");
+      }
+      if (onReload) onReload();
+      else router.refresh();
+    },
+    [client.id, toast, onReload, router],
+  );
 
   async function setStatus(status: ClientStatus) {
     if (status === client.status) return;
@@ -433,56 +579,93 @@ export function ClientRecord({
 
   const placed = board.ids.filter((id) => CARD_BY_KEY[id]);
   const boardItems: BoardItem[] = placed.map((key) => ({ id: key, ...SIZE_DIMS[CARD_BY_KEY[key].size] }));
+  // Read by the snapshot's lines as they render, just below.
+  placedRef.current = placed;
 
   return (
     <div className="relative flex h-full min-h-0 flex-col gap-4 lg:flex-row">
-      {/* The board menu rides the tab rail's hairline, top-right — one quiet
-          control instead of a toolbar row (the count told nobody anything).
-          -top-[52px] reaches up across the rail's mb-4 into the tab row. */}
-      <div className="absolute -top-[52px] right-0 z-10">
-        <KebabMenu label="Board options">
-          <MenuItem icon="plus" label="Add card" onClick={() => setLibraryOpen(true)} />
-          <MenuItem icon="refresh-cw" label="Reset layout" onClick={resetBoard} />
-        </KebabMenu>
-      </div>
       {/* The rail: narrow, full height of the column, and it does not move.
           The board beside it scrolls under the tab line and away. */}
       <aside className="shrink-0 lg:h-full lg:w-80">
         <IdentityCard
           name={name}
-          hue={clientHue(client.id)}
-          badge={
-            <DropdownMenu
-              label="Change status"
-              align="left"
-              width="w-44"
-              trigger={
-                <ClientStatusBadge status={client.status} withChevron className="cursor-pointer hover:opacity-80" />
-              }
-            >
-              {STATUSES.map((s) => (
-                <MenuItem
-                  key={s.value}
-                  label={s.label}
-                  selected={s.value === client.status}
-                  onClick={() => setStatus(s.value)}
-                />
-              ))}
-            </DropdownMenu>
+          subtitle={client.id}
+          actions={
+            <ContactMenu
+              clientId={client.id}
+              email={client.email}
+              phone={client.phone}
+              board={{
+                onAddCard: () => setLibraryOpen(true),
+                onReset: resetBoard,
+                views: VIEWS.map((v) => ({ name: v.name, apply: () => applyView(v.ids) })),
+              }}
+            />
           }
-          meta={[client.pronouns, client.dob ? formatDob(client.dob) : null].filter(Boolean).join(" · ") || undefined}
-          actions={<ContactMenu clientId={client.id} email={client.email} phone={client.phone} />}
+          // Every value is double-click-to-edit, and each editor is the control
+          // the Personal tab uses for that field — same semantics, same PATCH,
+          // no second set of rules to keep in step.
           fields={[
-            { label: "Email", value: client.email },
-            { label: "Phone", value: client.phone },
-            { label: "Address", value: client.address },
-            { label: "Gender", value: client.gender },
-            { label: "Primary practitioner", value: record.practitionerName },
+            {
+              label: "Email",
+              value: client.email,
+              edit: { kind: "email", value: client.email ?? "", onSave: (v) => saveField({ email: v || null }) },
+            },
+            {
+              label: "Phone",
+              value: client.phone,
+              edit: { kind: "tel", value: client.phone ?? "", onSave: (v) => saveField({ phone: v || null }) },
+            },
+            {
+              label: "Address",
+              value: client.address,
+              edit: {
+                kind: "text",
+                value: client.address ?? "",
+                placeholder: "Street, city, state, zip",
+                onSave: (v) => saveField({ address: v || null }),
+              },
+            },
+            {
+              label: "Date of birth",
+              value: client.dob ? formatDob(client.dob) : null,
+              edit: { kind: "date", value: client.dob ?? "", onSave: (v) => saveField({ dob: v || null }) },
+            },
+            {
+              label: "Gender",
+              value: client.gender,
+              edit: {
+                kind: "select",
+                value: client.gender ?? "",
+                options: GENDERS.map((g) => ({ value: g, label: g })),
+                onSave: (v) => saveField({ gender: v || null }),
+              },
+            },
+            {
+              label: "Pronouns",
+              value: client.pronouns,
+              edit: {
+                kind: "text",
+                value: client.pronouns ?? "",
+                placeholder: "they/them",
+                onSave: (v) => saveField({ pronouns: v || null }),
+              },
+            },
+            {
+              label: "Primary practitioner",
+              value: record.practitionerName,
+              edit: {
+                kind: "select",
+                value: client.primaryPractitionerId ?? "",
+                options: record.practitioners.map((p) => ({ value: p.id, label: p.name })),
+                onSave: (v) => saveField({ primaryPractitionerId: v || null }),
+              },
+            },
             {
               label: "Tags",
               value:
                 client.tags.length > 0 ? (
-                  <span className="mt-1 flex flex-wrap gap-1">
+                  <span className="flex flex-wrap gap-1">
                     {client.tags.map((t) => (
                       <Tag key={t} hue={tagHue(t)}>
                         {t}
@@ -490,6 +673,43 @@ export function ClientRecord({
                     ))}
                   </span>
                 ) : null,
+              // Comma-separated, exactly as the Personal tab takes them.
+              edit: {
+                kind: "text",
+                value: client.tags.join(", "),
+                placeholder: "Comma separated",
+                onSave: (v) =>
+                  saveField({
+                    tags: v
+                      .split(",")
+                      .map((t) => t.trim())
+                      .filter(Boolean),
+                  }),
+              },
+            },
+            {
+              // Status sits at the bottom as a field of its own, and keeps the
+              // picker it had when it was a pill beside the name.
+              label: "Status",
+              value: (
+                <DropdownMenu
+                  label="Change status"
+                  align="left"
+                  width="w-44"
+                  trigger={
+                    <ClientStatusBadge status={client.status} withChevron className="cursor-pointer hover:opacity-80" />
+                  }
+                >
+                  {STATUSES.map((s) => (
+                    <MenuItem
+                      key={s.value}
+                      label={s.label}
+                      selected={s.value === client.status}
+                      onClick={() => setStatus(s.value)}
+                    />
+                  ))}
+                </DropdownMenu>
+              ),
             },
           ]}
         />

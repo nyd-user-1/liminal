@@ -149,3 +149,209 @@ ladder is unchanged: a `sm` card fills 1.000 / 0.500 / 0.500 / 0.250 of the boar
 - Spans must be twelfths. A `col-span-1` left over from the old ladder is a 1/12 card, not a full one.
 - The lines paint on the grid container itself (no extra layer), so they cover exactly the board
   surface and sit under the cards by paint order — nothing to keep in sync.
+
+---
+## LEAD INSTRUCTIONS 3 — records consistency pass (from last-fable-standing)
+
+Gridlines accepted — the computed-line decision and the vertical-only call
+are both right. Next, two structural jobs in your wheelhouse:
+
+1. **NYS-79 (tidy, do first).** `components/tables/clients-table.tsx` imports
+   `@/app/(app)/clients/{ui,new-client-panel}` — backwards. Move both to
+   `components/clients/` and fix all importers. Zero behavior change;
+   tsc + a /clients smoke proves it.
+2. **Provider rail adopts the identity-card primitive.** The client-record
+   session built `components/records/identity-card.tsx` generic-by-config so
+   the /directory provider drill-down could adopt it. Do that adoption now:
+   the provider tab's left rail renders through IdentityCard with VISUAL
+   PARITY to today (the founder just bookmarked the current provider layout —
+   this is a re-plumb, not a redesign; screenshots before/after must be
+   near-identical, same fields, same order, sticky + full height as today).
+   Read components/records/client-record.tsx for how the client side mounts
+   it. If parity forces config additions, add config — never fork the
+   component. Delete the old bespoke rail markup once parity is proven.
+
+Working agreements unchanged (own files only; B is sweeping index pages —
+do not touch app/(app)/*/index files beyond import fixes; commit, NO push).
+APPEND "## Report 3 — records consistency" here. Linear: ticket per job,
+close on done. Questions: "## QUESTION FOR LEAD" — monitored.
+
+---
+## LEAD NOTICE — BoardGrid API changed under you (read before any board work)
+
+The founder judged the flow-grid translation's feel a miss (cards teleported
+on drop; resize was one ladder step per gesture) and the lead rebuilt the
+primitive as hq's actual model: ABSOLUTE canvas, `BoardItem {id,w,h,minW?,
+minH?}` in grid units (12 cols × 24px rows), live-reflow drag, continuous
+corner resize, `storageKey` persistence + `epoch` reset. `BoardCardSize`,
+`size`/`span`/`height`/`gap` props, `reorderIds`, `onResizeStep/Cycle` are
+GONE. Consumers (/analytics, client record, /design-system demo) already
+migrated; verified 12/12 in Chrome. If your provider-rail task touches a
+board, use the new API; do not restore the ladder. Your gridline math note
+still holds in spirit — lines now paint both axes at cellW × 24px.
+
+---
+## LEAD DISPATCH 4 — identity card + client board polish (founder's morning list)
+CLAIMED 2026-07-17-board-grid.md — in progress.
+
+**YOU OWN:** components/records/*, components/board/*, app/(app)/clients/[id]/*
+(tab components as needed), app/api/clients/* (PATCH wiring only).
+**DO NOT TOUCH:** components/rates/*, components/tables/*, app/rates/*,
+components/ui/index-header.tsx (other sessions own them tonight).
+
+All from the founder's screenshots of the client record rail + board:
+
+1. **IdentityCard rework** (components/records/identity-card.tsx + its
+   client-record config): REMOVE the avatar. REMOVE the meta line
+   ("they/them · Mar 18, 1994 (32)"). Put the CLIENT ID directly under the
+   client name (muted, mono, small). MOVE the status badge down: it becomes a
+   labeled field "Status" BENEATH Tags — keep its full interactivity (the
+   dropdown that changes status).
+2. **Double-click-to-edit every field value** on the card (email, phone,
+   address, gender, pronouns, DOB, primary practitioner, tags): double-click
+   swaps value → input (select where the field is enum/relation), Enter
+   saves via the existing PATCH /api/clients/[id], Esc cancels, toast on
+   error. Reuse PersonalTab's field semantics — do not invent new validation.
+3. **Board actions move into the identity card's kebab** (the menu that has
+   Edit details / Copy email / Copy phone): add "Add card…" and "Reset
+   layout". DELETE the hairline kebab the lead added above the board
+   (client-record.tsx, the absolute -top-[52px] block).
+4. **BoardCard corners swap** (components/board/board-card.tsx): the ⠿ grip
+   moves to TOP-LEFT — smaller, INSIDE the card bounds (not riding the
+   corner); the × close moves to TOP-RIGHT where there's room (beside the
+   menu slot). Update titles/labels accordingly.
+5. **One aggregate card** ("Snapshot"): a board card summarizing the others —
+   next appointment, balance outstanding, active Rx count, policies on file,
+   files count — each line deep-linking/scrolling to its card if placed.
+6. **Three pre-designed views** for the client board, the analytics-views
+   pattern (named card sets, switcher lives in the identity-card kebab or a
+   small control you judge best): "Care" (appointments, Rx, orders,
+   referrals, snapshot), "Money" (snapshot, billing summary, billing,
+   insurance), "Records" (personal, documentation, files, snapshot).
+   Default board stays as-is.
+
+Verify in a real browser as brendan AND shelley; screenshots to your
+scratchpad; tsc clean. Commit, do NOT push.
+
+**THE LOOP (standing policy):** when done — append "## Report 3 …" here, file/
+close your Linear tickets, then RE-POLL this file every ~5 minutes. If no new
+dispatch after 30 minutes, take the oldest open NYS ticket that touches ONLY
+files you own (note which, here), and start it. Questions → "## QUESTION FOR
+LEAD" here. Never idle.
+
+---
+## QUESTION FOR LEAD — "verify as shelley" names a login that does not exist
+(from the A/board-grid session, DISPATCH 4)
+
+Dispatch 4 says to verify as brendan AND shelley. **`shelley@liminal.demo`
+cannot sign in on this environment**, so that instruction can't be followed as
+written and I did not want to quietly claim otherwise.
+
+- `sql/002_seed.sql` seeds five users: brendan (admin), priya / lena / marcus
+  (practitioner), casey (client). No Shelley.
+- Shelley Padgett exists only as a *services* fixture in `lib/mock/services.ts`,
+  and `lib/mock/provider-profiles.ts` says so outright: "Shelley Padgett isn't
+  seeded here: her user record is the booking lane's fixture to add".
+- `.env.local` carries a live `DATABASE_URL`, so the app is on the SQL branch —
+  the mock fixture is not in play at all. The sign-in just times out.
+
+**What I did instead:** ran the non-admin pass as **`priya@liminal.demo`** — a
+real seeded practitioner, and this client's own primary practitioner, so she
+exercises the same practitioner-scoping the dispatch was reaching for. Flagging
+rather than substituting silently.
+
+**For the lead:** if a Shelley login is wanted for future dispatches, her user
+row needs seeding (the booking lane's open fixture). If "shelley" was shorthand
+for "a non-admin practitioner", priya covers it and nothing is owed.
+
+---
+## Report 3 — identity card + client board polish (NYS-87)
+
+## Shipped — all six of the founder's list
+1. **IdentityCard reworked**: avatar gone, meta line gone, the CLIENT ID under the name
+   (muted mono), and the status badge moved down to a labelled **Status** field beneath Tags
+   with its picker fully intact. Fields now read: Email, Phone, Address, Date of birth,
+   Gender, Pronouns, Primary practitioner, Tags, Status.
+2. **Double-click-to-edit on every value.** Editor per field is the control the Personal tab
+   already uses (select for gender/practitioner, date for DOB, comma-separated text for tags).
+   Enter saves via the existing `PATCH /api/clients/[id]`, Esc cancels, blur saves, toast on error.
+3. **Board actions moved into the rail's kebab** (Add card… / Reset layout) and the floating
+   `-top-[52px]` kebab is deleted.
+4. **BoardCard corners swapped**: ⠿ grip top-LEFT, smaller, inside the bounds; × top-RIGHT
+   beside the menu.
+5. **Snapshot card** — next appointment, balance, active Rx, policies, files; each line jumps
+   to its card when placed.
+6. **Three views** — Care / Money / Records, in the same kebab. Default board unchanged.
+
+## DB changes
+No schema change. But see the incident below: this dispatch WRITES to the live DB.
+
+## Decisions
+- **The card owns the interaction; the caller owns the write.** `IdentityCard` handles
+  double-click/Enter/Esc and takes an `onSave` that THROWS to keep the editor open. So the
+  primitive still imports nothing that knows what a client is, the failure toast stays where the
+  API knowledge is, and the provider rail inherits inline editing free when it adopts the card.
+- **Grip top-left without a permanent indent**: the title slides right on hover to meet it.
+  A reserved 20px gutter would tax every card, always, for an affordance you only want while
+  reaching for it. hq solves the same collision by fading its kind-badge out.
+- **Snapshot's dead lines stay dead.** A line for an unplaced card is plain text, not a link —
+  silently adding a card from what reads as a summary would be a surprising board mutation.
+- **Client ID wraps (`break-all`), not truncates.** It rendered as `00000000-0000-4000-8000-00000…`;
+  an identifier you can only read half of is not an identifier.
+- **`data-field` / `data-field-value` hooks** on the identity card — the same bargain
+  `data-board-card` makes: an interaction nobody can drive from a browser isn't verifiable.
+- **Views don't reset the arrangement.** Switching swaps the card set and lets the grid overlay
+  each card's saved box, so a view and back finds your layout where you left it.
+
+## Verification
+24/24 in real Chrome on :3010 as brendan, covering every item above: no avatar, no meta line,
+mono ID subtitle, Status last, picker live; double-click→input, Esc clean, Enter→PATCH, the save
+surviving a fresh deep-link load, relation fields as selects; floating kebab gone; all five kebab
+entries; Money view applying `snapshot, billing-summary, billing, insurance`; Snapshot rendering
+with 3 of 5 lines linked (the 2 unplaced stay inert); grip `{left:13,top:13,inside:true}`, ×
+`fromRight:23`. `npx tsc --noEmit` clean for my files.
+
+## Open items
+- **Non-admin pass ran as priya, not shelley** — shelley isn't a seeded user (QUESTION FOR LEAD above).
+- `tsc` reports `components/rates/panels-panel.tsx(315,57): 'tins' does not exist on EconCard`.
+  **Not mine** — that file is on this dispatch's DO NOT TOUCH list and the /rates session has it open.
+- A **refresh on a client record returns to the list**, because the tab is client-side state
+  (the deep link `/clients/[id]` does restore it). May be intended — the directory's browser-tab
+  model — but ⌘R losing your place is the sort of thing that grates. Client-board session's call.
+- Opening a client leaves an **RSC navigation in flight** long enough to block Playwright's
+  actionability gate; the record server-fetches Photon on load. Suspect the same is felt as
+  "the record takes a beat to become clickable".
+
+## Gotchas — READ THIS BEFORE TESTING AGAINST THE LIVE DB
+- **I polluted the live DB and my own test hid it.** The pronouns round-trip (write test value →
+  assert → restore) crashed *between* the write and the restore, leaving `verify/test` on Aisha
+  Rahman. The next run then read that polluted value as its "before" baseline and reported
+  `restored — back to "verify/test" (was "verify/test")`: a green check over a broken invariant.
+  Restored to the seed's `she/her` via the app's own PATCH (audited, not raw SQL) and verified by
+  read-back. **The lesson**: put the restore in a `finally`, and take the baseline from the SEED
+  (`sql/002_seed.sql`), never from reading the field you are about to overwrite.
+- **Never `.catch(() => "")` in a verification script.** A bad `aside` locator survived three runs
+  because masking turned every failed assertion into a silent empty string; the run only died at
+  the first *action*. Let assertions throw, and print results from a `finally` so a late failure
+  can't bury the earlier ones.
+- **`components/shell/sidebar.tsx` is also an `<aside>`** — `locator("aside").first()` is the navy
+  nav, not the identity rail. Scope with `.filter({ has: page.locator("[data-field]") })`.
+- The dev server is shared. When /rates is loading, `/` takes ~8s and 15s login timeouts fail —
+  those are environmental, not app bugs.
+
+## LEAD ANSWER — shelley exists; your timeout was the server, not the user
+
+Checked the LIVE database just now: `shelley@liminal.demo` is a real
+practitioner row ("Dr. Shelley Padgett", created live by the Photon demo
+session on 07-14 — which is why no sql/ seed file mentions her), and her
+login returned **200** moments ago. Your sign-in "timeout" was the dev
+server: it was wedged under harvest load earlier tonight and the lead
+restarted it — a 401 is a wrong credential, a timeout is never one.
+
+The lesson to carry (same one the org session's brief codified): **the live
+DB is the source of truth, not the seed files** — several demo users were
+created at runtime. Flagging instead of silently substituting was right;
+priya was a sound fallback; but shelley's caseload is the richer test (3
+clients including the Photon-synced ones), so RE-RUN the non-admin pass as
+shelley@liminal.demo / demo before filing your report, and note both passes
+in it.

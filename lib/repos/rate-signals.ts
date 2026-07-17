@@ -652,6 +652,14 @@ export interface FootprintBook {
   platformScale: boolean;
   /** billingCode → wrapped figure, no as-of suffix. */
   codes: Record<string, string>;
+  /**
+   * billingCode → the same figure split into { figure, basis } — for the card
+   * layout whose HEADER carries the in-network qualifier and whose Schedule
+   * BADGE carries the basis once, rather than "(fee schedule)" repeated down
+   * every line. Same sanctioned split `RateSignal.figure`/`basis` already use;
+   * `codes` stays the wrapped form for everyone else (recruiting-shell).
+   */
+  codeParts: Record<string, { figure: string; basis: string }>;
   asOf: string;
 }
 
@@ -693,7 +701,11 @@ export async function getCredentialingFootprint(npi: string): Promise<Credential
     const norm = normTin(g.tin);
     const { holder, orgKnown } = holderFor(norm, orgNames.get(norm));
     const codes: Record<string, string> = {};
-    for (const r of g.rates) codes[r.billingCode] = r.display;
+    const codeParts: Record<string, { figure: string; basis: string }> = {};
+    for (const r of g.rates) {
+      codes[r.billingCode] = r.display;
+      codeParts[r.billingCode] = { figure: r.figure, basis: r.basis };
+    }
     return {
       payer: g.payer,
       networks: g.planOrNetworks,
@@ -702,6 +714,7 @@ export async function getCredentialingFootprint(npi: string): Promise<Credential
       orgKnown,
       platformScale: g.cohort?.platformScale ?? false,
       codes,
+      codeParts,
       asOf: g.asOf,
     };
   });
@@ -1246,4 +1259,113 @@ export async function getAffiliationEconomics(npi: string): Promise<EconCard[]> 
     cards.push({ payer, codes: econCodes, framing: anyLeft ? "roster" : "hours" });
   }
   return cards;
+}
+
+// ── the book listing (Roster check's base content) ────────────────────────────
+
+export interface RateBookRow {
+  tin: string;
+  payer: string;
+  /** The contract holder's display name — "Unnamed practice" when tin_registry
+   *  can't name it (sql/027 already resolves this). */
+  holder: string;
+  county: string | null;
+  clinicians: number;
+  /** The workhorse figure alone ("$146.00"), for a column whose header carries
+   *  the in-network qualifier. null when this book publishes no 90837. */
+  workhorse: string | null;
+  asOf: string;
+}
+
+/**
+ * The payer×holder books, biggest rosters first — the LISTING the Roster check
+ * opens on.
+ *
+ * The screen was additive (blank until you typed an NPI, which is a search box
+ * asking you to guess what it knows). It is reductive now: this returns the
+ * whole listing, `q` narrows it by payer or holder, and `npi` reduces it to the
+ * books that actually publish that clinician. Reads sql/027's rate_table_mv —
+ * 38,716 rows, already aggregated per (payer, tin) — never the 9.3M-row fact
+ * table.
+ *
+ * SCOPE, and the caller must say so rather than imply "everything": 027 carries
+ * a deliberate payer ALLOWLIST — six insurers (Cigna, Empire, Oxford,
+ * EmblemHealth, Fidelis, MetroPlus). Both Aetna labels are excluded on purpose
+ * (7.9M of the 9.3M rows, only ~4% of which resolve to a single rate per
+ * billing ID), as are the out-of-state Blues and Excellus. So this is every
+ * book whose schedule resolves to ONE publishable figure — not every book we
+ * hold rates for. `total` counts within that scope.
+ *
+ * Display rule 1 holds: `workhorse` is the sanctioned figure-alone form
+ * (`RateSignal.figure`'s contract), so the caller's column header MUST carry
+ * the in-network qualifier.
+ */
+export async function listRateBooks(
+  opts: { q?: string; npi?: string; limit?: number } = {},
+): Promise<{ rows: RateBookRow[]; total: number; truncated: boolean }> {
+  const limit = Math.min(500, Math.max(1, opts.limit ?? 100));
+  const npi = opts.npi && /^\d{10}$/.test(opts.npi) ? opts.npi : null;
+  const q = opts.q?.trim() ? `%${opts.q.trim()}%` : null;
+
+  if (!hasDb) {
+    // Fixture mode: shape the mock signals into the same listing so the screen
+    // is never blank offline (mirrors every other repo's dual-mode branch).
+    const seen = new Map<string, RateBookRow>();
+    for (const r of mockRateSignals as MockRateSignalRow[]) {
+      const key = `${r.payer}|${r.tin}`;
+      if (npi && r.npi !== npi) continue;
+      if (q && !`${r.payer} ${r.tin}`.toLowerCase().includes(q.replaceAll("%", "").toLowerCase())) continue;
+      const hit = seen.get(key);
+      if (hit) continue;
+      seen.set(key, {
+        tin: r.tin,
+        payer: r.payer,
+        holder: mockTinOrgs[normTin(r.tin)] ?? "Unnamed practice",
+        county: null,
+        clinicians: 1,
+        workhorse: r.billingCode === "90837" ? money(Number(r.negotiatedRate)) : null,
+        asOf: r.asOf,
+      });
+    }
+    const rows = [...seen.values()];
+    return { rows: rows.slice(0, limit), total: rows.length, truncated: rows.length > limit };
+  }
+
+  const rows = (await sql`
+    SELECT tin, payer, display_name, county, n_clinicians, c90837, as_of
+    FROM rate_table_mv
+    WHERE (${npi}::text IS NULL OR ${npi}::text = ANY(npis))
+      AND (${q}::text IS NULL OR payer ILIKE ${q} OR display_name ILIKE ${q})
+    ORDER BY n_clinicians DESC, payer, display_name
+    LIMIT ${limit + 1}
+  `) as Array<{
+    tin: string;
+    payer: string;
+    display_name: string | null;
+    county: string | null;
+    n_clinicians: number;
+    c90837: string | null;
+    as_of: string | Date;
+  }>;
+
+  const [{ n }] = (await sql`
+    SELECT count(*)::int AS n
+    FROM rate_table_mv
+    WHERE (${npi}::text IS NULL OR ${npi}::text = ANY(npis))
+      AND (${q}::text IS NULL OR payer ILIKE ${q} OR display_name ILIKE ${q})
+  `) as Array<{ n: number }>;
+
+  return {
+    rows: rows.slice(0, limit).map((r) => ({
+      tin: r.tin,
+      payer: r.payer,
+      holder: r.display_name ?? "Unnamed practice",
+      county: r.county,
+      clinicians: r.n_clinicians,
+      workhorse: r.c90837 == null ? null : money(Number(r.c90837)),
+      asOf: isoDateOnly(r.as_of) ?? "",
+    })),
+    total: n,
+    truncated: rows.length > limit,
+  };
 }
