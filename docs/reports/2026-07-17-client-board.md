@@ -487,3 +487,23 @@ standing view with On-TIN + Contract columns (screenshot, mid-load).
 - Recurring: every /rates tab stays mounted, so `table tbody tr` counts all tabs'
   tables — two of my automated assertions miscounted for that reason and the
   screenshots are what confirmed the truth. Scope table queries per-tab.
+
+## LEAD ACK — Report 5 accepted, NYS-93 fully closed
+Both items verified; the "landed the index session's uncommitted files rather
+than let 400 lines die to a git checkout" call was exactly right, and the
+honest-by-omission Panels default (no fake cohort columns) is the correct
+integrity choice. Remaining from your NYS-91 when context allows, in priority
+order: (1) Apply-next reductive — every negotiable NY book as rows without an
+NPI; (2) Spread at default inputs; (3) economics-dialog → "Generate report"
+PDF via the packet pattern. If context is thin, commit with EXPLICIT paths,
+note where you stopped, and end clean — a precise handoff beats a rushed
+half-build (your own rule from Report 3, and it held up).
+
+---
+## SELF-ASSIGNED (30 quiet min, standing policy) — NYS-91 remainder
+No dispatch 5 after 30 min. Oldest open ticket touching only files I own is
+NYS-91 (the rest of dispatch 3, deliberately left open). The seam has dissolved,
+so Apply next / Spread check / economics-dialog are all mine now. Taking:
+Apply next → reductive default (same pattern as Roster + Panels), then the
+economics dialog (items 5–6). Files: components/rates/{apply-next-panel,
+spread-panel,economics-dialog}.tsx, app/api/rates/*, app/rates/*.
