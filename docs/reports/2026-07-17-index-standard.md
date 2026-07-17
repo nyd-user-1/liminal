@@ -58,3 +58,103 @@ Linear (NYS): this work is **NYS-75**, closed. Open items filed as their own tic
 - The shared primitives (`tabs`, `data-table`, `filter-chip`, `icons`, `column-picker`,
   `page-header`) still carry that session's uncommitted edits. This commit excludes
   them deliberately and uses only props that exist at HEAD, so it builds standalone.
+
+---
+## LEAD INSTRUCTIONS — next task (from last-fable-standing, 2026-07-17)
+
+Your own open items, plus the founder's quality pass. Three parts, in order:
+
+1. **NYS-76**: extract `components/ui/index-header.tsx` (TopBarActions + tabs
+   row as one thin composed piece) and document the index standard on
+   /design-system, per the original brief §2.
+2. **NYS-77 + quality**: sweep /directory, /orgs, /orgs/registry, /plans,
+   /recruiting, /billing, /library onto IndexHeader + the standard toolbar.
+   While you're in each page, fix the founder's two complaints:
+   (a) BARE-BONES pages — /plans and /recruiting especially should get real
+   columns/facets worthy of the data (read their repos; surface what's
+   already fetched, don't build new queries);
+   (b) DEAD ROWS — every index row must do something on click: open the
+   existing detail panel, the existing drill-down, or (where a record page
+   exists) navigate. If truly nothing exists to open, kebab-only is
+   acceptable — note each such case in your report.
+3. **Related-record links, exactly one pattern, used twice.** Add a tiny
+   `RelatedLink` treatment (faint DOTTED teal underline — decoration-dotted,
+   muted until hover) meaning "this value lives in another table; click to go
+   there". Wire TWO instances only, the most obvious ones you find while
+   sweeping (candidates: an org/TIN name on /published-rates → /orgs/[tin];
+   a "Billing TIN" badge on /orgs/registry → /orgs/[tin]; a provider count →
+   /directory). Document it on /design-system next to the index standard.
+   DO NOT sprinkle it everywhere — two instances, that's the order.
+
+Working agreements unchanged (own files/hunks only, commit, NO push; another
+terminal is working components/board/* — don't touch it). File your report by
+APPENDING "## Report 2 — sweep + related links" to this file. Linear: NYS-76 /
+NYS-77 are yours to progress and close; file new tickets for leftovers.
+Questions: append "## QUESTION FOR LEAD" here — this file is monitored.
+
+---
+## Report 2 — sweep + related links
+Commits `893f902` (IndexHeader + docs) and `71ff512` (sweep), local only, not pushed.
+Linear: NYS-76 + NYS-77 closed. New: NYS-89, NYS-90.
+
+### Shipped
+- **NYS-76 — `components/ui/index-header.tsx`**: TopBar actions (New + bell) + the
+  tab row, one thin piece. Decides nothing — no data, no filtering, no active-tab
+  state. Its TopBar half portals, so it renders wherever it sits. Primitives 44 → 45
+  (a genuinely new primitive, declared per CLAUDE.md; the lead ordered it).
+- **NYS-77 — swept onto it**: clients (rail + the other session's open-record tabs
+  intact), prescriptions, orders, catalog, directory (browser-tab model intact,
+  `slideActive={false}`), orgs, orgs/registry, plans, recruiting, billing.
+- **/plans** — was the barest: no TopBar actions, no tab row, hand-rolled table. Now
+  IndexHeader + DataTable + the full toolbar. `market_type` — fetched on every
+  sponsors query, never rendered — is a column. The bespoke "New York only" button
+  is now a State facet derived from the rows, joined by Funding and Market.
+- **/recruiting** — showed 3 of the 5 rates it fetches. `best90834` (45-min
+  psychotherapy, the most-billed code) is a column, which also fixes "Therapy rate"
+  reading as THE therapy rate → Therapy 45m / 60m. Group (90853) + As-of ship
+  hidden-by-default. Gained the Filter it never had (profession facet). Lost
+  "Tab 2/3/4" — three tabs that filtered nothing.
+- **Dead rows**: /billing → Payers now opens the PayerPanel its own Edit kebab
+  already opened. /orgs/registry gained its missing Export.
+- **RelatedLink ×2**: `TextLink` gains a `related` variant (faint dotted teal
+  underline, teal on hover) reached through a `RelatedLink` wrapper that stops
+  propagation. Live on /published-rates (Billing ID → the org book) and
+  /orgs/registry (the Billing TIN badge). Documented on /design-system beside the
+  index standard, which is also now a paragraph in the copyable Start-here rules.
+
+### DB changes — none. No query changed; no repo touched.
+
+### Decisions
+- **RelatedLink is a TextLink variant, not primitive #46.** The kit already has a
+  variant system for exactly this; the one rule says compose before inventing. The
+  `RelatedLink` name survives as a thin wrapper so call sites read as the semantic.
+- **The /design-system IndexHeader card is a static anatomy, not a live mount** — a
+  real one would portal a stray "New …" button into that page's own TopBar.
+- **Kebab-only, justified**: /orgs/registry rows that aren't billing TINs. They're
+  NPPES reference data with no record to open; the 3,113 that DO have one now carry
+  the RelatedLink badge.
+- **/library left alone (NYS-90)** — its TopBar actions are suppressed while the
+  inline FormBuilder is open, and IndexHeader fuses TopBar to tabs. Adopting it would
+  resurrect the bell mid-edit or need an `actionsHidden` prop for one page: the logic
+  creep IndexHeader exists to refuse. Its dead cards are hardcoded lorem with no repo
+  behind them — a data question, not chrome.
+
+### Open items
+1. **NYS-89 (urgent) — /design-system 500s right now, and it is not mine.** The board
+   session's uncommitted `board-grid.tsx` dropped the `reorderIds` / `BoardCardSize`
+   exports that `design-system/page.tsx:9` imports. Their API change, their consumer;
+   I left `components/board/*` untouched per the working agreement and did not paper
+   over it in design-system either, which would collide with their edit.
+2. **NYS-90 (medium)** — /library: scaffold cards + the chrome fusion problem above.
+3. NYS-78 (Export/Refresh ghost drift) and NYS-79 (dead duplicate + backwards
+   imports) from Report 1 are still open.
+
+### Gotchas
+- **NYS-76's docs could not be verified in a browser** — blocked by NYS-89. The page
+  typechecks and its own hunks are clean; everything else was verified on :3010 as
+  brendan (all seven pages 200, toolbars + new columns + facets present in the HTML).
+- The registry's RelatedLink is absent from page 1's HTML *correctly*: only 3,113 of
+  105k rows are billing TINs and they arrive via the client-side filter. The
+  identical treatment is confirmed rendering in /published-rates' SSR HTML.
+- `git add` was per-file throughout; `components/board/*`, `components/records/*`,
+  `components/analytics/*` and the other sessions' reports are untouched.
