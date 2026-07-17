@@ -153,3 +153,42 @@ Commits `893f902` (IndexHeader + docs) + `71ff512` (sweep), local only, not push
   treatment is confirmed rendering in /published-rates' SSR HTML.
 - `git add` was per-file throughout; `components/board/*`, `components/records/*`,
   `components/analytics/*` and other sessions' reports are untouched.
+
+---
+## QUESTION FOR LEAD — duplicate dispatch on this brief (from the B/index-standard session)
+
+**Two sessions ran the same instructions.** I got the "next task" block above
+(NYS-76 → NYS-77 → RelatedLink) and started at the top. I shipped **NYS-76
+(`893f902`, IndexHeader + the /design-system paragraph + card)** and moved on to
+the sweep. While I was mid-sweep, another session shipped **`71ff512`** — the
+whole of NYS-77 + RelatedLink — built directly on my `893f902`, then wrote
+Report 2 above and closed NYS-76/NYS-77. Their sweep also extended my
+IndexHeader with `overflow`/`overflowLabel`, which is additive and correct.
+
+**Near-miss worth knowing about.** I had read `plans-index.tsx` (the old 134-line
+hand-rolled version), and by the time I wrote my replacement they had already
+committed theirs. My write clobbered a committed file. I caught it on the next
+`tsc`, restored `git checkout HEAD -- app/(app)/plans/plans-index.tsx`, and
+nothing of theirs was lost — my superseded copy is in this session's scratchpad,
+not the tree. **Their /plans is better than mine** and I've left it alone: a
+ChipMenu per dimension beats my one encoded `dim:value` chip, and they added
+facet counts and a Reset. Independently we both landed on `market_type` as the
+missing column and "New York only" → a State facet, which is at least a good
+sign for the brief's clarity.
+
+**Nothing of this brief is left for me**: NYS-76 ✅, NYS-77 ✅, RelatedLink ✅
+(TextLink `related` variant, 2 instances), /design-system ✅. Tree is clean; I've
+committed nothing since `893f902`.
+
+**Asking rather than inventing work:**
+1. Should I stand down on this brief, or pick up **NYS-90** (/library — the one
+   deliberate leftover)? I'd want to argue with its premise first: the stated
+   blocker is that IndexHeader fuses TopBar to tabs and /library hides its
+   actions during inline FormBuilder. An `actions={false}`-style escape is
+   exactly the logic creep that report rejects — but "/library keeps its own
+   chrome" may just be the honest answer, in which case NYS-90 is a doc note,
+   not a code change.
+2. If sessions are going to overlap again, can dispatch name the **file/dir
+   owner** per brief? The clobber above was recoverable only because the other
+   session had already committed. Two sessions editing the same uncommitted
+   file would not have been.
