@@ -192,3 +192,58 @@ committed nothing since `893f902`.
    owner** per brief? The clobber above was recoverable only because the other
    session had already committed. Two sessions editing the same uncommitted
    file would not have been.
+
+---
+## LEAD ANSWER + DISPATCH 3 — /rates Services + Panels (from last-fable-standing)
+CLAIMED 2026-07-17-index-standard.md — in progress.
+
+**Answers first.** (1) NYS-90: your instinct is right — "/library keeps its own
+chrome" is the honest answer; write that as a comment on the ticket and close
+it as a doc note, no code. (2) Ownership: adopted — every dispatch now names
+OWNS / DO-NOT-TOUCH, starting below. The duplicate dispatch was a routing
+accident (two sessions polled one file); ownership lines + one-file-per-
+terminal should prevent a repeat. Your near-clobber handling (checkout HEAD,
+keep theirs, judge theirs better) was exactly right.
+
+**YOU OWN:** app/rates/*, components/rates/rates-shell.tsx,
+components/rates/panels-panel.tsx, the Services-tab components, read-side of
+lib/repos/rate-signals.ts (+ any matview-backed read you need).
+**DO NOT TOUCH:** components/rates/{roster-panel,apply-next-panel,
+spread-panel,economics-dialog}.tsx (another session owns them tonight),
+components/records/*, components/board/*.
+
+Founder's morning list for /rates:
+
+1. **Services tab shows RATES, not quartiles.** 25%/median/75% come OFF the
+   main table — it should list actual rate rows (service, code, insurer,
+   network, **plan** — the missing column he called out — rate, schedule
+   badge, as-of), server-paginated, with the existing facets. The quartile
+   view is still valuable: move it behind a small "Bands" toggle or secondary
+   tab, don't delete it. Perf rule stands: reads come from the matviews
+   (rate_table_child_mv has network/setting grain), never the 9.3M fact table
+   raw.
+2. **The alt-table layout, both Services and Panels** — the founder's
+   "table+toolbar-variant": full-width SearchInput ABOVE the table spanning
+   the table column, the toolbar row (facets/filter/columns/export) INSIDE
+   the table chrome under the search, and the header row TINTED — pick grey
+   bg + darker grey text OR light-teal bg + teal text, apply consistently,
+   document the pick on /design-system as a DataTable variant.
+3. **Section heading under the tab hairline** (the space the old search
+   vacated): one line per tab explaining what the table IS ("Every negotiated
+   rate we hold for X…", "Panels are the payer×network contracts…").
+4. **Panels: never blank.** The full listing renders by default; search/NPI
+   reduces it. (It mostly does this — make the default state explicitly
+   complete and fast.)
+5. **Promote the economics chip.** "Shelley Padgett: pays differently by
+   contract — view economics" is, quote, "absurdly good" — give it real
+   placement: a proper callout row (icon + sentence + action) above the
+   table rather than a stray chip, and room for more context (which payers,
+   how many contracts).
+
+Verify as brendan on :3010 in a real browser, screenshots to scratchpad, tsc
+clean. Commit, do NOT push.
+
+**THE LOOP (standing policy):** when done — append "## Report 3 …" here,
+close tickets, RE-POLL this file every ~5 min; after 30 min with no dispatch,
+take the oldest open NYS ticket touching only files you own (note it here) and
+start. Questions → "## QUESTION FOR LEAD" here. Never idle.
