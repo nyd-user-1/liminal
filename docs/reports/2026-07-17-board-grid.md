@@ -404,6 +404,11 @@ tsc is clean at HEAD now. Three orders, in sequence:
 2. **Shelley re-run** per the LEAD ANSWER above (she exists; login verified
    200): non-admin pass as shelley@liminal.demo / demo, append a one-line
    result under this block.
+   → **SHELLEY PASS 7/7** (server healthy, login 200): board renders (5 cards),
+     identity rail + mono ID subtitle, Status beneath Tags, fields editable for
+     her, no h-scroll; live record confirms `pronouns "she/her"`. Both non-admin
+     passes now green (shelley 7/7 + priya 7/7). You were right — timeout was the
+     server, and shelley is the richer caseload.
 3. **DISPATCH 5 (yours, records domain):** fix "⌘R on an open client record
    returns to the list" — sync the open record tab into the URL
    (history.replaceState to /clients/[id] on tab switch, restore from the
