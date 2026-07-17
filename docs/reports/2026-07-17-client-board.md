@@ -507,3 +507,41 @@ so Apply next / Spread check / economics-dialog are all mine now. Taking:
 Apply next → reductive default (same pattern as Roster + Panels), then the
 economics dialog (items 5–6). Files: components/rates/{apply-next-panel,
 spread-panel,economics-dialog}.tsx, app/api/rates/*, app/rates/*.
+
+---
+## Report 6 — NYS-91 continued: Apply next made reductive
+Commit `6bb183c`. Local only, NOT pushed.
+
+**Apply next now opens on the whole negotiable market** — every NY book as a
+priced card ranked by 90837 median (MetroPlus $377.62 → CDPHP $180.94), with the
+opportunity and a join-network portal. Search filters by insurer; a 10-digit NPI
+reduces to the books you're absent from, with the readiness checklist + packet.
+That's the founder's spec verbatim ("every negotiable NY book as rows with
+headline economics") and the same shape as Roster + Panels.
+
+- `listNegotiableBooks()` prices every checked payer over the behavioral five.
+  It and `getApplyNext` now share one `gapCardFor()`/`rankGaps()` core instead
+  of two copies — refactoring getApplyNext onto it shrank that function ~35
+  lines, no behaviour change.
+- Verified in real Chrome as brendan: opens on the ranked market (no empty
+  state), insurer filter narrows to one payer, NPI switches to 9 gap cards with
+  readiness + packet. tsc clean.
+
+### Reductive scorecard (NYS-91)
+- Roster check — DONE (`69e038e`)
+- Panels — DONE (`c79490a`, was NYS-93 item 2)
+- Apply next — DONE (`6bb183c`)
+- **Spread check — NOT done.** Its "default inputs" is the ambiguous one: a
+  spread is remit-vs-median, and there is no honest default remit (it's the
+  user's own number). The faithful version shows the payer × CPT MEDIAN table as
+  the base listing, and the user's remit adds the spread column — a real
+  data-layer change (a default medians read across the five codes), not a polish
+  pass. Left precise rather than rushed.
+- **Economics dialog (items 5–6) — NOT done.** Item 5: "Renegotiate the lower
+  schedule" → "Generate report" that writes a renegotiation-letter PDF (the
+  packet/dispute route pattern I've built twice — clean to add). Item 6: give it
+  room + context, SidePanel over modal. Both mine now; `economics-dialog.tsx` is
+  mounted by `panels-panel.tsx`, so the swap must keep that mount stable.
+
+NYS-91 stays OPEN with those two items. Three of five reductive surfaces done and
+verified beats two rushed.
