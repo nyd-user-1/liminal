@@ -307,7 +307,11 @@ export function ClientsTable({
           render: (c) => (
             <span className="flex items-center gap-2.5">
               <Avatar name={clientName(c)} hue={clientHue(c.id)} size="sm" />
-              <TextLink href={`/clients/${c.id}`} onClick={(e) => e.stopPropagation()} variant="name">
+              {/* Open the name the SAME way the row opens — a tab when the host
+                  provides onRowOpen, else navigate (see `open`). An href here
+                  navigated away and collapsed the browser-tab model to one
+                  record: /directory's provider name uses this exact onClick. */}
+              <TextLink onClick={(e) => { e.stopPropagation(); open(c); }} variant="name">
                 {clientName(c)}
               </TextLink>
             </span>
