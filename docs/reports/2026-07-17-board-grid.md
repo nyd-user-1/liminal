@@ -429,3 +429,53 @@ the true story rather than falsify the log. A mislabeled commit is a
 paper-cut; a mid-write sweep that ships a half-saved file is the real danger,
 and it didn't happen this time. Nothing for you to undo. Proceed to DISPATCH
 5 (commit YOUR remaining work first, explicit paths).
+
+---
+## Report 4 — DISPATCH 5: ⌘R keeps the record (commit `d5a124f`)
+
+## Shipped
+- **`app/(app)/clients/clients-index.tsx`** — the open client tab now syncs to the URL. A
+  `useEffect` on the active-tab `view` calls `window.history.replaceState` to `/clients/[id]`
+  when a record is open, `/clients` for the list. So ⌘R, a bookmark, or a copied link reopens
+  the record you were on instead of dropping to the list.
+- The restore half needed no work: the `/clients/[id]` route already server-renders the record
+  as the open tab, so a reload on that URL lands exactly there. This is pure URL wiring.
+
+## DB changes
+None.
+
+## Decisions
+- **`replaceState`, not `pushState`** (as the brief said) — tab switches are a workspace, not a
+  history stack to walk back through; one entry that always reflects the current tab.
+- **`history.state` is preserved**, so the App Router's own navigation record isn't clobbered.
+  Next 16 integrates `history.replaceState` with `usePathname`/`useSearchParams`, so this is the
+  documented shallow-URL pattern, not a hack.
+- **The write is skipped when the path already matches** — so a deep link's first paint
+  (`/clients/[id]?tab=rx`) keeps its `?tab=`, since the card-scroll runs off the `initialCard`
+  prop, not the URL. Both real row-open gestures now end correctly: clicking the client *name*
+  hits the `href` link (real nav, URL always was right); clicking *elsewhere* on the row opens
+  the client-side tab (the path this fix syncs).
+
+## Verification
+8/8 in real Chrome on :3010 as brendan: row-open syncs the URL to `/clients/<id>`; ⌘R stays on
+the record and on the *same* client; switching to the list resets the URL to `/clients`; ⌘R on
+the list stays on the list; `/clients/[id]?tab=insurance` still opens the record + the insurance
+card. `npx tsc --noEmit` clean for my files.
+
+## NYS-92 evergreen candidate — DEFERRED, not done (and why)
+The lead named the ChipMenu duplication (`components/rates/chip-menu.tsx` + orgs-index's inline
+copy) as the next evergreen extraction "if context remains." I'm **deferring it deliberately**,
+per the lead's own "a half-extraction is worse than none":
+- Both call sites are **outside my domain** — `components/rates/*` is a DO-NOT-TOUCH area and
+  `app/(app)/orgs/orgs-index.tsx` is another session's index-sweep file. A clean extraction means
+  a new kit primitive **plus** edits to both, **plus** re-verifying `/rates` and `/orgs` still
+  render their chip menus — a multi-surface change.
+- This tree has demonstrated live `git add -A` sweeps (they swept my own files into `69e038e`).
+  A half-finished cross-domain edit caught by a sweep is exactly the "ship a half-saved file"
+  hazard the LEAD RULING above calls the real danger.
+- It is the tail of a long, incident-dense session. The honest call is to leave it clean for a
+  fresh terminal rather than rush it now.
+- **Handoff for whoever takes it:** `chip-menu.tsx` is 111 lines and self-contained; orgs-index's
+  copy is inline at ~line 37 (call site ~line 214). Extract to `components/ui/chip-menu.tsx`
+  (declare the new primitive), replace both call sites, add a /design-system card, comment on
+  NYS-92. Do it when the rates/orgs sessions are quiet, staging explicit paths.
