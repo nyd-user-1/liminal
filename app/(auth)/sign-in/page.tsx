@@ -5,44 +5,12 @@ import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { IconButton } from "@/components/ui/icon-button";
-import { Icon } from "@/components/ui/icons";
 import { Logo } from "@/components/ui/logo";
 import { TextLink } from "@/components/ui/text-link";
 
 // Sign-in screen (catalog §4 "Welcome back", Leuk branding): navy
-// backdrop, white AuthCard, teal CTA, amber links, demo credentials hint.
-
-// Click-to-copy demo credential (same affordance vocabulary as the
-// design-system page: copy icon on hover, green check for 1.2s on copy).
-function CopyValue({ value, className = "" }: { value: string; className?: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      type="button"
-      title={`Copy ${value}`}
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(value);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1200);
-        } catch {}
-      }}
-      className={`group/copy inline-flex items-baseline gap-1 rounded-sm underline decoration-dotted decoration-transparent underline-offset-4 transition-colors hover:decoration-current focus-visible:decoration-current focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${className}`}
-    >
-      {value}
-      <Icon
-        name={copied ? "check" : "copy"}
-        size={12}
-        className={`self-center transition-opacity ${
-          copied ? "text-success opacity-100" : "opacity-0 group-hover/copy:opacity-70 group-focus-visible/copy:opacity-70"
-        }`}
-      />
-      <span aria-live="polite" className="sr-only">
-        {copied ? "Copied" : ""}
-      </span>
-    </button>
-  );
-}
+// backdrop, white AuthCard, teal CTA, amber links. No demo-credential hint —
+// this is a live workspace; we don't advertise logins on the door.
 
 export default function SignInPage() {
   const router = useRouter();
@@ -120,21 +88,6 @@ export default function SignInPage() {
         <p className="mt-5 text-center text-sm text-text-muted">
           Forgot your password? <TextLink href="/forgot-password">Reset it</TextLink>
         </p>
-      </div>
-
-      <div className="mt-6 w-full max-w-md rounded-card border border-sidebar-active bg-sidebar-active/40 p-4 text-sm text-sidebar-text">
-        <p className="font-semibold text-white">Demo credentials</p>
-        <div className="mt-1.5 space-y-1">
-          <p>
-            Practitioner: <CopyValue value="brendan@liminal.demo" className="text-accent" />
-          </p>
-          <p>
-            Client: <CopyValue value="casey@liminal.demo" className="text-accent" />
-          </p>
-          <p>
-            Password: <CopyValue value="demo" className="font-semibold text-white" />
-          </p>
-        </div>
       </div>
     </div>
   );
