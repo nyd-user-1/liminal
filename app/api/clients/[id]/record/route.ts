@@ -5,8 +5,9 @@ import { listAppointments } from "@/lib/repos/appointments";
 import { getClient, listPractitioners } from "@/lib/repos/clients";
 import { listReferrals } from "@/lib/repos/directory";
 import { listFiles } from "@/lib/repos/files";
-import { listInvoices } from "@/lib/repos/invoices";
+import { clientBillingSummary, listInvoices } from "@/lib/repos/invoices";
 import { listPayers, listPolicies } from "@/lib/repos/policies";
+import { listServices } from "@/lib/repos/services";
 import { hasPhoton, photonOrgId } from "@/lib/photon";
 import type { ClientRecordBundle } from "@/components/records/client-record";
 
@@ -36,15 +37,18 @@ export async function GET(_req: NextRequest, { params }: Params) {
     const client = await getClient(id);
     if (!client) return NextResponse.json({ error: "Client not found." }, { status: 404 });
 
-    const [practitioners, policies, payers, files, appointments, invoices, referrals] = await Promise.all([
-      listPractitioners(),
-      listPolicies(id),
-      listPayers(),
-      listFiles(id),
-      listAppointments({ clientId: id }),
-      listInvoices({ clientId: id }),
-      listReferrals({ clientId: id }),
-    ]);
+    const [practitioners, policies, payers, files, appointments, invoices, referrals, billingSummary, services] =
+      await Promise.all([
+        listPractitioners(),
+        listPolicies(id),
+        listPayers(),
+        listFiles(id),
+        listAppointments({ clientId: id }),
+        listInvoices({ clientId: id }),
+        listReferrals({ clientId: id }),
+        clientBillingSummary(id),
+        listServices(),
+      ]);
     await logEvent({ actorId: user.id, action: "client.view", entity: "client", entityId: id });
 
     // A Photon outage must not take the record down — the Rx card degrades
@@ -61,6 +65,10 @@ export async function GET(_req: NextRequest, { params }: Params) {
       appointments,
       invoices,
       referrals,
+      billingSummary,
+      services: services
+        .filter((s) => s.active)
+        .map((s) => ({ id: s.id, name: s.name, durationMin: s.durationMin, priceCents: s.priceCents })),
       orgId,
       photonClientId: process.env.NEXT_PUBLIC_PHOTON_CLIENT_ID ?? "",
       photonEnv: process.env.NEXT_PUBLIC_PHOTON_ENV ?? "",

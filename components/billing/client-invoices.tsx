@@ -24,15 +24,27 @@ export function ClientInvoices({
   invoices,
   summary,
   services,
+  bare = false,
+  newOpen: controlledNewOpen,
+  onNewOpenChange,
 }: {
   clientId: string;
   invoices: InvoiceListItem[];
   summary: { balanceCents: number; lastPaymentCents: number | null; lastPaymentAt: string | null };
   services: ServiceOption[];
+  /** Board variant: the host card draws the title and carries New invoice. */
+  bare?: boolean;
+  /** Controlled when the host owns the New-invoice trigger — the same handshake
+   *  the object tables use (components/tables/clients-table.tsx). */
+  newOpen?: boolean;
+  onNewOpenChange?: (open: boolean) => void;
 }) {
   const router = useRouter();
   const toast = useToast();
-  const [newInvoiceOpen, setNewInvoiceOpen] = useState(false);
+  const [uncontrolledNewOpen, setUncontrolledNewOpen] = useState(false);
+  const newInvoiceOpen = controlledNewOpen ?? uncontrolledNewOpen;
+  const setNewInvoiceOpen = (open: boolean) =>
+    onNewOpenChange ? onNewOpenChange(open) : setUncontrolledNewOpen(open);
   const [paymentTarget, setPaymentTarget] = useState<PaymentTarget | null>(null);
 
   const patchInvoice = async (id: string, status: "sent" | "void", done: string) => {
@@ -65,12 +77,14 @@ export function ClientInvoices({
         />
       </div>
 
-      <div className="flex items-center justify-between">
-        <h2 className="text-[19px] font-semibold text-text">Invoices</h2>
-        <Button size="sm" leftIcon="plus" onClick={() => setNewInvoiceOpen(true)}>
-          New invoice
-        </Button>
-      </div>
+      {!bare && (
+        <div className="flex items-center justify-between">
+          <h2 className="text-[19px] font-semibold text-text">Invoices</h2>
+          <Button size="sm" leftIcon="plus" onClick={() => setNewInvoiceOpen(true)}>
+            New invoice
+          </Button>
+        </div>
+      )}
 
       {invoices.length === 0 ? (
         <EmptyState

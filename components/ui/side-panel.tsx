@@ -65,6 +65,7 @@ export function SidePanel({
   width = "max-w-xl",
   mobileSheet = false,
   variant = "default",
+  dragThrough = false,
   children,
 }: {
   open: boolean;
@@ -80,6 +81,15 @@ export function SidePanel({
   mobileSheet?: boolean;
   /** "spec" = dark, read-only detail treatment. Default stays the light shell. */
   variant?: Variant;
+  /**
+   * Let the SCRIM pass pointer events through to the page beneath, while the
+   * panel itself keeps them. For panels you drag things OUT of: the scrim is
+   * `fixed inset-0`, so it is what a dragged row is dropped on and the page's
+   * drop target never fires (NYS-74). Set this only while a drag is in flight —
+   * a scrim that never captures is a panel that can't be dismissed by clicking
+   * away.
+   */
+  dragThrough?: boolean;
   children: ReactNode;
 }) {
   useEffect(() => {
@@ -106,13 +116,13 @@ export function SidePanel({
       // mobileSheet stays flush to the bottom edge below lg; a sheet with a gap
       // under it reads as a mistake, not a flyover.
       className={`panel-scrim-in fixed inset-0 z-50 flex bg-scrim-soft ${
-        mobileSheet ? "flex-col justify-end lg:flex-row lg:justify-end lg:p-3" : "justify-end p-3"
-      }`}
+        dragThrough ? "pointer-events-none" : ""
+      } ${mobileSheet ? "flex-col justify-end lg:flex-row lg:justify-end lg:p-3" : "justify-end p-3"}`}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         style={{ boxShadow: `var(${spec ? "--shadow-panel-spec" : "--shadow-panel"})` }}
-        className={`relative isolate overflow-hidden ${SHELL[variant]} ${
+        className={`relative isolate overflow-hidden ${dragThrough ? "pointer-events-auto" : ""} ${SHELL[variant]} ${
           mobileSheet
             ? `panel-sheet-in mx-auto flex max-h-[88dvh] w-full ${width} flex-col rounded-t-card lg:mx-0 lg:h-full lg:max-h-none lg:rounded-card`
             : `panel-in flex h-full w-full ${width} flex-col rounded-card`

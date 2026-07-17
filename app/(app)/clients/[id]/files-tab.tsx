@@ -30,11 +30,15 @@ export function FilesTab({
   clientId,
   files,
   readOnly = false,
+  bare = false,
 }: {
   clientId: string;
   files: FileRecord[];
   /** Patient-portal variant: the dropzone goes, the tiles stay. */
   readOnly?: boolean;
+  /** Board variant: the host card owns the width, so drop the page measure and
+   *  let the tiles reflow inside whatever column the card is. */
+  bare?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -65,7 +69,7 @@ export function FilesTab({
   }
 
   return (
-    <div className="max-w-4xl">
+    <div className={bare ? "" : "max-w-4xl"}>
       {readOnly ? null : uploading ? (
         <div className="flex items-center justify-center gap-3 rounded-field border-2 border-dashed border-primary-weak bg-teal-100/50 px-6 py-8 text-[15px] text-text-body">
           <Spinner size={18} /> Uploading…
@@ -85,7 +89,7 @@ export function FilesTab({
           }
         />
       ) : (
-        <div className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-3 ${readOnly ? "" : "mt-6"}`}>
+        <div className={`grid gap-4 sm:grid-cols-2 ${bare ? "" : "lg:grid-cols-3"} ${readOnly ? "" : "mt-6"}`}>
           {files.map((f) => {
             const kind = KIND_LABELS[f.kind];
             return (

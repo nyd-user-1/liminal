@@ -5,8 +5,9 @@ import { listAppointments } from "@/lib/repos/appointments";
 import { getClient, listClients, listPractitioners } from "@/lib/repos/clients";
 import { listReferrals } from "@/lib/repos/directory";
 import { listFiles } from "@/lib/repos/files";
-import { listInvoices } from "@/lib/repos/invoices";
+import { clientBillingSummary, listInvoices } from "@/lib/repos/invoices";
 import { listPayers, listPolicies } from "@/lib/repos/policies";
+import { listServices } from "@/lib/repos/services";
 import { hasPhoton, photonOrgId } from "@/lib/photon";
 import type { ClientRecordBundle } from "@/components/records/client-record";
 import { ClientsIndex } from "../clients-index";
@@ -36,16 +37,19 @@ export default async function ClientDetailPage({
 
   const user = await getUser();
   const isAdmin = user?.role === "admin";
-  const [clients, practitioners, policies, payers, files, appointments, invoices, referrals] = await Promise.all([
-    listClients(isAdmin ? undefined : { practitionerId: user?.id }),
-    listPractitioners(),
-    listPolicies(id),
-    listPayers(),
-    listFiles(id),
-    listAppointments({ clientId: id }),
-    listInvoices({ clientId: id }),
-    listReferrals({ clientId: id }),
-  ]);
+  const [clients, practitioners, policies, payers, files, appointments, invoices, referrals, billingSummary, services] =
+    await Promise.all([
+      listClients(isAdmin ? undefined : { practitionerId: user?.id }),
+      listPractitioners(),
+      listPolicies(id),
+      listPayers(),
+      listFiles(id),
+      listAppointments({ clientId: id }),
+      listInvoices({ clientId: id }),
+      listReferrals({ clientId: id }),
+      clientBillingSummary(id),
+      listServices(),
+    ]);
   await logEvent({ actorId: user?.id ?? null, action: "client.view", entity: "client", entityId: id });
 
   // Photon's org id rides on the M2M token, so it follows the credentials from
@@ -63,6 +67,10 @@ export default async function ClientDetailPage({
     appointments,
     invoices,
     referrals,
+    billingSummary,
+    services: services
+      .filter((s) => s.active)
+      .map((s) => ({ id: s.id, name: s.name, durationMin: s.durationMin, priceCents: s.priceCents })),
     orgId,
     photonClientId: process.env.NEXT_PUBLIC_PHOTON_CLIENT_ID ?? "",
     photonEnv: process.env.NEXT_PUBLIC_PHOTON_ENV ?? "",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { SettingsCard } from "@/components/ui/card";
@@ -40,10 +40,14 @@ export function PersonalTab({
   client,
   practitioners,
   readOnly = false,
+  bare = false,
 }: {
   client: Client;
   practitioners: PractitionerOption[];
   readOnly?: boolean;
+  /** Drop this section's own card chrome: the host is already a card and is
+   *  drawing the title (the client board). Contents are untouched. */
+  bare?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -93,8 +97,18 @@ export function PersonalTab({
     }
   }
 
+  // On the board the BoardCard is already the card and already draws the title,
+  // so `bare` swaps the SettingsCard for a plain box — the form is untouched.
+  const Shell = bare
+    ? ({ children }: { children: ReactNode }) => <div>{children}</div>
+    : ({ children }: { children: ReactNode }) => (
+        <SettingsCard icon="person-circle" title="Client details" className="max-w-3xl">
+          {children}
+        </SettingsCard>
+      );
+
   return (
-    <SettingsCard icon="person-circle" title="Client details" className="max-w-3xl">
+    <Shell>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="First name" required disabled={readOnly} value={form.firstName} onChange={(e) => set("firstName")(e.target.value)} />
         <Field label="Last name" required disabled={readOnly} value={form.lastName} onChange={(e) => set("lastName")(e.target.value)} />
@@ -156,6 +170,6 @@ export function PersonalTab({
           </Button>
         </div>
       )}
-    </SettingsCard>
+    </Shell>
   );
 }

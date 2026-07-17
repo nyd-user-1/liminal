@@ -46,7 +46,7 @@ function noteSnippet(bodyMd: string): string {
   return text.length > 90 ? `${text.slice(0, 90)}…` : text;
 }
 
-export function ClientNotes({ clientId }: { clientId: string }) {
+export function ClientNotes({ clientId, bare = false }: { clientId: string; bare?: boolean }) {
   const toast = useToast();
   const [notes, setNotes] = useState<Note[] | null>(null);
   const [authors, setAuthors] = useState<Record<string, string>>({});
@@ -110,8 +110,12 @@ export function ClientNotes({ clientId }: { clientId: string }) {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-[19px] font-semibold text-text">Notes</h2>
+      {/* `bare`: the board's card already draws the title, so the heading goes
+          and the New-note menu keeps its row. Unlike the other sections, this
+          action is a KIND PICKER, not a plain trigger — lifting it into the card
+          chrome would mean duplicating the kind list and createNote there. */}
+      <div className={`mb-4 flex items-center ${bare ? "justify-end" : "justify-between"}`}>
+        {!bare && <h2 className="text-[19px] font-semibold text-text">Notes</h2>}
         <DropdownMenu
           label="New note"
           trigger={

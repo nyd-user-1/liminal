@@ -62,20 +62,25 @@ function MetricRow({
   on,
   onAdd,
   onRemove,
+  onDragState,
 }: {
   def: MetricDef;
   on: boolean;
   onAdd: (k: string) => void;
   onRemove: (k: string) => void;
+  onDragState: (dragging: boolean) => void;
 }) {
   return (
     <div
       draggable
       onDragStart={(e) => {
+        // Drop the scrim's guard FIRST — see the card library's note.
+        onDragState(true);
         e.dataTransfer.setData(DRAG_TYPE, def.key);
         e.dataTransfer.setData("text/plain", def.key);
         e.dataTransfer.effectAllowed = "copy";
       }}
+      onDragEnd={() => onDragState(false)}
       onClick={() => (on ? onRemove(def.key) : onAdd(def.key))}
       title={on ? "On the board — click to remove" : "Click to add, or drag onto the board"}
       className={`group flex cursor-grab select-none items-center gap-2.5 rounded-field border px-2.5 py-2 transition-colors ${
@@ -123,6 +128,9 @@ export function KpiLibraryPanel({
   onApplyView: (v: BoardView) => void;
 }) {
   const [q, setQ] = useState("");
+  // A metric dragged out has to be able to land: the scrim is what the board
+  // sits under, so it stops capturing for the length of the drag (NYS-74).
+  const [dragging, setDragging] = useState(false);
   const placedSet = useMemo(() => new Set(placed), [placed]);
 
   const groups = useMemo(() => {
@@ -134,7 +142,15 @@ export function KpiLibraryPanel({
   }, [catalog, q]);
 
   return (
-    <SidePanel open={open} onClose={onClose} kicker="KPI library" title="Add metrics" icon="grid" width="max-w-md">
+    <SidePanel
+      open={open}
+      onClose={onClose}
+      kicker="KPI library"
+      title="Add metrics"
+      icon="grid"
+      width="max-w-md"
+      dragThrough={dragging}
+    >
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
           <SearchInput
@@ -181,7 +197,14 @@ export function KpiLibraryPanel({
             <div key={g.category} className="flex flex-col gap-1.5">
               <p className="text-[9px] uppercase tracking-widest text-text-muted">{g.category}</p>
               {g.metrics.map((m) => (
-                <MetricRow key={m.key} def={m} on={placedSet.has(m.key)} onAdd={onAdd} onRemove={onRemove} />
+                <MetricRow
+                  key={m.key}
+                  def={m}
+                  on={placedSet.has(m.key)}
+                  onAdd={onAdd}
+                  onRemove={onRemove}
+                  onDragState={setDragging}
+                />
               ))}
             </div>
           ))

@@ -31,7 +31,7 @@ import { RecordsList } from "./records/records-list";
 //
 //   Overview   → OverviewTab (read-only already; staff ContactMenu dropped)
 //   Personal   → PersonalTab readOnly — fields disabled, no Save
-//   Rx         → the portal Medications UI, NOT the provider RxTab
+//   Rx         → the portal Medications UI, NOT the provider's Rx card
 //                (which carries "Create prescription" + "Sync to Photon")
 //   Insurance  → InsuranceTab readOnly — no New policy, no Mark verified
 //   Records    → the portal RecordsList: SIGNED notes only. Deliberately not
