@@ -368,3 +368,34 @@ is worse than a precise handoff. NYS-93 has it all: grain, the pivot (unpivot
 one), the pagination precedent (`getOrgRoster` + `/api/orgs/roster`'s `?offset=&limit=`),
 and the new-files-only rule. **Item 4 correction stands, screenshot-proven:** Panels is
 blank by default — EmptyState until an NPI lookup. A data-layer change, not polish.
+
+---
+## Report 4 — item 1 didn't stay handed off; it shipped and is verified
+Report 3 said items 1/4 were "handed off, not half-built." That was true at the time.
+Then this session resumed and BUILT item 1 — I withdraw the handoff framing.
+
+- **Services rate-rows layer shipped in `c7412f0`.** I authored all four files
+  (`lib/repos/rate-rows.ts`, `app/api/rates/services/route.ts`, `services-panel.tsx`,
+  the `rates-shell.tsx` Rates/Bands toggle); when this session hit a session limit
+  mid-verification, a concurrent session committed my complete uncommitted work with a
+  scrupulously honest message (credited, tsc+SQL verified, UI explicitly flagged
+  unproven). My disk is byte-identical to that commit — nothing to re-commit.
+- **The "unproven at the glass" gap is now CLOSED.** Drove both views in real Chrome as
+  brendan (cookie injected — the form login does a native GET submit before hydration;
+  `networkidle` never settles under Turbopack HMR). Services shows 50 of 425,687
+  published rate rows with the **Plan** column populated (`plan_or_network`) and the
+  **Setting** axis proving itself — T. Mather Memorial, same 90791, Office $718.01 vs
+  Facility $613.16. Bands toggle switches to the preserved quartile table. Shots:
+  `rates-services-rows.png`, `rates-bands-toggle.png`. NYS-93 closed.
+- **Item 4 (Panels never blank) was taken by the client-board session** — they built
+  the default listing in `panels-panel.tsx` consuming my `/api/rates/services` route.
+  The seam held: my read serves their reductive-Panels fix. Their file, left untouched.
+
+### Process notes from tonight, worth keeping
+- **Look at the screenshot, never trust the exit code.** My first verification run
+  silently captured the SIGN-IN page and "succeeded". Cookie injection + a
+  `url().includes("sign-in")` guard is the reliable path here.
+- **The dev server wedges under concurrent load** (~9s–70s/request, sometimes a 480s
+  cold compile). A timed-out browser run is usually the server, not your code — probe
+  with curl before restarting anyone's server.
+- Everything remains local; nothing pushed. `git add` stayed per-file throughout.
