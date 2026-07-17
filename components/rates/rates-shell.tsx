@@ -29,6 +29,16 @@ const TABS = [
   { key: "spread", label: "Spread check" },
 ];
 
+// One line per tab, in the space the search vacated when it moved above the
+// table: say what the table IS before the reader has to infer it from columns.
+const BLURBS: Record<string, string> = {
+  bands: "Every negotiated rate we hold for a service, as the insurer published it — by insurer, network and licence tier.",
+  panels: "Panels are the payer × network contracts a clinician is listed under, and what each one pays.",
+  roster: "Who is still publishing you, and what that listing was worth.",
+  "apply-next": "Where to apply next, ranked by what the book already pays people like you.",
+  spread: "What the platform's cut costs you, priced against the rates it negotiates.",
+};
+
 export function RatesShell({ userEmail }: { userEmail?: string }) {
   const toast = useToast();
   const [tab, setTab] = useState("bands");
@@ -56,14 +66,18 @@ export function RatesShell({ userEmail }: { userEmail?: string }) {
         <IconButton icon="bell" label="Notifications" onClick={() => toast("No new notifications.", "info")} />
       </TopBarActions>
 
-      <Tabs className="mt-4 mb-4 shrink-0" items={TABS} active={tab} onChange={setTab} slideActive />
+      <Tabs className="mt-4 shrink-0" items={TABS} active={tab} onChange={setTab} slideActive />
+
+      {/* Sits under the tab hairline, above the tab body — one line saying what
+          this tab's table is. */}
+      <p className="mb-4 mt-3 shrink-0 text-[15px] text-text-body">{BLURBS[tab]}</p>
 
       {/* Bands + Panels own their scroll internally (sticky-header table); Spread
           is a form-then-small-result screen, so its tab body scrolls normally. */}
-      <div className="min-h-0 flex-1 pt-5" hidden={tab !== "bands"}>
+      <div className="min-h-0 flex-1" hidden={tab !== "bands"}>
         <BandsPanel codes={codes} onCodesChange={setCodes} pin={pin} />
       </div>
-      <div className="min-h-0 flex-1 pt-5" hidden={tab !== "panels"}>
+      <div className="min-h-0 flex-1" hidden={tab !== "panels"}>
         <PanelsPanel
           active={tab === "panels"}
           userEmail={userEmail}
@@ -71,7 +85,7 @@ export function RatesShell({ userEmail }: { userEmail?: string }) {
           onGoToRoster={() => setTab("roster")}
         />
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto pt-5" hidden={tab !== "roster"}>
+      <div className="min-h-0 flex-1 overflow-y-auto" hidden={tab !== "roster"}>
         <RosterPanel
           activeNpi={activeNpi}
           onActiveNpi={setActiveNpi}
@@ -81,10 +95,10 @@ export function RatesShell({ userEmail }: { userEmail?: string }) {
           }}
         />
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto pt-5" hidden={tab !== "apply-next"}>
+      <div className="min-h-0 flex-1 overflow-y-auto" hidden={tab !== "apply-next"}>
         <ApplyNextPanel activeNpi={activeNpi} onActiveNpi={setActiveNpi} onGoToNegotiation={() => setTab("bands")} />
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto pt-5" hidden={tab !== "spread"}>
+      <div className="min-h-0 flex-1 overflow-y-auto" hidden={tab !== "spread"}>
         <SpreadPanel />
       </div>
     </div>

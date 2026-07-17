@@ -17,12 +17,24 @@ export function Table({
   head,
   className = "",
   stickyHeader = false,
+  tintedHeader = false,
+  toolbar,
   onHeaderContextMenu,
   children,
 }: {
   head: ReactNode[];
   className?: string;
   stickyHeader?: boolean;
+  /**
+   * Grey header band (the `stacked` DataTable variant) instead of the default
+   * white-on-white. GREY, not teal, on purpose: teal means focus/active in this
+   * kit, and a permanent teal band across every header spends that signal on
+   * chrome — see the Start-here rules.
+   */
+  tintedHeader?: boolean;
+  /** A row rendered INSIDE the table chrome, above the header — the `stacked`
+   *  variant's toolbar. Sticks with the header while the body scrolls. */
+  toolbar?: ReactNode;
   /** Right-click on ANY header cell. Callers preventDefault to replace the
    *  native menu; the event carries clientX/clientY to anchor a popover. */
   onHeaderContextMenu?: (e: MouseEvent<HTMLTableCellElement>) => void;
@@ -30,15 +42,23 @@ export function Table({
 }) {
   return (
     <div className={`no-scrollbar overflow-auto rounded-card border border-border bg-surface shadow-card ${className}`}>
+      {toolbar && (
+        <div className={`flex flex-wrap items-center gap-3 px-4 py-3 ${stickyHeader ? "sticky top-0 z-20" : ""} border-b border-border bg-surface`}>
+          {toolbar}
+        </div>
+      )}
       <table className="w-full border-collapse text-left">
-        <thead className={stickyHeader ? "sticky top-0 z-10" : ""}>
+        {/* When a toolbar shares the chrome, the header sticks BELOW it. */}
+        <thead className={stickyHeader ? `sticky z-10 ${toolbar ? "top-[57px]" : "top-0"}` : ""}>
           <tr>
             {head.map((h, i) => (
               // inset shadow, not border-b: sticky headers drop collapsed borders while scrolled
               <th
                 key={i}
                 onContextMenu={onHeaderContextMenu}
-                className="bg-surface px-4 py-3 text-sm font-semibold text-primary shadow-[inset_0_-1px_0_var(--color-border)]"
+                className={`px-4 py-3 text-sm font-semibold shadow-[inset_0_-1px_0_var(--color-border)] ${
+                  tintedHeader ? "bg-canvas text-text-body" : "bg-surface text-primary"
+                }`}
               >
                 {h}
               </th>

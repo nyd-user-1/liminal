@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Icon } from "@/components/ui/icons";
 import { SearchInput } from "@/components/ui/search-input";
 import { LoadMoreRow, SortableHead, Table, Td, Tr, useLazyBatch, useSort } from "@/components/ui/table";
 import { Tag } from "@/components/ui/tag";
@@ -274,45 +275,24 @@ export function PanelsPanel({
   ];
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="mb-4 flex shrink-0 flex-wrap items-center gap-3 md:mb-6">
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      {/* Stacked layout: the search spans the table column above the chrome;
+          the facets live inside it, under the search. */}
+      <div className="flex shrink-0 items-center gap-3">
         <SearchInput
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && lookup()}
           placeholder="Search — or enter a 10-digit NPI to add a clinician"
-          className="w-full max-w-md"
+          className="w-full flex-1"
         />
         {npiCandidate && (
           <Button onClick={lookup} loading={loading}>
             Look up NPI
           </Button>
         )}
-        <ChipMenu
-          label="Insurer"
-          options={insurerOptions}
-          value={insurer}
-          onSelect={setInsurer}
-          onClear={() => setInsurer(undefined)}
-        />
-        <ChipMenu
-          label="Code"
-          options={codeOptions}
-          value={code}
-          onSelect={setCode}
-          onClear={() => setCode(undefined)}
-        />
-        {standings.map((s) => (
-          <Tag
-            key={s.npi}
-            hue="teal"
-            onDismiss={() => setStandings((prev) => prev.filter((p) => p.npi !== s.npi))}
-          >
-            {s.providerName ? clinicianName(s.providerName) : s.npi}
-          </Tag>
-        ))}
       </div>
-      {error && <Banner className="mb-4 shrink-0" variant="danger">{error}</Banner>}
+      {error && <Banner className="shrink-0" variant="danger">{error}</Banner>}
 
       {noRowNpis.map((s) => (
         <Banner key={s.npi} className="mb-4 shrink-0" variant="info">
@@ -322,22 +302,46 @@ export function PanelsPanel({
         </Banner>
       ))}
 
-      {standings.some((s) => (econByNpi.get(s.npi) ?? []).length > 0) && (
-        <div className="mb-4 flex shrink-0 flex-wrap items-center gap-2.5">
-          {standings.map((s) => (
+      {/* The economics finding, promoted out of a stray chip into a callout
+          row: icon + the sentence + the action, with room to say WHICH payers
+          and HOW MANY contracts. This is the page's best insight — a clinician
+          being paid differently for the same work depending on which TIN the
+          contract rides under — and it used to read as a filter chip. */}
+      {standings.map((s) => {
+        const cards = econByNpi.get(s.npi) ?? [];
+        if (cards.length === 0) return null;
+        const label = s.providerName ? clinicianName(s.providerName) : s.npi;
+        // One card per payer; the billing groups are the distinct TINs the
+        // payer lists them under (EconCard carries no count of its own).
+        const payers = [...new Set(cards.map((c) => c.payer))];
+        const contracts = new Set(cards.flatMap((c) => c.codes.flatMap((k) => k.entries.map((e) => e.tin)))).size;
+        return (
+          <div
+            key={s.npi}
+            className="flex shrink-0 flex-wrap items-center gap-3 rounded-card border border-info/30 bg-info-tint px-4 py-3"
+          >
+            <Icon name="activity" size={18} className="shrink-0 text-info" />
+            <p className="min-w-0 flex-1 text-[15px] text-text">
+              <span className="font-semibold">{label}</span> is paid differently for the same work depending on
+              which billing group the contract rides under.{" "}
+              <span className="text-text-body">
+                {payers.length === 1 ? payers[0] : `${payers.length} insurers`} list{payers.length === 1 ? "s" : ""}{" "}
+                them under <span className="font-semibold tabular-nums">{contracts}</span> billing groups with
+                differing schedules.
+              </span>
+            </p>
             <EconomicsButton
-              key={s.npi}
               npi={s.npi}
-              clinicianLabel={s.providerName ? clinicianName(s.providerName) : s.npi}
-              cards={econByNpi.get(s.npi) ?? []}
+              clinicianLabel={label}
+              cards={cards}
               attestations={attByNpi.get(s.npi) ?? []}
               userEmail={userEmail}
               onPinBands={onPinBands}
               onGoToRoster={onGoToRoster}
             />
-          ))}
-        </div>
-      )}
+          </div>
+        );
+      })}
 
       {loading && rows.length === 0 ? (
         <TableSkeleton head={head} />
@@ -351,7 +355,42 @@ export function PanelsPanel({
           />
         )
       ) : (
-        <Table className="min-h-0 flex-1" stickyHeader head={headCells}>
+        <Table
+          className="min-h-0 flex-1"
+          stickyHeader
+          tintedHeader
+          toolbar={
+            <>
+              <ChipMenu
+                label="Insurer"
+                options={insurerOptions}
+                value={insurer}
+                onSelect={setInsurer}
+                onClear={() => setInsurer(undefined)}
+              />
+              <ChipMenu
+                label="Code"
+                options={codeOptions}
+                value={code}
+                onSelect={setCode}
+                onClear={() => setCode(undefined)}
+              />
+              {standings.map((s) => (
+                <Tag
+                  key={s.npi}
+                  hue="teal"
+                  onDismiss={() => setStandings((prev) => prev.filter((p) => p.npi !== s.npi))}
+                >
+                  {s.providerName ? clinicianName(s.providerName) : s.npi}
+                </Tag>
+              ))}
+              <span className="ml-auto text-sm tabular-nums text-text-muted">
+                {shown.length.toLocaleString("en-US")} of {rows.length.toLocaleString("en-US")} rows
+              </span>
+            </>
+          }
+          head={headCells}
+        >
           {shown.length === 0 && (
             <Tr>
               <Td colSpan={headCells.length} className="text-center text-text-muted">

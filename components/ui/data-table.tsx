@@ -87,6 +87,7 @@ export function DataTable<T>({
   filter,
   onExport,
   onRefresh,
+  stacked = false,
 }: {
   columns: DataTableColumn<T>[];
   rows: T[];
@@ -154,6 +155,19 @@ export function DataTable<T>({
   filter?: ReactNode;
   onExport?: () => void;
   onRefresh?: () => void;
+  /**
+   * The `stacked` variant (vs the default index layout).
+   *
+   *   index   — search LEFT in the toolbar, the Filter · Columns · Export ·
+   *             Refresh cluster right, all of it ABOVE the table chrome.
+   *   stacked — `toolbarLeft` (the search) renders full-width above the chrome;
+   *             the actions cluster moves INSIDE the chrome, above a grey
+   *             header band. For dense analytical tables where the search IS
+   *             the primary control and the facets belong with the data.
+   *
+   * Same slots either way — a page changes layout, not its wiring.
+   */
+  stacked?: boolean;
 }) {
   const [visible, toggle] = useColumnVisibility(storageKey, columns);
   const shown = columns.filter((c) => c.fixed || !storageKey || visible.has(c.key));
@@ -284,6 +298,38 @@ export function DataTable<T>({
     return () => clearTimeout(t);
   }, [lazy, scrollToKey, targetIndex, sort.col, sort.dir]);
 
+  const hasToolbar = !!(toolbarExtra || toolbarLeft || storageKey || filter || onExport || onRefresh);
+  // The same cluster in both variants — only where it renders changes.
+  const actionsCluster = (
+    <>
+      {toolbarExtra}
+      {filter}
+      {storageKey && <ColumnPicker options={pickerOptions} visible={visible} onToggle={toggle} />}
+      {onExport && (
+        <Button
+          variant="secondary"
+          size="sm"
+          leftIcon="download"
+          onClick={onExport}
+          className="!border-field-border !text-text-body hover:!border-field-border-focus"
+        >
+          Export
+        </Button>
+      )}
+      {onRefresh && (
+        <Button
+          variant="secondary"
+          size="sm"
+          leftIcon="refresh-cw"
+          onClick={onRefresh}
+          className="!border-field-border !text-text-body hover:!border-field-border-focus"
+        >
+          Refresh
+        </Button>
+      )}
+    </>
+  );
+
   return (
     // min-w-0 is load-bearing: without it this flex child grows past its
     // container and the PAGE scrolls horizontally instead of the Table
@@ -292,39 +338,11 @@ export function DataTable<T>({
       ref={wrapRef}
       className={`flex min-w-0 flex-col gap-3 ${fillHeight ? "min-h-0 flex-1" : ""} ${className ?? ""}`}
     >
-      {(toolbarExtra || toolbarLeft || storageKey || filter || onExport || onRefresh) && (
-        <Toolbar
-          className="shrink-0 flex-wrap"
-          actions={
-            <>
-              {toolbarExtra}
-              {filter}
-              {storageKey && <ColumnPicker options={pickerOptions} visible={visible} onToggle={toggle} />}
-              {onExport && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  leftIcon="download"
-                  onClick={onExport}
-                  className="!border-field-border !text-text-body hover:!border-field-border-focus"
-                >
-                  Export
-                </Button>
-              )}
-              {onRefresh && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  leftIcon="refresh-cw"
-                  onClick={onRefresh}
-                  className="!border-field-border !text-text-body hover:!border-field-border-focus"
-                >
-                  Refresh
-                </Button>
-              )}
-            </>
-          }
-        >
+      {/* `stacked` puts the search full-width above the chrome and moves this
+          cluster inside it (see the variant note on the props). */}
+      {stacked && toolbarLeft && <div className="shrink-0">{toolbarLeft}</div>}
+      {!stacked && hasToolbar && (
+        <Toolbar className="shrink-0 flex-wrap" actions={actionsCluster}>
           {toolbarLeft}
         </Toolbar>
       )}
@@ -343,6 +361,8 @@ export function DataTable<T>({
       <Table
         head={head}
         stickyHeader={fillHeight}
+        tintedHeader={stacked}
+        toolbar={stacked && hasToolbar ? actionsCluster : undefined}
         onHeaderContextMenu={
           storageKey
             ? (e) => {

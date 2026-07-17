@@ -387,6 +387,7 @@ const KIT_IMPORTS: Record<string, string> = {
   Stepper: 'import { Stepper } from "@/components/ui/stepper";',
   "Spinner / Skeleton": 'import { Spinner, Skeleton } from "@/components/ui/spinner";',
   Tabs: 'import { Tabs } from "@/components/ui/tabs";',
+  "Table · stacked": 'import { DataTable } from "@/components/ui/data-table"; // <DataTable stacked …> — or Table with toolbar= + tintedHeader',
   IndexHeader: 'import { IndexHeader } from "@/components/ui/index-header";',
   RelatedLink: 'import { RelatedLink } from "@/components/ui/text-link"; // the related-record treatment (TextLink variant="related")',
   Breadcrumb: 'import { Breadcrumb } from "@/components/ui/breadcrumb";',
@@ -731,6 +732,7 @@ THE INDEX PAGE STANDARD (every object list wears this — do not re-invent it):
 • The list itself is an OBJECT TABLE (components/tables/*): self-contained — its own columns, toolbar, filters, detail panel and data wiring, plus a scope prop and an onRowOpen callback — so the same table serves its own route AND an embedded rail (see /clients).
 • No page-level horizontal scroll: the Table owns the scroll, so give every flex ancestor min-w-0 (the recurring overflow bug is in the ancestor chain, never the table).
 • No dead rows: every row does something on click — a detail panel, a drill-down, or a record page. Kebab-only is the fallback when nothing exists to open.
+• TWO TABLE LAYOUTS, and only two. index (default) = search LEFT in the toolbar, actions right, all above the chrome — for object lists. stacked (DataTable stacked=, or Table toolbar= + tintedHeader=) = the search spans the table column ABOVE the chrome, the facets/columns/export cluster sits INSIDE the chrome under it, and the header is a GREY band — for dense analytical tables where the search is the primary control and the facets belong with the data (see /rates Services + Panels). Same slots either way: a page changes layout, not wiring. The band is GREY, never teal — teal means focus/active here, and a permanent teal header spends that signal on chrome.
 • RELATED RECORDS: when a value on a row IS a record in another table, wrap it in RelatedLink (components/ui/text-link.tsx) — a faint dotted teal underline, teal on hover. It means one thing only: "this value lives in another table; click to go there", as distinct from the row's own identity link (solid teal, wipe on hover) and the row's own drill-down. It stops propagation, because the row click means "open this row" and this means "open the OTHER record". Use it sparingly — if every value on a row is dotted, none of them read as a crossing.
 
 INTERACTION / HOVER SYSTEM:
@@ -1442,6 +1444,43 @@ export default function DesignSystemPage() {
                   <Td className="text-right"><KebabMenu><MenuItem icon="eye" label="View" onClick={() => {}} /></KebabMenu></Td>
                 </Tr>
               </Table>
+            </Spec>
+            <Spec
+              name="Table · stacked"
+              desc="The analytical layout: search spans the table column above the chrome, facets INSIDE it, grey header band. DataTable exposes it as stacked."
+              wide
+            >
+              <div className="w-full space-y-3">
+                <SearchInput placeholder="Search by insurer" className="w-full" readOnly />
+                <Table
+                  tintedHeader
+                  toolbar={
+                    <>
+                      <FilterChip label="Code" />
+                      <FilterChip label="Insurer" />
+                      <span className="ml-auto text-sm tabular-nums text-text-muted">279 of 279 bands</span>
+                    </>
+                  }
+                  head={["Service", "Insurer", "Median In-Ntwk"]}
+                  className="w-full"
+                >
+                  <Tr>
+                    <Td>Psychotherapy, 45 min</Td>
+                    <Td>CDPHP</Td>
+                    <Td className="font-semibold text-text">$121.48</Td>
+                  </Tr>
+                  <Tr>
+                    <Td>Psychotherapy, 60 min</Td>
+                    <Td>CDPHP</Td>
+                    <Td className="font-semibold text-text">$180.94</Td>
+                  </Tr>
+                </Table>
+                <p className="text-[13px] text-text-body">
+                  Grey band, never teal — teal means focus/active in this kit, so a permanent teal header would
+                  spend that signal on chrome. Use <span className="font-mono">stacked</span> for dense analytical
+                  tables (/rates); keep the default <span className="font-mono">index</span> layout for object lists.
+                </p>
+              </div>
             </Spec>
             <Spec name="Stepper" desc="Numbered steps: done ✓ · active · upcoming." wide>
               <Stepper className="w-full" steps={["Details", "Insurance", "Consent", "Review"]} active={1} />

@@ -131,38 +131,19 @@ export function BandsPanel({
   const codeOptions = RATE_CPTS.map((c) => ({ value: c.code, label: `${c.code} · ${c.label}` }));
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="mb-4 flex shrink-0 flex-wrap items-center gap-3 md:mb-6">
-        <SearchInput
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search by insurer"
-          className="w-full max-w-md"
-        />
-        <ChipMenu
-          label="Code"
-          options={codeOptions}
-          values={codes}
-          onToggle={(v) => onCodesChange(codes.includes(v) ? codes.filter((c) => c !== v) : [...codes, v])}
-          onClear={() => onCodesChange([])}
-        />
-        <ChipMenu
-          label="Insurer"
-          options={insurerOptions}
-          value={insurer}
-          onSelect={setInsurer}
-          onClear={() => setInsurer(undefined)}
-        />
-        <ChipMenu
-          label="License"
-          options={LICENSE_OPTIONS}
-          value={license}
-          onSelect={setLicense}
-          onClear={() => setLicense(undefined)}
-        />
-      </div>
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      {/* The stacked layout: search full-width above the chrome, the facets
+          inside it under the search (see DataTable's `stacked` variant — this
+          panel hand-rolls the same anatomy because it drives the Table
+          primitive directly rather than DataTable). */}
+      <SearchInput
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Search by insurer"
+        className="w-full shrink-0"
+      />
 
-      {error && <Banner className="mb-4 shrink-0" variant="danger">{error}</Banner>}
+      {error && <Banner className="shrink-0" variant="danger">{error}</Banner>}
 
       {loading ? (
         <TableSkeleton head={HEAD} />
@@ -176,6 +157,35 @@ export function BandsPanel({
         <Table
           className="min-h-0 flex-1"
           stickyHeader
+          tintedHeader
+          toolbar={
+            <>
+              <ChipMenu
+                label="Code"
+                options={codeOptions}
+                values={codes}
+                onToggle={(v) => onCodesChange(codes.includes(v) ? codes.filter((c) => c !== v) : [...codes, v])}
+                onClear={() => onCodesChange([])}
+              />
+              <ChipMenu
+                label="Insurer"
+                options={insurerOptions}
+                value={insurer}
+                onSelect={setInsurer}
+                onClear={() => setInsurer(undefined)}
+              />
+              <ChipMenu
+                label="License"
+                options={LICENSE_OPTIONS}
+                value={license}
+                onSelect={setLicense}
+                onClear={() => setLicense(undefined)}
+              />
+              <span className="ml-auto text-sm tabular-nums text-text-muted">
+                {shown.length.toLocaleString("en-US")} of {bands.length.toLocaleString("en-US")} bands
+              </span>
+            </>
+          }
           head={[
             <SortableHead key="service" label="Service" col="code" sort={sort} onSort={toggleSort} />,
             <SortableHead key="code" label="Code" col="code" sort={sort} onSort={toggleSort} />,
