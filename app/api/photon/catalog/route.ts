@@ -31,6 +31,25 @@ function fail(e: unknown): NextResponse {
   throw e;
 }
 
+/**
+ * GET — the org's catalog. The client-callable twin of the /catalog server
+ * page, so the Clients rail can lazy-load the formulary into a tab. Org config
+ * rather than PHI, so it is not audited and carries no per-caseload scoping:
+ * every practitioner sees the same one catalog.
+ */
+export async function GET() {
+  try {
+    await requireRole("practitioner");
+    if (!hasPhoton) return NextResponse.json({ error: "Photon is not configured on this server." }, { status: 503 });
+
+    const catalog = await getPhotonCatalog();
+    if (!catalog) return NextResponse.json({ error: "This organisation has no Photon catalog yet." }, { status: 404 });
+    return NextResponse.json({ treatments: catalog.treatments, catalogName: catalog.name });
+  } catch (e) {
+    return fail(e);
+  }
+}
+
 /** POST { treatmentId } — add a treatment to the catalog. */
 export async function POST(req: NextRequest) {
   try {
