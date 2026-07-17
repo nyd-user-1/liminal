@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FilterMenu } from "@/components/ui/filter-menu";
 import { SearchInput } from "@/components/ui/search-input";
-import { ChipMenu } from "@/components/rates/chip-menu";
 import { cptLabel } from "@/components/rates/cpt";
 import { InsurerCell } from "@/components/rates/insurer-mark";
 import { TableSkeleton } from "@/components/rates/table-skeleton";
@@ -34,7 +34,7 @@ const CODES = ["90791", "90834", "90837", "90853", "99214"] as const;
 
 type Result = { rows: RateRow[]; total: number; facets: { payers: string[]; networks: string[] } };
 
-export function ServicesPanel() {
+export function ServicesPanel({ viewToggle }: { viewToggle?: ReactNode }) {
   const [q, setQ] = useState("");
   const [payer, setPayer] = useState<string | undefined>();
   const [code, setCode] = useState<string | undefined>();
@@ -145,49 +145,44 @@ export function ServicesPanel() {
   if (error) return <Banner variant="danger">{error}</Banner>;
   if (!data) return <TableSkeleton head={["Clinician", "Service", "Code", "Insurer", "Plan", "Setting", "Rate", "As-of"]} />;
 
+  // One two-level Filter in place of three chips: the dimension first, its
+  // values behind it — Insurer/Plan searchable (long facet lists), Code short.
+  const filterCategories = [
+    { key: "payer", label: "Insurer", options: data.facets.payers.map((p) => ({ value: p, label: p })) },
+    { key: "network", label: "Plan", options: data.facets.networks.map((n) => ({ value: n, label: n })) },
+    { key: "code", label: "Code", options: CODES.map((c) => ({ value: c, label: `${c} · ${cptLabel(c)}` })) },
+  ];
+  const filterSelected = { payer, network, code };
+  const onFilterSelect = (key: string, value: string | undefined) => {
+    if (key === "payer") setPayer(value);
+    else if (key === "network") setNetwork(value);
+    else if (key === "code") setCode(value);
+  };
+
   return (
     <DataTable
-      stacked
       columns={columns}
       rows={rows}
       rowKey={(r) => `${r.payer}|${r.tin}|${r.npi}|${r.network}|${r.setting}|${r.billingCode}`}
       storageKey="rates.services.columns"
       fillHeight
+      collapseActions
       className="min-h-0 flex-1"
       onExport={() => setError(null)}
       toolbarLeft={
-        <SearchInput
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search by clinician, insurer, plan, TIN or NPI"
-          className="w-full"
-        />
-      }
-      filter={
-        <>
-          <ChipMenu
-            label="Insurer"
-            icon="list-filter"
-            options={data.facets.payers.map((p) => ({ value: p, label: p }))}
-            value={payer}
-            onSelect={setPayer}
-            onClear={() => setPayer(undefined)}
+        // Search leads, the Rates/Bands view switch sits beside it, then the one
+        // Filter — the utility cluster (Columns/Export) folds into the kebab on
+        // the right (collapseActions).
+        <div className="flex flex-1 flex-wrap items-center gap-2.5">
+          <SearchInput
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search by clinician, insurer, plan, TIN or NPI"
+            className="w-full sm:w-80"
           />
-          <ChipMenu
-            label="Plan"
-            options={data.facets.networks.map((n) => ({ value: n, label: n }))}
-            value={network}
-            onSelect={setNetwork}
-            onClear={() => setNetwork(undefined)}
-          />
-          <ChipMenu
-            label="Code"
-            options={CODES.map((c) => ({ value: c, label: `${c} · ${cptLabel(c)}` }))}
-            value={code}
-            onSelect={setCode}
-            onClear={() => setCode(undefined)}
-          />
-        </>
+          {viewToggle}
+          <FilterMenu categories={filterCategories} selected={filterSelected} onSelect={onFilterSelect} />
+        </div>
       }
       footnote={
         rows.length === 0 ? (

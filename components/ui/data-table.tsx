@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ColumnPicker } from "@/components/ui/column-picker";
+import { KebabMenu } from "@/components/ui/kebab-menu";
+import { MenuItem } from "@/components/ui/dropdown-menu";
 import { LoadMoreRow, SortableHead, Table, Td, Tr, useLazyBatch, useSort, type SortState } from "@/components/ui/table";
 import { Toolbar } from "@/components/ui/toolbar";
 
@@ -88,6 +90,7 @@ export function DataTable<T>({
   onExport,
   onRefresh,
   stacked = false,
+  collapseActions = false,
 }: {
   columns: DataTableColumn<T>[];
   rows: T[];
@@ -168,6 +171,14 @@ export function DataTable<T>({
    * Same slots either way — a page changes layout, not its wiring.
    */
   stacked?: boolean;
+  /**
+   * Collapse the Columns/Export/Refresh actions into ONE right-aligned
+   * horizontal kebab (⋯) instead of a row of buttons — for a dense toolbar
+   * where the search + filter are the point and the table utilities should
+   * step back. Opt-in, so every other table keeps its inline buttons. `filter`
+   * and `toolbarLeft` are untouched; only the utility cluster folds up.
+   */
+  collapseActions?: boolean;
 }) {
   const [visible, toggle] = useColumnVisibility(storageKey, columns);
   const shown = columns.filter((c) => c.fixed || !storageKey || visible.has(c.key));
@@ -299,11 +310,25 @@ export function DataTable<T>({
   }, [lazy, scrollToKey, targetIndex, sort.col, sort.dir]);
 
   const hasToolbar = !!(toolbarExtra || toolbarLeft || storageKey || filter || onExport || onRefresh);
-  // The same cluster in both variants — only where it renders changes.
-  const actionsCluster = (
+  // Opening the column picker from the kebab: reuse the anchored ColumnPicker
+  // (the one the header right-click uses), positioned under the kebab button.
+  const kebabRef = useRef<HTMLSpanElement>(null);
+  const openColMenuFromKebab = () => {
+    const r = kebabRef.current?.getBoundingClientRect();
+    setColMenu(r ? { x: r.right, y: r.bottom + 4 } : { x: 0, y: 0 });
+  };
+  // The same utilities in both variants — only where and how they render.
+  // collapseActions folds Columns/Export/Refresh into one horizontal kebab.
+  const utilities = collapseActions ? (
+    <span ref={kebabRef} className="inline-flex">
+      <KebabMenu label="Table options" icon="dots-horizontal">
+        {storageKey && <MenuItem icon="columns-3" label="Columns" onClick={openColMenuFromKebab} />}
+        {onExport && <MenuItem icon="download" label="Export" onClick={onExport} />}
+        {onRefresh && <MenuItem icon="refresh-cw" label="Refresh" onClick={onRefresh} />}
+      </KebabMenu>
+    </span>
+  ) : (
     <>
-      {toolbarExtra}
-      {filter}
       {storageKey && <ColumnPicker options={pickerOptions} visible={visible} onToggle={toggle} />}
       {onExport && (
         <Button
@@ -327,6 +352,13 @@ export function DataTable<T>({
           Refresh
         </Button>
       )}
+    </>
+  );
+  const actionsCluster = (
+    <>
+      {toolbarExtra}
+      {filter}
+      {utilities}
     </>
   );
 

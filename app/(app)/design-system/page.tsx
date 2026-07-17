@@ -20,6 +20,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Field } from "@/components/ui/field";
 import { FileUpload } from "@/components/ui/file-upload";
 import { FilterChip } from "@/components/ui/filter-chip";
+import { FilterMenu } from "@/components/ui/filter-menu";
 import { IconButton } from "@/components/ui/icon-button";
 import { Icon, IconSquare, type IconName } from "@/components/ui/icons";
 import { KebabMenu } from "@/components/ui/kebab-menu";
@@ -375,6 +376,7 @@ const KIT_IMPORTS: Record<string, string> = {
   ChoiceChip: 'import { ChoiceChip } from "@/components/ui/choice-chip";',
   ColorSwatch: 'import { ColorSwatch, EVENT_COLORS } from "@/components/ui/color-swatch";',
   FilterChip: 'import { FilterChip } from "@/components/ui/filter-chip";',
+  FilterMenu: 'import { FilterMenu } from "@/components/ui/filter-menu";',
   DatePicker: 'import { DatePicker } from "@/components/ui/date-picker";',
   FileUpload: 'import { FileUpload } from "@/components/ui/file-upload";',
   Avatar: 'import { Avatar, AvatarGroup } from "@/components/ui/avatar";',
@@ -845,6 +847,7 @@ export default function DesignSystemPage() {
   const [date, setDate] = useState("2026-07-15");
   const [file, setFile] = useState<{ name: string } | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
+  const [dsFilter, setDsFilter] = useState<Record<string, string | undefined>>({});
   const [page, setPage] = useState(2);
   const [modalOpen, setModalOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -1333,6 +1336,17 @@ export default function DesignSystemPage() {
             <Spec name="FilterChip" desc="Table filter pill — add vs. applied.">
               <FilterChip label="Status" value={statusFilter || undefined} onClick={() => setStatusFilter("Active")} onClear={() => setStatusFilter("")} />
               <FilterChip label="Assignee" onClick={() => {}} />
+            </Spec>
+            <Spec name="FilterMenu" desc="Two-level filter — the dimension first, its values behind it in a searchable submenu. One control for many facets; one active value per category.">
+              <FilterMenu
+                categories={[
+                  { key: "insurer", label: "Insurer", options: [{ value: "cigna", label: "Cigna Health & Life" }, { value: "aetna", label: "Aetna" }, { value: "emblem", label: "EmblemHealth" }] },
+                  { key: "plan", label: "Plan", options: [{ value: "njpcp", label: "chc-of-new-york-njpcp" }, { value: "gppo", label: "metro-new-york-gppo" }, { value: "oap", label: "national-oap" }] },
+                  { key: "code", label: "Code", options: [{ value: "90791", label: "90791 · Diagnostic evaluation" }, { value: "90837", label: "90837 · Therapy, 60 min" }] },
+                ]}
+                selected={dsFilter}
+                onSelect={(k, v) => setDsFilter((s) => ({ ...s, [k]: v }))}
+              />
             </Spec>
             <Spec name="FileUpload" desc="Dropzone → uploaded tile.">
               <FileUpload

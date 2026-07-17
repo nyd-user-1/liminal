@@ -61,6 +61,16 @@ export function RatesShell({ userEmail }: { userEmail?: string }) {
     setTab("bands");
   };
 
+  // The Rates/Bands view switch — owned here (rates-shell holds the state),
+  // rendered into whichever panel is showing so it sits in the panel's toolbar
+  // beside the search and survives the Rates↔Bands panel swap.
+  const viewToggle = (
+    <span className="flex shrink-0 items-center gap-1.5">
+      <ChoiceChip label="Rates" selected={servicesView === "rates"} onSelect={() => setServicesView("rates")} />
+      <ChoiceChip label="Bands" selected={servicesView === "bands"} onSelect={() => setServicesView("bands")} />
+    </span>
+  );
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <TopBarActions>
@@ -77,27 +87,19 @@ export function RatesShell({ userEmail }: { userEmail?: string }) {
       <Tabs className="mt-4 shrink-0" items={TABS} active={tab} onChange={setTab} slideActive />
 
       {/* Sits under the tab hairline, above the tab body — one line saying what
-          this tab's table is, and (on Services) the Rates/Bands switch. */}
+          this tab's table is. The Rates/Bands switch used to live here; it now
+          rides in the panel's own toolbar, beside the search (below). */}
       <div className="mb-4 mt-3 flex shrink-0 flex-wrap items-center justify-between gap-3">
         <p className="text-[15px] text-text-body">{tab === "bands" ? BLURBS[servicesView] : BLURBS[tab]}</p>
-        {tab === "bands" && (
-          // The quartiles came OFF the main table — they were being read as the
-          // rate. They keep their own view rather than being deleted: a spread
-          // across a cohort is a different question from what a payer published.
-          <span className="flex shrink-0 items-center gap-1.5">
-            <ChoiceChip label="Rates" selected={servicesView === "rates"} onSelect={() => setServicesView("rates")} />
-            <ChoiceChip label="Bands" selected={servicesView === "bands"} onSelect={() => setServicesView("bands")} />
-          </span>
-        )}
       </div>
 
       {/* Bands + Panels own their scroll internally (sticky-header table); Spread
           is a form-then-small-result screen, so its tab body scrolls normally. */}
       <div className="min-h-0 flex-1 flex flex-col" hidden={tab !== "bands"}>
         {servicesView === "rates" ? (
-          <ServicesPanel />
+          <ServicesPanel viewToggle={viewToggle} />
         ) : (
-          <BandsPanel codes={codes} onCodesChange={setCodes} pin={pin} />
+          <BandsPanel codes={codes} onCodesChange={setCodes} pin={pin} viewToggle={viewToggle} />
         )}
       </div>
       <div className="min-h-0 flex-1" hidden={tab !== "panels"}>

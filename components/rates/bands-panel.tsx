@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Banner } from "@/components/ui/banner";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -38,12 +38,15 @@ export function BandsPanel({
   codes,
   onCodesChange,
   pin,
+  viewToggle,
 }: {
   codes: string[];
   onCodesChange: (codes: string[]) => void;
   /** Set by the Affiliation Economics "renegotiate" CTA — pins the insurer
    *  filter and makes sure the code is selected. */
   pin?: { payer: string; billingCode: string } | null;
+  /** The Rates/Bands switch (rates-shell owns it) — sits beside the search. */
+  viewToggle?: ReactNode;
 }) {
   const [bands, setBands] = useState<RateBand[]>([]);
   const [loading, setLoading] = useState(true);
@@ -132,16 +135,18 @@ export function BandsPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
-      {/* The stacked layout: search full-width above the chrome, the facets
-          inside it under the search (see DataTable's `stacked` variant — this
-          panel hand-rolls the same anatomy because it drives the Table
-          primitive directly rather than DataTable). */}
-      <SearchInput
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="Search by insurer"
-        className="w-full shrink-0"
-      />
+      {/* Search leads, the Rates/Bands switch beside it — the facets stay inside
+          the chrome, below (this panel drives the Table primitive directly
+          rather than DataTable, so it hand-rolls the same anatomy). */}
+      <div className="flex shrink-0 flex-wrap items-center gap-2.5">
+        <SearchInput
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search by insurer"
+          className="w-full sm:w-80"
+        />
+        {viewToggle}
+      </div>
 
       {error && <Banner className="shrink-0" variant="danger">{error}</Banner>}
 
