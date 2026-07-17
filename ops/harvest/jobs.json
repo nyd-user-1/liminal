@@ -1,0 +1,37 @@
+{
+  "//": "Recurring data jobs for ops/harvest/runner.mjs. every: day|week|month|once. Commands run from the repo root with .env.local via each job's own --env-file. Set \"disabled\": true to park a job without deleting it. MRF manifests don't go here — drop them in .harvest/mrf/manifests/queue/ instead.",
+  "jobs": [
+    {
+      "id": "rates-rollup",
+      "every": "day",
+      "run": "node --env-file=.env.local scripts/mrf/rollup.mjs",
+      "timeoutMinutes": 30,
+      "attempts": 1,
+      "memo": "Read-only morning coverage report — the log is the deliverable."
+    },
+    {
+      "id": "fhir-status",
+      "every": "day",
+      "run": "node --env-file=.env.local .harvest/status.mjs",
+      "timeoutMinutes": 20,
+      "attempts": 1,
+      "memo": "Directory-side coverage snapshot (participation, accepting, unmatched)."
+    },
+    {
+      "id": "nppes-weekly",
+      "every": "week",
+      "run": "bash ops/harvest/tasks/nppes-weekly.sh",
+      "timeoutMinutes": 120,
+      "attempts": 2,
+      "memo": "Discover, download, and apply the CMS weekly NPPES delta + deactivations. nppes-sync.mjs skips already-applied files, so re-running is free."
+    },
+    {
+      "id": "probe-payers",
+      "every": "week",
+      "run": "node --env-file=.env.local scripts/probe-payers.mjs",
+      "timeoutMinutes": 30,
+      "attempts": 1,
+      "memo": "Read-only capability probe (<=2 GETs per payer) — keeps payer_sources.last_probe_result honest."
+    }
+  ]
+}
