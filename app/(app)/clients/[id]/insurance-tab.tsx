@@ -168,6 +168,9 @@ export function InsuranceTab({
   payers,
   files,
   readOnly = false,
+  bare = false,
+  newOpen: controlledNewOpen,
+  onNewOpenChange,
 }: {
   clientId: string;
   policies: PolicyWithPayer[];
@@ -181,10 +184,22 @@ export function InsuranceTab({
    * assertion the practice makes, not the patient.
    */
   readOnly?: boolean;
+  /**
+   * Drop this section's own heading row and outer boxes: the host is already a
+   * card and is drawing the title (the client board's BoardCard). Contents are
+   * untouched — only the chrome a page section draws for itself goes.
+   */
+  bare?: boolean;
+  /** Controlled when the host owns the New-policy trigger — same handshake the
+   *  object tables use (components/tables/clients-table.tsx). */
+  newOpen?: boolean;
+  onNewOpenChange?: (open: boolean) => void;
 }) {
   const router = useRouter();
   const toast = useToast();
-  const [panelOpen, setPanelOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const panelOpen = controlledNewOpen ?? uncontrolledOpen;
+  const setPanelOpen = (open: boolean) => (onNewOpenChange ? onNewOpenChange(open) : setUncontrolledOpen(open));
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -233,17 +248,19 @@ export function InsuranceTab({
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-[19px] font-semibold text-text">Insurance policies</h2>
-        {!readOnly && (
-          <Button size="sm" leftIcon="plus" onClick={() => setPanelOpen(true)}>
-            New policy
-          </Button>
-        )}
-      </div>
+      {!bare && (
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-[19px] font-semibold text-text">Insurance policies</h2>
+          {!readOnly && (
+            <Button size="sm" leftIcon="plus" onClick={() => setPanelOpen(true)}>
+              New policy
+            </Button>
+          )}
+        </div>
+      )}
 
       {policies.length === 0 ? (
-        <div className="rounded-card border border-border bg-surface shadow-card">
+        <div className={bare ? "" : "rounded-card border border-border bg-surface shadow-card"}>
           <EmptyState
             icon="shield-plus"
             title="No insurance on file"

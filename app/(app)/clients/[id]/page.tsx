@@ -1,26 +1,24 @@
 import { notFound } from "next/navigation";
-import { ClientBilling } from "@/components/billing/client-billing";
-import { ClientNotes } from "@/components/notes/client-notes";
 import { getUser } from "@/lib/auth";
 import { logEvent } from "@/lib/audit";
 import { listAppointments } from "@/lib/repos/appointments";
-import { getClient, listPractitioners } from "@/lib/repos/clients";
+import { getClient, listClients, listPractitioners } from "@/lib/repos/clients";
 import { listReferrals } from "@/lib/repos/directory";
 import { listFiles } from "@/lib/repos/files";
 import { listInvoices } from "@/lib/repos/invoices";
 import { listPayers, listPolicies } from "@/lib/repos/policies";
 import { hasPhoton, photonOrgId } from "@/lib/photon";
-import { ClientHeader } from "./client-header";
-import { ClientTabs } from "./client-tabs";
-import { FilesTab } from "./files-tab";
-import { InsuranceTab } from "./insurance-tab";
-import { OverviewTab } from "./overview-tab";
-import { PersonalTab } from "./personal-tab";
-import { RxTab } from "./rx-tab";
+import type { ClientRecordBundle } from "@/components/records/client-record";
+import { ClientsIndex } from "../clients-index";
 
-// Client record — Breadcrumb → Avatar + name + status Badge header over
-// Tabs. All tab content renders server-side here and is slotted into the
-// client-side ClientTabs switcher.
+// A client record is a TAB in the Clients rail, not a page of its own — so this
+// route renders the rail with that client already open, which is how /directory
+// resolves a provider. The URL keeps working (bookmarks, the portal's links,
+// every ?tab=rx reference in the app); it just isn't where the record lives.
+//
+// The bundle is server-fetched here and handed to the tab as its starting
+// state, so a bookmarked record paints with data rather than a spinner. A row
+// click in the rail takes the other path — the twin at /api/clients/[id]/record.
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +35,9 @@ export default async function ClientDetailPage({
   if (!client) notFound();
 
   const user = await getUser();
-  const [practitioners, policies, payers, files, appointments, invoices, referrals] = await Promise.all([
+  const isAdmin = user?.role === "admin";
+  const [clients, practitioners, policies, payers, files, appointments, invoices, referrals] = await Promise.all([
+    listClients(isAdmin ? undefined : { practitionerId: user?.id }),
     listPractitioners(),
     listPolicies(id),
     listPayers(),
@@ -48,73 +48,33 @@ export default async function ClientDetailPage({
   ]);
   await logEvent({ actorId: user?.id ?? null, action: "client.view", entity: "client", entityId: id });
 
-  const practitionerName = practitioners.find((p) => p.id === client.primaryPractitionerId)?.name ?? null;
-
   // Photon's org id rides on the M2M token, so it follows the credentials from
   // sandbox to production instead of needing its own env var. A Photon outage
-  // must not take the whole client record down — the Rx tab degrades alone.
+  // must not take the whole client record down — the Rx card degrades alone.
   const orgId = hasPhoton ? await photonOrgId().catch(() => "") : "";
 
+  const record: ClientRecordBundle = {
+    client,
+    practitioners,
+    practitionerName: practitioners.find((p) => p.id === client.primaryPractitionerId)?.name ?? null,
+    policies,
+    payers,
+    files,
+    appointments,
+    invoices,
+    referrals,
+    orgId,
+    photonClientId: process.env.NEXT_PUBLIC_PHOTON_CLIENT_ID ?? "",
+    photonEnv: process.env.NEXT_PUBLIC_PHOTON_ENV ?? "",
+  };
+
   return (
-    <>
-      <ClientHeader client={client} />
-      <ClientTabs
-        initialTab={tab}
-        tabs={[
-          {
-            key: "overview",
-            label: "Overview",
-            content: (
-              <OverviewTab
-                client={client}
-                appointments={appointments}
-                invoices={invoices}
-                referrals={referrals}
-                practitionerName={practitionerName}
-              />
-            ),
-          },
-          {
-            key: "personal",
-            label: "Personal",
-            content: <PersonalTab client={client} practitioners={practitioners} />,
-          },
-          {
-            key: "rx",
-            label: "Rx",
-            content: (
-              <RxTab
-                client={client}
-                photonClientId={process.env.NEXT_PUBLIC_PHOTON_CLIENT_ID ?? ""}
-                orgId={orgId}
-                photonEnv={process.env.NEXT_PUBLIC_PHOTON_ENV ?? ""}
-              />
-            ),
-          },
-          {
-            key: "insurance",
-            label: "Insurance",
-            count: policies.length,
-            content: <InsuranceTab clientId={client.id} policies={policies} payers={payers} files={files} />,
-          },
-          {
-            key: "documentation",
-            label: "Documentation",
-            content: <ClientNotes clientId={client.id} />,
-          },
-          {
-            key: "billing",
-            label: "Billing",
-            content: <ClientBilling clientId={client.id} />,
-          },
-          {
-            key: "files",
-            label: "Files",
-            count: files.length,
-            content: <FilesTab clientId={client.id} files={files} />,
-          },
-        ]}
-      />
-    </>
+    <ClientsIndex
+      clients={clients}
+      practitioners={practitioners}
+      isAdmin={isAdmin}
+      initialRecord={record}
+      initialCard={tab}
+    />
   );
 }
