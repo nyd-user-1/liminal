@@ -5,12 +5,10 @@ import { useMemo, useState } from "react";
 import { AttentionTable } from "@/components/billing/attention-table";
 import { InvoiceStatusBadge } from "@/components/billing/invoice-status-badge";
 import { NewInvoicePanel, type ClientOption, type ServiceOption } from "@/components/billing/new-invoice-panel";
+import { IndexHeader } from "@/components/ui/index-header";
 import { PayerPanel } from "@/components/billing/payer-panel";
 import { ChipMenu } from "@/components/rates/chip-menu";
-import { IconButton } from "@/components/ui/icon-button";
-import { TopBarActions } from "@/components/shell/topbar-slot";
 import { Avatar } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { DotBadge } from "@/components/ui/badge";
 import { MenuItem } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -18,7 +16,6 @@ import { KebabMenu } from "@/components/ui/kebab-menu";
 import { SearchInput } from "@/components/ui/search-input";
 import { StatCard } from "@/components/ui/stat-card";
 import { LoadMoreRow, SortableHead, Table, Td, Tr, useLazyBatch, useSort } from "@/components/ui/table";
-import { Tabs } from "@/components/ui/tabs";
 import { TextLink } from "@/components/ui/text-link";
 import { Toolbar } from "@/components/ui/toolbar";
 import { useToast } from "@/components/ui/toast";
@@ -171,28 +168,17 @@ export function BillingShell({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <TopBarActions>
-        {tab === "payers" ? (
-          <Button size="sm" leftIcon="plus" onClick={() => setPayerPanel({ open: true, payer: null })}>
-            New payer
-          </Button>
-        ) : (
-          <Button size="sm" leftIcon="plus" onClick={() => setNewInvoiceOpen(true)}>
-            New invoice
-          </Button>
-        )}
-        <IconButton icon="bell" label="Notifications" onClick={() => toast("No new notifications.", "info")} />
-      </TopBarActions>
-
-      <Tabs
-        className="mt-4 mb-4 shrink-0"
-        items={[
+      {/* New follows the tab — it creates whatever you are looking at. */}
+      <IndexHeader
+        tabs={[
           { key: "overview", label: "Overview" },
           { key: "clients", label: "Clients", count: invoices.length },
           { key: "payers", label: "Payers", count: payers.length },
         ]}
         active={tab}
         onChange={(k) => setTab(k as ShellTab)}
+        newLabel={tab === "payers" ? "New payer" : "New invoice"}
+        onNew={() => (tab === "payers" ? setPayerPanel({ open: true, payer: null }) : setNewInvoiceOpen(true))}
       />
 
       {tab === "overview" ? (
@@ -323,7 +309,9 @@ export function BillingShell({
               ]}
             >
               {visiblePayers.map((p) => (
-                <Tr key={p.id}>
+                // The row opens the panel the Edit kebab already opened — it
+                // was the one list here you could not click into.
+                <Tr key={p.id} onClick={() => setPayerPanel({ open: true, payer: p })}>
                   <Td className="whitespace-nowrap font-semibold">{p.payerCode}</Td>
                   <Td className="max-w-64 truncate" title={p.name}>{p.name}</Td>
                   <Td className="whitespace-nowrap">{p.policyCount}</Td>

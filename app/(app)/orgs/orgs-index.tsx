@@ -10,12 +10,10 @@ import { SearchInput } from "@/components/ui/search-input";
 import { SortableHead, Table, Td, Tr, useSort } from "@/components/ui/table";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import type { IconName } from "@/components/ui/icons";
-import { IconButton } from "@/components/ui/icon-button";
 import { KebabMenu } from "@/components/ui/kebab-menu";
 import { MenuItem } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/toast";
-import { TopBarActions } from "@/components/shell/topbar-slot";
-import { Tabs } from "@/components/ui/tabs";
+import { IndexHeader } from "@/components/ui/index-header";
 import { TextLink } from "@/components/ui/text-link";
 import { Toolbar } from "@/components/ui/toolbar";
 import type { OrgListRow } from "@/lib/repos/orgs";
@@ -185,19 +183,12 @@ export function OrgsIndex({ initial, payerOptions }: { initial: OrgListRow[]; pa
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <TopBarActions>
-        <Button size="sm" leftIcon="plus" onClick={() => toast("New organization isn\u2019t wired up yet.", "info")}>
-          New organization
-        </Button>
-        <IconButton icon="bell" label="Notifications" onClick={() => toast("No new notifications.", "info")} />
-      </TopBarActions>
-
-      <Tabs
-        className="mt-4 mb-4 shrink-0"
-        slideActive
+      <IndexHeader
+        newLabel="New organization"
+        onNew={() => toast("New organization isn\u2019t wired up yet.", "info")}
         active={tab}
         onChange={(k) => (k === "registry" ? router.push("/orgs/registry") : setTab(k as Tab))}
-        items={[
+        tabs={[
           { key: "all", label: "All" },
           { key: "named", label: "Named" },
           // The NPPES legal-org book (sql/034) — a sibling surface, own route.

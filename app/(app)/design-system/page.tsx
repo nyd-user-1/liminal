@@ -6,7 +6,7 @@ import { Avatar, AvatarGroup } from "@/components/ui/avatar";
 import { Badge, CountBadge, DotBadge } from "@/components/ui/badge";
 import { Banner } from "@/components/ui/banner";
 import { BoardCard } from "@/components/board/board-card";
-import { BoardGrid, reorderIds, type BoardCardSize } from "@/components/board/board-grid";
+import { BoardGrid } from "@/components/board/board-grid";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { Card, SettingsCard } from "@/components/ui/card";
@@ -41,7 +41,7 @@ import { Stepper } from "@/components/ui/stepper";
 import { Table, Td, Tr } from "@/components/ui/table";
 import { Tabs } from "@/components/ui/tabs";
 import { Tag } from "@/components/ui/tag";
-import { TextLink } from "@/components/ui/text-link";
+import { RelatedLink, TextLink } from "@/components/ui/text-link";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { Toggle } from "@/components/ui/toggle";
@@ -388,6 +388,7 @@ const KIT_IMPORTS: Record<string, string> = {
   "Spinner / Skeleton": 'import { Spinner, Skeleton } from "@/components/ui/spinner";',
   Tabs: 'import { Tabs } from "@/components/ui/tabs";',
   IndexHeader: 'import { IndexHeader } from "@/components/ui/index-header";',
+  RelatedLink: 'import { RelatedLink } from "@/components/ui/text-link"; // the related-record treatment (TextLink variant="related")',
   Breadcrumb: 'import { Breadcrumb } from "@/components/ui/breadcrumb";',
   Pagination: 'import { Pagination } from "@/components/ui/pagination";',
   Toolbar: 'import { Toolbar } from "@/components/ui/toolbar";',
@@ -730,6 +731,7 @@ THE INDEX PAGE STANDARD (every object list wears this — do not re-invent it):
 • The list itself is an OBJECT TABLE (components/tables/*): self-contained — its own columns, toolbar, filters, detail panel and data wiring, plus a scope prop and an onRowOpen callback — so the same table serves its own route AND an embedded rail (see /clients).
 • No page-level horizontal scroll: the Table owns the scroll, so give every flex ancestor min-w-0 (the recurring overflow bug is in the ancestor chain, never the table).
 • No dead rows: every row does something on click — a detail panel, a drill-down, or a record page. Kebab-only is the fallback when nothing exists to open.
+• RELATED RECORDS: when a value on a row IS a record in another table, wrap it in RelatedLink (components/ui/text-link.tsx) — a faint dotted teal underline, teal on hover. It means one thing only: "this value lives in another table; click to go there", as distinct from the row's own identity link (solid teal, wipe on hover) and the row's own drill-down. It stops propagation, because the row click means "open this row" and this means "open the OTHER record". Use it sparingly — if every value on a row is dotted, none of them read as a crossing.
 
 INTERACTION / HOVER SYSTEM:
 • Teal = focus/active only.
@@ -753,36 +755,22 @@ const BOARD_DEMO: Record<string, { value: string; sub: string }> = {
 };
 const BOARD_IDS = Object.keys(BOARD_DEMO);
 const BOARD_LABEL: Record<string, string> = { sessions: "Sessions", revenue: "Revenue", noshows: "No-show rate" };
-const BOARD_NEXT: Record<BoardCardSize, BoardCardSize> = { sm: "md", md: "lg", lg: "sm" };
-const BOARD_ORDER: BoardCardSize[] = ["sm", "md", "lg"];
 
 function BoardDemo() {
   const [ids, setIds] = useState(BOARD_IDS);
-  const [sizes, setSizes] = useState<Record<string, BoardCardSize>>({});
-  const sizeOf = (id: string) => sizes[id] ?? "sm";
-  const step = (id: string, dir: 1 | -1) =>
-    setSizes((s) => {
-      const i = Math.min(Math.max(BOARD_ORDER.indexOf(sizeOf(id)) + dir, 0), BOARD_ORDER.length - 1);
-      return { ...s, [id]: BOARD_ORDER[i] };
-    });
 
   return (
     <div className="w-full">
       <BoardGrid
-        items={ids}
-        size={sizeOf}
-        onReorder={(from, to) => setIds((cur) => reorderIds(cur, from, to))}
+        items={ids.map((id) => ({ id, w: 4, h: 7, minW: 2, minH: 5 }))}
         renderCard={(id) => (
           <BoardCard
             label={BOARD_LABEL[id]}
             title={BOARD_LABEL[id]}
             onRemove={() => setIds((cur) => cur.filter((k) => k !== id))}
-            onResizeStep={(dir) => step(id, dir)}
-            onResizeCycle={() => setSizes((s) => ({ ...s, [id]: BOARD_NEXT[sizeOf(id)] }))}
             menu={
               <KebabMenu label={`${BOARD_LABEL[id]} actions`} align="right">
                 <MenuItem icon="info" label="About this data" onClick={() => {}} />
-                <MenuItem icon="columns-3" label={`Resize (${sizeOf(id)})`} onClick={() => setSizes((s) => ({ ...s, [id]: BOARD_NEXT[sizeOf(id)] }))} />
               </KebabMenu>
             }
             footer={<span className="font-mono text-[11px] text-text-muted">appointments</span>}
@@ -1198,12 +1186,37 @@ export default function DesignSystemPage() {
                 );
               })}
             </Spec>
-            <Spec name="TextLink" desc="Inline link. STANDARD (default): teal with an underline that wipes in on hover. Variants: primary (teal, no underline), underline (static rule). Optional leading icon.">
+            <Spec name="TextLink" desc="Inline link. STANDARD (default): teal with an underline that wipes in on hover. Variants: primary (teal, no underline), underline (static rule), related (see RelatedLink). Optional leading icon.">
               <div className="flex flex-col items-start gap-2">
                 <TextLink>View all clients</TextLink>
                 <TextLink icon="download">Export</TextLink>
                 <TextLink variant="primary">Primary — teal, no underline</TextLink>
                 <TextLink variant="underline">Underline — static rule</TextLink>
+              </div>
+            </Spec>
+            <Spec
+              name="RelatedLink"
+              desc="A value that IS a record in another table — dotted teal, click to cross over. Pairs with the index page standard."
+              wide
+            >
+              <div className="w-full space-y-3">
+                <div className="flex flex-wrap items-center gap-6">
+                  <span className="text-[15px] text-text-body">
+                    Billing ID <RelatedLink href="/orgs">13-3957095</RelatedLink>
+                  </span>
+                  <RelatedLink href="/orgs">
+                    <Badge variant="success">Billing TIN</Badge>
+                  </RelatedLink>
+                  <span className="text-[13px] text-text-muted">← hover either one</span>
+                </div>
+                <p className="text-[13px] text-text-body">
+                  One meaning only: <em>this value lives in another table; click to go there</em> — as distinct from the
+                  row&rsquo;s own identity link (solid teal, wipe on hover) and the row&rsquo;s own drill-down. It stops
+                  propagation, because the row click means &ldquo;open this row&rdquo; and this means &ldquo;open the
+                  OTHER record&rdquo;. Live on /published-rates (Billing ID → the org book) and /orgs/registry (the
+                  Billing TIN badge). Use it sparingly: if every value on a row is dotted, none of them read as a
+                  crossing.
+                </p>
               </div>
             </Spec>
           </Group>

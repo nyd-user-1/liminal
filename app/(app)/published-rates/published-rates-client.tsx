@@ -11,7 +11,7 @@ import { Icon } from "@/components/ui/icons";
 import { KebabMenu } from "@/components/ui/kebab-menu";
 import { SearchInput } from "@/components/ui/search-input";
 import { Tabs } from "@/components/ui/tabs";
-import { TextLink } from "@/components/ui/text-link";
+import { RelatedLink, TextLink } from "@/components/ui/text-link";
 import { formatDate, providerDisplayName, titleCase } from "@/lib/format";
 // From lib/rate-table (no db import), never lib/repos — a VALUE import from a
 // repo pulls lib/db into this bundle and the Neon proxy throws in the browser.
@@ -320,10 +320,14 @@ export function PublishedRatesClient({ data }: { data: RateTableData }) {
         label: "Billing ID",
         headTitle: "The identifier the insurer publishes for this billing group — an EIN, or an NPI standing in for one",
         sortValue: (r) => r.tin,
+        // The identifier IS a record in the org book — dotted, because it
+        // crosses tables rather than drilling into this row.
         render: (r) => (
           <span className="tabular-nums">
             <span className="mr-1.5 text-[13px] text-text-muted">{billingIdKind(r.tin)}</span>
-            {billingIdValue(r.tin)}
+            <RelatedLink href={`/orgs/${encodeURIComponent(r.tin)}`} title={`Open this billing group in the org book`}>
+              {billingIdValue(r.tin)}
+            </RelatedLink>
           </span>
         ),
       },

@@ -6,8 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ColumnPicker } from "@/components/ui/column-picker";
-import { IconButton } from "@/components/ui/icon-button";
-import { TopBarActions } from "@/components/shell/topbar-slot";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { Icon } from "@/components/ui/icons";
@@ -18,10 +16,10 @@ import { SidePanel } from "@/components/ui/side-panel";
 import { Spinner } from "@/components/ui/spinner";
 import { LoadMoreRow, SortableHead, Table, Td, Tr, useSentinel, useSort } from "@/components/ui/table";
 import { Tooltip } from "@/components/ui/tooltip";
-import { Tabs } from "@/components/ui/tabs";
 import { TextLink } from "@/components/ui/text-link";
 import { Toolbar } from "@/components/ui/toolbar";
 import { useToast } from "@/components/ui/toast";
+import { IndexHeader } from "@/components/ui/index-header";
 import { ReferModal } from "@/components/providers/refer-modal";
 import { formatDate, formatPhone, providerDisplayName, shortProfession, stateFromZip } from "@/lib/format";
 import type { ProviderNetworkSummary } from "@/lib/repos/networks";
@@ -408,15 +406,10 @@ export function DirectoryClient({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <TopBarActions>
-        <Button size="sm" leftIcon="plus" onClick={() => toast("New provider isn\u2019t wired up yet.", "info")}>
-          New provider
-        </Button>
-        <IconButton icon="bell" label="Notifications" onClick={() => toast("No new notifications.", "info")} />
-      </TopBarActions>
-
-      <Tabs
-        className="mt-4 mb-4 shrink-0"
+      <IndexHeader
+        newLabel="New provider"
+        onNew={() => toast("New provider isn\u2019t wired up yet.", "info")}
+        slideActive={false}
         active={view === "list" ? tab : view}
         onChange={(k) => {
           if (k === "providers" || k === "programs") {
@@ -427,7 +420,7 @@ export function DirectoryClient({
           }
         }}
         onClose={closeTab}
-        items={[
+        tabs={[
           { key: "providers", label: "Providers" },
           { key: "programs", label: "Programs" },
           ...openTabs.map((t) => ({

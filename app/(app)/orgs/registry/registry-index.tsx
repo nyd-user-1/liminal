@@ -3,15 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { MenuItem } from "@/components/ui/dropdown-menu";
-import { IconButton } from "@/components/ui/icon-button";
+import { IndexHeader } from "@/components/ui/index-header";
+import { RelatedLink } from "@/components/ui/text-link";
 import { KebabMenu } from "@/components/ui/kebab-menu";
 import { SearchInput } from "@/components/ui/search-input";
-import { Tabs } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/toast";
-import { TopBarActions } from "@/components/shell/topbar-slot";
 import { ChipMenu } from "@/components/rates/chip-menu";
 import { formatDate } from "@/lib/format";
 import type { OrganizationFilter, OrganizationRow } from "@/lib/repos/orgs";
@@ -95,11 +93,18 @@ export function RegistryIndex({ initial }: { initial: Result }) {
       key: "provenance",
       label: "Provenance",
       sortValue: (r) => (r.nyBook ? 0 : 1),
+      // "Billing TIN" is the one provenance flag that names a record ELSEWHERE
+      // — this org has a billing group over in /orgs. So it is the badge you
+      // can click; the other two are just facts about this row.
       render: (r) => (
-        <span className="flex flex-wrap gap-1">
+        <span className="flex flex-wrap items-center gap-1">
           {r.nyBook && <Badge variant="info">NY book</Badge>}
           {r.platformReferenced && <Badge variant="neutral">Platform</Badge>}
-          {r.isBillingTin && <Badge variant="success">Billing TIN</Badge>}
+          {r.isBillingTin && (
+            <RelatedLink href={`/orgs/${r.npi}`} title={`Open the billing group for ${r.name}`}>
+              <Badge variant="success">Billing TIN</Badge>
+            </RelatedLink>
+          )}
         </span>
       ),
     },
@@ -115,19 +120,12 @@ export function RegistryIndex({ initial }: { initial: Result }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <TopBarActions>
-        <Button size="sm" leftIcon="plus" onClick={() => toast("Organizations come from NPPES — nothing to create here.", "info")}>
-          New
-        </Button>
-        <IconButton icon="bell" label="Notifications" onClick={() => toast("No new notifications.", "info")} />
-      </TopBarActions>
-
-      <Tabs
-        className="mt-4 mb-4 shrink-0"
-        slideActive
+      <IndexHeader
+        newLabel="New"
+        onNew={() => toast("Organizations come from NPPES — nothing to create here.", "info")}
         active="registry"
         onChange={(k) => k === "books" && router.push("/orgs")}
-        items={[
+        tabs={[
           { key: "books", label: "Billing groups" },
           { key: "registry", label: "NPI-2 registry" },
         ]}
@@ -144,6 +142,7 @@ export function RegistryIndex({ initial }: { initial: Result }) {
           onRowClick={(r) => r.isBillingTin && router.push(`/orgs/${r.npi}`)}
           selected={selected}
           onSelectedChange={setSelected}
+          onExport={() => toast("Export isn\u2019t wired up yet.", "info")}
           onRefresh={() => router.refresh()}
           filter={
             <ChipMenu

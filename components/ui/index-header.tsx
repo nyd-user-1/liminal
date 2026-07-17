@@ -24,6 +24,8 @@ export function IndexHeader({
   active,
   onChange,
   onClose,
+  overflow,
+  overflowLabel,
   slideActive = true,
   newLabel,
   onNew,
@@ -34,6 +36,9 @@ export function IndexHeader({
   onChange?: (key: string) => void;
   /** Close handler for `closable` tabs (open-record tabs). */
   onClose?: (key: string) => void;
+  /** Secondary tabs, parked behind a "View More" menu (see Tabs). */
+  overflow?: TabItem[];
+  overflowLabel?: string;
   /** Slide the underline between tabs. Off for `href` tab rows, which navigate. */
   slideActive?: boolean;
   /** The New button. Omit both to render no create action. */
@@ -62,6 +67,8 @@ export function IndexHeader({
         active={active}
         onChange={onChange}
         onClose={onClose}
+        overflow={overflow}
+        overflowLabel={overflowLabel}
         items={tabs}
       />
     </>
