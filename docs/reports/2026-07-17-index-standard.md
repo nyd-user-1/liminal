@@ -399,3 +399,65 @@ Then this session resumed and BUILT item 1 — I withdraw the handoff framing.
   cold compile). A timed-out browser run is usually the server, not your code — probe
   with curl before restarting anyone's server.
 - Everything remains local; nothing pushed. `git add` stayed per-file throughout.
+
+## LEAD ACK — NYS-93 closed, seam held cleanly
+Verified: no duplicate with the client-board session — you built the Services
+read (c7412f0, 425,687 rows, Plan + Setting proven at the glass), they built
+Panels-not-blank consuming your route. Exactly how the ownership carve-out was
+meant to work. "Look at the screenshot, never trust the exit code" is going in
+the standing lessons. You're near end-of-context — if so, ensure your files
+are committed (they are, per your note) and end clean; else take an NYS-92
+evergreen candidate touching only files you own.
+
+---
+## SHUTDOWN — end of day, index-standard session
+Brendan is shutting down. Everything below is committed locally; **nothing pushed**.
+
+### What this session shipped (all committed, in history)
+| Dispatch | Ticket | Commit(s) | State |
+|---|---|---|---|
+| Portable object tables (clients/rx/orders/catalog) | NYS-75 | `3a6f695` | done |
+| IndexHeader + /design-system docs | NYS-76 | `893f902` | done |
+| Sweep 6 index pages; /plans + /recruiting un-bared; RelatedLink ×2 | NYS-77 | `71ff512` | done |
+| /rates stacked table variant, tab blurbs, economics callout | (DISPATCH 3) | `818624d` | done |
+| Services rate-rows layer (repo + API + panel + Rates/Bands toggle) | NYS-93 | `c7412f0` | done, browser-verified |
+| ⌘R keeps the open record; client name opens a tab | (DISPATCH 5) | `d5a124f`, `39e93d4` | done |
+
+Reports 1–4 above have the detail. `/design-system` documents the two table
+layouts (index vs stacked) + IndexHeader + RelatedLink + Table·stacked cards.
+
+### Findings filed as tickets (the durable value, not just code)
+- **NYS-93** (closed) — the "plan" column can't be an employer plan (plans is
+  Aetna-only, rates hold no Aetna, join is many:many on the forbidden fact table);
+  `plan_or_network` IS the column, free, by un-aggregating. Schedule badge can't
+  exist at row grain (→ `nRates>1`). Services covers only ≤100-leaf TINs (~48%
+  excluded). All measured live + confirmed in SQL.
+- **NYS-78** (high, open) — Export/Refresh restyled `secondary`→`ghost` in
+  data-table.tsx drifts every index page off the e87fd62 "quiet outline" standard.
+  Needs a call: adopt or revert.
+- **NYS-79** (low, open) — `components/photon/prescriptions-table.tsx` is a dead
+  duplicate (no importers); `clients-table.tsx` imports back into `app/(app)/clients/*`.
+- **NYS-92** (evergreen) — I commented the ChipMenu-in-/orgs extraction candidate
+  with a full safe-swap recipe for the next idle terminal. Did NOT execute it.
+
+### Not mine, observed in the tree at shutdown (other live sessions)
+Uncommitted work I left untouched: `components/ui/filter-menu.tsx` (new — sibling
+extracted the two-level FilterMenu), `app/rates/renegotiate/` (new route),
+`collapseActions` added to data-table.tsx, plus in-flight edits to bands-panel,
+economics-dialog, rates-shell, services-panel, clients-table, design-system.
+NYS-91 (rates reductive) is another session's, in progress. NYS-94 (a `.split`
+TypeError seen driving /rates) is open and unattributed — worth a look.
+
+### Standing lessons earned tonight (for the coordination log)
+- **Look at the screenshot, never trust the exit code** — a browser run "succeeded"
+  having silently photographed the sign-in page. Cookie-inject + a
+  `url().includes("sign-in")` guard is the reliable local-auth path; `networkidle`
+  never settles under Turbopack HMR, so wait on a real element.
+- **A timed-out browser run is usually the wedged shared dev server**, not your
+  code (~9s–480s/request under concurrent sessions). Probe with curl first.
+- **Guard every `--amend` against a moved HEAD** — a concurrent commit landed
+  between my commit and my amend once tonight; I rewrote their commit by accident,
+  caught it, and reset to their byte-identical original. `git add` stayed per-file
+  throughout (never `-A`).
+
+Nothing is blocked on me. Clean shutdown.
