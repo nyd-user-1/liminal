@@ -246,3 +246,164 @@ provider has no negotiated rate to publish. **100% is structurally impossible.**
 - The first `sync_runs` row is my verification run (`trigger='manual'`). It is a
   real refresh that really happened — kept, not deleted; falsifying the log to
   look tidy would defeat the table's only purpose.
+
+---
+## LEAD DISPATCH 3 — /rates tools: reductive, not additive (from last-fable-standing)
+CLAIMED 2026-07-17-client-board.md — in progress.
+
+Your coverage audit is the reference answer — 47.3%/49.4% and the ranked plan
+are going straight to the founder. Next: his morning list for the /rates tools.
+
+**YOU OWN:** components/rates/{roster-panel,apply-next-panel,spread-panel,
+economics-dialog}.tsx, app/api/rates/*, app/rates/packet/* (+ a sibling route
+if you add one).
+**DO NOT TOUCH:** rates-shell/panels/Services components (another session),
+components/records/*, components/board/*.
+
+The principle, his words: these tools are ADDITIVE (blank until you type) and
+must become REDUCTIVE — "the user should be able to see the entirety of the
+relevant listings and have the listings reduce based on a search."
+
+1. **Roster check / Apply next / Spread check: base content always visible.**
+   Each tab opens showing the full relevant listing as a table (roster: the
+   payer×holder listings; apply next: every negotiable NY book as rows with
+   headline economics; spread: the payer table at sensible default inputs) —
+   with the full-width search bar + filter on top. A 10-digit NPI in the
+   search REDUCES to the applicable cards/rows and switches on the
+   personalized computations. Skeleton loaders for numbers being computed;
+   put genuinely expensive per-card sections behind an ACCORDION (collapsed
+   until opened — buys compute time); use both where it helps.
+2. **Rate-list restyle inside the cards** — the founder called the current
+   list "organized disorganization": make it a proper aligned dl (code +
+   FULL service name left, amount right in tabular figures), schedule as a
+   small badge ONCE per card not "(fee schedule)" per line, no mid-word
+   truncation.
+3. **Fix the segmented control** ("Current | I left this group" renders like
+   a broken half-input — see SegmentedControl's proper look on /rates
+   Services facets or /design-system).
+4. **Third column becomes user-driven value**, replacing the margin-first
+   layout: two clear paths — "**This is me** → confirm/validate → share
+   (PDF)" and "**This is NOT me** → confirm, and we generate a dispute
+   letter PDF to forward to the appropriate parties." The margin calculator
+   moves under an accordion ("What was my work worth?"), not deleted.
+5. **PDFs are the product.** "Renegotiate the lower schedule" (economics
+   dialog) becomes "**Generate report**" and actually generates one — write
+   it up FOR them, the /rates/packet pattern (see
+   /rates/packet?npi=…&payer=…): a renegotiation letter citing their two
+   schedules and the gap, printable/savable. Same machinery for the roster
+   dispute letter in (4).
+6. **Economics dialog gets room + context**: it currently eats a third of the
+   screen as a modal and it's unclear whether those are all the clinician's
+   panels — say what it covers ("All N contracts across M payers for
+   1588146039"), and consider the reskinned SidePanel instead of the modal
+   for space.
+
+Verify as brendan on :3010 in a real browser (drive the NPI flow:
+1588146039), screenshots to scratchpad, tsc clean. Commit, do NOT push.
+
+**THE LOOP (standing policy):** when done — append "## Report 3 …" here,
+close tickets, RE-POLL this file every ~5 min; after 30 min with no dispatch,
+take the oldest open NYS ticket touching only files you own (note it here) and
+start. Questions → "## QUESTION FOR LEAD" here. Never idle.
+
+## LEAD NOTE — ownership carve-out on app/api/rates/*
+
+The index-standard session needs a server-paginated Services read and owns,
+as NEW files only: `lib/repos/rate-rows.ts` + `app/api/rates/services/route.ts`.
+Everything else under app/api/rates/* and all of lib/repos/rate-signals.ts
+(including your in-flight `listRateBooks()`) remains YOURS. They will not
+edit shared files; they may consume your exports read-only after you commit.
+
+## LEAD DISPATCH 4 — queued behind your current work (do not preempt)
+
+When your Report 3 (tools rework) is filed: the index session stood down and
+its NYS-93 handoff is yours — the seam carve-out dissolves; you own the whole
+rates data layer again.
+
+1. **NYS-93 — /rates Services shows rate rows.** Read its handoff in
+   docs/reports/2026-07-17-index-standard.md (Report 3): unpivot
+   rate_table_child_mv (129,490 rows, grain payer·tin·npi·network·setting,
+   pivoted c/n columns → one row per service), new `lib/repos/rate-rows.ts` +
+   `app/api/rates/services/route.ts`, server-paginated; columns include
+   network/plan label AND setting (facility vs office is a real price);
+   `n<code> > 1` = multi-rate badge; quartiles stay behind the Bands toggle
+   the index session built. The stacked DataTable variant is already on the
+   page — you're filling it with the right rows.
+2. **Panels defaults full, not blank** — its screenshot proved the EmptyState;
+   make the default listing render without an NPI (same reductive principle
+   as your current dispatch).
+
+---
+## Report 4 — /rates tools: reductive, not additive (dispatch 3)
+Commit `69e038e`, local only, NOT pushed. Linear: NYS-91.
+
+### Shipped — Roster check (items 1–4 for that tab, and 2/3 outright)
+- **The listing is the resting state.** `/api/rates/books` + `listRateBooks()`
+  (sql/027's rate_table_mv, 38,716 pre-aggregated payer×tin rows — never the
+  9.3M fact table). Roster check opens on it. One box does both jobs: text
+  narrows to matching insurers/holders; a 10-digit NPI stops being a filter and
+  becomes the lookup — the table gives way to that clinician's cards.
+- **It says what it covers.** 027 allowlists SIX insurers (Cigna, Empire,
+  Oxford, Emblem, Fidelis, MetroPlus) whose schedules resolve to one publishable
+  figure per billing ID; both Aetna labels (7.9M of 9.3M rows, ~4% single-rate)
+  and the out-of-state Blues are excluded ON PURPOSE. The footer names that
+  boundary — a listing implying "every book" would be the additive screen's lie
+  told the other way round.
+- **Rate list restyled** — aligned dl, code + FULL service name left, amount
+  right in tabular figures, dotted leader, no mid-word truncation; schedule
+  basis is a badge ONCE per card. Needed figure/basis apart, so `FootprintBook`
+  gained `codeParts` (additive — `codes` stays wrapped, recruiting-shell
+  untouched). It is the split `RateSignal.figure`/`basis` already sanction, and
+  the card header carries the in-network qualifier that licenses it.
+- **Segmented control fixed** — and NOT in the primitive. It is `inline-flex`
+  inside a flex COLUMN, so `align-items: stretch` blew it full-width while its
+  buttons stayed content-sized: that IS the "broken half-input". `self-start`
+  here; 2px slack, measured. Spread-panel's copy renders fine because it sits
+  under `items-center` — which is what proved the diagnosis.
+- **Third column is now user-driven.** "Is this listing you?" → **This is me**
+  (attests, then offers the payer's own attestation as a shareable PDF) /
+  **This is NOT me** → **`/rates/dispute`**, a real directory-correction letter
+  on the packet route's pattern, citing the payer's own published rows + file
+  dates, for them to forward. We never submit on their behalf. The margin
+  calculator moved under a collapsed accordion — a good tool, not the point, and
+  it shouldn't cost height or compute until asked for.
+
+### Verification
+Real Chrome on :3010 as brendan — **13/13**: listing renders before any input
+(no blank gate); text search reduces to only-Empire rows; NPI reduces to 5
+cards and the table disappears; both ownership buttons; accordion collapsed then
+opens; badge once-per-card, no per-line "(fee schedule)"; segmented control 2px
+slack; `/rates/dispute` 200 citing the disputed rows. My files tsc clean.
+
+### NOT done — honestly (rest of NYS-91, left open)
+1. **Apply next + Spread check are still additive.** Only Roster check was made
+   reductive. Apply next needs "every negotiable NY book as rows" without an NPI;
+   Spread needs its payer table at default inputs. Both are real work, not
+   copy-paste, and I would rather ship one tab right than three half-done.
+2. **Item 5 (economics dialog → "Generate report")** and **item 6 (dialog gets
+   room + context, SidePanel over modal)** — not started.
+   `economics-dialog.tsx` is mine but is mounted by `panels-panel.tsx` (another
+   session's, and they committed `818624d` mid-dispatch), so its props must stay
+   stable; the swap is safe but unverified, so I did not risk it blind.
+
+### Gotchas
+- **The dev server is not a reliable verification surface while another session
+  edits.** A click landing during `[Fast Refresh] rebuilding` remounts the form
+  and the native GET wins — sign-in then "fails" with `?password=` in the URL.
+  That is a dev artifact, NOT a product bug: the page hydrates (verified) and the
+  form has `onSubmit`. Retry sign-in up to 4× and settle before asserting.
+- **Every /rates tab stays mounted (hidden)**, so `tbody tr` counts the Services
+  tab's table too — scope to `table:has(th:has-text("Contract holder"))`. And
+  `useLazyBatch` appends a LoadMoreRow whose cell reads "Loading more…", which
+  survives `.filter(Boolean)` and breaks an `every()`. Three of my "failures"
+  were the test, not the code.
+- `innerText` applies `text-transform`, so a CSS-`uppercase`d label fails a
+  case-sensitive `includes()`.
+- One uncaught `TypeError: …reading 'split'` fired during a full drive of
+  /rates. **Not attributed** — none of my files contain `.split(`; the only one
+  in components/rates is `clinician-name.ts`, reached from panels-panel
+  (another session's) as well as mine. The dev server destabilised under their
+  edits before I could isolate it. Filed as NYS-94, not swept up.
+- `lib/repos/rate-signals.ts` is shared. I staged it only after confirming the
+  diff carried none of their lines — check `git diff` hunks before every
+  `git add` on that file.
