@@ -141,6 +141,35 @@ export async function sendPasswordEmail(opts: {
   });
 }
 
+// ── ops alerts ────────────────────────────────────────────────────────────────
+// Internal plumbing alerts (failed nightly sync), not patient mail. Gated on
+// LIMINAL_OPS_EMAIL so nothing fires unless an operator inbox is configured;
+// carries table/step names only — no PHI lives anywhere near these jobs.
+
+export async function sendOpsAlertEmail(opts: {
+  subject: string;
+  intro: string;
+  failures: Array<{ step: string; error: string }>;
+}): Promise<boolean> {
+  const to = process.env.LIMINAL_OPS_EMAIL;
+  if (!to) return false;
+  const rows = opts.failures
+    .map(
+      (f) => `<p style="margin:0 0 8px;"><strong>${esc(f.step)}</strong><br/>
+        <span style="font-size:13px;color:#8A8F9E;">${esc(f.error)}</span></p>`,
+    )
+    .join("");
+  return sendEmail({
+    to,
+    subject: opts.subject,
+    html: shell({
+      heading: opts.subject,
+      bodyHtml: `<p style="margin:0 0 14px;">${esc(opts.intro)}</p>${rows}`,
+      cta: { label: "Open Insights", href: `${appBaseUrl()}/insights` },
+    }),
+  });
+}
+
 // ── billing emails ────────────────────────────────────────────────────────────
 // Mini version of the /billing/[id]/print document: line items + totals in
 // the branded shell, CTA deep-links to the portal pay sheet

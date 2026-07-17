@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { hasDb, sql } from "@/lib/db";
+import { sendOpsAlertEmail } from "@/lib/email";
 
 // The nightly rebuild of everything the app derives rather than stores.
 //
@@ -174,6 +175,16 @@ export async function GET(req: NextRequest) {
 
   await closeRun(runId, steps, startedAt);
   const failed = steps.filter((s) => s.error);
+  // The alert must reach a human, not just the ledger: /insights shows red on
+  // the next visit, but nothing guarantees a visit. Best-effort — a down email
+  // provider must not turn a half-failed refresh into a fully-failed response.
+  if (failed.length) {
+    await sendOpsAlertEmail({
+      subject: `Nightly sync failed — ${failed.length} of ${steps.length} steps`,
+      intro: `The ${isCron(req)} run at ${new Date(startedAt).toISOString()} finished with errors. The failed views kept their previous contents.`,
+      failures: failed.map((s) => ({ step: s.step, error: s.error ?? "unknown" })),
+    });
+  }
   // 500 on any failed step so a Vercel cron failure is visible as one, rather
   // than a green tick over a chain that half-ran.
   return NextResponse.json(

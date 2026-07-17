@@ -1,0 +1,89 @@
+import { hasDb, sql } from "@/lib/db";
+import { isoDateTime } from "@/lib/format";
+
+// sync_runs (sql/035) — the maintenance ledger. Two writers share it: the
+// nightly matview cron (job 'daily', app/api/cron/daily) and the local harvest
+// runner (job 'harvest:<name>', ops/harvest/runner.mjs). One reader: the
+// /insights sync-health card. Health is judged here, not in the component,
+// so "red" means the same thing everywhere.
+
+export type SyncStep = { step: string; ms: number; rows?: number; error?: string };
+
+export type SyncRun = {
+  id: string;
+  job: string;
+  trigger: string;
+  /** ok | error | running | died — 'died' is a row still 'running' long after
+   *  any plausible runtime (the process was killed mid-flight and never
+   *  closed its row). */
+  state: "ok" | "error" | "running" | "died";
+  startedAt: string;
+  finishedAt: string | null;
+  durationMs: number | null;
+  steps: SyncStep[];
+  failedSteps: SyncStep[];
+  error: string | null;
+};
+
+export type SyncHealth = {
+  nightly: SyncRun | null;
+  /** True once the nightly has run at least once but not in the last 26h —
+   *  the cron fires daily, so a quiet day means it silently stopped. */
+  nightlyStale: boolean;
+  harvests: SyncRun[]; // latest run per harvest job, newest first
+};
+
+const STALE_HOURS = 26;
+const DIED_MINUTES = 30; // hard cap: the Vercel fn dies at 300s, harvests self-report
+
+function toRun(r: {
+  id: string;
+  job: string;
+  trigger: string;
+  status: string;
+  started_at: Date;
+  finished_at: Date | null;
+  duration_ms: number | null;
+  steps: SyncStep[];
+  error: string | null;
+}): SyncRun {
+  const running = r.status === "running";
+  const died = running && Date.now() - r.started_at.getTime() > DIED_MINUTES * 60_000;
+  const steps = Array.isArray(r.steps) ? r.steps : [];
+  return {
+    id: r.id,
+    job: r.job,
+    trigger: r.trigger,
+    state: died ? "died" : running ? "running" : r.status === "ok" ? "ok" : "error",
+    startedAt: isoDateTime(r.started_at),
+    finishedAt: isoDateTime(r.finished_at),
+    durationMs: r.duration_ms,
+    steps,
+    failedSteps: steps.filter((s) => s.error),
+    error: r.error,
+  };
+}
+
+export async function syncHealth(): Promise<SyncHealth | null> {
+  if (!hasDb) return null;
+  const rows = (await sql`
+    SELECT DISTINCT ON (job)
+           id, job, trigger, status, started_at, finished_at, duration_ms, steps, error
+    FROM sync_runs
+    ORDER BY job, started_at DESC
+  `) as Array<Parameters<typeof toRun>[0]>;
+
+  const runs = rows.map(toRun);
+  const nightly = runs.find((r) => r.job === "daily") ?? null;
+  const harvests = runs
+    .filter((r) => r.job.startsWith("harvest:"))
+    .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+    .slice(0, 8);
+
+  return {
+    nightly,
+    nightlyStale:
+      nightly !== null && Date.now() - new Date(nightly.startedAt).getTime() > STALE_HOURS * 3_600_000,
+    harvests,
+  };
+}
