@@ -94,67 +94,62 @@ Questions: append "## QUESTION FOR LEAD" here — this file is monitored.
 
 ---
 ## Report 2 — sweep + related links
-Commits `893f902` (IndexHeader + docs) and `71ff512` (sweep), local only, not pushed.
-Linear: NYS-76 + NYS-77 closed. New: NYS-89, NYS-90.
+Commits `893f902` (IndexHeader + docs) + `71ff512` (sweep), local only, not pushed. Linear: NYS-76 + NYS-77 closed; new NYS-89, NYS-90.
 
 ### Shipped
-- **NYS-76 — `components/ui/index-header.tsx`**: TopBar actions (New + bell) + the
-  tab row, one thin piece. Decides nothing — no data, no filtering, no active-tab
-  state. Its TopBar half portals, so it renders wherever it sits. Primitives 44 → 45
-  (a genuinely new primitive, declared per CLAUDE.md; the lead ordered it).
+- **NYS-76 — `components/ui/index-header.tsx`**: TopBar actions (New + bell) + the tab
+  row, one thin piece. Decides nothing; its TopBar half portals, so it renders wherever
+  it sits. Primitives 44 → 45 (a new primitive, declared per CLAUDE.md — lead ordered).
 - **NYS-77 — swept onto it**: clients (rail + the other session's open-record tabs
   intact), prescriptions, orders, catalog, directory (browser-tab model intact,
   `slideActive={false}`), orgs, orgs/registry, plans, recruiting, billing.
-- **/plans** — was the barest: no TopBar actions, no tab row, hand-rolled table. Now
-  IndexHeader + DataTable + the full toolbar. `market_type` — fetched on every
-  sponsors query, never rendered — is a column. The bespoke "New York only" button
-  is now a State facet derived from the rows, joined by Funding and Market.
+- **/plans** — the barest: no TopBar actions, no tab row, hand-rolled table. Now
+  IndexHeader + DataTable + full toolbar. `market_type` — fetched on every sponsors
+  query, never rendered — is a column. The bespoke "New York only" button is now a
+  State facet derived from the rows, joined by Funding and Market.
 - **/recruiting** — showed 3 of the 5 rates it fetches. `best90834` (45-min
   psychotherapy, the most-billed code) is a column, which also fixes "Therapy rate"
-  reading as THE therapy rate → Therapy 45m / 60m. Group (90853) + As-of ship
-  hidden-by-default. Gained the Filter it never had (profession facet). Lost
-  "Tab 2/3/4" — three tabs that filtered nothing.
+  reading as THE therapy rate → Therapy 45m / 60m. Group (90853) + As-of ship hidden.
+  Gained the Filter it never had (profession facet); lost "Tab 2/3/4", three tabs
+  that filtered nothing.
 - **Dead rows**: /billing → Payers now opens the PayerPanel its own Edit kebab
-  already opened. /orgs/registry gained its missing Export.
-- **RelatedLink ×2**: `TextLink` gains a `related` variant (faint dotted teal
-  underline, teal on hover) reached through a `RelatedLink` wrapper that stops
-  propagation. Live on /published-rates (Billing ID → the org book) and
-  /orgs/registry (the Billing TIN badge). Documented on /design-system beside the
-  index standard, which is also now a paragraph in the copyable Start-here rules.
+  already opened; /orgs/registry gained its missing Export.
+- **RelatedLink ×2**: `TextLink` gains a `related` variant (faint dotted teal underline,
+  teal on hover) via a `RelatedLink` wrapper that stops propagation. Live on
+  /published-rates (Billing ID → the org book) and /orgs/registry (the Billing TIN
+  badge). Documented on /design-system beside the index standard, which is now also a
+  paragraph in the copyable Start-here rules.
 
-### DB changes — none. No query changed; no repo touched.
+### DB changes — none (no query changed, no repo touched).
 
 ### Decisions
-- **RelatedLink is a TextLink variant, not primitive #46.** The kit already has a
-  variant system for exactly this; the one rule says compose before inventing. The
-  `RelatedLink` name survives as a thin wrapper so call sites read as the semantic.
+- **RelatedLink is a TextLink variant, not primitive #46** — the kit already has a
+  variant system for exactly this, and the one rule says compose before inventing.
+  The `RelatedLink` wrapper survives so call sites read as the semantic.
 - **The /design-system IndexHeader card is a static anatomy, not a live mount** — a
   real one would portal a stray "New …" button into that page's own TopBar.
-- **Kebab-only, justified**: /orgs/registry rows that aren't billing TINs. They're
-  NPPES reference data with no record to open; the 3,113 that DO have one now carry
-  the RelatedLink badge.
-- **/library left alone (NYS-90)** — its TopBar actions are suppressed while the
-  inline FormBuilder is open, and IndexHeader fuses TopBar to tabs. Adopting it would
-  resurrect the bell mid-edit or need an `actionsHidden` prop for one page: the logic
-  creep IndexHeader exists to refuse. Its dead cards are hardcoded lorem with no repo
-  behind them — a data question, not chrome.
+- **Kebab-only, justified**: /orgs/registry rows that aren't billing TINs — NPPES
+  reference data with no record to open. The 3,113 that DO have one carry the badge.
+- **/library left alone (NYS-90)** — its TopBar actions are suppressed while the inline
+  FormBuilder is open, and IndexHeader fuses TopBar to tabs: adopting it would resurrect
+  the bell mid-edit or need an `actionsHidden` prop for one page — the logic creep
+  IndexHeader exists to refuse. Its dead cards are lorem with no repo behind them.
 
 ### Open items
 1. **NYS-89 (urgent) — /design-system 500s right now, and it is not mine.** The board
-   session's uncommitted `board-grid.tsx` dropped the `reorderIds` / `BoardCardSize`
-   exports that `design-system/page.tsx:9` imports. Their API change, their consumer;
-   I left `components/board/*` untouched per the working agreement and did not paper
-   over it in design-system either, which would collide with their edit.
+   session's uncommitted `board-grid.tsx` dropped the `reorderIds`/`BoardCardSize`
+   exports `design-system/page.tsx:9` imports. Their API change, their consumer: I left
+   `components/board/*` untouched, and did not paper over it in design-system either —
+   that would collide with their in-flight edit.
 2. **NYS-90 (medium)** — /library: scaffold cards + the chrome fusion problem above.
-3. NYS-78 (Export/Refresh ghost drift) and NYS-79 (dead duplicate + backwards
-   imports) from Report 1 are still open.
+3. NYS-78 (Export/Refresh ghost drift) + NYS-79 (dead duplicate) still open.
 
 ### Gotchas
-- **NYS-76's docs could not be verified in a browser** — blocked by NYS-89. The page
-  typechecks and its own hunks are clean; everything else was verified on :3010 as
-  brendan (all seven pages 200, toolbars + new columns + facets present in the HTML).
+- **NYS-76's docs could not be verified in a browser** — blocked by NYS-89; the page
+  typechecks and its own hunks are clean. Everything else verified on :3010 as brendan
+  (all seven 200; toolbars, new columns and facets present in the HTML).
 - The registry's RelatedLink is absent from page 1's HTML *correctly*: only 3,113 of
-  105k rows are billing TINs and they arrive via the client-side filter. The
-  identical treatment is confirmed rendering in /published-rates' SSR HTML.
+  105k rows are billing TINs, and they arrive via the client-side filter. The same
+  treatment is confirmed rendering in /published-rates' SSR HTML.
 - `git add` was per-file throughout; `components/board/*`, `components/records/*`,
-  `components/analytics/*` and the other sessions' reports are untouched.
+  `components/analytics/*` and other sessions' reports are untouched.
