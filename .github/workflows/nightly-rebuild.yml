@@ -31,7 +31,12 @@ on:
     # GitHub cron is best-effort and can run 10-30m late or drop under load —
     # fine for a belt, which is never the primary.
     - cron: "13 11 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Force a rebuild even if the skip-guard would skip (mirrors the runner's DAILY_FORCE — e.g. after an out-of-band load the ledger didn't see)"
+        type: boolean
+        default: false
 
 # Never run two rebuilds at once (a manual dispatch overlapping the schedule).
 concurrency:
@@ -80,4 +85,8 @@ jobs:
 
       - name: Rebuild matviews (shared chain, sound skip-guard, ledgered)
         if: env.BELT_CONFIGURED == 'true'
+        env:
+          # Manual dispatch with force=true bypasses the skip-guard; scheduled
+          # runs leave it empty so the guard decides.
+          DAILY_FORCE: ${{ inputs.force && '1' || '' }}
         run: node ops/harvest/rebuild-daily.mjs
