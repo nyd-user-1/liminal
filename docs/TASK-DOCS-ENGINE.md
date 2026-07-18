@@ -40,8 +40,10 @@ Document = readable mirror), plus the Atlas generator:
 
 You also own: all Linear **structural** writes (projects, milestones, documents,
 issue moves/closes) for the data-engine reorg; `~/Vaults/hq/liminal/atlas/` (the
-Obsidian graph the Atlas emits); and your one additive entry in
-`ops/harvest/jobs.json` (the `db-atlas` job).
+Obsidian graph the Atlas emits); your one additive entry in
+`ops/harvest/jobs.json` (the `db-atlas` job); **the agent-ecosystem docs** —
+`docs/OPERATING-MODEL.md` and the agent definitions in `~/.claude/agents/*.md`
+(upkeep, not authorship of new roles — see below).
 
 **Do not touch:** `app/**`, `components/**`, `lib/**` (read freely, write never),
 `scripts/` other than `db-atlas.mjs`, `sql/**`, `.harvest/**`,
@@ -81,6 +83,20 @@ Hand-maintained. Read the **header comment** of every script in `scripts/`,
 current: name · purpose · invocation · writes-to · resumable? · cron-able? ·
 status. When a script graduates from "still need" to shipped, move it into the
 right section and drop the placeholder.
+
+### Agent definitions (`~/.claude/agents/*.md` + `docs/OPERATING-MODEL.md`)
+
+The six agent files are **identity, not tranche** — invariant across repos and
+across tranches (mission, read-first education, house rules, seam protocol,
+verification standard, Linear + report protocols, escalation). They evolve through
+the **same review loop as code**: a change to an identity file is briefed by the
+lead, executed, reviewed, and recorded — never edited ad hoc. Keep them current
+when the invariants they cite drift: a renamed doc in a read-first list, a changed
+house rule, a new standing decision, a promoted primitive. `docs/OPERATING-MODEL.md`
+is the dual-homed loop these identities plug into — keep it and its Linear Document
+in step, and keep the agent roster table in it accurate when an agent is
+added/retired. You do **upkeep**; authoring a genuinely new role is a lead-briefed
+task (like `TASK-AGENTS.md` was), not a routine refresh.
 
 ### Publishing to Linear
 
