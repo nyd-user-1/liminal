@@ -1,6 +1,6 @@
 "use client";
 
-import type { Employer, NetworkRateSummary, Plan } from "@/lib/repos/plans";
+import type { Employer, EmployerRegistry, NetworkRateSummary, Plan } from "@/lib/repos/plans";
 import { EmployerRail } from "./employer-rail";
 import { EmployerTabs } from "./employer-tabs";
 import { PlansPanel, RatesPanel } from "./employer-panels";
@@ -14,19 +14,21 @@ export function EmployerView({
   employer,
   plans,
   rateSummary,
+  registry,
   cptLabels,
   initialTab,
 }: {
   employer: Employer;
   plans: Plan[];
   rateSummary: NetworkRateSummary[];
+  registry: EmployerRegistry | null;
   cptLabels: Record<string, string>;
   initialTab?: string;
 }) {
   return (
     <div className="flex h-full min-h-0 flex-col gap-6 lg:flex-row">
       <aside className="min-h-0 lg:h-full lg:w-80 lg:shrink-0">
-        <EmployerRail employer={employer} />
+        <EmployerRail employer={employer} registry={registry} />
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <EmployerTabs

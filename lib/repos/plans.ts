@@ -1,4 +1,5 @@
 import { hasDb, sql } from "@/lib/db";
+import { titleCase } from "@/lib/format";
 
 // Employers + plans repo (sql/020) — the demand-side graph (NYS-36). Powers
 // "Find my plan" (patient), the Plans catalog, and Employer Signals. A plan's
@@ -25,6 +26,30 @@ export interface Plan {
   fileSchema: string | null;
   sourceFile: string | null;
   fileDate: string | null;
+}
+
+export interface RegistryCarrier {
+  /** Title-cased for display; near-duplicate spellings collapsed. */
+  name: string;
+  /** INS_PRSN_COVERED_EOY_CNT for this contract — per-contract, not the plan total. */
+  coveredLives: number | null;
+  health: boolean;
+  stopLoss: boolean;
+}
+
+/** An employer's federal benefit-plan filing, summarized for the detail rail
+ *  (sql/040 employer_plan_registry, latest plan year). Public DOL/EFAST2 data —
+ *  no PHI. */
+export interface EmployerRegistry {
+  planYear: number;
+  /** TOT_PARTCP_BOY_CNT — the plan headcount the employer itself filed. */
+  participants: number | null;
+  /** health-first, then covered-lives desc; capped for display. */
+  carriers: RegistryCarrier[];
+  carrierCount: number;
+  /** A stop-loss contract on file — self-funded plans buy stop-loss, so its
+   *  presence is the federal-record "self-funded tell" the ToC only implied. */
+  selfFundedTell: boolean;
 }
 
 const MOCK_EMPLOYERS: Employer[] = [
@@ -157,6 +182,64 @@ export async function getEmployerRateSummary(ein: string): Promise<NetworkRateSu
     if (providers > s.providersPriced) s.providersPriced = providers;
   }
   return [...byNet.values()].sort((a, b) => b.providersPriced - a.providersPriced);
+}
+
+const CARRIER_DISPLAY_CAP = 4;
+
+/** Federal registry summary for an employer (sql/040), latest plan year. Named
+ *  carriers + covered lives + the stop-loss self-funded tell — the DOL record
+ *  behind the ToC-derived employer. Returns null when the employer never filed
+ *  (only 64% of our Aetna book matches a filing). */
+export async function getEmployerRegistry(ein: string): Promise<EmployerRegistry | null> {
+  if (!hasDb) return null;
+  const rows = (await sql`
+    SELECT plan_year, participants, carrier_name, carrier_naic, covered_lives, benefit_health, benefit_stop_loss
+    FROM employer_plan_registry
+    WHERE ein = ${ein}
+      AND plan_year = (SELECT max(plan_year) FROM employer_plan_registry WHERE ein = ${ein})
+  `) as Array<Record<string, unknown>>;
+  if (rows.length === 0) return null;
+
+  const planYear = Number(rows[0].plan_year);
+  const participants = rows.reduce((m, r) => Math.max(m, Number(r.participants) || 0), 0) || null;
+
+  // The same carrier files under slightly different spellings across contracts
+  // ("INS. CO." vs "INSURANCE CO"). Collapse on carrier_naic — the stable NAIC
+  // company code, present on 99.6% of rows (share it, they're one carrier) —
+  // falling back to a punctuation-insensitive name key only when NAIC is null.
+  // Keep the fuller spelling for display, the widest covered-lives, and any flag.
+  const byKey = new Map<string, RegistryCarrier & { raw: string }>();
+  for (const r of rows) {
+    const raw = (r.carrier_name as string | null)?.trim();
+    if (!raw) continue;
+    const naic = (r.carrier_naic as string | null)?.trim();
+    const key = naic || raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const cl = r.covered_lives == null ? null : Number(r.covered_lives);
+    const cur = byKey.get(key) ?? { name: raw, raw, coveredLives: null, health: false, stopLoss: false };
+    if (raw.length > cur.raw.length) cur.raw = raw; // prefer the more complete spelling
+    if (cl != null && (cur.coveredLives == null || cl > cur.coveredLives)) cur.coveredLives = cl;
+    cur.health = cur.health || r.benefit_health === true;
+    cur.stopLoss = cur.stopLoss || r.benefit_stop_loss === true;
+    byKey.set(key, cur);
+  }
+  for (const c of byKey.values()) c.name = titleCase(c.raw);
+  // Covered-lives desc, health as the tiebreaker. NOT health-first: a
+  // self-funded employer's only INSURED health contract is often a tiny fringe
+  // HMO (United files a 2,048-life Hawaii plan) while its real scale sits in a
+  // large life/AD&D contract — leading with the fringe plan misrepresents them.
+  // Biggest-contract-first is the honest scale; the Health tag still marks which
+  // is which, and the tiebreaker floats health above an equal-sized peer.
+  const all: RegistryCarrier[] = [...byKey.values()]
+    .map(({ raw, ...c }) => c)
+    .sort((a, b) => (b.coveredLives ?? -1) - (a.coveredLives ?? -1) || Number(b.health) - Number(a.health));
+
+  return {
+    planYear,
+    participants,
+    carriers: all.slice(0, CARRIER_DISPLAY_CAP),
+    carrierCount: all.length,
+    selfFundedTell: all.some((c) => c.stopLoss),
+  };
 }
 
 function mapEmployer(r: Record<string, unknown>): Employer {

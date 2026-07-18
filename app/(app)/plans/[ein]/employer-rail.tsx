@@ -1,4 +1,4 @@
-import type { Employer } from "@/lib/repos/plans";
+import type { Employer, EmployerRegistry } from "@/lib/repos/plans";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icons";
@@ -17,7 +17,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-export function EmployerRail({ employer }: { employer: Employer }) {
+export function EmployerRail({ employer, registry }: { employer: Employer; registry: EmployerRegistry | null }) {
   const name = titleCase(employer.name);
 
   return (
@@ -52,6 +52,47 @@ export function EmployerRail({ employer }: { employer: Employer }) {
             <Row label="State">{employer.state ?? "—"}</Row>
           </div>
         </section>
+
+        {registry && (
+          // The DOL/EFAST2 record behind the ToC-derived employer — the named
+          // carriers it actually files with, and (via stop-loss) the federal
+          // confirmation of self-funding the ToC only implied. Public data, no PHI.
+          <section className="mt-6 border-t border-border pt-5">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <h2 className="text-[17px] font-semibold text-text">Federal registry</h2>
+              <Badge variant="neutral">Form 5500 · {registry.planYear}</Badge>
+            </div>
+            <div className="space-y-5">
+              {registry.selfFundedTell && (
+                <Badge variant="info">Stop-loss on file — self-funded</Badge>
+              )}
+              {registry.participants != null && (
+                <Row label="Participants">{registry.participants.toLocaleString()}</Row>
+              )}
+              <Row label={registry.carrierCount === 1 ? "Named carrier" : `Named carriers (${registry.carrierCount})`}>
+                <ul className="space-y-2">
+                  {registry.carriers.map((c) => (
+                    <li key={c.name} className="flex flex-col">
+                      <span className="flex flex-wrap items-center gap-1.5">
+                        <span className="min-w-0 break-words">{c.name}</span>
+                        {c.health && <Badge variant="success">Health</Badge>}
+                        {c.stopLoss && <Badge variant="warning">Stop-loss</Badge>}
+                      </span>
+                      {c.coveredLives != null && (
+                        <span className="text-sm text-text-muted">{c.coveredLives.toLocaleString()} covered lives</span>
+                      )}
+                    </li>
+                  ))}
+                  {registry.carrierCount > registry.carriers.length && (
+                    <li className="text-sm text-text-muted">
+                      +{(registry.carrierCount - registry.carriers.length).toLocaleString()} more
+                    </li>
+                  )}
+                </ul>
+              </Row>
+            </div>
+          </section>
+        )}
       </div>
     </Card>
   );
