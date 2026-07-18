@@ -2,14 +2,13 @@
 
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { IconButton } from "@/components/ui/icon-button";
 import { Tabs, type TabItem } from "@/components/ui/tabs";
 import { TopBarActions } from "@/components/shell/topbar-slot";
-import { useToast } from "@/components/ui/toast";
 
 /**
- * The top half of the index page standard: the TopBar's actions (New + bell)
- * and the tab row, as one piece. DataTable is the bottom half — it already owns
+ * The top half of the index page standard: the TopBar's actions (New) and the
+ * tab row, as one piece. The notification bell is the TopBar's own TopBarBell —
+ * IndexHeader must NOT render its own, or every index page shows two bells. DataTable is the bottom half — it already owns
  * the toolbar, column picker, table and scroll.
  *
  * Thin on purpose. It decides nothing: no data, no filtering, no active-tab
@@ -47,8 +46,6 @@ export function IndexHeader({
   /** Extra TopBar actions, rendered before New. */
   actions?: ReactNode;
 }) {
-  const toast = useToast();
-
   return (
     <>
       <TopBarActions>
@@ -58,7 +55,6 @@ export function IndexHeader({
             {newLabel}
           </Button>
         )}
-        <IconButton icon="bell" label="Notifications" onClick={() => toast("No new notifications.", "info")} />
       </TopBarActions>
 
       <Tabs

@@ -280,3 +280,45 @@ export async function listNetworkFacets(
     .filter((f) => f.providerCount >= minProviders)
     .sort((a, b) => b.providerCount - a.providerCount || a.networkName.localeCompare(b.networkName));
 }
+
+// ── canonical networks (sql/044, NYS-49) ──────────────────────────────────────
+// The 69 deduplicated network entities — insurer + optional administrator
+// (Carelon/Optum/Evernorth/…) — the /networks index reads. Distinct from the
+// 1,133 raw payer_networks above: this is the resolved layer.
+export interface NetworkListRow {
+  id: string;
+  name: string;
+  insurer: string;
+  insurerId: string;
+  administrator: string | null;
+  kind: string;
+  notes: string | null;
+}
+
+export async function listNetworks(): Promise<NetworkListRow[]> {
+  if (!hasDb) return [];
+  const rows = (await sql`
+    SELECT n.id, n.name, n.kind, n.administrator_id, n.notes,
+           n.insurer_id, coalesce(i.name, n.insurer_id) AS insurer
+    FROM networks n
+    LEFT JOIN insurers i ON i.id = n.insurer_id
+    ORDER BY insurer, n.name
+  `) as Array<{
+    id: string;
+    name: string;
+    kind: string;
+    administrator_id: string | null;
+    notes: string | null;
+    insurer_id: string;
+    insurer: string;
+  }>;
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    insurer: r.insurer,
+    insurerId: r.insurer_id,
+    administrator: r.administrator_id || null,
+    kind: r.kind,
+    notes: r.notes,
+  }));
+}

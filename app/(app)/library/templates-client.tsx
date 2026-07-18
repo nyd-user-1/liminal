@@ -524,7 +524,6 @@ export function TemplatesIndex() {
           <Button leftIcon="plus" size="sm" onClick={newAction}>
             New template
           </Button>
-          <IconButton icon="bell" label="Notifications" onClick={() => toast("No new notifications.", "info")} />
         </TopBarActions>
       )}
 

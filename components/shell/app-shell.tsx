@@ -28,6 +28,7 @@ const WORKSPACE_NAV: SidebarNavItem[] = [
   { label: "Billing", href: "/billing", icon: "dollar" },
   { label: "Rates", href: "/rates", icon: "activity" },
   { label: "Organizations", href: "/orgs", icon: "id-card" },
+  { label: "Networks", href: "/networks", icon: "link" },
   { label: "Plans", href: "/plans", icon: "credit-card" },
   { label: "Recruiting", href: "/recruiting", icon: "users-round" },
   { label: "Library", href: "/library", icon: "clipboard" },

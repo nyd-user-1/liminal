@@ -51,7 +51,10 @@ export function RateDirectory({ providers }: { providers: RatedProvider[] }) {
   }, [providers, q, professions]);
 
   const money = (v: number | null) => (v == null ? "—" : `$${v.toFixed(2)}`);
-  const go = (p: RatedProvider) => router.push(p.slug ? `/directory/${p.slug}` : `/rates?npi=${p.npi}`);
+  // The provider detail route is /directory/providers/[npi] — keyed by NPI, not
+  // slug. The old `/directory/${slug}` 404'd (wrong path AND wrong key); every
+  // rated provider carries an npi, so route on that.
+  const go = (p: RatedProvider) => router.push(`/directory/providers/${p.npi}`);
 
   const columns: DataTableColumn<RatedProvider>[] = [
     {
@@ -60,7 +63,7 @@ export function RateDirectory({ providers }: { providers: RatedProvider[] }) {
       fixed: true,
       sortValue: (p) => displayName(p.name),
       render: (p) => (
-        <TextLink href={p.slug ? `/directory/${p.slug}` : `/rates?npi=${p.npi}`} onClick={(e) => e.stopPropagation()} variant="name">
+        <TextLink href={`/directory/providers/${p.npi}`} onClick={(e) => e.stopPropagation()} variant="name">
           {displayName(p.name)}
         </TextLink>
       ),
