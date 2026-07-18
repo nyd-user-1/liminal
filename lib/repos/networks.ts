@@ -1,5 +1,5 @@
 import { hasDb, sql } from "@/lib/db";
-import { isoDateTime } from "@/lib/format";
+import { isoDateOnly, isoDateTime } from "@/lib/format";
 import { mockParticipation } from "@/lib/mock/networks";
 
 // Payer-network read repo — the consume-side of the insurance-network tables
@@ -293,6 +293,74 @@ export interface NetworkListRow {
   administrator: string | null;
   kind: string;
   notes: string | null;
+}
+
+// ── the exact-rate surface (sql/048, NYS-147 §5) ─────────────────────────────
+// org_network_rates: one row per (canonical network × billing TIN × code) with
+// n_rates honesty. rate_single is THE exact attested figure and exists only
+// when the org resolves to one distinct rate; multi-rate orgs (the norm —
+// per-NPI contract tiers) must drill to the provider grain for an exact figure.
+// Never derive a median from these rows (the binding NYS-37/NYS-35 ruling).
+
+export interface NetworkOrgRateRow {
+  tin: string;
+  orgName: string | null;
+  nNpis: number;
+  nRates: number;
+  /** Exact attested figure — null when the org carries >1 distinct rate. */
+  rateSingle: string | null;
+  rateMin: string;
+  rateMax: string;
+  asOf: string | null;
+}
+
+/** Org leaves for one network × code, largest panels first. */
+export async function listNetworkOrgRates(
+  networkId: string,
+  billingCode: string,
+  opts: { limit?: number } = {},
+): Promise<NetworkOrgRateRow[]> {
+  if (!hasDb) return [];
+  const limit = opts.limit ?? 500;
+  const rows = (await sql`
+    SELECT o.tin, t.business_name, o.n_npis, o.n_rates, o.rate_single, o.rate_min, o.rate_max, o.as_of
+    FROM org_network_rates o
+    LEFT JOIN tin_registry t ON t.tin_norm = replace(replace(lower(o.tin), '-', ''), ' ', '')
+    WHERE o.network_id = ${networkId} AND o.billing_code = ${billingCode}
+    ORDER BY o.n_npis DESC, t.business_name NULLS LAST
+    LIMIT ${limit}
+  `) as Array<{
+    tin: string;
+    business_name: string | null;
+    n_npis: number;
+    n_rates: number;
+    rate_single: string | null;
+    rate_min: string;
+    rate_max: string;
+    as_of: string | Date | null;
+  }>;
+  return rows.map((r) => ({
+    tin: r.tin,
+    orgName: r.business_name,
+    nNpis: Number(r.n_npis),
+    nRates: Number(r.n_rates),
+    rateSingle: r.rate_single,
+    rateMin: r.rate_min,
+    rateMax: r.rate_max,
+    asOf: r.as_of ? isoDateOnly(r.as_of) : null,
+  }));
+}
+
+/** Per-network priced-org counts for one code — annotates the /networks index. */
+export async function networkOrgCounts(billingCode: string): Promise<Map<string, number>> {
+  if (!hasDb) return new Map();
+  const rows = (await sql`
+    SELECT network_id, count(*)::int AS orgs
+    FROM org_network_rates
+    WHERE billing_code = ${billingCode}
+    GROUP BY network_id
+  `) as Array<{ network_id: string; orgs: number }>;
+  return new Map(rows.map((r) => [r.network_id, Number(r.orgs)]));
 }
 
 export async function listNetworks(): Promise<NetworkListRow[]> {

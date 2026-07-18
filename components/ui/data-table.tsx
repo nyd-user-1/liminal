@@ -1,24 +1,32 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ColumnPicker } from "@/components/ui/column-picker";
+import { FilterChip } from "@/components/ui/filter-chip";
+import { Icon, type IconName } from "@/components/ui/icons";
 import { KebabMenu } from "@/components/ui/kebab-menu";
-import { MenuItem } from "@/components/ui/dropdown-menu";
-import { LoadMoreRow, SortableHead, Table, Td, Tr, useLazyBatch, useSentinel, useSort, type SortState } from "@/components/ui/table";
+import { DropdownMenu, MenuDivider, MenuItem, MenuSectionLabel } from "@/components/ui/dropdown-menu";
+import { LoadMoreRow, Table, Td, Tr, useLazyBatch, useSentinel, useSort, type SortState } from "@/components/ui/table";
 import { Toolbar } from "@/components/ui/toolbar";
 
 // Catalog `DataTable` — the canonical table standard (docs/TASK-TABLE-STANDARD.md)
-// as one composed primitive instead of a per-page copy-paste: sortable headers
-// (SortableHead/useSort), an optional column picker (ColumnPicker, persisted to
-// localStorage), single-line rows by default (every cell defaults to
-// `whitespace-nowrap` — pass `cellClassName: "max-w-56 truncate"` for anything
-// that can run long, paired with a `title` in your `render()`), and the
-// horizontal-scroll containment the Table primitive already owns. Column
-// definitions carry their own render/sort — this stays a thin composition of
-// existing primitives, not a new one; see individual column render fns for
-// row-specific cells (badges, links, logos, whatever the page needs).
+// as one composed primitive instead of a per-page copy-paste: per-column header
+// MENUS (click a header → Sort asc/desc · Filter by value · Hide column — the
+// NYS-147 canonical; active filters surface as clearable toolbar chips), an
+// optional column picker (ColumnPicker, persisted to localStorage; header
+// right-click still opens it), single-line rows by default (every cell defaults
+// to `whitespace-nowrap` — pass `cellClassName: "max-w-56 truncate"` for
+// anything that can run long, paired with a `title` in your `render()`), a
+// floating bulk-action bar over a non-empty selection (`bulkActions` +
+// `BulkAction`), the `EmptyCell` helper (a missing value renders a label or
+// CTA, never blank), and the horizontal-scroll containment the Table primitive
+// already owns. Column definitions carry their own render/sort/filter — this
+// stays a thin composition of existing primitives, not a new one; see
+// individual column render fns for row-specific cells (badges, links, logos,
+// whatever the page needs).
 
 export interface DataTableColumn<T> {
   key: string;
@@ -27,8 +35,12 @@ export interface DataTableColumn<T> {
    *  unit) stay one row instead of wrapping its meaning onto a second line. */
   headTitle?: string;
   render: (row: T) => ReactNode;
-  /** Presence alone enables the header to sort asc/desc on click. */
+  /** Presence alone enables Sort asc/desc in the column's header menu. */
   sortValue?: (row: T) => string | number;
+  /** Enables "Filter" in the header menu: map a row to the facet value the
+   *  filter groups on (a label, not free text — keep cardinality low). Active
+   *  filters render as clearable chips in the toolbar. */
+  filterValue?: (row: T) => string;
   align?: "left" | "right";
   /** Starts hidden; still toggleable from the column picker. */
   defaultHidden?: boolean;
@@ -37,6 +49,31 @@ export interface DataTableColumn<T> {
   /** Defaults to `whitespace-nowrap` — override for a truncating column, e.g. "max-w-56 truncate". */
   cellClassName?: string;
 }
+
+/** One level of the group-by tree (NYS-147 §5). Levels nest in array order —
+ *  e.g. Insurer → Network — and every leaf row renders in the SAME columns,
+ *  indented under its count headers. */
+export interface DataTableGroupLevel<T> {
+  /** Matches a column key when the level mirrors a column — sorting that
+   *  column then reorders the GROUPS, not just the rows inside them. */
+  key: string;
+  label: string;
+  value: (row: T) => string;
+  /** Start this level collapsed — a big tree leads with its counts. */
+  defaultCollapsed?: boolean;
+}
+
+/** Synthetic entry spliced into the row stream for a group's count header. */
+interface GroupHeaderEntry {
+  __group: true;
+  path: string;
+  label: string;
+  depth: number;
+  count: number;
+  collapsed: boolean;
+}
+const isGroupHeader = (x: unknown): x is GroupHeaderEntry =>
+  typeof x === "object" && x !== null && (x as GroupHeaderEntry).__group === true;
 
 /** Visible-column state + localStorage persistence, shared by any table that
  *  wants a column picker. Pass no `storageKey` to keep everything visible and
@@ -85,9 +122,11 @@ export function DataTable<T>({
   fillHeight,
   subRows,
   isSubRow,
+  groupBy,
   selected,
   onSelectedChange,
   rowActions,
+  bulkActions,
   filter,
   onExport,
   onRefresh,
@@ -155,6 +194,16 @@ export function DataTable<T>({
   /** True for a child row — drives the indent. Required with `subRows`. */
   isSubRow?: (row: T) => boolean;
   /**
+   * The GROUP-BY tree (NYS-147 §5): collapsible count-header rows over the
+   * data rows, one level per array entry (Insurer → Network → …), same
+   * columns top to bottom. Group order follows the label (and flips with the
+   * sort when the sort column IS the grouped dimension); leaves inside keep
+   * the active sort. A "Group · …" toolbar chip shows the active grouping and
+   * its × flattens the table (the chip re-applies it). Takes precedence over
+   * `subRows` when both are set.
+   */
+  groupBy?: DataTableGroupLevel<T>[];
+  /**
    * THE INDEX-PAGE STANDARD (see /clients). Leading select column + trailing
    * kebab column + the Filter/Columns/Export/Refresh cluster. All opt-in, so
    * the analytical tables that are just a grid of numbers stay a grid.
@@ -163,6 +212,14 @@ export function DataTable<T>({
   onSelectedChange?: (next: Set<string>) => void;
   /** Trailing kebab cell. Its own click-stop is handled here. */
   rowActions?: (row: T) => ReactNode;
+  /**
+   * Actions for the floating bulk bar ("N selected · … · ×") that rises over
+   * the table bottom while the selection is non-empty. Compose from
+   * `BulkAction` buttons. Requires `selected`/`onSelectedChange`; the count
+   * and the clear button are built in. Pairs naturally with `fillHeight`
+   * (the bar floats inside the table's own bounds).
+   */
+  bulkActions?: ReactNode;
   /** The page's filter chip — sits left of Columns in the actions cluster. */
   filter?: ReactNode;
   onExport?: () => void;
@@ -198,24 +255,90 @@ export function DataTable<T>({
     [columns],
   );
 
-  // No sort active until the user clicks a header — `col: ""` matches no
-  // column key, so sortedRows below falls through to the given row order
-  // (whatever the caller curated) instead of silently re-sorting on mount.
-  const [sort, toggleSort] = useSort<string>(defaultSort ?? { col: "", dir: "asc" });
+  // No sort active until the user picks one — `col: ""` matches no column key,
+  // so sortedRows below falls through to the given row order (whatever the
+  // caller curated) instead of silently re-sorting on mount.
+  const [sort, , setSort] = useSort<string>(defaultSort ?? { col: "", dir: "asc" });
+
+  // ── per-column filters (the header menu's "Filter") ───────────────────────
+  const [colFilters, setColFilters] = useState<Record<string, Set<string>>>({});
+  const toggleColFilter = (key: string, value: string) =>
+    setColFilters((f) => {
+      const next = new Set(f[key] ?? []);
+      if (!next.delete(value)) next.add(value);
+      return { ...f, [key]: next };
+    });
+  const clearColFilter = (key: string) =>
+    setColFilters((f) => {
+      const next = { ...f };
+      delete next[key];
+      return next;
+    });
+
+  const filteredRows = useMemo(() => {
+    const active = columns.filter((c) => c.filterValue && colFilters[c.key]?.size);
+    if (!active.length) return rows;
+    return rows.filter((r) => active.every((c) => colFilters[c.key]!.has(c.filterValue!(r))));
+  }, [rows, colFilters, columns]);
+  const activeFilterCols = columns.filter((c) => colFilters[c.key]?.size);
+  // Serialized filter state — part of the lazy-batch resetKey, so a filter
+  // change snaps back to the first batch even when the row COUNT is unchanged.
+  const filterKey = activeFilterCols.map((c) => `${c.key}=${[...colFilters[c.key]!].sort().join("¦")}`).join("|");
 
   const sortedRows = useMemo(() => {
     const col = columns.find((c) => c.key === sort.col);
-    if (!col?.sortValue) return rows;
+    if (!col?.sortValue) return filteredRows;
     const dir = sort.dir === "asc" ? 1 : -1;
-    return [...rows].sort((a, b) => {
+    return [...filteredRows].sort((a, b) => {
       const va = col.sortValue!(a);
       const vb = col.sortValue!(b);
       return typeof va === "number" && typeof vb === "number" ? (va - vb) * dir : String(va).localeCompare(String(vb)) * dir;
     });
-  }, [rows, sort, columns]);
+  }, [filteredRows, sort, columns]);
 
+  // Every header is a MENU (NYS-147): Sort asc/desc when sortable, Filter when
+  // the column declares `filterValue`, Hide when the picker is enabled. A
+  // column offering none of the three keeps a plain label.
   const dataHead = shown.map((c) => {
-    const inner = c.sortValue ? <SortableHead label={c.label} col={c.key} sort={sort} onSort={toggleSort} /> : c.label;
+    const canSort = !!c.sortValue;
+    const canFilter = !!c.filterValue;
+    const canHide = !!storageKey && !c.fixed;
+    const sortActive = sort.col === c.key;
+    const filterActive = !!colFilters[c.key]?.size;
+    const inner =
+      !canSort && !canFilter && !canHide ? (
+        c.label
+      ) : (
+        <DropdownMenu
+          label={`${c.label} column options`}
+          align={c.align === "right" ? "right" : "left"}
+          width="w-60"
+          triggerClassName="-mx-1 flex items-center gap-1 whitespace-nowrap rounded px-1 transition-colors hover:text-primary-deep"
+          trigger={
+            <>
+              {c.label}
+              {filterActive && <Icon name="list-filter" size={12} className="text-primary" />}
+              <Icon
+                name={sortActive && sort.dir === "asc" ? "chevron-up" : "chevron-down"}
+                size={14}
+                className={sortActive ? "" : "opacity-30"}
+              />
+            </>
+          }
+        >
+          <HeaderMenu
+            col={c}
+            rows={rows}
+            sort={sort}
+            setSort={setSort}
+            filter={colFilters[c.key]}
+            onFilterToggle={(v) => toggleColFilter(c.key, v)}
+            onFilterClear={() => clearColFilter(c.key)}
+            canHide={canHide}
+            onHide={() => toggle(c.key)}
+          />
+        </DropdownMenu>
+      );
     if (c.align !== "right" && !c.headTitle) return inner;
     return (
       <div title={c.headTitle} className={c.align === "right" ? "flex justify-end" : undefined}>
@@ -228,10 +351,10 @@ export function DataTable<T>({
   // Scoped to the rows currently in view (post-filter), not the whole dataset:
   // "select all" must mean the same thing the user can see.
   const selectable = !!selected && !!onSelectedChange;
-  const allSelected = selectable && rows.length > 0 && rows.every((r) => selected!.has(rowKey(r)));
+  const allSelected = selectable && filteredRows.length > 0 && filteredRows.every((r) => selected!.has(rowKey(r)));
   const toggleAll = () => {
     const next = new Set(selected);
-    for (const r of rows) {
+    for (const r of filteredRows) {
       const k = rowKey(r);
       if (allSelected) next.delete(k);
       else next.add(k);
@@ -271,6 +394,52 @@ export function DataTable<T>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortedRows, expanded, subRows]);
 
+  // ── group-by tree ─────────────────────────────────────────────────────────
+  // Count-header entries spliced into the row stream. `groupToggled` inverts a
+  // level's default state per path, so default-collapsed levels work without
+  // enumerating every path up front. `grouping` is the chip's on/off.
+  const [grouping, setGrouping] = useState(true);
+  const [groupToggled, setGroupToggled] = useState<Set<string>>(new Set());
+  const toggleGroup = (path: string) =>
+    setGroupToggled((s) => {
+      const next = new Set(s);
+      if (!next.delete(path)) next.add(path);
+      return next;
+    });
+  const grouped = !!groupBy?.length && grouping;
+  const displayRows = useMemo<Array<T | GroupHeaderEntry>>(() => {
+    if (!grouped) return treeRows;
+    const out: Array<T | GroupHeaderEntry> = [];
+    const walk = (list: T[], depth: number, prefix: string) => {
+      const level = groupBy![depth];
+      if (!level) {
+        out.push(...list);
+        return;
+      }
+      const buckets = new Map<string, T[]>();
+      for (const r of list) {
+        const v = level.value(r);
+        const b = buckets.get(v);
+        if (b) b.push(r);
+        else buckets.set(v, [r]);
+      }
+      // Alphabetical groups; the direction flips only when the active sort IS
+      // this dimension (so "sort Insurer desc" visibly reorders the groups).
+      const dirMul = level.key === sort.col && sort.dir === "desc" ? -1 : 1;
+      const names = [...buckets.keys()].sort((a, b) => a.localeCompare(b) * dirMul);
+      for (const name of names) {
+        const kids = buckets.get(name)!;
+        const path = `${prefix}${name}`;
+        const collapsed = level.defaultCollapsed ? !groupToggled.has(path) : groupToggled.has(path);
+        out.push({ __group: true, path, label: name, depth, count: kids.length, collapsed });
+        if (!collapsed) walk(kids, depth + 1, `${path}¦`);
+      }
+    };
+    walk(sortedRows, 0, "");
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grouped, groupBy, sortedRows, treeRows, groupToggled, sort]);
+
   // ── batching + jump-to-row ────────────────────────────────────────────────
   // Hooks run unconditionally (rules of hooks); `lazy` only decides whether the
   // batched slice or the full set is rendered.
@@ -281,9 +450,9 @@ export function DataTable<T>({
   // Index under the ACTIVE sort — re-sorting moves the target, so the anchor is
   // recomputed against the new order, not the old one.
   const targetIndex = useMemo(
-    () => (scrollToKey ? treeRows.findIndex((r) => rowKey(r) === scrollToKey) : -1),
+    () => (scrollToKey ? displayRows.findIndex((r) => !isGroupHeader(r) && rowKey(r) === scrollToKey) : -1),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [scrollToKey, treeRows],
+    [scrollToKey, displayRows],
   );
 
   // A jump ANCHORS the batch just above the target instead of growing the batch
@@ -293,7 +462,7 @@ export function DataTable<T>({
   // thing lazy rendering exists to prevent. Anchoring keeps the DOM at one
   // batch and still shows the row in place, with its neighbours around it.
   const anchor = targetIndex >= batchSize ? Math.max(0, targetIndex - 25) : 0;
-  const windowRows = useMemo(() => (anchor ? treeRows.slice(anchor) : treeRows), [treeRows, anchor]);
+  const windowRows = useMemo(() => (anchor ? displayRows.slice(anchor) : displayRows), [displayRows, anchor]);
 
   const { visible: batch, hasMore, sentinelRef } = useLazyBatch(windowRows, {
     batchSize,
@@ -301,9 +470,9 @@ export function DataTable<T>({
     // treeRows.length moves when a group opens/closes, which must NOT reset the
     // batch — that would snap the user back to the top on every expand. Only the
     // parent set, the sort and the anchor reset it.
-    resetKey: `${sort.col}:${sort.dir}:${rows.length}:${anchor}`,
+    resetKey: `${sort.col}:${sort.dir}:${filteredRows.length}:${filterKey}:${anchor}`,
   });
-  const rendered = lazy ? batch : treeRows;
+  const rendered = lazy ? batch : displayRows;
 
   // Server-paged infinite scroll: once client batching has nothing left to
   // reveal (or lazy is off entirely), a bottom sentinel asks the caller for the
@@ -323,7 +492,32 @@ export function DataTable<T>({
     return () => clearTimeout(t);
   }, [lazy, scrollToKey, targetIndex, sort.col, sort.dir]);
 
-  const hasToolbar = !!(toolbarExtra || toolbarLeft || storageKey || filter || onExport || onRefresh);
+  const hasToolbar = !!(toolbarExtra || toolbarLeft || storageKey || filter || onExport || onRefresh || activeFilterCols.length || groupBy?.length);
+  // Grouping made visible: the chip names the levels, its × flattens the
+  // table, and the unapplied chip re-applies the tree.
+  const groupChip = groupBy?.length ? (
+    <FilterChip
+      label="Group"
+      icon="corner-down-right"
+      value={grouping ? groupBy.map((g) => g.label).join(" → ") : undefined}
+      onClear={() => setGrouping(false)}
+      onClick={grouping ? undefined : () => setGrouping(true)}
+    />
+  ) : null;
+  // One clearable chip per header-menu filter — the filter state stays visible
+  // (and killable) without reopening the header.
+  const filterChips = activeFilterCols.map((c) => {
+    const set = colFilters[c.key]!;
+    return (
+      <FilterChip
+        key={c.key}
+        label={c.label}
+        icon="list-filter"
+        value={set.size === 1 ? [...set][0] : `${set.size} values`}
+        onClear={() => clearColFilter(c.key)}
+      />
+    );
+  });
   // Opening the column picker from the kebab: reuse the anchored ColumnPicker
   // (the one the header right-click uses), positioned under the kebab button.
   const kebabRef = useRef<HTMLSpanElement>(null);
@@ -382,7 +576,7 @@ export function DataTable<T>({
     // primitive's own overflow-auto wrapper (docs/TASK-TABLE-STANDARD.md).
     <div
       ref={wrapRef}
-      className={`flex min-w-0 flex-col gap-3 ${fillHeight ? "min-h-0 flex-1" : ""} ${className ?? ""}`}
+      className={`relative flex min-w-0 flex-col gap-3 ${fillHeight ? "min-h-0 flex-1" : ""} ${className ?? ""}`}
     >
       {/* `stacked` renders the whole toolbar INSIDE the table chrome (below) —
           nothing floats above the card. The default index layout keeps the
@@ -390,6 +584,8 @@ export function DataTable<T>({
       {!stacked && hasToolbar && (
         <Toolbar className="shrink-0 flex-wrap" actions={actionsCluster}>
           {toolbarLeft}
+          {groupChip}
+          {filterChips}
         </Toolbar>
       )}
       {/* Right-click ANY header for the column menu — the picker chip is the
@@ -417,6 +613,8 @@ export function DataTable<T>({
               <div className="flex flex-1 flex-wrap items-center gap-2.5">
                 {toolbarLeft}
                 {filter}
+                {groupChip}
+                {filterChips}
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 {toolbarExtra}
@@ -435,10 +633,32 @@ export function DataTable<T>({
         }
         className={`min-w-0 ${fillHeight ? "min-h-0 flex-1" : ""}`}
       >
-        {rendered.map((row) => {
+        {rendered.map((entry) => {
+          if (isGroupHeader(entry)) {
+            return (
+              <Tr key={`group:${entry.path}`}>
+                <Td colSpan={shown.length + (selectable ? 1 : 0) + (rowActions ? 1 : 0)} className="bg-canvas py-2">
+                  <button
+                    type="button"
+                    aria-expanded={!entry.collapsed}
+                    onClick={() => toggleGroup(entry.path)}
+                    className="flex w-full items-center gap-1.5 text-left"
+                    style={entry.depth ? { paddingLeft: entry.depth * 24 } : undefined}
+                  >
+                    <svg viewBox="0 0 16 16" className={`size-3 shrink-0 text-text-muted transition-transform ${entry.collapsed ? "" : "rotate-90"}`} aria-hidden>
+                      <path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <span className="font-semibold text-text">{entry.label}</span>
+                    <span className="text-[13px] font-medium tabular-nums text-text-muted">{entry.count.toLocaleString("en-US")}</span>
+                  </button>
+                </Td>
+              </Tr>
+            );
+          }
+          const row = entry;
           const key = rowKey(row);
           const kids = subRows?.(row);
-          const canExpand = !!kids?.length;
+          const canExpand = !grouped && !!kids?.length;
           const sub = isSubRow?.(row) ?? false;
           const open = expanded.has(key);
           return (
@@ -462,7 +682,12 @@ export function DataTable<T>({
                   data-rowkey={i === 0 ? key : undefined}
                   className={`${c.align === "right" ? "text-right tabular-nums " : ""}${c.cellClassName ?? "whitespace-nowrap"}`}
                 >
-                  {i === 0 && subRows ? (
+                  {i === 0 && grouped ? (
+                    // Leaves sit one indent step under their deepest count header.
+                    <span className="flex min-w-0 items-center" style={{ paddingLeft: groupBy!.length * 24 }}>
+                      <span className="min-w-0 truncate">{c.render(row)}</span>
+                    </span>
+                  ) : i === 0 && subRows ? (
                     <span className="flex min-w-0 items-center gap-1.5">
                       {canExpand ? (
                         <button
@@ -505,6 +730,19 @@ export function DataTable<T>({
             </Tr>
           );
         })}
+        {filteredRows.length === 0 && rows.length > 0 && (
+          // Header-menu filters reduced a non-empty table to nothing — teach the
+          // way out instead of showing bare chrome. (The caller still owns the
+          // truly-empty state via its own footnote/EmptyState.)
+          <tr>
+            <td colSpan={shown.length + (selectable ? 1 : 0) + (rowActions ? 1 : 0)} className="px-4 py-8 text-center text-sm text-text-muted">
+              No rows match the active column filters.{" "}
+              <button type="button" onClick={() => setColFilters({})} className="font-medium text-primary hover:underline">
+                Clear filters
+              </button>
+            </td>
+          </tr>
+        )}
         {lazy && hasMore && (
           <LoadMoreRow sentinelRef={sentinelRef} colSpan={shown.length + (selectable ? 1 : 0) + (rowActions ? 1 : 0)} />
         )}
@@ -513,6 +751,190 @@ export function DataTable<T>({
         )}
       </Table>
       {footnote}
+      {/* ── floating bulk-action bar (NYS-147) ──────────────────────────────
+          Rises over the table bottom while anything is selected. Navy pill on
+          the brand ink so it reads as a mode, not a row; the count + clear are
+          built in, the actions come from the caller. */}
+      {selectable && selected!.size > 0 && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-5 z-30 flex justify-center">
+          <div className="bulk-bar-rise pointer-events-auto flex items-center gap-1 rounded-full bg-sidebar-bg py-1.5 pl-4 pr-1.5 text-white shadow-menu">
+            <span className="text-sm font-medium tabular-nums">{selected!.size.toLocaleString("en-US")} selected</span>
+            {bulkActions && <span aria-hidden className="mx-2 h-4 w-px bg-white/20" />}
+            {bulkActions}
+            <button
+              type="button"
+              aria-label="Clear selection"
+              onClick={() => onSelectedChange!(new Set())}
+              className="ml-1 rounded-full p-1.5 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              <Icon name="x" size={14} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+// ── header menu ──────────────────────────────────────────────────────────────
+// The per-column dropdown behind every header click. Rendered inside
+// DropdownMenu's portal, so the distinct-value scan below only runs while the
+// menu is actually open.
+function HeaderMenu<T>({
+  col,
+  rows,
+  sort,
+  setSort,
+  filter,
+  onFilterToggle,
+  onFilterClear,
+  canHide,
+  onHide,
+}: {
+  col: DataTableColumn<T>;
+  rows: T[];
+  sort: SortState<string>;
+  setSort: (s: SortState<string>) => void;
+  filter: Set<string> | undefined;
+  onFilterToggle: (v: string) => void;
+  onFilterClear: () => void;
+  canHide: boolean;
+  onHide: () => void;
+}) {
+  const sortActive = sort.col === col.key;
+  // Distinct values over the CALLER's rows (search applied, column filters
+  // not) — an unchecked value must stay listed or it could never be re-checked.
+  const counts = useMemo(() => {
+    if (!col.filterValue) return null;
+    const m = new Map<string, number>();
+    for (const r of rows) {
+      const v = col.filterValue(r);
+      m.set(v, (m.get(v) ?? 0) + 1);
+    }
+    return m;
+  }, [col, rows]);
+  const values = counts ? [...counts.keys()].sort((a, b) => a.localeCompare(b)) : null;
+  return (
+    <>
+      {col.sortValue && (
+        <>
+          <MenuItem
+            icon="chevron-up"
+            label="Sort ascending"
+            selected={sortActive && sort.dir === "asc"}
+            onClick={() => setSort({ col: col.key, dir: "asc" })}
+          />
+          <MenuItem
+            icon="chevron-down"
+            label="Sort descending"
+            selected={sortActive && sort.dir === "desc"}
+            onClick={() => setSort({ col: col.key, dir: "desc" })}
+          />
+          {sortActive && <MenuItem icon="x" label="Clear sort" onClick={() => setSort({ col: "", dir: "asc" })} />}
+        </>
+      )}
+      {values && values.length > 0 && (
+        <>
+          {col.sortValue && <MenuDivider />}
+          <MenuSectionLabel>Filter</MenuSectionLabel>
+          <div className="max-h-56 overflow-y-auto">
+            {values.map((v) => (
+              <label
+                key={v}
+                className="flex w-full cursor-pointer items-center gap-2.5 rounded-field px-2.5 py-1.5 text-[15px] text-text transition-colors hover:bg-[#F3F4F6]"
+              >
+                <Checkbox aria-label={`Filter ${col.label}: ${v}`} checked={filter?.has(v) ?? false} onChange={() => onFilterToggle(v)} />
+                <span className="min-w-0 flex-1 truncate" title={v}>
+                  {v}
+                </span>
+                <span className="shrink-0 text-[13px] tabular-nums text-text-muted">{counts!.get(v)!.toLocaleString("en-US")}</span>
+              </label>
+            ))}
+          </div>
+          {!!filter?.size && <MenuItem icon="x" label="Clear filter" onClick={onFilterClear} />}
+        </>
+      )}
+      {canHide && (
+        <>
+          {(col.sortValue || (values && values.length > 0)) && <MenuDivider />}
+          <MenuItem icon="eye-off" label="Hide column" onClick={onHide} />
+        </>
+      )}
+    </>
+  );
+}
+
+/** NYS-147 — a missing value never renders as a blank cell. Default form is a
+ *  quiet semantic label ("Insurer-run", "No notes"); pass `onClick` or `href`
+ *  and the empty cell becomes the CTA that fills it ("+ Add rate"). */
+export function EmptyCell({
+  label,
+  title,
+  onClick,
+  href,
+}: {
+  label: string;
+  /** Native tooltip expanding the label ("No TPA — the insurer administers this network"). */
+  title?: string;
+  onClick?: () => void;
+  href?: string;
+}) {
+  if (onClick || href) {
+    const cls =
+      "inline-flex items-center gap-1 rounded text-sm text-text-muted underline decoration-border decoration-dashed underline-offset-4 transition-colors hover:text-primary hover:decoration-primary";
+    const inner = (
+      <>
+        <Icon name="plus" size={13} />
+        {label}
+      </>
+    );
+    return href ? (
+      <Link href={href} title={title} className={cls} onClick={(e) => e.stopPropagation()}>
+        {inner}
+      </Link>
+    ) : (
+      <button
+        type="button"
+        title={title}
+        className={cls}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick!();
+        }}
+      >
+        {inner}
+      </button>
+    );
+  }
+  return (
+    <span className="text-sm text-text-muted" title={title}>
+      {label}
+    </span>
+  );
+}
+
+/** One action in the floating bulk bar — white-on-navy ghost button. */
+export function BulkAction({
+  icon,
+  label,
+  onClick,
+  danger,
+}: {
+  icon?: IconName;
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-medium transition-colors hover:bg-white/10 ${
+        danger ? "text-red-300 hover:text-red-200" : "text-white/90 hover:text-white"
+      }`}
+    >
+      {icon && <Icon name={icon} size={14} />}
+      {label}
+    </button>
   );
 }

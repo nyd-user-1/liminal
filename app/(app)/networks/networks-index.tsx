@@ -2,21 +2,22 @@
 
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { BulkAction, DataTable, EmptyCell, type DataTableColumn } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
-import { FilterChip } from "@/components/ui/filter-chip";
 import { KebabMenu } from "@/components/ui/kebab-menu";
 import { MenuItem } from "@/components/ui/dropdown-menu";
 import { SearchInput } from "@/components/ui/search-input";
+import { Tabs } from "@/components/ui/tabs";
 import { TextLink } from "@/components/ui/text-link";
 import { useToast } from "@/components/ui/toast";
 import type { NetworkListRow } from "@/lib/repos/networks";
 
 // The canonical-network index (sql/044, NYS-49) — the reference for the stacked
-// full-feature DataTable: the WHOLE toolbar (search + filter + kebab + column
-// picker) lives inside the card, AND it keeps the select column, the row-action
-// column, sortable headers, and the column picker. 69 rows, so search / filter /
-// sort are all client-side — no round trip.
+// full-feature DataTable (NYS-147): status tabs with counts above the card,
+// per-column header menus (sort / filter / hide) with their toolbar chips,
+// EmptyCell for every missing value, the select column feeding the floating
+// bulk-action bar, plus the column picker, sortable headers, and real CSV
+// export. 69 rows, so search / filter / sort are all client-side — no round trip.
 
 const ADMIN_LABEL: Record<string, string> = {
   carelon: "Carelon",
@@ -28,29 +29,49 @@ const ADMIN_LABEL: Record<string, string> = {
   uhc: "UnitedHealth",
 };
 
-export function NetworksIndex({ initial }: { initial: NetworkListRow[] }) {
+/** Display name for the administrator facet — the same string everywhere
+ *  (cell, header-menu filter, CSV), so the filter matches what the eye sees. */
+const adminLabel = (n: NetworkListRow) => (n.administrator ? (ADMIN_LABEL[n.administrator] ?? n.administrator) : "Insurer-run");
+
+const csvFor = (list: NetworkListRow[]) => {
+  const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replaceAll('"', '""')}"` : v);
+  return [
+    ["Network", "Insurer", "Administrator", "Type", "Notes"].join(","),
+    ...list.map((n) => [n.name, n.insurer, adminLabel(n), n.kind, n.notes ?? ""].map(esc).join(",")),
+  ].join("\n");
+};
+
+export function NetworksIndex({ initial, orgsPriced = {} }: { initial: NetworkListRow[]; orgsPriced?: Record<string, number> }) {
   const toast = useToast();
   const [q, setQ] = useState("");
-  const [insurer, setInsurer] = useState<string | undefined>();
+  const [tab, setTab] = useState("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  const insurerOptions = useMemo(
-    () => [...new Set(initial.map((n) => n.insurer))].sort((a, b) => a.localeCompare(b)),
-    [initial],
-  );
-
-  const rows = useMemo(() => {
+  // Search first, kind tab second — the tab counts read off the SEARCHED set,
+  // so each tab advertises exactly what clicking it will show.
+  const searched = useMemo(() => {
     const term = q.trim().toLowerCase();
-    return initial.filter((n) => {
-      if (insurer && n.insurer !== insurer) return false;
-      if (!term) return true;
-      return (
+    if (!term) return initial;
+    return initial.filter(
+      (n) =>
         n.name.toLowerCase().includes(term) ||
         n.insurer.toLowerCase().includes(term) ||
-        (n.administrator ?? "").toLowerCase().includes(term)
-      );
-    });
-  }, [initial, q, insurer]);
+        adminLabel(n).toLowerCase().includes(term),
+    );
+  }, [initial, q]);
+  const rows = useMemo(() => (tab === "all" ? searched : searched.filter((n) => n.kind === tab)), [searched, tab]);
+
+  const selectedRows = useMemo(() => initial.filter((n) => selected.has(n.id)), [initial, selected]);
+
+  const downloadCsv = (name: string, list: NetworkListRow[]) => {
+    const url = URL.createObjectURL(new Blob([csvFor(list)], { type: "text/csv" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast(`Exported ${list.length} network${list.length === 1 ? "" : "s"} as CSV.`, "success");
+  };
 
   const columns: DataTableColumn<NetworkListRow>[] = [
     {
@@ -65,16 +86,23 @@ export function NetworksIndex({ initial }: { initial: NetworkListRow[] }) {
         </span>
       ),
     },
-    { key: "insurer", label: "Insurer", sortValue: (n) => n.insurer, render: (n) => <span className="text-text-body">{n.insurer}</span> },
+    {
+      key: "insurer",
+      label: "Insurer",
+      sortValue: (n) => n.insurer,
+      filterValue: (n) => n.insurer,
+      render: (n) => <span className="text-text-body">{n.insurer}</span>,
+    },
     {
       key: "administrator",
       label: "Administrator",
-      sortValue: (n) => n.administrator ?? "",
+      sortValue: (n) => adminLabel(n),
+      filterValue: (n) => adminLabel(n),
       render: (n) =>
         n.administrator ? (
-          <Badge variant="info">{ADMIN_LABEL[n.administrator] ?? n.administrator}</Badge>
+          <Badge variant="info">{adminLabel(n)}</Badge>
         ) : (
-          <span className="text-text-muted">—</span>
+          <EmptyCell label="Insurer-run" title="No TPA — the insurer administers this network directly" />
         ),
     },
     {
@@ -82,6 +110,21 @@ export function NetworksIndex({ initial }: { initial: NetworkListRow[] }) {
       label: "Type",
       sortValue: (n) => n.kind,
       render: (n) => <span className="capitalize text-text-body">{n.kind}</span>,
+    },
+    {
+      key: "orgs",
+      label: "Orgs priced",
+      headTitle: "Organizations with an attested 90837 rate resolving to this network (sql/048)",
+      align: "right",
+      sortValue: (n) => orgsPriced[n.id] ?? 0,
+      render: (n) => {
+        const c = orgsPriced[n.id];
+        return c ? (
+          <span className="tabular-nums text-text-body">{c.toLocaleString("en-US")}</span>
+        ) : (
+          <EmptyCell label="No rates" title="No attested rates resolve to this network yet" />
+        );
+      },
     },
     {
       key: "notes",
@@ -94,13 +137,24 @@ export function NetworksIndex({ initial }: { initial: NetworkListRow[] }) {
             {n.notes}
           </span>
         ) : (
-          <span className="text-text-muted">—</span>
+          <EmptyCell label="No notes" />
         ),
     },
   ];
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      <Tabs
+        slideActive
+        className="mb-3 shrink-0"
+        items={[
+          { key: "all", label: "All", count: searched.length },
+          { key: "network", label: "Networks", count: searched.filter((n) => n.kind === "network").length },
+          { key: "product", label: "Products", count: searched.filter((n) => n.kind === "product").length },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
       <DataTable
         stacked
         columns={columns}
@@ -108,15 +162,26 @@ export function NetworksIndex({ initial }: { initial: NetworkListRow[] }) {
         rowKey={(n) => n.id}
         storageKey="networks.columns"
         defaultSort={{ col: "insurer", dir: "asc" }}
+        groupBy={[{ key: "insurer", label: "Insurer", value: (n) => n.insurer }]}
         fillHeight
         className="min-h-0 flex-1"
         selected={selected}
         onSelectedChange={setSelected}
-        onExport={() => toast("Export isn’t wired up yet.", "info")}
-        onRefresh={() => toast("Networks refresh nightly with the entity layer.", "info")}
-        filter={
-          <NetworkFilter value={insurer} options={insurerOptions} onSelect={setInsurer} onClear={() => setInsurer(undefined)} />
+        bulkActions={
+          <>
+            <BulkAction icon="download" label="Export CSV" onClick={() => downloadCsv("networks-selected.csv", selectedRows)} />
+            <BulkAction
+              icon="copy"
+              label="Copy names"
+              onClick={() => {
+                navigator.clipboard.writeText(selectedRows.map((n) => n.name).join("\n"));
+                toast(`Copied ${selectedRows.length} network name${selectedRows.length === 1 ? "" : "s"}.`, "success");
+              }}
+            />
+          </>
         }
+        onExport={() => downloadCsv("networks.csv", rows)}
+        onRefresh={() => toast("Networks refresh nightly with the entity layer.", "info")}
         rowActions={(n) => (
           <KebabMenu label={`Actions for ${n.name}`}>
             <MenuItem icon="activity" label="View rates for this network" onClick={() => toast("Network rate view is coming with Find-my-plan.", "info")} />
@@ -134,74 +199,21 @@ export function NetworksIndex({ initial }: { initial: NetworkListRow[] }) {
                 if (e.key === "Escape") setQ("");
               }}
             />
-            {(q || insurer) && (
-              <TextLink
-                onClick={() => {
-                  setQ("");
-                  setInsurer(undefined);
-                }}
-              >
-                Reset
-              </TextLink>
-            )}
+            {q && <TextLink onClick={() => setQ("")}>Reset</TextLink>}
           </>
         }
         footnote={
           rows.length === 0 ? (
             <div className="rounded-card border border-border bg-surface shadow-card">
-              <EmptyState icon="globe" title="No networks" subtext="Try a broader search or clear the filters." />
+              <EmptyState icon="globe" title="No networks" subtext="Try a broader search or another tab." />
             </div>
           ) : (
-            <span className="text-sm text-text-muted">{rows.length} canonical networks · resolved from 1,133 raw payer networks</span>
+            <span className="text-sm text-text-muted">
+              {initial.length} canonical networks · resolved from 1,133 raw payer networks
+            </span>
           )
         }
       />
     </div>
-  );
-}
-
-function NetworkFilter({
-  value,
-  options,
-  onSelect,
-  onClear,
-}: {
-  value?: string;
-  options: string[];
-  onSelect: (v: string) => void;
-  onClear: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [term, setTerm] = useState("");
-  const shown = term ? options.filter((o) => o.toLowerCase().includes(term.toLowerCase())) : options;
-  return (
-    <span className="relative">
-      <FilterChip label="Insurer" value={value} icon="list-filter" onClick={() => setOpen((o) => !o)} onClear={onClear} />
-      {open && (
-        <>
-          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full z-40 mt-1.5 w-72 rounded-card border border-border bg-surface p-2 shadow-menu">
-            <SearchInput value={term} onChange={(e) => setTerm(e.target.value)} placeholder="Filter insurers…" className="mb-1.5 w-full" />
-            <div className="max-h-64 overflow-y-auto">
-              {shown.map((o) => (
-                <button
-                  key={o}
-                  type="button"
-                  onClick={() => {
-                    onSelect(o);
-                    setOpen(false);
-                  }}
-                  className={`flex w-full items-center rounded-field px-2.5 py-2 text-left text-[15px] transition-colors hover:bg-[#F3F4F6] ${
-                    o === value ? "font-semibold text-primary" : "text-text"
-                  }`}
-                >
-                  <span className="flex-1 truncate">{o}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-    </span>
   );
 }

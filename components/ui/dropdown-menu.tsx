@@ -100,6 +100,7 @@ export function DropdownMenu({
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top?: number; bottom?: number; left?: number; right?: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -107,13 +108,20 @@ export function DropdownMenu({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
+    // Page scroll dismisses (the fixed-position menu would detach from its
+    // trigger) — but a scroll INSIDE the menu (a long filter/option list) is
+    // the user using the menu, never a dismiss.
+    const onScroll = (e: Event) => {
+      if (menuRef.current && e.target instanceof Node && menuRef.current.contains(e.target)) return;
+      setOpen(false);
+    };
     window.addEventListener("click", close);
     window.addEventListener("keydown", onKey);
-    window.addEventListener("scroll", close, true);
+    window.addEventListener("scroll", onScroll, true);
     return () => {
       window.removeEventListener("click", close);
       window.removeEventListener("keydown", onKey);
-      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("scroll", onScroll, true);
     };
   }, [open]);
 
@@ -154,6 +162,7 @@ export function DropdownMenu({
         createPortal(
           <MenuCloseCtx.Provider value={() => setOpen(false)}>
             <div
+              ref={menuRef}
               role="menu"
               onClick={(e) => e.stopPropagation()}
               style={{ top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right }}

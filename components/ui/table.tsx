@@ -115,7 +115,9 @@ export function useSort<Col extends string>(initial: SortState<Col>) {
   const [sort, setSort] = useState<SortState<Col>>(initial);
   const toggleSort = (col: Col) =>
     setSort((s) => (s.col === col ? { col, dir: s.dir === "asc" ? "desc" : "asc" } : { col, dir: "asc" }));
-  return [sort, toggleSort] as const;
+  // Third element: explicit set, for callers whose sort control is a menu
+  // ("Sort ascending" / "Sort descending") rather than a click-to-flip header.
+  return [sort, toggleSort, setSort] as const;
 }
 
 /** Clickable, sort-aware column header — pass as a `head` entry. Faint
