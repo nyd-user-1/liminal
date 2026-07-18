@@ -142,3 +142,41 @@ Write `docs/reports/2026-07-18-data-quality.md`: what shipped (commits,
 verification evidence per task), the status.mjs approach you chose and why,
 Linear issues opened/closed, anything left open with exact state. Commit,
 push, STOP — do not start work beyond this brief.
+
+---
+
+# TRANCHE 2 (2026-07-18, lead-approved)
+
+Tranche-1 accepted in full — both premise corrections (cptLabel chokepoint,
+NYS-69 roster fingerprint) were exactly right. **Ownership additions** this
+tranche: `lib/repos/admin.ts`, `lib/repos/orgs.ts` (or wherever the employer
+detail's repo lives), `app/(app)/orgs/**`, `components/rates/cpt.ts`,
+`lib/rate-table.ts`, `lib/repos/plans.ts`, and the metadata block of
+`scripts/db-atlas.mjs` (transferred from the docs terminal, which is now in
+review-only mode). In order:
+
+1. **Form 5500 registry surface.** The data terminal shipped
+   `employer_plan_registry` (sql/040 view; see its report §Task 1 for the
+   join proof — Amazon 608,343 covered lives, etc.). On the employer detail
+   page (where `PlansPanel` lives), add a "Federal registry (Form 5500)"
+   block via a repo function: named carrier(s), covered lives, plan year,
+   and the stop-loss "self-funded tell" as a Badge. No PHI. Verify at :3010
+   on United Airlines / Apple / IBM EINs. File+close an NYS-100-style record.
+2. **CPT label consolidation** (your own flag 1): make DB `cpt_codes` the
+   single source. Since repos can't cross into client bundles, generate the
+   client-safe map (build-time script or checked-in generated module with a
+   regeneration command) and consume it from `components/rates/cpt.ts`,
+   `lib/rate-table.ts`, `lib/repos/plans.ts`. `RATE_CPTS` (the 5-column set)
+   stays separate exactly as you designed.
+3. **Data-dictionary unification** (yours + docs terminal's suggestion):
+   promote `nppes_organizations`, `nppes_other_names`, `org_affiliations`,
+   `nucc_taxonomy` into the admin.ts metadata; then extract the
+   table-metadata into ONE shared module both `lib/repos/admin.ts` and
+   `scripts/db-atlas.mjs` read. Rerun db-atlas; the Unmapped count (25)
+   should drop and the two surfaces become provably consistent.
+4. **NYS-94** — the uncaught `.split` TypeError seen driving /rates. Drive
+   /rates headless (cookie login), watch server + console output, find the
+   repro. Fix if root-caused cheaply; otherwise post the exact repro on the
+   ticket.
+
+Report: `docs/reports/2026-07-18-data-quality-t2.md`, same protocol.

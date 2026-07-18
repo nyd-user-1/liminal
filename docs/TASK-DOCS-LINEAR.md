@@ -165,3 +165,39 @@ Write `docs/reports/2026-07-18-docs-linear.md`: reorg done (project/milestone
 IDs, issues filed/moved/closed with numbers), the three documents (Linear URLs
 + repo paths), atlas generator status + sample output, Aetna doc status,
 blockers, next-tranche suggestions. Commit, push, STOP.
+
+---
+
+# TRANCHE 2 — ROLE PIVOT: engineering review (2026-07-18, lead-approved)
+
+Tranche-1 accepted in full. **You are now the review terminal.** New
+contract: you may write ONLY Linear content and `docs/reports/*` — zero
+source edits this tranche (you file findings; owners fix them).
+
+1. **Three approved Linear hygiene calls** (answers to your flags):
+   - Move **NYS-92** to project **Leuk**, no milestone (it's a UI evergreen —
+     your instinct was right).
+   - **Close NYS-14 as superseded by NYS-111** — first copy any unique
+     registration detail from NYS-14 into NYS-111's description. NYS-111 is
+     the one canonical Aetna-directory ticket now.
+   - File one new issue: **"Shared data-dictionary metadata (admin.ts ×
+     db-atlas)"** — Data Engine, note that the data-quality terminal owns
+     the implementation in its tranche 2 (ownership of the `GROUPS` metadata
+     block in `scripts/db-atlas.mjs` transfers to them).
+2. **Review the commit range `618c663..HEAD` on main** (~20 commits, four
+   sessions in one day: harvestd runner + install + queue, notifications/
+   bell + API, sync-health card + run-history, cron ops email, Form 5500
+   loader + migration, status.mjs psql port, scan-tic code widening,
+   db-atlas). For each area, check: correctness; security (auth on the new
+   API routes, secret handling in the runner/email paths, injection surface
+   of the psql-subprocess and `spawn("/bin/bash", ["-c", …])` patterns);
+   failure modes (what happens when the DB / Resend / a payer host is
+   down); and claims-vs-reality — re-run the cheap verifications yourself
+   rather than trusting the reports. **File every real finding as a Linear
+   issue** (label Bug or Improvement, relate it to the shipping issue,
+   NYS-100-quality one-paragraph description). No style nits, no findings
+   theater — an empty findings list is a legitimate outcome if you verified.
+   The 44b repo is OUT of scope.
+3. Report: `docs/reports/2026-07-18-review.md` — findings by severity, what
+   you verified clean, and anything you could not verify with the access you
+   have. Commit, push, STOP.

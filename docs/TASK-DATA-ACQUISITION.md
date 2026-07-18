@@ -128,3 +128,32 @@ commit hashes), the Form 5500 join numbers, MVP outcome (queued / walled +
 exact founder errand), runbook status, Linear tickets opened/closed,
 blockers, and what you'd do next tranche. Commit and push the report, then
 STOP — do not start work beyond this brief.
+
+---
+
+# TRANCHE 2 (2026-07-18, lead-approved — same contract and ownership)
+
+Your tranche-1 report was reviewed and accepted in full; your own
+next-tranche list was adopted nearly verbatim. In order:
+
+1. **Overnight results check.** The four wide-code rescans + your `mvp.txt`
+   should have run at 01:04 (kick with `ops/harvest/install.sh run` if the
+   queue still has entries and no `runner/lock.json`). Report: `sync_runs`
+   outcomes, new rows/NPIs per payer — especially `payer` matching MVP —
+   and the coverage delta vs the baseline 50,365 NPIs / 47.3%. If the
+   two-per-bucket corroboration shows real per-employer schedule variance,
+   widen the MVP manifest from the in-hand index and queue the second wave.
+2. **Univera + Independent Health egress probes** — the ~2-minute HealthSparq
+   recipe that cracked MVP/Excellus. Save any open index to
+   `.harvest/mrf/<payer>-index.json`, extend `docs/MRF-INDEXES.md`, comment
+   NYS-29 with the outcome either way.
+3. **Plan-book ingest beyond Aetna**: extend `scripts/mrf/ingest-plans.mjs`
+   to load the MVP (561 group plans) and Excellus (912-EIN) books from the
+   on-disk indexes into `employers`/`plans`. Deliverable: counts + the EIN
+   overlap with `form5500_filings` — the plan-registry flywheel proof.
+4. **UHC ToC employer-census mining (bounded)**: stream the UHC index only —
+   NO rate-file downloads — and extract the distinct plan-sponsor EIN/name
+   census (staging table or CSV). Deliverable: census size + Form 5500 join
+   rate. This is the largest plan book we hold an open index to (67k blobs).
+
+Report: `docs/reports/2026-07-18-data-acquisition-t2.md`, same protocol.
