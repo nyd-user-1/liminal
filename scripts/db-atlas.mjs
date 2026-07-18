@@ -33,6 +33,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { neon } from "@neondatabase/serverless";
+import { TABLE_GROUPS } from "../lib/table-atlas.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT_MD = path.join(ROOT, "docs", "data", "DATABASE.md");
@@ -47,102 +48,26 @@ if (!process.env.DATABASE_URL) {
 }
 const sql = neon(process.env.DATABASE_URL);
 
-// ── the metadata: a mirror of lib/repos/admin.ts buildDictionaryGroups ────────
-// Each table: meaning (one sentence), powers (the page it feeds), joins (the
-// tables it links to in the graph), keys (the columns those joins ride on), and
-// sql (the numbered migration that defines it). Matviews are detected from the
-// catalog, not declared. Join edges are undirected — declaring A→B is enough.
-const GROUPS = [
-  {
-    title: "Who exists (foundation)",
-    blurb: "The provider book everything else keys on. One clinician, one NPI, many sources.",
-    tables: [
-      { name: "directory_providers", sql: "sql/003", meaning: "NY behavioral-health provider book; one row per (source, source_id). Rows exceed distinct NPIs because one clinician arrives from several sources (person-level merge is NYS-34).", powers: "/directory", keys: ["npi"], joins: ["nppes_npi", "provider_qualifications", "provider_network_participation", "provider_rate_signals", "provider_rate_summary", "provider_participation_summary", "org_tin_rosters"] },
-      { name: "directory_programs", sql: "sql/003", meaning: "OMH state-licensed treatment programs — the clinics, not the clinicians.", powers: "/programs", keys: ["county"], joins: [] },
-      { name: "provider_qualifications", sql: "sql/028", meaning: "Per-NPI licenses, degrees and taxonomies — the source of the profession + credential filters. Licensing, not what a provider treats.", powers: "/directory", keys: ["npi"], joins: ["directory_providers", "nppes_npi"] },
-      { name: "nppes_npi", sql: "sql/030", meaning: "The raw national NPPES registry as loaded — every provider in the country, all specialties. directory_providers is the NY behavioral-health distillation of it.", powers: "/directory", keys: ["npi"], joins: ["directory_providers", "organizations", "provider_qualifications"] },
-      { name: "organizations", sql: "sql/034", meaning: "NPI-2 org book: every NY organization + national platforms (Headway, Alma). Derived in SQL from nppes_npi; some are also billing TINs — the first NPI-2 ↔ billing-TIN join.", powers: "/directory", keys: ["npi", "tin"], joins: ["nppes_npi", "tin_registry", "org_tin_rosters"] },
-      { name: "cpt_codes", sql: "sql/050", meaning: "OUR OWN plain-language names for the behavioral billing codes — never AMA descriptor text, which is licensed. The live codes match RATE_CODES in lib/rate-table.ts.", powers: null, keys: ["code"], joins: ["provider_rate_signals", "cms_rvu"] },
-      { name: "hcpcs_codes", sql: "sql/033", meaning: "CMS HCPCS Level II with OFFICIAL descriptors (public, unlike CPT). Where NY Medicaid behavioral codes live (H0004/H0015/H2019). Vocabulary only — we hold zero rates for these.", powers: null, keys: ["code"], joins: [] },
-    ],
-  },
-  {
-    title: "Insurance graph",
-    blurb: "Who is in which network, attested by the payer's own FHIR directory.",
-    tables: [
-      { name: "payer_sources", sql: "sql/013", meaning: "The insurers whose FHIR directories we harvest. 'Configured' is not the same as 'live'.", powers: null, keys: ["payer_source_id"], joins: ["payer_networks", "provider_network_participation", "payer_unmatched_npis"] },
-      { name: "payer_networks", sql: "sql/013", meaning: "Per-insurer network/product labels from directories — the labels membership hangs off.", powers: null, keys: ["network_id", "payer_source_id"], joins: ["payer_sources", "provider_network_participation", "fhir_org_affiliations", "fhir_insurance_plans"] },
-      { name: "provider_network_participation", sql: "sql/013", meaning: "Payer-attested membership: one row per (npi × payer × network × location), carrying accepting-new-patients + as-of. THE membership evidence, FHIR flavor — what the insurance badge reads.", powers: "/directory", keys: ["npi", "payer_source_id", "network_id"], joins: ["directory_providers", "payer_sources", "payer_networks", "provider_participation_summary"] },
-      { name: "payer_unmatched_npis", sql: "sql/013", meaning: "Providers a payer names that our book has never heard of — the discovery pool (NYS-40).", powers: null, keys: ["npi", "payer_source_id"], joins: ["payer_sources"] },
-      { name: "fhir_locations", sql: "sql/029", meaning: "Practice sites from payer FHIR directories (national, not NY-only) — the addresses behind a network listing.", powers: null, keys: ["location"], joins: ["fhir_healthcare_services", "provider_network_participation"] },
-      { name: "fhir_organizations", sql: "sql/029", meaning: "Org entities from payer FHIR directories (groups, facilities), as the payer models them.", powers: null, keys: ["organization"], joins: ["fhir_org_affiliations"] },
-      { name: "fhir_org_affiliations", sql: "sql/029", meaning: "How a payer wires its orgs to its networks (org ↔ network/org relationships as published).", powers: null, keys: ["organization", "network"], joins: ["fhir_organizations", "payer_networks"] },
-      { name: "fhir_healthcare_services", sql: "sql/029", meaning: "What a payer says is offered where — the payer's own service taxonomy, not ours.", powers: null, keys: ["location"], joins: ["fhir_locations"] },
-      { name: "fhir_insurance_plans", sql: "sql/029", meaning: "The InsurancePlan/product objects payers publish alongside their network labels.", powers: null, keys: ["network"], joins: ["payer_networks"] },
-    ],
-  },
-  {
-    title: "Rates (Transparency-in-Coverage)",
-    blurb: "What payers actually pay, from their own published machine-readable files.",
-    tables: [
-      { name: "provider_rate_signals", sql: "sql/017", meaning: "The rate corpus. One row per (npi × tin × payer × plan/network × CPT × rate × POS × file date). A rate proves a CONTRACT as of a date — never patient cost, never standalone membership.", powers: "/rates", keys: ["npi", "tin", "payer", "billing_code", "source_file"], joins: ["directory_providers", "tin_registry", "provider_rate_summary", "cpt_codes", "rate_table_mv", "org_tin_rate_summary", "plans"] },
-      { name: "provider_rate_summary", sql: "sql/021", meaning: "Per-NPI rate rollup (matview) — what each provider is paid, precomputed so /recruiting stays fast.", powers: "/recruiting", keys: ["npi"], joins: ["provider_rate_signals", "directory_providers"] },
-      { name: "provider_participation_summary", sql: "sql/023", meaning: "Per-NPI network aggregate (matview) feeding the directory Accepting/Network sort.", powers: "/directory", keys: ["npi"], joins: ["provider_network_participation", "directory_providers"] },
-      { name: "rate_table_mv", sql: "sql/027", meaning: "The published rate table (matview): one row per (payer, TIN) with per-code rates + clinician counts — precomputed, which is why the public page loads instantly.", powers: "/published-rates", keys: ["tin", "payer"], joins: ["rate_table_child_mv", "tin_registry", "org_tin_rosters", "provider_rate_signals"] },
-      { name: "rate_table_child_mv", sql: "sql/032", meaning: "Per-network/setting detail rows under each rate_table_mv parent (facility vs office is a real price difference).", powers: "/published-rates", keys: ["tin", "payer", "network"], joins: ["rate_table_mv"] },
-      { name: "org_tin_rosters", sql: "sql/025", meaning: "Per-TIN clinician roster (matview): who bills under each org — the roster behind an org page.", powers: "/orgs", keys: ["tin", "npi"], joins: ["organizations", "directory_providers", "rate_table_mv", "org_tin_rate_summary", "tin_registry"] },
-      { name: "org_tin_rate_summary", sql: "sql/025", meaning: "Per-(TIN, payer, code) rate percentiles (matview) — what each org is paid at p25/median/p75.", powers: "/orgs", keys: ["tin", "payer", "billing_code"], joins: ["org_tin_rosters", "provider_rate_signals"] },
-      { name: "tin_registry", sql: "sql/019", meaning: "TIN → business-name registry: the naming layer behind every org display name. Without it every org reads as a 9-digit number.", powers: "/orgs", keys: ["tin"], joins: ["provider_rate_signals", "organizations", "rate_table_mv", "org_tin_rosters"] },
-      { name: "payer_rate_totals", sql: "sql/026", meaning: "Per-payer rate totals (matview) — the small denominator table the admin/observatory reads instead of scanning the 9M-row corpus.", powers: "/insights", keys: ["payer"], joins: ["provider_rate_signals"] },
-      { name: "rate_bands_license_summary", sql: "sql/024", meaning: "Rate bands by license/profession (matview) — the p25/median/p75 distribution per profession that /rates Bands renders. Part of the sql/024 precompute that took /rates from 20-32s to <0.3s.", powers: "/rates", keys: ["billing_code"], joins: ["provider_rate_signals"] },
-      { name: "rate_bands_payer_summary", sql: "sql/024", meaning: "Rate bands by payer (matview) — per-payer percentile bands over the priced codes.", powers: "/rates", keys: ["payer", "billing_code"], joins: ["provider_rate_signals", "payer_rate_totals"] },
-      { name: "rate_bands_checked_payers", sql: "sql/024", meaning: "The set of payers with enough rows to publish bands (matview) — gates which payers /rates Bands will show.", powers: "/rates", keys: ["payer"], joins: ["provider_rate_signals"] },
-    ],
-  },
-  {
-    title: "Medicare benchmark (CMS PFS)",
-    blurb: "What Medicare itself pays per NY locality — the yardstick every negotiated rate is measured against.",
-    tables: [
-      { name: "medicare_benchmark_ny", sql: "sql/033", meaning: "The computed benchmark: what Medicare allows per (NY locality × code), from cms_rvu × cms_gpci × the conversion factor. The denominator every '% of Medicare' number divides by.", powers: "/rates", keys: ["code", "locality_code"], joins: ["cms_rvu", "cms_gpci", "cms_pfs_config", "provider_rate_signals"] },
-      { name: "cms_rvu", sql: "sql/033", meaning: "PFS Relative Value File: work/PE/MP RVUs per code × modifier. Deliberately carries NO descriptor column — that text is AMA-licensed.", powers: null, keys: ["code"], joins: ["medicare_benchmark_ny", "cpt_codes"] },
-      { name: "cms_gpci", sql: "sql/033", meaning: "Geographic practice cost indices, 109 localities. NY has five — the geography multiplier that makes the same code pay differently in Manhattan and Buffalo.", powers: null, keys: ["locality_code"], joins: ["medicare_benchmark_ny"] },
-      { name: "cms_pfs_config", sql: "sql/033", meaning: "PFS scalars — the dollars-per-RVU conversion factors that turn relative units into money.", powers: null, keys: [], joins: ["medicare_benchmark_ny"] },
-    ],
-  },
-  {
-    title: "Employers & plans",
-    blurb: "Which employer buys which plan — the demand side of the rate corpus, and the plan-registry assembly.",
-    tables: [
-      { name: "employers", sql: "sql/020", meaning: "Plan sponsors from the Aetna ToC (EIN-keyed) — the employers behind the plans we hold rates for.", powers: "/plans", keys: ["ein"], joins: ["plans", "form5500_filings"] },
-      { name: "plans", sql: "sql/020", meaning: "Employer plans; each points at a network product. The plan catalog (display cleanup NYS-44).", powers: "/plans", keys: ["employer_ein", "source_file"], joins: ["employers", "provider_rate_signals"] },
-      { name: "form5500_filings", sql: "sql/040", meaning: "DOL/EFAST2 Form 5500 health/welfare filings — the de-facto plan registry (the HPID never shipped). EIN-keyed, joins straight onto employers/plans/tin_registry (NYS-101).", powers: null, keys: ["ein"], joins: ["employers", "form5500_schedule_a", "tin_registry"] },
-      { name: "form5500_schedule_a", sql: "sql/040", meaning: "Schedule A insurance-contract rows under each 5500 filing — the named carrier + covered-lives behind a plan.", powers: null, keys: ["ein"], joins: ["form5500_filings"] },
-    ],
-  },
-  {
-    title: "Maintenance & platform",
-    blurb: "The ledger and notification tables the automation writes to.",
-    tables: [
-      { name: "sync_runs", sql: "sql/035", meaning: "The maintenance ledger: one row per run of the nightly matview cron ('daily') and the harvest runner ('harvest:<id>'). The /insights sync-health card reads it.", powers: "/insights", keys: [], joins: [] },
-      { name: "notifications", sql: "sql/038", meaning: "Per-user in-app notifications (v1 kind: sync_failure) — the rows behind the TopBar bell (NYS-100). No PHI: pipeline rows name jobs and tables only.", powers: null, keys: ["user_id"], joins: ["users"] },
-    ],
-  },
-  {
-    title: "Practice management (EHR)",
-    blurb: "The practice's own records. PHI — the atlas prints structure and counts, never contents.",
-    tables: [
-      { name: "users", sql: "sql/001", meaning: "Login accounts: staff (admin/practitioner) and client portal users; soft-deleted via deleted_at.", powers: null, keys: ["user_id"], joins: ["clients", "appointments", "notifications"] },
-      { name: "clients", sql: "sql/001", meaning: "Patient/client records; user_id links an optional portal login. PHI.", powers: null, keys: ["client_id"], joins: ["users", "appointments", "invoices", "notes", "messages", "files", "insurance_policies"] },
-      { name: "appointments", sql: "sql/001", meaning: "Calendar events tying client + practitioner + service + location with a status lifecycle.", powers: null, keys: ["client_id"], joins: ["clients", "users"] },
-      { name: "invoices", sql: "sql/001", meaning: "Client invoices with human numbers (INV-2026-0001) and a draft→sent→paid lifecycle.", powers: null, keys: ["client_id"], joins: ["clients"] },
-      { name: "notes", sql: "sql/001", meaning: "Clinical documentation (soft-deleted, sign-and-lock lifecycle). PHI.", powers: null, keys: ["client_id"], joins: ["clients"] },
-      { name: "messages", sql: "sql/001", meaning: "Individual secure messages within a thread; read_at marks recipient receipt. PHI.", powers: null, keys: ["client_id"], joins: ["clients"] },
-      { name: "files", sql: "sql/001", meaning: "Client documents: portal uploads, rendered form PDFs, generated superbills. PHI.", powers: null, keys: ["client_id"], joins: ["clients"] },
-      { name: "payers", sql: "sql/001", meaning: "Insurance companies for BILLING (name + clearinghouse code) — distinct from payer_sources (the directory harvest side).", powers: null, keys: ["payer_id"], joins: ["insurance_policies"] },
-      { name: "insurance_policies", sql: "sql/001", meaning: "A client's coverage with a payer (member/group ids, verification status, copay). PHI.", powers: null, keys: ["client_id", "payer_id"], joins: ["clients", "payers"] },
-    ],
-  },
-];
+// ── the metadata: THE shared registry (lib/table-atlas.mjs) ───────────────────
+// Table meaning, domain, page and join graph now live in exactly one module,
+// read by both this generator and lib/repos/admin.ts (the /admin/data dictionary
+// + the Observatory). This script needs `powers` as the bare href string; the
+// shared module carries it as { href, label } for the app, so flatten it here.
+// Everything downstream (META, joinsFor, the rendering) is unchanged: it reads
+// name, meaning, sql, keys, joins. Matviews are detected from the catalog, not
+// declared; join edges are undirected — declaring A→B is enough.
+const GROUPS = TABLE_GROUPS.map((g) => ({
+  title: g.title,
+  blurb: g.blurb,
+  tables: g.tables.map((t) => ({
+    name: t.name,
+    sql: t.sql,
+    meaning: t.meaning,
+    powers: t.powers ? t.powers.href : null,
+    keys: t.keys,
+    joins: t.joins,
+  })),
+}));
 
 // Flatten the metadata into a lookup, and record each table's domain.
 const META = new Map();

@@ -1,6 +1,7 @@
 import { hasDb, sql } from "@/lib/db";
 import { isoDateOnly, isoDateTime } from "@/lib/format";
 import { RATE_CODES } from "@/lib/rate-table";
+import { TABLE_GROUPS } from "@/lib/table-atlas.mjs";
 
 // admin.ts — the platform's ONE table registry: what every table is, what it
 // links to, which page it powers, and its live count. Two consumers read it:
@@ -101,52 +102,20 @@ const ESTIMATED = new Set([
   "org_tin_rosters",
   "org_tin_rate_summary",
   "organizations",
+  // Promoted into the dictionary this tranche; all north of the ~100k line
+  // where an exact count(*) on a page load stops being free.
+  "nppes_other_names",
+  "org_affiliations",
+  "form5500_filings",
+  "form5500_schedule_a",
 ]);
 
-// Every table the registry names. Existence is probed (to_regclass) rather than
-// assumed: the CMS loader landed mid-build, so a table whose loader hasn't run
-// renders "not yet loaded" instead of failing the whole page.
-const LIVE_TABLES = [
-  "directory_providers",
-  "directory_programs",
-  "provider_qualifications",
-  "nppes_npi",
-  "organizations",
-  "cpt_codes",
-  "hcpcs_codes",
-  "cms_rvu",
-  "cms_gpci",
-  "cms_pfs_config",
-  "medicare_benchmark_ny",
-  "payer_sources",
-  "payer_networks",
-  "provider_network_participation",
-  "payer_unmatched_npis",
-  "fhir_locations",
-  "fhir_organizations",
-  "fhir_org_affiliations",
-  "fhir_healthcare_services",
-  "fhir_insurance_plans",
-  "provider_rate_signals",
-  "provider_rate_summary",
-  "provider_participation_summary",
-  "rate_table_mv",
-  "rate_table_child_mv",
-  "org_tin_rosters",
-  "org_tin_rate_summary",
-  "tin_registry",
-  "employers",
-  "plans",
-  "users",
-  "clients",
-  "appointments",
-  "invoices",
-  "notes",
-  "messages",
-  "files",
-  "payers",
-  "insurance_policies",
-] as const;
+// Every table the registry names — derived from the shared table-atlas so the
+// dictionary and the Database Atlas can never name different sets (that was the
+// drift NYS-100-class unification closed). Existence is probed (to_regclass)
+// rather than assumed: a table whose loader hasn't run renders "not yet loaded"
+// instead of failing the whole page.
+const LIVE_TABLES: string[] = TABLE_GROUPS.flatMap((g) => g.tables.map((t) => t.name));
 
 const num = (n: number) => n.toLocaleString("en-US");
 const pct = (n: number, d: number) => (d ? `${Math.round((n / d) * 1000) / 10}%` : "—");
@@ -154,12 +123,61 @@ const pct = (n: number, d: number) => (d ? `${Math.round((n / d) * 1000) / 10}%`
 /** The five codes we actually price, straight off RATE_CODES — never a second list. */
 const RATE_CODE_LIST = RATE_CODES.map((c) => c.code).join(" · ");
 
-type TableExtra = {
-  /** Observatory card gloss — plain language, no jargon. Falls back to `meaning`. */
+/** The shape of one row in the shared table-atlas registry. lib/table-atlas.mjs
+ *  is JS (db-atlas.mjs runs under plain node); this mirrors its per-table record
+ *  so we consume it type-safely here. */
+interface AtlasTableMeta {
+  name: string;
+  meaning: string;
+  links: string;
+  sql: string;
+  powers: { href: string; label: string } | null;
+  keys: string[];
+  joins: string[];
   blurb?: string;
-  powers?: { href: string; label: string };
-  facts?: DictionaryFact[];
-  estimated?: boolean;
+}
+
+/** Runtime facts (distinct-NPI counts, % named…) that aren't row counts — they
+ *  need the live SPECIALS query, so they're keyed by table here rather than in
+ *  the shared, query-free table-atlas metadata. */
+function factsFor(name: string, s: InventorySpecials | null): DictionaryFact[] | undefined {
+  if (!s) return undefined;
+  switch (name) {
+    case "directory_providers":
+      return [{ label: "distinct NPIs", value: num(s.directoryNpis) }];
+    case "payer_sources":
+      return [{ label: "live", value: `${s.payersLive} of ${s.payersConfigured}` }];
+    case "payer_networks":
+      return [{ label: "across payers", value: num(s.networkPayers) }];
+    case "provider_rate_signals":
+      return [
+        { label: "NPIs", value: num(s.rateNpis) },
+        { label: "TINs", value: num(s.rateTins) },
+        { label: "payer labels", value: num(s.ratePayers) },
+        { label: "codes priced", value: RATE_CODE_LIST },
+      ];
+    case "rate_table_mv":
+      return [{ label: "named", value: `${pct(s.rateTableNamed, s.rateTableRows)} of rows` }];
+    default:
+      return undefined;
+  }
+}
+
+/** Planned/gap rows — NOT real relations, so they're absent from the shared
+ *  registry (db-atlas introspects the live catalog and would never see them).
+ *  Appended to their domain group by title. */
+const PLANNED_ROWS: Record<string, DictionaryTable[]> = {
+  "Insurance graph": [
+    {
+      name: "insurers / networks (canonical)",
+      count: null,
+      countKind: "exact",
+      meaning:
+        "Canonical insurers + canonical networks + label crosswalk — until then, FHIR and MRF vocabularies do not join.",
+      links: "—",
+      planned: "NYS-48, NYS-49",
+    },
+  ],
 };
 
 function buildDictionaryGroups(
@@ -167,266 +185,34 @@ function buildDictionaryGroups(
   present: Set<string>,
   s: InventorySpecials | null,
 ): DictionaryGroup[] {
-  const table = (name: string, meaning: string, links: string, opts?: TableExtra): DictionaryTable => {
-    const missing = hasDb && !present.has(name);
+  const build = (t: AtlasTableMeta): DictionaryTable => {
+    const missing = hasDb && !present.has(t.name);
     return {
-      name,
-      count: !hasDb || missing ? null : counts[name] ?? 0,
-      countKind: opts?.estimated ?? ESTIMATED.has(name) ? "estimate" : "exact",
-      meaning,
-      links,
-      blurb: opts?.blurb,
-      powers: opts?.powers,
-      facts: missing ? undefined : opts?.facts,
+      name: t.name,
+      count: !hasDb || missing ? null : counts[t.name] ?? 0,
+      countKind: ESTIMATED.has(t.name) ? "estimate" : "exact",
+      meaning: t.meaning,
+      links: t.links,
+      blurb: t.blurb,
+      powers: t.powers ?? undefined,
+      facts: missing ? undefined : factsFor(t.name, s),
       missing: missing || undefined,
     };
   };
 
-  const planned = (name: string, meaning: string, ref: string): DictionaryTable => ({
-    name,
-    count: null,
-    countKind: "exact",
-    meaning,
-    links: "—",
-    planned: ref,
-  });
+  return (TABLE_GROUPS as AtlasGroupMeta[]).map((g) => ({
+    title: g.title,
+    blurb: g.blurb,
+    platform: g.platform,
+    tables: [...g.tables.map(build), ...(PLANNED_ROWS[g.title] ?? [])],
+  }));
+}
 
-  const DIRECTORY = { href: "/directory", label: "Directory" };
-
-  return [
-    {
-      title: "Who exists (foundation)",
-      blurb: "The provider book everything else keys on. One clinician, one NPI, many sources.",
-      platform: true,
-      tables: [
-        table(
-          "directory_providers",
-          "NY behavioral-health provider book; one row per (source, source_id). Rows exceed distinct NPIs because one clinician arrives from several sources; person-level merge open (NYS-34).",
-          "everything keys on npi",
-          {
-            blurb: "Every NY behavioral-health provider we hold, merged from NPPES, Medicaid and OMH.",
-            powers: DIRECTORY,
-            facts: s ? [{ label: "distinct NPIs", value: num(s.directoryNpis) }] : undefined,
-          },
-        ),
-        table("directory_programs", "OMH programs; powers /programs + portal resources.", "county / program_type (no npi join)", {
-          blurb: "State-licensed treatment programs — the clinics, not the clinicians.",
-          powers: { href: "/programs", label: "Programs" },
-        }),
-        table("provider_qualifications", "Per-NPI licenses and taxonomies; the source of the profession + credential filters.", "npi → directory_providers", {
-          blurb: "What each provider is licensed as. Licensing, which is not the same as what they treat.",
-          powers: DIRECTORY,
-        }),
-        table(
-          "nppes_npi",
-          "The raw national NPPES registry as loaded — every provider in the country, all specialties. directory_providers is the NY behavioral-health distillation of it.",
-          "npi → directory_providers",
-          { blurb: "The raw national NPI registry we distil the NY book out of.", powers: DIRECTORY },
-        ),
-        table(
-          "organizations",
-          "NPI-2 org book (sql/034): every NY organization + every org our datasets reference nationwide (105.6k; 103.8k NY + 1.8k net-new national platforms like Headway). Derived in SQL from nppes_npi; no EIN (NPPES has none). 3.1k are also billing TINs — the first NPI-2 ↔ billing-TIN join.",
-          "npi ↔ tin_registry / org_tin_rosters",
-          { blurb: "The organizations behind the NPIs — clinics, groups and national platforms, not the people.", powers: DIRECTORY },
-        ),
-        table(
-          "cpt_codes",
-          "OUR OWN plain-language names for billing codes (14 behavioral-health codes) — never AMA descriptor text, which is licensed. Editable content; the five live codes match RATE_CODES in lib/rate-table.ts. See scripts/cms/LICENSE_NOTE.md.",
-          "code → provider_rate_signals.billing_code · service_code_names",
-          { blurb: "Our own plain-language names for the codes we price. AMA descriptor text is licensed; this is not it." },
-        ),
-        table(
-          "hcpcs_codes",
-          "CMS HCPCS Level II (8.7k codes, HCPCS-2026-Q3) with OFFICIAL descriptors — public and displayable, unlike CPT. Where NY Medicaid behavioral health lives (H0004/H0015/H2019). Vocabulary only: we hold ZERO rates for these — the MRF scanner's code list is CPT-only.",
-          "code · service_code_names",
-          { blurb: "The public code set, descriptors and all — where NY Medicaid behavioral health lives. Vocabulary only, no rates." },
-        ),
-      ],
-    },
-    {
-      title: "Insurance graph",
-      blurb: "Who is in which network, attested by the payer's own directory.",
-      platform: true,
-      tables: [
-        table("payer_sources", "Insurers we harvest FHIR directories from.", "id → payer_networks.payer_source_id", {
-          blurb: "The insurers whose directories we pull. Configured is not the same as live.",
-          facts: s ? [{ label: "live", value: `${s.payersLive} of ${s.payersConfigured}` }] : undefined,
-        }),
-        table(
-          "payer_networks",
-          "Per-insurer network labels from directories (anthem 356+ · cigna 226 · uhc 213 · humana 135 · mvp 18).",
-          "id → provider_network_participation.network_id",
-          {
-            blurb: "Every named network/product a payer publishes — the labels membership hangs off.",
-            facts: s ? [{ label: "across payers", value: num(s.networkPayers) }] : undefined,
-          },
-        ),
-        table(
-          "provider_network_participation",
-          "Payer-attested membership: one row per (npi × payer × network × location); carries accepting-new-patients + as-of. THE membership evidence, FHIR flavor.",
-          "npi → directory_providers",
-          {
-            blurb: "The payer's own claim that a provider is in a network. This is what the insurance badge reads.",
-            powers: { href: "/directory", label: "Directory" },
-          },
-        ),
-        table(
-          "payer_unmatched_npis",
-          "Providers payers mention that we don't hold; discovery pool (NYS-40; big pool still in .harvest files).",
-          "npi (no directory_providers match yet)",
-          { blurb: "Providers a payer names that our book has never heard of. The discovery pool." },
-        ),
-        table("fhir_locations", "Practice sites from payer FHIR directories. National, not NY-only.", "location → healthcare_services, participation", {
-          blurb: "Physical sites a payer publishes — the addresses behind a network listing.",
-        }),
-        table("fhir_organizations", "Org entities from payer FHIR directories (groups, facilities).", "organization → org_affiliations", {
-          blurb: "The organizations a payer names, as the payer models them.",
-        }),
-        table("fhir_org_affiliations", "Org ↔ network/org relationships as published.", "organization ↔ network", {
-          blurb: "How a payer wires its orgs to its networks.",
-        }),
-        table("fhir_healthcare_services", "Services offered at a location (the payer's own service taxonomy).", "location → service", {
-          blurb: "What a payer says is offered where — their taxonomy, not ours.",
-        }),
-        table("fhir_insurance_plans", "InsurancePlan resources — the plan/product objects behind the network labels.", "plan → network", {
-          blurb: "The plan objects payers publish alongside their networks.",
-        }),
-        planned(
-          "insurers / networks (canonical)",
-          "Canonical insurers + canonical networks + label crosswalk — until then, FHIR and MRF vocabularies do not join.",
-          "NYS-48, NYS-49",
-        ),
-      ],
-    },
-    {
-      title: "Rates (Transparency-in-Coverage)",
-      blurb: "What payers actually pay, from their own published machine-readable files.",
-      platform: true,
-      tables: [
-        table(
-          "provider_rate_signals",
-          `Negotiated rates: one row per (npi × tin × payer × plan/network label × CPT × rate × POS × file date). A rate proves a CONTRACT as of a date — never patient cost, never "standalone" membership language.`,
-          "npi, tin, source_file",
-          {
-            blurb: "The rate corpus. One row = one payer's published price for one code, at one TIN, on one date.",
-            powers: { href: "/rates", label: "Rates" },
-            facts: s
-              ? [
-                  { label: "NPIs", value: num(s.rateNpis) },
-                  { label: "TINs", value: num(s.rateTins) },
-                  { label: "payer labels", value: num(s.ratePayers) },
-                  { label: "codes priced", value: RATE_CODE_LIST },
-                ]
-              : undefined,
-          },
-        ),
-        table(
-          "provider_rate_summary",
-          "Per-NPI rate rollup (matview) feeding /recruiting + /plans; refresh after every load.",
-          "npi (rollup of provider_rate_signals)",
-          { blurb: "One row per provider: what they're paid, precomputed so /recruiting stays fast.", powers: { href: "/recruiting", label: "Recruiting" } },
-        ),
-        table(
-          "provider_participation_summary",
-          "Per-NPI network aggregate (matview, sql/023) feeding the directory Accepting/Network sort; refresh with the other matview after every ingest.",
-          "npi (rollup of provider_network_participation)",
-          { blurb: "One row per provider: which networks they're in, precomputed for the directory sort.", powers: { href: "/directory", label: "Directory" } },
-        ),
-        table("rate_table_mv", "The published rate table (matview, sql/024): one row per (payer, TIN) with per-code rates + clinician counts.", "tin, payer → rate_table_child_mv", {
-          blurb: "The rate table the public page renders — precomputed, which is why it loads instantly.",
-          powers: { href: "/published-rates", label: "Published rates" },
-          facts: s ? [{ label: "named", value: `${pct(s.rateTableNamed, s.rateTableRows)} of rows` }] : undefined,
-        }),
-        table("rate_table_child_mv", "Per-network/setting detail rows under each rate_table_mv parent.", "tin, payer ← rate_table_mv", {
-          blurb: "The breakdown under each rate-table row: network and setting.",
-          powers: { href: "/published-rates", label: "Published rates" },
-        }),
-        table("org_tin_rosters", "Per-TIN clinician roster (matview, sql/025): who bills under each org.", "tin, npi", {
-          blurb: "Who bills under each organization — the roster behind an org page.",
-          powers: { href: "/orgs", label: "Organizations" },
-        }),
-        table("org_tin_rate_summary", "Per-(TIN, payer, code) rate percentiles (matview, sql/025).", "tin, payer, billing_code", {
-          blurb: "What each organization is paid, per payer and code, at p25/median/p75.",
-          powers: { href: "/orgs", label: "Organizations" },
-        }),
-        table("tin_registry", "TIN → business-name registry; the naming layer behind every org display name (NYS-27 backfill has run).", "tin_norm ↔ provider_rate_signals.tin", {
-          blurb: "Turns a bare tax ID into a business name. Without it every org reads as a 9-digit number.",
-          powers: { href: "/orgs", label: "Organizations" },
-        }),
-      ],
-    },
-    {
-      // Not Transparency-in-Coverage: this is CMS's own fee schedule, and it is
-      // the DENOMINATOR the TiC rates above are measured against. Free, no
-      // license, no key — the whole "% of Medicare" product rests on it.
-      title: "Medicare benchmark (CMS PFS, sql/033)",
-      blurb: "What Medicare itself pays per NY locality — the yardstick every negotiated rate is measured against.",
-      platform: true,
-      tables: [
-        table(
-          "medicare_benchmark_ny",
-          "The computed benchmark: what Medicare allows per (NY locality × code), derived from cms_rvu × cms_gpci × the conversion factor. The denominator every '% of Medicare' number on the platform divides by.",
-          "state+locality_code+code (from cms_rvu · cms_gpci · cms_pfs_config)",
-          {
-            blurb: "What Medicare pays here, per code and NY locality. Everything else is priced against this.",
-            powers: { href: "/rates", label: "Rates" },
-          },
-        ),
-        table(
-          "cms_rvu",
-          "PFS Relative Value File (RVU26C, 19.4k rows): work/PE/MP RVUs per code × modifier. Deliberately carries NO descriptor column — that text is AMA-licensed to CMS, not to us.",
-          "hcpcs_code → cpt_codes.code · medicare_benchmark_ny",
-          { blurb: "How much work each code represents, per CMS. The raw input to the benchmark." },
-        ),
-        table(
-          "cms_gpci",
-          "CY2026 geographic practice cost indices, 109 localities. NY has five (Manhattan · NYC Suburbs/LI · Poughkeepsie · Queens · Rest of NY). Keyed (state, locality) — locality numbers repeat across states.",
-          "state+locality_code → medicare_benchmark_ny",
-          { blurb: "The geography multiplier — why the same code pays differently in Manhattan and Buffalo." },
-        ),
-        table(
-          "cms_pfs_config",
-          "PFS scalars. CY2026 ships TWO conversion factors — $33.4009 non-APM (what the benchmark uses) and $33.5675 for qualifying APM participants; both read out of the CMS files themselves.",
-          "key → medicare_benchmark_ny",
-          { blurb: "The dollars-per-RVU scalars that turn relative units into money." },
-        ),
-      ],
-    },
-    {
-      title: "Employers & plans",
-      blurb: "Which employer buys which plan — the demand side of the rate corpus.",
-      platform: true,
-      tables: [
-        table("employers", "Plan sponsors from the Aetna ToC (EIN-keyed).", "ein → plans.employer_ein", {
-          blurb: "The employers sponsoring the plans we hold rates for.",
-          powers: { href: "/plans", label: "Plans" },
-        }),
-        table("plans", "Employer plans; each points at a network product; display cleanup NYS-44.", "source_file → provider_rate_signals.source_file", {
-          blurb: "The plan catalog — each one ties an employer to a network product and its rate file.",
-          powers: { href: "/plans", label: "Plans" },
-        }),
-      ],
-    },
-    {
-      // platform:false — the observatory is the DATA platform. These are the
-      // practice's own records (mostly PHI); the dashboard's Layer-1 strip
-      // covers them as caseload numbers, scoped to who's asking.
-      title: "Practice management (EHR)",
-      blurb: "The practice's own records. PHI — counts only, never contents.",
-      platform: false,
-      tables: [
-        table("users", "Login accounts: staff (admin/practitioner) and client portal users; soft-deleted via deleted_at.", "id → practitioner/author refs across appointments, notes, messages, files"),
-        table("clients", "Patient/client records; user_id links an optional portal login. PHI.", "id → appointments, invoices, notes, messages, files, insurance_policies"),
-        table("appointments", "Calendar events tying client + practitioner + service + location with a status lifecycle.", "client_id, practitioner_id"),
-        table("invoices", "Client invoices with human numbers (INV-2026-0001) and a draft→sent→paid/overdue/void lifecycle.", "client_id"),
-        table("notes", "Clinical documentation (soft-deleted, sign-and-lock lifecycle); PHI.", "client_id"),
-        table("messages", "Individual secure messages within a thread; read_at marks recipient receipt. PHI.", "thread_id → threads.client_id"),
-        table("files", "Client documents: portal uploads, rendered form PDFs, generated superbills. PHI.", "client_id"),
-        table("payers", "Insurance companies (name + clearinghouse payer code) — billing, distinct from payer_sources.", "id → insurance_policies.payer_id"),
-        table("insurance_policies", "A client's coverage with a payer (member/group ids, verification status, copay). PHI.", "client_id, payer_id"),
-      ],
-    },
-  ];
+interface AtlasGroupMeta {
+  title: string;
+  blurb: string;
+  platform: boolean;
+  tables: AtlasTableMeta[];
 }
 
 // ── Insurers board (V2, 2026-07-13 evening) ──────────────────────────────────

@@ -22,11 +22,11 @@ _The provider book everything else keys on. One clinician, one NPI, many sources
 
 ### `directory_providers`
 
-NY behavioral-health provider book; one row per (source, source_id). Rows exceed distinct NPIs because one clinician arrives from several sources (person-level merge is NYS-34).
+NY behavioral-health provider book; one row per (source, source_id). Rows exceed distinct NPIs because one clinician arrives from several sources; person-level merge open (NYS-34).
 
 **Table** · 123,577 rows · defined in sql/003 · powers `/directory`
 
-**Joins:** `nppes_npi` (`npi`) · `org_tin_rosters` (`npi`) · `provider_network_participation` (`npi`) · `provider_participation_summary` (`npi`) · `provider_qualifications` (`npi`) · `provider_rate_signals` (`npi`) · `provider_rate_summary` (`npi`)
+**Joins:** `nppes_npi` (`npi`) · `org_affiliations` (`npi`) · `org_tin_rosters` (`npi`) · `provider_network_participation` (`npi`) · `provider_participation_summary` (`npi`) · `provider_qualifications` (`npi`) · `provider_rate_signals` (`npi`) · `provider_rate_summary` (`npi`)
 
 | column | type |
 | --- | --- |
@@ -65,7 +65,7 @@ NY behavioral-health provider book; one row per (source, source_id). Rows exceed
 
 ### `directory_programs`
 
-OMH state-licensed treatment programs — the clinics, not the clinicians.
+OMH state-licensed treatment programs — the clinics, not the clinicians; powers /programs and the portal resources.
 
 **Table** · 6,462 rows · defined in sql/003 · powers `/programs`
 
@@ -94,7 +94,7 @@ Per-NPI licenses, degrees and taxonomies — the source of the profession + cred
 
 **Table** · 99,511 rows · defined in sql/028 · powers `/directory`
 
-**Joins:** `directory_providers` (`npi`) · `nppes_npi` (`npi`)
+**Joins:** `directory_providers` (`npi`) · `nppes_npi` (`npi`) · `nucc_taxonomy`
 
 | column | type |
 | --- | --- |
@@ -114,7 +114,7 @@ The raw national NPPES registry as loaded — every provider in the country, all
 
 **Table** · ≈ 9,672,623 rows · defined in sql/030 · powers `/directory`
 
-**Joins:** `directory_providers` (`npi`) · `organizations` (`npi`) · `provider_qualifications` (`npi`)
+**Joins:** `directory_providers` (`npi`) · `nppes_organizations` (`npi`) · `nppes_other_names` (`npi`) · `nucc_taxonomy` · `organizations` (`npi`) · `provider_qualifications` (`npi`)
 
 | column | type |
 | --- | --- |
@@ -145,11 +145,11 @@ The raw national NPPES registry as loaded — every provider in the country, all
 
 ### `organizations`
 
-NPI-2 org book: every NY organization + national platforms (Headway, Alma). Derived in SQL from nppes_npi; some are also billing TINs — the first NPI-2 ↔ billing-TIN join.
+NPI-2 org book (sql/034): every NY organization + every org our datasets reference nationwide (NY book + net-new national platforms like Headway). Derived in SQL from nppes_npi; no EIN (NPPES suppresses it). Some are also billing TINs — the first NPI-2 ↔ billing-TIN join.
 
 **Table** · 105,557 rows · defined in sql/034 · powers `/directory`
 
-**Joins:** `nppes_npi` (`npi`) · `org_tin_rosters` (`tin`) · `tin_registry` (`tin`)
+**Joins:** `nppes_npi` (`npi`) · `nppes_organizations` (`npi`) · `org_tin_rosters` (`tin`) · `tin_registry` (`tin`)
 
 | column | type |
 | --- | --- |
@@ -179,9 +179,9 @@ NPI-2 org book: every NY organization + national platforms (Headway, Alma). Deri
 
 ### `cpt_codes`
 
-OUR OWN plain-language names for the behavioral billing codes — never AMA descriptor text, which is licensed. The live codes match RATE_CODES in lib/rate-table.ts.
+OUR OWN plain-language names for the behavioral billing codes (20 codes) — never AMA descriptor text, which is licensed. The single source of display labels (lib/cpt-labels.generated.ts regenerates from it); the five live codes match RATE_CODES in lib/rate-table.ts.
 
-**Table** · 20 rows · defined in sql/050
+**Table** · 20 rows · defined in sql/033
 
 **Joins:** `cms_rvu` (`code`) · `provider_rate_signals`
 
@@ -198,7 +198,7 @@ OUR OWN plain-language names for the behavioral billing codes — never AMA desc
 
 ### `hcpcs_codes`
 
-CMS HCPCS Level II with OFFICIAL descriptors (public, unlike CPT). Where NY Medicaid behavioral codes live (H0004/H0015/H2019). Vocabulary only — we hold zero rates for these.
+CMS HCPCS Level II with OFFICIAL descriptors (public, unlike CPT). Where NY Medicaid behavioral codes live (H0004/H0015/H2019). Vocabulary only — we hold zero rates for these; the MRF scanner's code list is CPT-only.
 
 **Table** · 8,725 rows · defined in sql/033
 
@@ -219,9 +219,69 @@ CMS HCPCS Level II with OFFICIAL descriptors (public, unlike CPT). Where NY Medi
 | `effective_date` | date |
 | `updated_at` | timestamp with time zone |
 
+### `nppes_organizations`
+
+NPI-2 (organization) identity records from the NPPES monthly dissemination file — NY practice locations plus every NPI that appears as an 'npi:' billing TIN. CMS suppresses EINs in the public file, so this names npi-TINs directly but cannot name ein-TINs on its own.
+
+**Table** · 104,060 rows · defined in sql/025
+
+**Joins:** `employers` (`ein`) · `nppes_npi` (`npi`) · `nppes_other_names` (`npi`) · `organizations` (`npi`) · `tin_registry`
+
+| column | type |
+| --- | --- |
+| `npi` | text |
+| `name` | text |
+| `other_name` | text |
+| `ein` | text |
+| `taxonomy` | text |
+| `address` | text |
+| `city` | text |
+| `state` | text |
+| `zip` | text |
+| `phone` | text |
+| `authorized_official` | text |
+| `is_subpart` | boolean |
+| `parent_lbn` | text |
+| `enumeration_date` | date |
+| `last_update` | date |
+| `deactivation_date` | date |
+| `ingested_at` | timestamp with time zone |
+
+### `nppes_other_names`
+
+The NPPES Other Name reference file — additional names for NPI-2s, overwhelmingly DBAs ('doing business as'). The display name a patient recognizes usually lives here, not in the opaque Legal Business Name (type_code 3 = DBA). Read by the org-name matcher and the Form 5500 name flywheel.
+
+**Table** · ≈ 719,947 rows · defined in sql/030
+
+**Joins:** `nppes_npi` (`npi`) · `nppes_organizations` (`npi`) · `tin_registry`
+
+| column | type |
+| --- | --- |
+| `npi` | text |
+| `other_name` | text |
+| `type_code` | text |
+
+### `nucc_taxonomy`
+
+The NUCC Health Care Provider Taxonomy code set (883 codes, v26.0) — the reference that makes a taxonomy code legible (grouping / classification / specialization). Reference/display only; scripts/lib/mh-taxonomy.mjs stays the behavioral-health policy filter.
+
+**Table** · 883 rows · defined in sql/031
+
+**Joins:** `nppes_npi` · `provider_qualifications`
+
+| column | type |
+| --- | --- |
+| `code` | text |
+| `grouping` | text |
+| `classification` | text |
+| `specialization` | text |
+| `definition` | text |
+| `display_name` | text |
+| `section` | text |
+
 ## Insurance graph
 
-_Who is in which network, attested by the payer's own FHIR directory._
+_Who is in which network, attested by the payer's own directory._
 
 ### `payer_sources`
 
@@ -229,7 +289,7 @@ The insurers whose FHIR directories we harvest. 'Configured' is not the same as 
 
 **Table** · 12 rows · defined in sql/013
 
-**Joins:** `payer_networks` (`payer_source_id`) · `payer_unmatched_npis` (`payer_source_id`) · `provider_network_participation` (`payer_source_id`)
+**Joins:** `org_affiliations` (`payer_source_id`) · `payer_networks` (`payer_source_id`) · `payer_unmatched_npis` (`payer_source_id`) · `provider_network_participation` (`payer_source_id`)
 
 | column | type |
 | --- | --- |
@@ -257,7 +317,7 @@ The insurers whose FHIR directories we harvest. 'Configured' is not the same as 
 
 ### `payer_networks`
 
-Per-insurer network/product labels from directories — the labels membership hangs off.
+Per-insurer network/product labels from directories — the labels membership hangs off (anthem 356+ · cigna 226 · uhc 213 · humana 135 · mvp 18).
 
 **Table** · 1,133 rows · defined in sql/013
 
@@ -296,7 +356,7 @@ Payer-attested membership: one row per (npi × payer × network × location), ca
 
 ### `payer_unmatched_npis`
 
-Providers a payer names that our book has never heard of — the discovery pool (NYS-40).
+Providers a payer names that our book has never heard of — the discovery pool (NYS-40; the big pool still lives in .harvest files).
 
 **Table** · 808 rows · defined in sql/013
 
@@ -347,7 +407,7 @@ Org entities from payer FHIR directories (groups, facilities), as the payer mode
 
 **Table** · 5,851 rows · defined in sql/029
 
-**Joins:** `fhir_org_affiliations` (`organization`)
+**Joins:** `fhir_org_affiliations` (`organization`) · `org_affiliations`
 
 | column | type |
 | --- | --- |
@@ -439,6 +499,24 @@ The InsurancePlan/product objects payers publish alongside their network labels.
 | `raw` | jsonb |
 | `ingested_at` | timestamp with time zone |
 
+### `org_affiliations`
+
+Payer-attested provider↔org links pulled from the PractitionerRole.organization reference in Anthem/Humana Plan-Net resources (display = the real org name, e.g. 'Lifestance Psychology'). Extracted idempotently from provider_network_participation.raw_resource by scripts/orgs-sync.mjs; re-run after every FHIR harvest.
+
+**Table** · 163,523 rows · defined in sql/025
+
+**Joins:** `directory_providers` (`npi`) · `fhir_organizations` · `payer_sources` (`payer_source_id`) · `tin_registry`
+
+| column | type |
+| --- | --- |
+| `id` | uuid |
+| `npi` | text |
+| `payer_source_id` | uuid |
+| `org_ref` | text |
+| `org_display` | text |
+| `first_seen` | date |
+| `last_seen` | date |
+
 ## Rates (Transparency-in-Coverage)
 
 _What payers actually pay, from their own published machine-readable files._
@@ -489,7 +567,7 @@ Per-NPI rate rollup (matview) — what each provider is paid, precomputed so /re
 
 ### `provider_participation_summary`
 
-Per-NPI network aggregate (matview) feeding the directory Accepting/Network sort.
+Per-NPI network aggregate (matview) feeding the directory Accepting/Network sort; refresh with the other matviews after every ingest.
 
 **Matview** · 39,701 rows · defined in sql/023 · powers `/directory` · refreshed nightly by the 04:12 cron
 
@@ -612,11 +690,11 @@ Per-(TIN, payer, code) rate percentiles (matview) — what each org is paid at p
 
 ### `tin_registry`
 
-TIN → business-name registry: the naming layer behind every org display name. Without it every org reads as a 9-digit number.
+TIN → business-name registry: the naming layer behind every org display name. Without it every org reads as a 9-digit number (NYS-27 backfill has run).
 
 **Table** · 29,795 rows · defined in sql/019 · powers `/orgs`
 
-**Joins:** `form5500_filings` · `org_tin_rosters` (`tin`) · `organizations` (`tin`) · `provider_rate_signals` (`tin`) · `rate_table_mv` (`tin`)
+**Joins:** `form5500_filings` · `nppes_organizations` · `nppes_other_names` · `org_affiliations` · `org_tin_rosters` (`tin`) · `organizations` (`tin`) · `provider_rate_signals` (`tin`) · `rate_table_mv` (`tin`)
 
 | column | type |
 | --- | --- |
@@ -628,7 +706,7 @@ TIN → business-name registry: the naming layer behind every org display name. 
 
 ### `payer_rate_totals`
 
-Per-payer rate totals (matview) — the small denominator table the admin/observatory reads instead of scanning the 9M-row corpus.
+Per-payer rate totals (matview) — the small denominator table the admin/observatory reads instead of scanning the multi-million-row corpus.
 
 **Matview** · 30 rows · defined in sql/026 · powers `/insights` · refreshed nightly by the 04:12 cron
 
@@ -702,7 +780,7 @@ Defined in sql/033; the loader hasn't populated it in this database yet.
 
 ### `cms_rvu`
 
-PFS Relative Value File: work/PE/MP RVUs per code × modifier. Deliberately carries NO descriptor column — that text is AMA-licensed.
+PFS Relative Value File: work/PE/MP RVUs per code × modifier. Deliberately carries NO descriptor column — that text is AMA-licensed to CMS, not to us.
 
 **Table** · 19,356 rows · defined in sql/033
 
@@ -726,7 +804,7 @@ PFS Relative Value File: work/PE/MP RVUs per code × modifier. Deliberately carr
 
 ### `cms_gpci`
 
-Geographic practice cost indices, 109 localities. NY has five — the geography multiplier that makes the same code pay differently in Manhattan and Buffalo.
+Geographic practice cost indices, 109 localities. NY has five (Manhattan · NYC Suburbs/LI · Poughkeepsie · Queens · Rest of NY) — the geography multiplier that makes the same code pay differently in Manhattan and Buffalo.
 
 **Table** · 109 rows · defined in sql/033
 
@@ -745,7 +823,7 @@ Geographic practice cost indices, 109 localities. NY has five — the geography 
 
 ### `cms_pfs_config`
 
-PFS scalars — the dollars-per-RVU conversion factors that turn relative units into money.
+PFS scalars — the dollars-per-RVU conversion factors that turn relative units into money. CY2026 ships two ($33.4009 non-APM, which the benchmark uses, and $33.5675 for qualifying APM participants).
 
 **Table** · 2 rows · defined in sql/033
 
@@ -767,7 +845,7 @@ Plan sponsors from the Aetna ToC (EIN-keyed) — the employers behind the plans 
 
 **Table** · 3,476 rows · defined in sql/020 · powers `/plans`
 
-**Joins:** `form5500_filings` (`ein`) · `plans`
+**Joins:** `form5500_filings` (`ein`) · `nppes_organizations` (`ein`) · `plans`
 
 | column | type |
 | --- | --- |
@@ -888,7 +966,7 @@ _The ledger and notification tables the automation writes to._
 
 ### `sync_runs`
 
-The maintenance ledger: one row per run of the nightly matview cron ('daily') and the harvest runner ('harvest:<id>'). The /insights sync-health card reads it.
+The maintenance ledger: one row per run of the nightly matview cron ('daily') and the harvest runner ('harvest:<id>'). The /insights sync-health card + run-history table read it.
 
 **Table** · 11 rows · defined in sql/035 · powers `/insights`
 
@@ -1005,7 +1083,7 @@ Calendar events tying client + practitioner + service + location with a status l
 
 ### `invoices`
 
-Client invoices with human numbers (INV-2026-0001) and a draft→sent→paid lifecycle.
+Client invoices with human numbers (INV-2026-0001) and a draft→sent→paid/overdue/void lifecycle.
 
 **Table** · 12 rows · defined in sql/001
 
@@ -1132,7 +1210,7 @@ _In the database but not yet in the atlas metadata (mirror `lib/repos/admin.ts`)
 
 ### `audit_events`
 
-**Table** · 2,104 rows · 7 columns
+**Table** · 2,105 rows · 7 columns
 
 | column | type |
 | --- | --- |
@@ -1262,40 +1340,6 @@ _In the database but not yet in the atlas metadata (mirror `lib/repos/admin.ts`)
 | `aff_state` | text |
 | `aff_postal` | text |
 
-### `nppes_organizations`
-
-**Table** · 104,060 rows · 17 columns
-
-| column | type |
-| --- | --- |
-| `npi` | text |
-| `name` | text |
-| `other_name` | text |
-| `ein` | text |
-| `taxonomy` | text |
-| `address` | text |
-| `city` | text |
-| `state` | text |
-| `zip` | text |
-| `phone` | text |
-| `authorized_official` | text |
-| `is_subpart` | boolean |
-| `parent_lbn` | text |
-| `enumeration_date` | date |
-| `last_update` | date |
-| `deactivation_date` | date |
-| `ingested_at` | timestamp with time zone |
-
-### `nppes_other_names`
-
-**Table** · ≈ 719,947 rows · 3 columns
-
-| column | type |
-| --- | --- |
-| `npi` | text |
-| `other_name` | text |
-| `type_code` | text |
-
 ### `nppes_sync_log`
 
 **Table** · 2 rows · 4 columns
@@ -1306,34 +1350,6 @@ _In the database but not yet in the atlas metadata (mirror `lib/repos/admin.ts`)
 | `kind` | text |
 | `rows_applied` | integer |
 | `applied_at` | timestamp with time zone |
-
-### `nucc_taxonomy`
-
-**Table** · 883 rows · 7 columns
-
-| column | type |
-| --- | --- |
-| `code` | text |
-| `grouping` | text |
-| `classification` | text |
-| `specialization` | text |
-| `definition` | text |
-| `display_name` | text |
-| `section` | text |
-
-### `org_affiliations`
-
-**Table** · 163,523 rows · 7 columns
-
-| column | type |
-| --- | --- |
-| `id` | uuid |
-| `npi` | text |
-| `payer_source_id` | uuid |
-| `org_ref` | text |
-| `org_display` | text |
-| `first_seen` | date |
-| `last_seen` | date |
 
 ### `password_tokens`
 
@@ -1475,7 +1491,7 @@ _In the database but not yet in the atlas metadata (mirror `lib/repos/admin.ts`)
 
 ### `sessions`
 
-**Table** · 459 rows · 4 columns
+**Table** · 460 rows · 4 columns
 
 | column | type |
 | --- | --- |
