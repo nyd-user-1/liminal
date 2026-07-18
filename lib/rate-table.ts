@@ -6,6 +6,10 @@
 // codebase imports from lib/repos with `import type` only. Importing a VALUE
 // from a repo drags lib/db into the browser bundle, where the `sql` Proxy's
 // get-trap constructs a Neon client and throws "DATABASE_URL is not set".
+//
+// CPT names come from the generated single-source map (← cpt_codes), not a
+// hand-kept literal here — this is a pure, DB-free module, so importing it is safe.
+import { CPT_LABELS } from "@/lib/cpt-labels.generated";
 
 export const RATE_TABLE_PAYERS = [
   "Cigna Health & Life",
@@ -18,16 +22,21 @@ export const RATE_TABLE_PAYERS = [
 
 export type RateTablePayer = (typeof RATE_TABLE_PAYERS)[number];
 
-/** The five codes, in table order. `name` is the plain-English header tooltip + legend.
- *  `key` holds the single rate (NULL unless exactly one); `nKey` holds how many
- *  distinct rates the payer published — see rateCell() for why both exist. */
-export const RATE_CODES = [
-  { key: "c90791", nKey: "n90791", code: "90791", name: "Diagnostic evaluation" },
-  { key: "c90834", nKey: "n90834", code: "90834", name: "Psychotherapy 45 min" },
-  { key: "c90837", nKey: "n90837", code: "90837", name: "Psychotherapy 60 min" },
-  { key: "c90853", nKey: "n90853", code: "90853", name: "Group psychotherapy" },
-  { key: "c99214", nKey: "n99214", code: "99214", name: "Established patient visit" },
+/** The five codes, in table order. `name` is the plain-English header tooltip +
+ *  legend, sourced from the single CPT label map. `key` holds the single rate
+ *  (NULL unless exactly one); `nKey` holds how many distinct rates the payer
+ *  published — see rateCell() for why both exist. The `key`/`nKey`/`code`
+ *  literals stay `as const` (rateCell indexes `row[c.key]`); `name` is joined on
+ *  from the map so the wording lives in one place. */
+const RATE_CODE_DEFS = [
+  { key: "c90791", nKey: "n90791", code: "90791" },
+  { key: "c90834", nKey: "n90834", code: "90834" },
+  { key: "c90837", nKey: "n90837", code: "90837" },
+  { key: "c90853", nKey: "n90853", code: "90853" },
+  { key: "c99214", nKey: "n99214", code: "99214" },
 ] as const;
+
+export const RATE_CODES = RATE_CODE_DEFS.map((c) => ({ ...c, name: CPT_LABELS[c.code] ?? c.code }));
 
 export interface RateTableRow {
   tin: string;

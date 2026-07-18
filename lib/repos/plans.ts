@@ -1,3 +1,4 @@
+import { CPT_LABELS as GENERATED_CPT_LABELS } from "@/lib/cpt-labels.generated";
 import { hasDb, sql } from "@/lib/db";
 import { titleCase } from "@/lib/format";
 
@@ -139,14 +140,13 @@ export interface NetworkRateSummary {
   cpts: Array<{ billingCode: string; median: string; providers: number }>;
 }
 
-// behavioral CPT labels for the summary (mirrors the scanner's 5-code set)
-export const CPT_LABELS: Record<string, string> = {
-  "90791": "Diagnostic eval",
-  "90834": "Psychotherapy, 45 min",
-  "90837": "Psychotherapy, 60 min",
-  "90853": "Group psychotherapy",
-  "99214": "E/M established",
-};
+// The five codes the employer rate summary gives a column to. Which codes is
+// this surface's own choice (kept here); the LABELS come from the single source
+// (the generated map ← cpt_codes), so the wording never forks.
+const SUMMARY_CODES = ["90791", "90834", "90837", "90853", "99214"];
+export const CPT_LABELS: Record<string, string> = Object.fromEntries(
+  SUMMARY_CODES.map((c) => [c, GENERATED_CPT_LABELS[c] ?? c]),
+);
 
 /**
  * Per-network behavioral rate summary for an employer's plans — the catalog
