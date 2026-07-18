@@ -62,9 +62,20 @@ export interface RateRowFilters {
 }
 
 /**
- * Server-paginated services list. Returns the page plus the full match count,
- * in ONE round trip (count(*) OVER ()) — the listOrganizations trick, over
- * getOrgRoster's limit/offset shape.
+ * Server-paginated services list. Returns the page plus the full match count.
+ *
+ * The count and the page are TWO queries fired in parallel (Promise.all), not one
+ * `count(*) OVER ()` (NYS-114, measured on the live 425k-service corpus): the
+ * window forced Postgres to materialize + count every matching row before the
+ * LIMIT could take 50, so the UNFILTERED initial load — the /rates first paint —
+ * paid ~600 ms (1.2 s cold) even though it returns a page. Split apart, the page
+ * is a top-N over the grain index (~145 ms) and the count runs beside it, so the
+ * wall time is the slower of the two (~165 ms unfiltered; ~90 ms once the trigram
+ * index in sql/060 filters display_name). A text/facet filter shrinks both.
+ *
+ * The count is skipped entirely past the first page: "load more" (offset > 0)
+ * reuses the total the client already holds, so an infinite scroll never re-pays
+ * the count.
  */
 export async function listRateRows(
   f: RateRowFilters = {},
@@ -73,8 +84,11 @@ export async function listRateRows(
   const limit = Math.min(f.limit ?? 50, 500);
   const offset = Math.max(f.offset ?? 0, 0);
   const q = f.q?.trim() ? `%${f.q.trim()}%` : null;
+  const payer = f.payer ?? null;
+  const code = f.code ?? null;
+  const network = f.network ?? null;
 
-  const rows = (await sql`
+  const pagePromise = sql`
     WITH unpivoted AS (
       SELECT m.npi, m.display_name, m.credential, m.profession, m.city,
              m.payer, m.network, m.setting, m.tin, m.as_of,
@@ -91,20 +105,47 @@ export async function listRateRows(
       -- the multi-rate cells (rate IS NULL, n_rates > 1), which ARE facts.
       WHERE v.n_rates > 0
     )
-    SELECT u.*, count(*) OVER ()::int AS total
+    SELECT u.*
     FROM unpivoted u
-    WHERE (${f.payer ?? null}::text IS NULL OR u.payer = ${f.payer ?? null})
-      AND (${f.code ?? null}::text IS NULL OR u.billing_code = ${f.code ?? null})
-      AND (${f.network ?? null}::text IS NULL OR u.network = ${f.network ?? null})
+    WHERE (${payer}::text IS NULL OR u.payer = ${payer})
+      AND (${code}::text IS NULL OR u.billing_code = ${code})
+      AND (${network}::text IS NULL OR u.network = ${network})
       AND (${q}::text IS NULL OR (
             u.display_name ILIKE ${q} OR u.payer ILIKE ${q} OR u.network ILIKE ${q}
             OR u.tin ILIKE ${q} OR u.npi ILIKE ${q}))
     ORDER BY u.payer, u.network, u.billing_code, u.rate DESC NULLS LAST, u.npi
     LIMIT ${limit} OFFSET ${offset}
-  `) as Array<Record<string, unknown>>;
+  ` as unknown as Promise<Array<Record<string, unknown>>>;
+
+  // Only page 0 needs the count; scroll pages reuse it.
+  const countPromise =
+    offset === 0
+      ? (sql`
+          WITH unpivoted AS (
+            SELECT m.payer, m.network, m.tin, m.npi, m.display_name,
+                   v.billing_code, v.n_rates
+            FROM rate_table_child_mv m
+            CROSS JOIN LATERAL (VALUES
+              ('90791', m.n90791), ('90834', m.n90834), ('90837', m.n90837),
+              ('90853', m.n90853), ('99214', m.n99214)
+            ) AS v(billing_code, n_rates)
+            WHERE v.n_rates > 0
+          )
+          SELECT count(*)::int AS total
+          FROM unpivoted u
+          WHERE (${payer}::text IS NULL OR u.payer = ${payer})
+            AND (${code}::text IS NULL OR u.billing_code = ${code})
+            AND (${network}::text IS NULL OR u.network = ${network})
+            AND (${q}::text IS NULL OR (
+                  u.display_name ILIKE ${q} OR u.payer ILIKE ${q} OR u.network ILIKE ${q}
+                  OR u.tin ILIKE ${q} OR u.npi ILIKE ${q}))
+        ` as unknown as Promise<Array<{ total: number }>>)
+      : Promise.resolve([{ total: 0 }] as Array<{ total: number }>);
+
+  const [rows, countRows] = await Promise.all([pagePromise, countPromise]);
 
   return {
-    total: rows.length > 0 ? (rows[0].total as number) : 0,
+    total: countRows[0]?.total ?? 0,
     rows: rows.map((r) => ({
       npi: r.npi as string,
       displayName: (r.display_name as string) ?? null,

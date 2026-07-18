@@ -303,7 +303,10 @@ export function DirectoryClient({
   // Debounced so each keystroke doesn't fire its own directory-wide scan;
   // Enter in the search box still loads immediately.
   useEffect(() => {
-    const t = setTimeout(() => load(1, true), 250);
+    // 150ms (was 250): sql/060 + the trigram indexes make the server search fast
+    // enough that a tighter debounce no longer risks a scan storm, and the
+    // client-side pre-filter in sortedProviders covers the gap instantly anyway.
+    const t = setTimeout(() => load(1, true), 150);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load]);
@@ -377,7 +380,24 @@ export function DirectoryClient({
       const s = p.npi ? networks[p.npi] : undefined;
       return s ? s.networks.length : -1;
     };
-    const sorted = [...(items as DirectoryProvider[])].sort((a, b) => {
+    // Instant client-side reduction (TASK-SEARCH, the "sports feel"): while the
+    // 150ms debounced server search is in flight, narrow the already-loaded rows
+    // the moment a key lands. Mirrors the server ILIKE (name/city/profession/
+    // subspecialty on the raw fields), so once the server answers for this q it
+    // is idempotent — safe to apply unconditionally. Below 2 chars we match the
+    // server, which returns the unfiltered default listing.
+    const qn = q.trim().toLowerCase();
+    const base =
+      qn.length >= 2
+        ? (items as DirectoryProvider[]).filter(
+            (p) =>
+              p.name.toLowerCase().includes(qn) ||
+              (p.city ?? "").toLowerCase().includes(qn) ||
+              (p.profession ?? "").toLowerCase().includes(qn) ||
+              (p.subspecialty ?? "").toLowerCase().includes(qn),
+          )
+        : (items as DirectoryProvider[]);
+    const sorted = [...base].sort((a, b) => {
       if (providerSort.col === "specialty") return (a.profession ?? "").localeCompare(b.profession ?? "") * dir;
       if (providerSort.col === "city") return (a.city ?? "").localeCompare(b.city ?? "") * dir;
       if (providerSort.col === "accepting") return (acceptingRank(a) - acceptingRank(b)) * dir;

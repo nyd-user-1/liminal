@@ -20,9 +20,19 @@ import type { RateRow } from "@/lib/repos/rate-rows";
 // they were being read as "the" rate. The bands are still worth having, so they
 // live behind the Bands toggle (rates-shell owns that switch) — not deleted.
 //
-// SERVER-paginated: 425,687 service rows exist, so the page comes from
-// /api/rates/services and "Load more" advances the offset. Nothing is filtered
-// client-side — the facets and the search go to the query, or the count lies.
+// HYBRID SEARCH (TASK-SEARCH, founder directive): 425,687 service rows exist, so
+// the corpus is server-paginated — the page comes from /api/rates/services and
+// scroll advances the offset. But typing must feel INSTANT, so two layers run at
+// once:
+//   1. Client-side reduction — every keystroke immediately filters the rows
+//      already loaded (the "sports feel": the visible list only shrinks, zero
+//      round-trip). This is a SUBSET preview, honest about being one.
+//   2. Debounced (150 ms) server query — the authoritative full-corpus match
+//      (includes rows beyond the loaded page), which replaces the preview when it
+//      lands. sql/060's trigram index + the two-query split in listRateRows put
+//      that response at ~90–170 ms, so it slides in right under the instant one.
+// Nothing ever blanks: the previous rows stay on screen (keep-previous) while the
+// server catches up, and the footer says whether it's still searching.
 //
 // The PLAN column is `network` (the payer's own product). There is no employer
 // plan to show: `plans` is Aetna-only and this book excludes Aetna by design —
@@ -34,6 +44,18 @@ const CODES = ["90791", "90834", "90837", "90853", "99214"] as const;
 
 type Result = { rows: RateRow[]; total: number; facets: { payers: string[]; networks: string[] } };
 
+/** The client-side mirror of the server ILIKE (display_name/payer/network/tin/npi).
+ *  Applied to the already-loaded rows so a keystroke narrows them with no fetch. */
+function clientMatch(r: RateRow, qn: string): boolean {
+  return (
+    (r.displayName ?? "").toLowerCase().includes(qn) ||
+    r.payer.toLowerCase().includes(qn) ||
+    (r.network ?? "").toLowerCase().includes(qn) ||
+    r.tin.toLowerCase().includes(qn) ||
+    r.npi.includes(qn)
+  );
+}
+
 export function ServicesPanel() {
   const [q, setQ] = useState("");
   const [payer, setPayer] = useState<string | undefined>();
@@ -42,6 +64,7 @@ export function ServicesPanel() {
   const [data, setData] = useState<Result | null>(null);
   const [more, setMore] = useState<RateRow[]>([]);
   const [busy, setBusy] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const params = useCallback(
@@ -56,11 +79,14 @@ export function ServicesPanel() {
     [q, payer, code, network],
   );
 
-  // Debounced — every keystroke and facet change is a new query, so the count
-  // and the rows always agree.
+  // Debounced — every keystroke and facet change is a new server query, so the
+  // count and the authoritative rows always agree. `syncing` flips true the moment
+  // the query params change (the client preview is showing a subset) and false
+  // when the server's full-corpus answer lands.
   useEffect(() => {
     let stale = false;
     setError(null);
+    setSyncing(true);
     const t = setTimeout(async () => {
       try {
         const res = await fetch(`/api/rates/services?${params(0)}`);
@@ -71,24 +97,31 @@ export function ServicesPanel() {
         setMore([]);
       } catch (e) {
         if (!stale) setError(e instanceof Error ? e.message : "Couldn't load rates.");
+      } finally {
+        if (!stale) setSyncing(false);
       }
-    }, 250);
+    }, 150);
     return () => {
       stale = true;
       clearTimeout(t);
     };
   }, [params]);
 
-  const rows = data ? [...data.rows, ...more] : [];
+  const loaded = data ? [...data.rows, ...more] : [];
+  // Layer 1: instant client reduction. Idempotent once the server answers for
+  // this q (the server already ILIKE-filtered), so it's safe to apply always.
+  const qn = q.trim().toLowerCase();
+  const rows = qn ? loaded.filter((r) => clientMatch(r, qn)) : loaded;
 
-  // Grows the loaded set on scroll (no "Load more" button). Guarded so the
-  // bottom sentinel can fire repeatedly without stacking fetches or running
-  // past the total.
+  // Grows the loaded set on scroll (no "Load more" button). Offset is the count
+  // of rows actually FETCHED (loaded), not the client-filtered subset shown.
+  // Guarded so the bottom sentinel can fire repeatedly without stacking fetches,
+  // running past the total, or racing a query the debounce is about to replace.
   const loadMore = async () => {
-    if (busy || !data || rows.length >= data.total) return;
+    if (busy || syncing || !data || loaded.length >= data.total) return;
     setBusy(true);
     try {
-      const res = await fetch(`/api/rates/services?${params(rows.length)}`);
+      const res = await fetch(`/api/rates/services?${params(loaded.length)}`);
       const json = await res.json();
       if (res.ok) setMore((m) => [...m, ...json.rows]);
     } finally {
@@ -190,9 +223,15 @@ export function ServicesPanel() {
         </div>
       }
       footnote={
+        // While the server catches up, an empty client subset is NOT "no
+        // results" — the full-corpus match may live beyond the loaded page.
         rows.length === 0 ? (
           <div className="rounded-card border border-border bg-surface shadow-card">
-            <EmptyState icon="clipboard" title="No published rates match" subtext="Clear the search or a filter." />
+            {syncing ? (
+              <EmptyState icon="search" title="Searching all published rates…" subtext="One moment." />
+            ) : (
+              <EmptyState icon="clipboard" title="No published rates match" subtext="Clear the search or a filter." />
+            )}
           </div>
         ) : undefined
       }
@@ -200,7 +239,16 @@ export function ServicesPanel() {
         <p className="text-[13px] text-text-muted">
           Search <span className="tabular-nums">{data.total.toLocaleString("en-US")}</span> published rates. For Billing
           groups with more than 100 published rate rows see the corresponding <TextLink href="/orgs">organization</TextLink>.
-          {busy && <span className="ml-2">Loading…</span>}
+          {syncing ? (
+            <span className="ml-2">Searching all…</span>
+          ) : (
+            qn && (
+              <span className="ml-2 tabular-nums">
+                {rows.length.toLocaleString("en-US")} shown
+              </span>
+            )
+          )}
+          {busy && <span className="ml-2">Loading more…</span>}
         </p>
       }
     />

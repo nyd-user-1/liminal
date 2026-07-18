@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { MobileNav } from "@/components/shell/mobile-nav";
+import { CommandPalette } from "@/components/search/command-palette";
 import { Sidebar, type SidebarNavItem } from "@/components/shell/sidebar";
 import { TopBar } from "@/components/shell/topbar";
 import type { SessionUser } from "@/lib/auth";
@@ -74,6 +75,8 @@ export function AppShell({
   const homeHref = variant === "portal" ? "/portal" : "/calendar";
   return (
     <div className="flex h-dvh overflow-hidden bg-canvas">
+      {/* ⌘K workspace search — client component, workspace variant only. */}
+      {variant === "workspace" && <CommandPalette />}
       <Sidebar className="max-md:hidden" items={nav} user={user} homeHref={homeHref} />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
