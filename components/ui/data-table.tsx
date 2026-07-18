@@ -9,6 +9,7 @@ import { FilterChip } from "@/components/ui/filter-chip";
 import { Icon, type IconName } from "@/components/ui/icons";
 import { KebabMenu } from "@/components/ui/kebab-menu";
 import { DropdownMenu, MenuDivider, MenuItem, MenuSectionLabel } from "@/components/ui/dropdown-menu";
+import { SearchInput } from "@/components/ui/search-input";
 import { LoadMoreRow, Table, Td, Tr, useLazyBatch, useSentinel, useSort, type SortState } from "@/components/ui/table";
 import { Toolbar } from "@/components/ui/toolbar";
 
@@ -313,7 +314,10 @@ export function DataTable<T>({
           label={`${c.label} column options`}
           align={c.align === "right" ? "right" : "left"}
           width="w-60"
-          triggerClassName="-mx-1 flex items-center gap-1 whitespace-nowrap rounded px-1 transition-colors hover:text-primary-deep"
+          // The grey pill on hover is the click affordance ("this header is a
+          // control"), and it STAYS while the menu is open — aria-expanded
+          // comes from DropdownMenu's trigger.
+          triggerClassName="-mx-2 -my-1 flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-1 transition-colors hover:bg-[#F3F4F6] hover:text-primary-deep aria-expanded:bg-[#F3F4F6]"
           trigger={
             <>
               {c.label}
@@ -814,6 +818,11 @@ function HeaderMenu<T>({
     return m;
   }, [col, rows]);
   const values = counts ? [...counts.keys()].sort((a, b) => a.localeCompare(b)) : null;
+  // Long value lists get a search at the top of the menu (the img-64 source
+  // pattern) — jump to a value instead of scrolling for it.
+  const [term, setTerm] = useState("");
+  const searchable = !!values && values.length > 8;
+  const shownValues = values && term ? values.filter((v) => v.toLowerCase().includes(term.toLowerCase())) : values;
   return (
     <>
       {col.sortValue && (
@@ -837,8 +846,18 @@ function HeaderMenu<T>({
         <>
           {col.sortValue && <MenuDivider />}
           <MenuSectionLabel>Filter</MenuSectionLabel>
+          {searchable && (
+            <SearchInput
+              placeholder={`Search ${col.label.toLowerCase()}…`}
+              aria-label={`Search ${col.label} values`}
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              className="mb-1.5 w-full"
+            />
+          )}
           <div className="max-h-56 overflow-y-auto">
-            {values.map((v) => (
+            {shownValues!.length === 0 && <div className="px-2.5 py-2 text-sm text-text-muted">No matching values.</div>}
+            {shownValues!.map((v) => (
               <label
                 key={v}
                 className="flex w-full cursor-pointer items-center gap-2.5 rounded-field px-2.5 py-1.5 text-[15px] text-text transition-colors hover:bg-[#F3F4F6]"
