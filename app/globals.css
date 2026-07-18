@@ -205,16 +205,6 @@ body {
   .sheet-rise { animation: none; transform: none; }
 }
 
-/* ── DataTable floating bulk-action bar (NYS-147) ───────────────────────── */
-@keyframes bulk-bar-rise {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: none; }
-}
-.bulk-bar-rise { animation: bulk-bar-rise 0.22s cubic-bezier(0.16, 1, 0.3, 1) both; }
-@media (prefers-reduced-motion: reduce) {
-  .bulk-bar-rise { animation: none; opacity: 1; transform: none; }
-}
-
 /* ── SidePanel flyover (components/ui/side-panel.tsx) ────────────────────────
    ENTER-ONLY, like hq's spec drawer: the panel unmounts on close (`if (!open)
    return null`), so there is no exit keyframe to run — a leave animation would

@@ -85,35 +85,21 @@ export function DropdownMenu({
   align = "right",
   placement = "bottom",
   width = "w-56",
-  widthPx = 224,
-  openOnHover = false,
   triggerClassName = "",
 }: {
   trigger: ReactNode;
   children: ReactNode;
   label?: string;
-  /** `left`/`right` align that edge of the menu with the same edge of the
-   *  trigger. `flank` puts the menu BESIDE the trigger — its left edge on the
-   *  trigger's right edge, so the trigger's own column stays readable under
-   *  it (a table-header menu must not cover the values being sorted). When
-   *  there's no room on the right, it flips: right edge on the trigger's
-   *  left edge. */
-  align?: "left" | "right" | "flank";
+  align?: "left" | "right";
   /** Which side of the trigger the menu opens. `top` = drop-up (e.g. a
    *  bottom-of-sidebar account chip). */
   placement?: "bottom" | "top";
   width?: string;
-  /** Numeric width matching `width` — only used for `flank`'s room check. */
-  widthPx?: number;
-  /** Open on trigger hover (with a leave grace so the pointer can travel
-   *  into the menu). Click still toggles. */
-  openOnHover?: boolean;
   triggerClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top?: number; bottom?: number; left?: number; right?: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -121,40 +107,15 @@ export function DropdownMenu({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
-    // Page scroll dismisses (the fixed-position menu would detach from its
-    // trigger) — but a scroll INSIDE the menu (a long filter/option list) is
-    // the user using the menu, never a dismiss.
-    const onScroll = (e: Event) => {
-      if (menuRef.current && e.target instanceof Node && menuRef.current.contains(e.target)) return;
-      setOpen(false);
-    };
     window.addEventListener("click", close);
     window.addEventListener("keydown", onKey);
-    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("scroll", close, true);
     return () => {
       window.removeEventListener("click", close);
       window.removeEventListener("keydown", onKey);
-      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("scroll", close, true);
     };
   }, [open]);
-
-  const openUp = () => {
-    const r = btnRef.current?.getBoundingClientRect();
-    if (r) {
-      let horizontal: { left?: number; right?: number };
-      if (align === "flank") {
-        // Beside the trigger; flip sides when the right edge would run out.
-        const noRoom = r.right + widthPx + 8 > window.innerWidth;
-        horizontal = noRoom ? { right: window.innerWidth - r.left + 4 } : { left: r.right + 4 };
-      } else {
-        horizontal = align === "right" ? { right: window.innerWidth - r.right } : { left: r.left };
-      }
-      const vertical =
-        placement === "top" ? { bottom: window.innerHeight - r.top + 4 } : { top: r.bottom + 4 };
-      setPos({ ...horizontal, ...vertical });
-    }
-    setOpen(true);
-  };
 
   const toggle = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -163,32 +124,16 @@ export function DropdownMenu({
       setOpen(false);
       return;
     }
-    openUp();
-  };
-
-  // Hover mode: a leave starts a short grace timer, so the pointer can cross
-  // the gap into the menu; entering either side cancels it.
-  const graceTimer = useRef<number | null>(null);
-  const cancelClose = () => {
-    if (graceTimer.current !== null) {
-      window.clearTimeout(graceTimer.current);
-      graceTimer.current = null;
+    const r = btnRef.current?.getBoundingClientRect();
+    if (r) {
+      const horizontal =
+        align === "right" ? { right: window.innerWidth - r.right } : { left: r.left };
+      const vertical =
+        placement === "top" ? { bottom: window.innerHeight - r.top + 4 } : { top: r.bottom + 4 };
+      setPos({ ...horizontal, ...vertical });
     }
+    setOpen(true);
   };
-  const scheduleClose = () => {
-    cancelClose();
-    graceTimer.current = window.setTimeout(() => setOpen(false), 180);
-  };
-  useEffect(() => cancelClose, []);
-  const hoverProps = openOnHover
-    ? {
-        onMouseEnter: () => {
-          cancelClose();
-          if (!open) openUp();
-        },
-        onMouseLeave: scheduleClose,
-      }
-    : {};
 
   return (
     <>
@@ -200,7 +145,6 @@ export function DropdownMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         className={triggerClassName}
-        {...hoverProps}
       >
         {trigger}
       </button>
@@ -210,10 +154,8 @@ export function DropdownMenu({
         createPortal(
           <MenuCloseCtx.Provider value={() => setOpen(false)}>
             <div
-              ref={menuRef}
               role="menu"
               onClick={(e) => e.stopPropagation()}
-              {...(openOnHover ? { onMouseEnter: cancelClose, onMouseLeave: scheduleClose } : {})}
               style={{ top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right }}
               className={`fixed z-50 flex ${width} flex-col rounded-card border border-border bg-surface p-2 shadow-menu`}
             >

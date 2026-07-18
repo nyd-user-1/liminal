@@ -1,82 +1,56 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { InsurerMark } from "@/components/rates/insurer-mark";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { BulkAction, DataTable, EmptyCell, type DataTableColumn } from "@/components/ui/data-table";
+import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FilterChip } from "@/components/ui/filter-chip";
 import { KebabMenu } from "@/components/ui/kebab-menu";
 import { MenuItem } from "@/components/ui/dropdown-menu";
-import { RelatedLink } from "@/components/ui/text-link";
 import { SearchInput } from "@/components/ui/search-input";
 import { TextLink } from "@/components/ui/text-link";
 import { useToast } from "@/components/ui/toast";
-import type { NetworkListRow, NetworkRateStat, OrgNetworkRatesSummary } from "@/lib/repos/networks";
-import { adminLabel, kindLabel } from "./labels";
-import { NetworkIdentityCard } from "./network-card";
+import type { NetworkListRow } from "@/lib/repos/networks";
 
-// The canonical-network index (sql/044, NYS-49) — the reference for the
-// NYS-147/148 template: identity card (aggregate ⇄ row via the skeleton
-// transition) → hairline → the stacked full-feature DataTable (hover header
-// menus with sort/filter/hide, View options panel, EmptyCell, select column +
-// floating bulk bar, paginated footer). 69 rows, so search / filter / sort are
-// client-side — no round trip.
+// The canonical-network index (sql/044, NYS-49) — the reference for the stacked
+// full-feature DataTable: the WHOLE toolbar (search + filter + kebab + column
+// picker) lives inside the card, AND it keeps the select column, the row-action
+// column, sortable headers, and the column picker. 69 rows, so search / filter /
+// sort are all client-side — no round trip.
 
-const csvFor = (list: NetworkListRow[]) => {
-  const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replaceAll('"', '""')}"` : v);
-  return [
-    ["Network", "Insurer", "Administrator", "Type", "Notes"].join(","),
-    ...list.map((n) => [n.name, n.insurer, adminLabel(n), kindLabel(n), n.notes ?? ""].map(esc).join(",")),
-  ].join("\n");
+const ADMIN_LABEL: Record<string, string> = {
+  carelon: "Carelon",
+  optum: "Optum",
+  evernorth: "Evernorth",
+  magnacare: "MagnaCare",
+  multiplan: "MultiPlan",
+  cigna: "Cigna",
+  uhc: "UnitedHealth",
 };
 
-export function NetworksIndex({
-  initial,
-  orgsPriced = {},
-  summary = null,
-}: {
-  initial: NetworkListRow[];
-  orgsPriced?: Record<string, NetworkRateStat>;
-  summary?: OrgNetworkRatesSummary | null;
-}) {
+export function NetworksIndex({ initial }: { initial: NetworkListRow[] }) {
   const toast = useToast();
   const [q, setQ] = useState("");
+  const [insurer, setInsurer] = useState<string | undefined>();
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  // The card's focus: null = aggregate. Every swap passes through the
-  // skeleton state so the card reads as re-filling in place.
-  const [focus, setFocus] = useState<NetworkListRow | null>(null);
-  const [cardLoading, setCardLoading] = useState(false);
-  const skeletonTimer = useRef<number | null>(null);
-  const focusRow = (n: NetworkListRow | null) => {
-    setFocus(n);
-    setCardLoading(true);
-    if (skeletonTimer.current !== null) window.clearTimeout(skeletonTimer.current);
-    skeletonTimer.current = window.setTimeout(() => setCardLoading(false), 450);
-  };
+  const insurerOptions = useMemo(
+    () => [...new Set(initial.map((n) => n.insurer))].sort((a, b) => a.localeCompare(b)),
+    [initial],
+  );
 
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase();
-    if (!term) return initial;
-    return initial.filter(
-      (n) =>
+    return initial.filter((n) => {
+      if (insurer && n.insurer !== insurer) return false;
+      if (!term) return true;
+      return (
         n.name.toLowerCase().includes(term) ||
         n.insurer.toLowerCase().includes(term) ||
-        adminLabel(n).toLowerCase().includes(term),
-    );
-  }, [initial, q]);
-
-  const selectedRows = useMemo(() => initial.filter((n) => selected.has(n.id)), [initial, selected]);
-
-  const downloadCsv = (name: string, list: NetworkListRow[]) => {
-    const url = URL.createObjectURL(new Blob([csvFor(list)], { type: "text/csv" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = name;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast(`Exported ${list.length} network${list.length === 1 ? "" : "s"} as CSV.`, "success");
-  };
+        (n.administrator ?? "").toLowerCase().includes(term)
+      );
+    });
+  }, [initial, q, insurer]);
 
   const columns: DataTableColumn<NetworkListRow>[] = [
     {
@@ -91,54 +65,23 @@ export function NetworksIndex({
         </span>
       ),
     },
-    {
-      key: "insurer",
-      label: "Insurer",
-      sortValue: (n) => n.insurer,
-      filterValue: (n) => n.insurer,
-      cellClassName: "max-w-[20rem]",
-      render: (n) => (
-        <span className="flex min-w-0 items-center gap-2.5">
-          <InsurerMark payer={n.insurer} />
-          <RelatedLink href={`/insurers/${n.insurerId}`} title={`Open ${n.insurer}`}>
-            <span className="truncate">{n.insurer}</span>
-          </RelatedLink>
-        </span>
-      ),
-    },
+    { key: "insurer", label: "Insurer", sortValue: (n) => n.insurer, render: (n) => <span className="text-text-body">{n.insurer}</span> },
     {
       key: "administrator",
       label: "Administrator",
-      sortValue: (n) => adminLabel(n),
-      filterValue: (n) => adminLabel(n),
+      sortValue: (n) => n.administrator ?? "",
       render: (n) =>
         n.administrator ? (
-          <Badge variant="info">{adminLabel(n)}</Badge>
+          <Badge variant="info">{ADMIN_LABEL[n.administrator] ?? n.administrator}</Badge>
         ) : (
-          <EmptyCell label="Insurer-run" title="No TPA — the insurer administers this network directly" />
+          <span className="text-text-muted">—</span>
         ),
     },
     {
       key: "kind",
       label: "Type",
       sortValue: (n) => n.kind,
-      filterValue: (n) => kindLabel(n),
-      render: (n) => <span className="text-text-body">{kindLabel(n)}</span>,
-    },
-    {
-      key: "orgs",
-      label: "Orgs priced",
-      headTitle: "Organizations with an attested 90837 rate resolving to this network (sql/048)",
-      align: "right",
-      sortValue: (n) => orgsPriced[n.id]?.orgs ?? 0,
-      render: (n) => {
-        const c = orgsPriced[n.id]?.orgs;
-        return c ? (
-          <span className="tabular-nums text-text-body">{c.toLocaleString("en-US")}</span>
-        ) : (
-          <EmptyCell label="No rates" title="No attested rates resolve to this network yet" />
-        );
-      },
+      render: (n) => <span className="capitalize text-text-body">{n.kind}</span>,
     },
     {
       key: "notes",
@@ -151,23 +94,13 @@ export function NetworksIndex({
             {n.notes}
           </span>
         ) : (
-          <EmptyCell label="No notes" />
+          <span className="text-text-muted">—</span>
         ),
     },
   ];
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <NetworkIdentityCard
-        focus={focus}
-        loading={cardLoading}
-        all={initial}
-        orgStats={orgsPriced}
-        summary={summary}
-        onClear={() => focusRow(null)}
-      />
-      {/* The frame's hairline — the object-tab row (NYS-148) slots in above it. */}
-      <div className="my-4 shrink-0 border-b border-border" />
       <DataTable
         stacked
         columns={columns}
@@ -175,29 +108,15 @@ export function NetworksIndex({
         rowKey={(n) => n.id}
         storageKey="networks.columns"
         defaultSort={{ col: "insurer", dir: "asc" }}
-        groupBy={[{ key: "insurer", label: "Insurer", value: (n) => n.insurer }]}
-        paginate={{ pageSize: 15 }}
         fillHeight
         className="min-h-0 flex-1"
         selected={selected}
         onSelectedChange={setSelected}
-        onRowClick={(n) => focusRow(focus?.id === n.id ? null : n)}
-        rowClassName={(n) => (focus?.id === n.id ? "bg-primary-wash/40" : undefined)}
-        bulkActions={
-          <>
-            <BulkAction icon="download" label="Export CSV" onClick={() => downloadCsv("networks-selected.csv", selectedRows)} />
-            <BulkAction
-              icon="copy"
-              label="Copy names"
-              onClick={() => {
-                navigator.clipboard.writeText(selectedRows.map((n) => n.name).join("\n"));
-                toast(`Copied ${selectedRows.length} network name${selectedRows.length === 1 ? "" : "s"}.`, "success");
-              }}
-            />
-          </>
-        }
-        onExport={() => downloadCsv("networks.csv", rows)}
+        onExport={() => toast("Export isn’t wired up yet.", "info")}
         onRefresh={() => toast("Networks refresh nightly with the entity layer.", "info")}
+        filter={
+          <NetworkFilter value={insurer} options={insurerOptions} onSelect={setInsurer} onClear={() => setInsurer(undefined)} />
+        }
         rowActions={(n) => (
           <KebabMenu label={`Actions for ${n.name}`}>
             <MenuItem icon="activity" label="View rates for this network" onClick={() => toast("Network rate view is coming with Find-my-plan.", "info")} />
@@ -215,7 +134,16 @@ export function NetworksIndex({
                 if (e.key === "Escape") setQ("");
               }}
             />
-            {q && <TextLink onClick={() => setQ("")}>Reset</TextLink>}
+            {(q || insurer) && (
+              <TextLink
+                onClick={() => {
+                  setQ("");
+                  setInsurer(undefined);
+                }}
+              >
+                Reset
+              </TextLink>
+            )}
           </>
         }
         footnote={
@@ -223,9 +151,57 @@ export function NetworksIndex({
             <div className="rounded-card border border-border bg-surface shadow-card">
               <EmptyState icon="globe" title="No networks" subtext="Try a broader search or clear the filters." />
             </div>
-          ) : undefined
+          ) : (
+            <span className="text-sm text-text-muted">{rows.length} canonical networks · resolved from 1,133 raw payer networks</span>
+          )
         }
       />
     </div>
+  );
+}
+
+function NetworkFilter({
+  value,
+  options,
+  onSelect,
+  onClear,
+}: {
+  value?: string;
+  options: string[];
+  onSelect: (v: string) => void;
+  onClear: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [term, setTerm] = useState("");
+  const shown = term ? options.filter((o) => o.toLowerCase().includes(term.toLowerCase())) : options;
+  return (
+    <span className="relative">
+      <FilterChip label="Insurer" value={value} icon="list-filter" onClick={() => setOpen((o) => !o)} onClear={onClear} />
+      {open && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full z-40 mt-1.5 w-72 rounded-card border border-border bg-surface p-2 shadow-menu">
+            <SearchInput value={term} onChange={(e) => setTerm(e.target.value)} placeholder="Filter insurers…" className="mb-1.5 w-full" />
+            <div className="max-h-64 overflow-y-auto">
+              {shown.map((o) => (
+                <button
+                  key={o}
+                  type="button"
+                  onClick={() => {
+                    onSelect(o);
+                    setOpen(false);
+                  }}
+                  className={`flex w-full items-center rounded-field px-2.5 py-2 text-left text-[15px] transition-colors hover:bg-[#F3F4F6] ${
+                    o === value ? "font-semibold text-primary" : "text-text"
+                  }`}
+                >
+                  <span className="flex-1 truncate">{o}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </span>
   );
 }
