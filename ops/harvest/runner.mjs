@@ -301,9 +301,23 @@ try {
   }
 
   await emailFailures(results);
-  const failed = results.filter((r) => !r.ok).length;
-  log(`runner done — ${results.length} ran, ${failed} failed`);
-  process.exitCode = failed ? 1 : 0;
+  const failed = results.filter((r) => !r.ok);
+  // The bell (sql/038): pipeline failures reach every admin in-app too, not
+  // just over email. Best-effort like the rest of the ledger.
+  if (sql && failed.length > 0) {
+    try {
+      await sql`
+        INSERT INTO notifications (user_id, kind, title, body, href)
+        SELECT id, 'sync_failure',
+               ${`Harvest runner — ${failed.length} of ${results.length} jobs failed`},
+               ${failed.map((r) => r.id).join(", ")}, '/insights'
+        FROM users WHERE role = 'admin'`;
+    } catch {
+      /* ledger only */
+    }
+  }
+  log(`runner done — ${results.length} ran, ${failed.length} failed`);
+  process.exitCode = failed.length ? 1 : 0;
 } finally {
   fs.rmSync(LOCK, { force: true });
 }

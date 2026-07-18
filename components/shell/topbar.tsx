@@ -4,12 +4,14 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import type { IconName } from "@/components/ui/icons";
 import { PageHeader } from "@/components/ui/page-header";
+import { TopBarBell } from "@/components/shell/topbar-bell";
 import { TOPBAR_ACTIONS_ID } from "@/components/shell/topbar-slot";
 import type { SessionUser } from "@/lib/auth";
 
 // Catalog `TopBar` — white strip: page icon + H1 inline-left (route-derived,
 // SSR-safe), right cluster = page actions (via TopBarActions portal, sized
-// sm). Account/sign-out live in the sidebar's UserChip menu, not here.
+// sm) then the notification bell. Account/sign-out live in the sidebar's
+// UserChip menu, not here.
 
 // Longest-prefix wins: order specific → general.
 const ROUTE_TITLES: Array<[prefix: string, icon: IconName, title: string]> = [
@@ -84,6 +86,7 @@ export function TopBar({
       <div className="flex shrink-0 items-center gap-2">
         <div id={TOPBAR_ACTIONS_ID} className="flex items-center gap-2" />
         {actions}
+        <TopBarBell />
       </div>
     </header>
   );

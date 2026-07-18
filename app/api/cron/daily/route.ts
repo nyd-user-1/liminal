@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { hasDb, sql } from "@/lib/db";
 import { sendOpsAlertEmail } from "@/lib/email";
+import { notifyAdmins } from "@/lib/repos/notifications";
 
 // The nightly rebuild of everything the app derives rather than stores.
 //
@@ -184,6 +185,11 @@ export async function GET(req: NextRequest) {
       intro: `The ${isCron(req)} run at ${new Date(startedAt).toISOString()} finished with errors. The failed views kept their previous contents.`,
       failures: failed.map((s) => ({ step: s.step, error: s.error ?? "unknown" })),
     });
+    await notifyAdmins({
+      kind: "sync_failure",
+      title: `Nightly sync failed — ${failed.length} of ${steps.length} steps`,
+      body: failed.map((s) => s.step).join(", "),
+    }).catch(() => {});
   }
   // 500 on any failed step so a Vercel cron failure is visible as one, rather
   // than a green tick over a chain that half-ran.
