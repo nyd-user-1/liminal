@@ -23,7 +23,7 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const RUN_DIR = path.join(ROOT, ".harvest", "runner");
@@ -41,6 +41,26 @@ const DEFAULT_TIMEOUT_MIN = 360;
 const DEFAULT_ATTEMPTS = 2;
 const RETRY_BACKOFF_MS = 120_000;
 const LOG_KEEP_DAYS = 45;
+
+// NYS-117 — a manifest stem is interpolated into a `bash -c` command and into
+// CSV glob paths (see manifestJobs); anything outside this charset is a
+// command-injection surface and the manifest is refused, not run.
+const STEM_RE = /^[A-Za-z0-9._-]+$/;
+
+// NYS-124 — the false-success guard. A job that exits 0 far faster than it ever
+// legitimately could (the Emblem incident: exit 0 in 2.7s having loaded 0 rows,
+// because run-payer.sh doesn't propagate PIPESTATUS) is not trusted: the run is
+// ledgered 'suspect', the manifest is kept in queue/ rather than filed to done/,
+// and the operator is emailed. Two independent tells:
+//   • baseline — under SUSPECT_FRACTION of the median of this job's last ok runs
+//     (needs ≥ SUSPECT_MIN_HISTORY of them); self-scales to each job's normal.
+//   • floor — before a baseline exists, an MRF harvest (curl→scan→load) that
+//     finished under SUSPECT_FLOOR_MS can't have done real work. Scoped to
+//     manifest jobs so fast report jobs (rates-rollup runs in seconds) never
+//     trip it; a real NY book like Fidelis takes ~31s, well clear of the floor.
+const SUSPECT_FRACTION = 0.2;
+const SUSPECT_MIN_HISTORY = 2;
+const SUSPECT_FLOOR_MS = 15_000;
 
 // ── env ───────────────────────────────────────────────────────────────────────
 // The runner reads .env.local itself (children get it via their own
@@ -94,23 +114,29 @@ function tail(file, lines = 15) {
 }
 
 // ── ledger (sync_runs, shared with the Vercel matview cron) ───────────────────
-async function openRun(job) {
+async function openRun(job, timeoutMs) {
   if (!sql) return null;
   try {
-    const [{ id }] = await sql`INSERT INTO sync_runs (job, trigger) VALUES (${job}, 'cron') RETURNING id`;
+    // timeout_ms (sql/041) lets /insights judge "died" against this job's own
+    // kill-timeout instead of a flat 30m — a long harvest is no longer false red.
+    const [{ id }] = await sql`
+      INSERT INTO sync_runs (job, trigger, timeout_ms)
+      VALUES (${job}, 'cron', ${timeoutMs ?? null}) RETURNING id`;
     return id;
   } catch {
     return null;
   }
 }
 
-async function closeRun(id, ok, ms, steps, error) {
+// status is 'ok' | 'error' | 'suspect' (sql/041) — 'suspect' is a success the
+// runner does not trust (NYS-124), distinct from a process that failed.
+async function closeRun(id, status, ms, steps, error) {
   if (!sql || !id) return;
   try {
     await sql`
       UPDATE sync_runs
          SET finished_at = now(), duration_ms = ${ms},
-             status = ${ok ? "ok" : "error"},
+             status = ${status},
              steps = ${JSON.stringify(steps)}::jsonb,
              error = ${error ? String(error).slice(0, 2000) : null}
        WHERE id = ${id}`;
@@ -119,11 +145,50 @@ async function closeRun(id, ok, ms, steps, error) {
   }
 }
 
+// NYS-124 — the median duration of this job's last few trusted (ok) runs, or
+// null if it doesn't yet have SUSPECT_MIN_HISTORY of them. 'suspect'/'error'
+// runs are excluded so a bad run never poisons the baseline.
+export async function baselineMs(ledgerJob) {
+  if (!sql) return null;
+  try {
+    const rows = await sql`
+      SELECT duration_ms FROM sync_runs
+       WHERE job = ${ledgerJob} AND status = 'ok' AND duration_ms IS NOT NULL
+       ORDER BY started_at DESC LIMIT 10`;
+    if (rows.length < SUSPECT_MIN_HISTORY) return null;
+    const ms = rows.map((r) => r.duration_ms).sort((a, b) => a - b);
+    return ms[Math.floor(ms.length / 2)];
+  } catch {
+    return null;
+  }
+}
+
+// Returns a human reason string if this ok run is implausibly fast, else null.
+// Once a job has a baseline, that baseline is authoritative (self-scaling); the
+// absolute floor only guards MRF harvests that have no successful history yet.
+export async function suspectFastSuccess(job, ledgerJob, ms) {
+  const base = await baselineMs(ledgerJob);
+  if (base !== null) {
+    if (ms < base * SUSPECT_FRACTION)
+      return `finished in ${Math.round(ms / 1000)}s — ${((ms / base) * 100).toFixed(
+        1,
+      )}% of the ${Math.round(base / 1000)}s baseline over its recent runs`;
+    return null;
+  }
+  if (job._manifest && ms < SUSPECT_FLOOR_MS)
+    return `MRF harvest finished in ${Math.round(
+      ms / 1000,
+    )}s — implausibly fast for a scan+load, and no prior successful run to compare against`;
+  return null;
+}
+
 // ── failure email (Resend REST — this is plain node, not the Next app) ────────
 async function emailFailures(results) {
   const key = process.env.LIMINAL_RESEND_API_KEY;
   const to = process.env.LIMINAL_OPS_EMAIL;
-  const failed = results.filter((r) => !r.ok);
+  // A 'suspect' run exited 0 but is not trusted (NYS-124) — it needs a human as
+  // much as an outright failure does, so it alerts too.
+  const failed = results.filter((r) => !r.ok || r.suspect);
   if (!key || !to || failed.length === 0) return;
   const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const blocks = failed
@@ -139,7 +204,7 @@ async function emailFailures(results) {
       body: JSON.stringify({
         from: process.env.LIMINAL_EMAIL_FROM ?? "Leuk <onboarding@resend.dev>",
         to,
-        subject: `Harvest runner — ${failed.length} of ${results.length} jobs failed`,
+        subject: `Harvest runner — ${failed.length} of ${results.length} jobs need attention`,
         html: `<p>Overnight run on ${today()}. Logs live in .harvest/runner/logs/.</p>${blocks}`,
       }),
     });
@@ -188,7 +253,9 @@ function runOnce(job, logFile) {
 
 async function runJob(job) {
   const logFile = path.join(LOG_DIR, `${job.id}-${stamp()}.log`);
-  const ledgerId = await openRun(`harvest:${job.id}`);
+  const ledgerJob = `harvest:${job.id}`;
+  const timeoutMs = (job.timeoutMinutes ?? DEFAULT_TIMEOUT_MIN) * 60_000;
+  const ledgerId = await openRun(ledgerJob, timeoutMs);
   const started = Date.now();
   const attempts = job.attempts ?? DEFAULT_ATTEMPTS;
   let note = "";
@@ -198,7 +265,16 @@ async function runJob(job) {
     const { code, timedOut } = await runOnce(job, logFile);
     const ms = Date.now() - started;
     if (code === 0) {
-      await closeRun(ledgerId, true, ms, [{ step: job.id, ms }]);
+      // NYS-124 — exit 0 is necessary but not sufficient. A success far faster
+      // than this job could legitimately be is not trusted: ledger it 'suspect'
+      // and (below) keep its manifest in queue/ instead of filing it to done/.
+      const suspectReason = await suspectFastSuccess(job, ledgerJob, ms);
+      if (suspectReason) {
+        await closeRun(ledgerId, "suspect", ms, [{ step: job.id, ms }], `not trusted: ${suspectReason}`);
+        log(`${job.id}: SUSPECT — ${suspectReason} (manifest retained, not filed to done/)`);
+        return { id: job.id, ok: true, suspect: true, note: `suspect — ${suspectReason}`, logFile };
+      }
+      await closeRun(ledgerId, "ok", ms, [{ step: job.id, ms }]);
       log(`${job.id}: ok in ${Math.round(ms / 1000)}s`);
       return { id: job.id, ok: true, note: "ok", logFile };
     }
@@ -214,19 +290,25 @@ async function runJob(job) {
   }
 
   const ms = Date.now() - started;
-  await closeRun(ledgerId, false, ms, [{ step: job.id, ms, error: note }], note);
+  await closeRun(ledgerId, "error", ms, [{ step: job.id, ms, error: note }], note);
   return { id: job.id, ok: false, note, logFile };
 }
 
 // ── the queue: declared jobs + manifest drop-folder ───────────────────────────
-function manifestJobs() {
+export function manifestJobs() {
   if (!fs.existsSync(QUEUE_DIR)) return [];
   return fs
     .readdirSync(QUEUE_DIR)
     .filter((f) => f.endsWith(".txt"))
     .sort()
-    .map((f) => {
+    .flatMap((f) => {
       const name = f.replace(/\.txt$/, "");
+      // NYS-117 — refuse a stem with shell metacharacters (it lands inside a
+      // `bash -c` string below). Left in queue/ so it stays visible, not run.
+      if (!STEM_RE.test(name)) {
+        log(`manifest "${f}" rejected — stem must match ${STEM_RE} (shell-safety); skipping`);
+        return [];
+      }
       const q = path.join(QUEUE_DIR, f);
       const load = `node --env-file=.env.local scripts/mrf/load-rate-signals.mjs --as-of=${today()} .harvest/mrf/${name}/*.csv`;
       let run;
@@ -257,67 +339,82 @@ function due(job, state) {
 }
 
 // ── main ──────────────────────────────────────────────────────────────────────
-fs.mkdirSync(LOG_DIR, { recursive: true });
+async function main() {
+  fs.mkdirSync(LOG_DIR, { recursive: true });
 
-// One runner at a time (a manual `install.sh run` must not race the 01:04
-// firing). PID-liveness check, stale locks unlinked — hq's dev-server pattern.
-const lock = readJson(LOCK, null);
-if (lock?.pid) {
+  // One runner at a time (a manual `install.sh run` must not race the 01:04
+  // firing). PID-liveness check, stale locks unlinked — hq's dev-server pattern.
+  const lock = readJson(LOCK, null);
+  if (lock?.pid) {
+    try {
+      process.kill(lock.pid, 0);
+      log(`another runner is alive (pid ${lock.pid}) — exiting`);
+      process.exit(0);
+    } catch {
+      fs.rmSync(LOCK, { force: true });
+    }
+  }
+  fs.writeFileSync(LOCK, JSON.stringify({ pid: process.pid, startedAt: now().toISOString() }));
+
   try {
-    process.kill(lock.pid, 0);
-    log(`another runner is alive (pid ${lock.pid}) — exiting`);
-    process.exit(0);
-  } catch {
+    // prune old logs
+    for (const f of fs.readdirSync(LOG_DIR)) {
+      const full = path.join(LOG_DIR, f);
+      if (Date.now() - fs.statSync(full).mtimeMs > LOG_KEEP_DAYS * 86_400_000) fs.rmSync(full, { force: true });
+    }
+
+    const state = readJson(STATE, { jobs: {} });
+    const declared = readJson(JOBS, { jobs: [] }).jobs.filter((j) => !j.disabled);
+    const queue = [...declared, ...manifestJobs()];
+    const dueJobs = queue.filter((j) => due(j, state));
+    log(`runner up — ${queue.length} known jobs, ${dueJobs.length} due`);
+
+    const results = [];
+    for (const job of dueJobs) {
+      state.jobs[job.id] = { lastStartedAt: now().toISOString(), lastState: "running" };
+      fs.writeFileSync(STATE, JSON.stringify(state, null, 2));
+      const result = await runJob(job);
+      // 'suspect' must not read as 'ok': a `once` manifest job whose lastState is
+      // 'ok' would be filtered out of due() forever (see due()), stranding the
+      // manifest we deliberately left in queue/. 'suspect' keeps it due next night.
+      state.jobs[job.id].lastState = result.suspect ? "suspect" : result.ok ? "ok" : "error";
+      fs.writeFileSync(STATE, JSON.stringify(state, null, 2));
+      // NYS-124 — only a trusted success files the manifest to done/; a suspect
+      // one stays in queue/ to retry (the Emblem class of silent failure).
+      if (result.ok && !result.suspect && job._manifest) {
+        fs.mkdirSync(DONE_DIR, { recursive: true });
+        fs.renameSync(job._manifest, path.join(DONE_DIR, `${today()}-${job._manifestName}`));
+      }
+      results.push(result);
+    }
+
+    await emailFailures(results);
+    // A suspect run needs a human as much as a failure — both raise the bell and
+    // both make the runner exit non-zero.
+    const flagged = results.filter((r) => !r.ok || r.suspect);
+    // The bell (sql/038): pipeline trouble reaches every admin in-app too, not
+    // just over email. Best-effort like the rest of the ledger.
+    if (sql && flagged.length > 0) {
+      try {
+        await sql`
+          INSERT INTO notifications (user_id, kind, title, body, href)
+          SELECT id, 'sync_failure',
+                 ${`Harvest runner — ${flagged.length} of ${results.length} jobs need attention`},
+                 ${flagged.map((r) => r.id).join(", ")}, '/insights'
+          FROM users WHERE role = 'admin'`;
+      } catch {
+        /* ledger only */
+      }
+    }
+    log(`runner done — ${results.length} ran, ${flagged.length} need attention`);
+    process.exitCode = flagged.length ? 1 : 0;
+  } finally {
     fs.rmSync(LOCK, { force: true });
   }
 }
-fs.writeFileSync(LOCK, JSON.stringify({ pid: process.pid, startedAt: now().toISOString() }));
 
-try {
-  // prune old logs
-  for (const f of fs.readdirSync(LOG_DIR)) {
-    const full = path.join(LOG_DIR, f);
-    if (Date.now() - fs.statSync(full).mtimeMs > LOG_KEEP_DAYS * 86_400_000) fs.rmSync(full, { force: true });
-  }
-
-  const state = readJson(STATE, { jobs: {} });
-  const declared = readJson(JOBS, { jobs: [] }).jobs.filter((j) => !j.disabled);
-  const queue = [...declared, ...manifestJobs()];
-  const dueJobs = queue.filter((j) => due(j, state));
-  log(`runner up — ${queue.length} known jobs, ${dueJobs.length} due`);
-
-  const results = [];
-  for (const job of dueJobs) {
-    state.jobs[job.id] = { lastStartedAt: now().toISOString(), lastState: "running" };
-    fs.writeFileSync(STATE, JSON.stringify(state, null, 2));
-    const result = await runJob(job);
-    state.jobs[job.id].lastState = result.ok ? "ok" : "error";
-    fs.writeFileSync(STATE, JSON.stringify(state, null, 2));
-    if (result.ok && job._manifest) {
-      fs.mkdirSync(DONE_DIR, { recursive: true });
-      fs.renameSync(job._manifest, path.join(DONE_DIR, `${today()}-${job._manifestName}`));
-    }
-    results.push(result);
-  }
-
-  await emailFailures(results);
-  const failed = results.filter((r) => !r.ok);
-  // The bell (sql/038): pipeline failures reach every admin in-app too, not
-  // just over email. Best-effort like the rest of the ledger.
-  if (sql && failed.length > 0) {
-    try {
-      await sql`
-        INSERT INTO notifications (user_id, kind, title, body, href)
-        SELECT id, 'sync_failure',
-               ${`Harvest runner — ${failed.length} of ${results.length} jobs failed`},
-               ${failed.map((r) => r.id).join(", ")}, '/insights'
-        FROM users WHERE role = 'admin'`;
-    } catch {
-      /* ledger only */
-    }
-  }
-  log(`runner done — ${results.length} ran, ${failed.length} failed`);
-  process.exitCode = failed.length ? 1 : 0;
-} finally {
-  fs.rmSync(LOCK, { force: true });
+// Run the loop only when launchd/install.sh invokes this file directly; when a
+// test imports it for the helpers above, main() stays dormant.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await main();
 }

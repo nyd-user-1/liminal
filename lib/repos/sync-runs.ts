@@ -34,7 +34,15 @@ export type SyncHealth = {
 };
 
 const STALE_HOURS = 26;
-const DIED_MINUTES = 30; // hard cap: the Vercel fn dies at 300s, harvests self-report
+// Fallback cap for a row that recorded no timeout (the Vercel daily cron, which
+// hard-dies at 300s, and any pre-sql/041 legacy row): still 'running' after this
+// long means the process was killed and never closed its row.
+const DIED_MINUTES = 30;
+// A harvest that carries its own kill-timeout (timeout_ms, sql/041) is only
+// "died" once it's run past that timeout plus a grace window — otherwise a
+// legitimate multi-hour harvest showed false red mid-run (NYS-119). Grace covers
+// the gap between the runner's SIGTERM→SIGKILL and its closeRun write.
+const DIED_GRACE_MINUTES = 10;
 
 function toRun(r: {
   id: string;
@@ -44,16 +52,24 @@ function toRun(r: {
   started_at: Date;
   finished_at: Date | null;
   duration_ms: number | null;
+  timeout_ms: number | null;
   steps: SyncStep[];
   error: string | null;
 }): SyncRun {
   const running = r.status === "running";
-  const died = running && Date.now() - r.started_at.getTime() > DIED_MINUTES * 60_000;
+  const diedAfterMs =
+    r.timeout_ms != null ? r.timeout_ms + DIED_GRACE_MINUTES * 60_000 : DIED_MINUTES * 60_000;
+  const died = running && Date.now() - r.started_at.getTime() > diedAfterMs;
   const steps = Array.isArray(r.steps) ? r.steps : [];
   return {
     id: r.id,
     job: r.job,
     trigger: r.trigger,
+    // A DB status of 'suspect' (sql/041, NYS-124 — a success the runner didn't
+    // trust) intentionally falls through to "error" here: it needs a human,
+    // exactly like a failure, and the reason rides in `error`. Surfacing it as
+    // its own amber badge is a /insights follow-up (that state union is owned by
+    // the UI, not this repo).
     state: died ? "died" : running ? "running" : r.status === "ok" ? "ok" : "error",
     startedAt: isoDateTime(r.started_at),
     finishedAt: isoDateTime(r.finished_at),
@@ -68,7 +84,7 @@ function toRun(r: {
 export async function recentSyncRuns(limit = 30): Promise<SyncRun[]> {
   if (!hasDb) return [];
   const rows = (await sql`
-    SELECT id, job, trigger, status, started_at, finished_at, duration_ms, steps, error
+    SELECT id, job, trigger, status, started_at, finished_at, duration_ms, timeout_ms, steps, error
     FROM sync_runs ORDER BY started_at DESC LIMIT ${limit}
   `) as Array<Parameters<typeof toRun>[0]>;
   return rows.map(toRun);
@@ -78,7 +94,7 @@ export async function syncHealth(): Promise<SyncHealth | null> {
   if (!hasDb) return null;
   const rows = (await sql`
     SELECT DISTINCT ON (job)
-           id, job, trigger, status, started_at, finished_at, duration_ms, steps, error
+           id, job, trigger, status, started_at, finished_at, duration_ms, timeout_ms, steps, error
     FROM sync_runs
     ORDER BY job, started_at DESC
   `) as Array<Parameters<typeof toRun>[0]>;
