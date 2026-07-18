@@ -23,6 +23,10 @@ and a seam:
 | `docs-agent` | opus | Institutional knowledge — Linear structure + the three documents |
 | `review-agent` | opus | Adversarial engineering review of a named commit range |
 | `ui-agent` | opus | Guardian of both design systems (Liminal kit + 44B paper) |
+| `security-agent` | opus | PHI/HIPAA + auth guards + secret hygiene, both repos |
+| `ops-agent` | opus | The automation fleets — harvestd + matview cron, tripwires, migration sequencing |
+| `research-agent` | opus | Discovery spikes that end in a sized, buildable brief |
+| `qa-agent` | opus | End-to-end headless product drives after big change days |
 
 **Model budget:** fable = the lead + the hardest-judgment agent; opus = the rest.
 
