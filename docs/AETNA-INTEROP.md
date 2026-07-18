@@ -1,16 +1,9 @@
 # Aetna Interoperability API — Working Reference
 
-> **DRAFT (founder-authored 2026-07-17).** Five corrections are pending —
-> see `docs/TASK-DOCS-LINEAR.md` Task 3 for the list (apply in place, then
-> delete this note): $export-first strategy ladder · dedup line softened to
-> the NYS-28/38/44 reality · implementation = PAYER_REGISTRY entry, not a new
-> harvester · per-payer `_include`/pagination caveat · network-roster
-> degeneracy warning (NYS-69).
-
 CMS Interoperability & Patient Access Final Rule (CMS-9115-F) APIs from Aetna/CVS Health.
 Covers Aetna, Innovation Health, Allina Health. Prior-auth pieces also fall under CMS-0057.
 
-**For Liminal, the API that matters is the Provider Directory API** — it's public, non-PII, requires no member consent, and is the cleanest path to Aetna directory data (relevant given Aetna's MRF rates are unusable for customer-facing surfaces until dedup is solved). Everything else on the portal is member-data or prior-auth machinery that only becomes relevant if/when Liminal submits claims or acts as an EHR integration.
+**For Liminal, the API that matters is the Provider Directory API** — it's public, non-PII, requires no member consent, and is the cleanest path to Aetna directory data. It's a useful complement to Aetna's MRF rates, whose per-NPI-per-TIN-per-plan duplication is already solved at the band/median layer (NYS-28 cracked the files, NYS-38 the distinct-schedule count, sql/024/025 the aggregates); the open remainder is display-side dedup (NYS-44), not a blocker on the data. Everything else on the portal is member-data or prior-auth machinery that only becomes relevant if/when Liminal submits claims or acts as an EHR integration.
 
 ---
 
@@ -226,9 +219,12 @@ Base-spec params already available: `name`, `specialty`, `identifier`, `date`, `
 
 ## Harvest strategy notes
 
-- **Start from Network, not Practitioner.** For our purposes the valuable axis is "who is in network X," because Network is the join key to our rate rows. Enumerate InsurancePlans → collect their Network references → page `PractitionerRole?network=` and `OrganizationAffiliation?network=` for each.
-- **Use `_include` aggressively** to collapse the graph into single bundles and avoid per-provider follow-up calls.
-- **Page with `_count` + bundle `next` links.** Directory result sets are large; respect the paging cursor rather than offset.
-- **NPI is the reconciliation key** back to our NPPES identity layer and TIN registry — `identifier=...us-npi|<npi>` on both Practitioner and Organization.
-- Reminder on the standing finding: Aetna's *rates* (MRF) remain unusable for customer-facing surfaces until dedup is solved. This directory harvest is about **participation + identity**, which is unaffected by that rate problem — this is exactly why the Provider Directory is the Aetna surface worth pursuing now.
-- Because this is standard Plan-Net, the same harvester generalizes to other Plan-Net payer directories with only a base-URL swap.
+**The ladder, in order — `$export` bulk first, crawl last.**
+
+1. **`$export` bulk NDJSON first.** Aetna's Commercial+Medicare Provider Directory serves a bulk `$export` — the whole directory as NDJSON, no crawl. It's the biggest single haul available and the cheapest; take it before writing a single search loop. (The Medicaid family has no bulk export and needs the reverse-lookup crawl in step 3.)
+2. **Then enrich-by-NPI.** For the NPIs we already hold, resolve each directly — `Practitioner?identifier=http://hl7.org/fhir/sid/us-npi|<npi>` (and the same on `Organization`). Every hit is matched by construction; this is the `--mode=enrich` shape `ingest-payers.mjs` already runs for Humana. NPI is the reconciliation key back to our NPPES identity layer and TIN registry.
+3. **Network-walk only where the first two leave gaps.** Enumerate InsurancePlans → collect their Network references → page `PractitionerRole?network=` / `OrganizationAffiliation?network=`. **Degeneracy warning:** networks are not a clean partition. Anthem publishes 541 of its 1,133 networks sharing a single roster (NYS-69) — walking every network there re-fetches the same providers 541× for one book. Expect Aetna to have its own version; dedup by NPI as you go, and never treat network count as a proxy for how much work remains.
+
+- **Use `_include`/`_revinclude` to collapse the graph** into single bundles (avoid per-provider follow-ups), and **page with `_count` + bundle `next` links** rather than offset. **But these vary per payer:** which optional params a payer actually implements, and how it paginates, is not guaranteed by the IG — that per-payer variance is exactly why our `payer_sources` table carries the capability columns it does. **Test each against Aetna's downloaded Swagger before trusting the IG.**
+- **Implementation is a `PAYER_REGISTRY` entry in `scripts/ingest-payers.mjs`, not a new harvester.** Aetna's Plan-Net directory is the CMS-standard shape that ingester already speaks (Humana is the reference source; a new payer is a config entry + an auth strategy, not a new code path). The same registry generalizes to any Plan-Net payer directory with a base-URL swap.
+- **This harvest is participation + identity, a different axis from rates.** The MRF-dedup work (above) doesn't gate it — which is why the Provider Directory is the Aetna surface worth pursuing now regardless of the display-side rate cleanup (NYS-44).
