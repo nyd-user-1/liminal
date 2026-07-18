@@ -8,8 +8,9 @@
 # -> runDailyRebuild), with the SAME sound skip-guard. So on a normal night —
 # when the Mac already rebuilt — this is a clean no-op: it sees the fresh 'daily'
 # row and skips. It only does real work when nothing rebuilt since the last
-# load. Its rows are ledgered as 'daily | belt' (SYNC_TRIGGER below), so any belt
-# row is instantly legible as "the cloud caught a laptop-away night."
+# load. Its rows ledger as 'daily | cron' like the Mac's (the sync_runs.trigger
+# CHECK only allows 'cron'|'manual', and a scheduled belt IS a cron); a belt
+# rebuild is told apart by its run time (~11:13 UTC, after the Mac's window).
 #
 # ── ONE MANUAL STEP (founder) ────────────────────────────────────────────────
 # Add a repository secret so this can reach Neon:
@@ -53,7 +54,6 @@ jobs:
     timeout-minutes: 25
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      SYNC_TRIGGER: belt
     steps:
       - name: Checkout
         uses: actions/checkout@v4

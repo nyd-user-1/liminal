@@ -129,13 +129,14 @@ async function openRun(job, timeoutMs) {
   try {
     // timeout_ms (sql/041) lets /insights judge "died" against this job's own
     // kill-timeout instead of a flat 30m — a long harvest is no longer false red.
-    // trigger is 'cron' for the Mac runner; the GitHub Actions cloud belt sets
-    // SYNC_TRIGGER=belt so a 'daily | belt' row is instantly legible as "the
-    // cloud caught a laptop-away night" (the belt only writes when it rebuilds).
-    const trigger = process.env.SYNC_TRIGGER || "cron";
+    // trigger is 'cron' for both the Mac runner and the GitHub Actions cloud
+    // belt — the sync_runs.trigger CHECK only allows 'cron'|'manual', and a
+    // scheduled belt IS a cron. A belt rebuild is told apart from a Mac one by
+    // its run time (the belt fires ~11:13 UTC, well after the Mac's window), not
+    // by a distinct label (which would have needed a schema migration).
     const [{ id }] = await sql`
       INSERT INTO sync_runs (job, trigger, timeout_ms)
-      VALUES (${job}, ${trigger}, ${timeoutMs ?? null}) RETURNING id`;
+      VALUES (${job}, 'cron', ${timeoutMs ?? null}) RETURNING id`;
     return id;
   } catch {
     return null;

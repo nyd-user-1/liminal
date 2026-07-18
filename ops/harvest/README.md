@@ -26,9 +26,11 @@ schedule (11:13 UTC, after the Mac window) that runs the *same*
 `ops/harvest/rebuild-daily.mjs` → `runDailyRebuild` path against Neon via psql —
 the fallback for laptop-away stretches. Same shared chain, same sound skip-guard,
 so on a normal night (the Mac already rebuilt) it's a clean no-op; it only does
-real work when nothing rebuilt since the last load. Belt rows ledger as
-`daily | belt` (vs the Mac's `daily | cron`), so a belt row means "the cloud
-caught a night the laptop missed." **One manual step (founder):** add a repo
+real work when nothing rebuilt since the last load. Belt rebuilds ledger as
+`daily | cron` like the Mac's (the `sync_runs.trigger` CHECK only allows
+`cron`/`manual`); a belt rebuild is told apart by its run time (~11:13 UTC, after
+the Mac's window). A manual dispatch with `force=true` bypasses the skip-guard.
+**One manual step (founder):** add a repo
 secret `DATABASE_URL` (repo Settings → Secrets and variables → Actions → New
 repository secret) = the Neon pooler connection string. Until then the scheduled
 run is a clean green no-op. Also runnable locally: `node ops/harvest/rebuild-daily.mjs`.
