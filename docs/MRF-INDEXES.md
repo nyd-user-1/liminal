@@ -13,12 +13,12 @@ the Schema 2.0 note at the bottom._
 | MVP | open HealthSparq egress JSON | stable | YES (334 EINs loaded) | `queue/mvp.txt` |
 | Excellus | open HealthSparq egress JSON (ToC hop) | stable | YES (851 EINs loaded) | — (sized, unminted) |
 | Univera | open HealthSparq egress JSON (ToC hop) | stable | thin at top (23 EINs) | — (sized, unminted) |
-| Independent Health | open HealthSparq egress JSON | stable | YES (168 EINs) | — (4 files, unminted) |
+| Independent Health | open HealthSparq egress JSON | stable | YES (168 EINs) | ✅ 4 files loaded 2026-07-18 (ad-hoc) |
 | UHC/Oxford | open JSON API (21 MB, all blobs) | stable API path | names-only (67,111, NO EIN) | `uhc-p3.txt` |
 | Anthem/Empire + Highmark | S3 ToC gz (10.5 GB, mine it) | **signed, ~1 mo** | in ToC (bloated) | `empire*/highmark*` |
 | Cigna | page link (browser) → index gz | signed, **~10 yr** | in ToC | `cigna-*.txt` |
 | CDPHP | human page → 3 product zips | stable S3 | no (product-level) | `cdphp.txt` |
-| MetroPlus | human page = the index | stable Azure blob | no | `metroplus.txt` |
+| MetroPlus | Azure blob date-probe (page is stale) | stable Azure blob | no | monthly QHP+GoldCare pair |
 | EmblemHealth | listing site → GetFile | stable GetFile | no (product-level) | `emblem.txt` |
 | Fidelis/Centene | centene.com page | stable CDN | no (product-level) | `fidelis.txt` |
 
@@ -200,15 +200,22 @@ the Schema 2.0 note at the bottom._
 
 ## MetroPlus
 
-- **Index**: the human page IS the index —
-  `metroplus.org/machine-readable-files` lists exactly 3 stable Azure-blob
-  URLs (FFS 2023-10-06, GoldCare 2024-02-07, QHP 2024-02-07; page last updated
-  2024-03-05). ✅ blob live 2026-07-18; container listing is disabled.
-- **File URLs**: stable Azure blob (`saeastmrfb2b.blob.core.windows.net/mrf-files/…`), plain `.json` (`|none|`).
-- **Mint**: copy the 3 URLs. Nothing fresher exists to mint — **the book is
-  2.5 years stale** (chargemaster-shaped; the known caveat in rollups). Check
-  the page occasionally for a re-post; a refresh retires stale prices on 5,218
-  NPIs (audit rank #4: correctness, not reach).
+- **Index**: NOT the human page. `metroplus.org/machine-readable-files` froze
+  2024-03-05, but the Carelon Azure store behind it **publishes monthly
+  anyway** — proven 2026-07-18 (NYS-110) by date-probing the container
+  (listing is disabled; blob-name guessing works). Naming:
+  `https://saeastmrfb2b.blob.core.windows.net/mrf-files/<YYYY-MM-DD>_Metroplus_<QHPExchange|MHPGOLDGOLDCARE>_ffs_in-network.json`
+  — monthly since 2024-03, **on the 5th of the month** since 2025-01
+  (2024 dates wobble: 03-05, 04-04, 05-16, 06-16, 07-08, 08-20, 09-18,
+  10-15, 11-18, 12-09). To find the current pair, probe day 4–20 of the
+  latest month with HEAD until 200. ⚠️ **FFS stopped**: the
+  `_Metroplus_MetroPlus_ffs_` series has nothing after 2023-10-06 — the
+  2023 FFS book is the newest that exists, keep it.
+- **File URLs**: stable Azure blob, plain `.json` (`|none|`), big
+  (2026-07-05: QHP 7.6 GB, GoldCare 9.9 GB uncompressed).
+- **Mint**: the current month's QHP + GoldCare pair. Refreshed 2026-07-18
+  (2026-07-05 vintage loaded ad-hoc; superseded 2024-02-07 QHP/GoldCare rows
+  retired).
 - **Plan/EIN book: no.**
 
 ## EmblemHealth (incl. Carelon behavioral)
