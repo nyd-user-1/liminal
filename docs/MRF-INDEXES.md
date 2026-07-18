@@ -10,9 +10,11 @@ the Schema 2.0 note at the bottom._
 | payer | index | file URLs | plan/EIN book | manifest(s) |
 |---|---|---|---|---|
 | Aetna/CVS | open HealthSparq egress JSON | stable | **YES → 15,221 plans loaded** | `aetna-*.txt` |
-| MVP | open HealthSparq egress JSON | stable | YES (561 group plans) | `queue/mvp.txt` |
-| Excellus | open HealthSparq egress JSON (ToC hop) | stable | YES (912 EINs) | — (sized, unminted) |
-| UHC/Oxford | open JSON API (21 MB, all blobs) | stable API path | YES (per-employer ToCs) | `uhc-p3.txt` |
+| MVP | open HealthSparq egress JSON | stable | YES (334 EINs loaded) | `queue/mvp.txt` |
+| Excellus | open HealthSparq egress JSON (ToC hop) | stable | YES (851 EINs loaded) | — (sized, unminted) |
+| Univera | open HealthSparq egress JSON (ToC hop) | stable | thin at top (23 EINs) | — (sized, unminted) |
+| Independent Health | open HealthSparq egress JSON | stable | YES (168 EINs) | — (4 files, unminted) |
+| UHC/Oxford | open JSON API (21 MB, all blobs) | stable API path | names-only (67,111, NO EIN) | `uhc-p3.txt` |
 | Anthem/Empire + Highmark | S3 ToC gz (10.5 GB, mine it) | **signed, ~1 mo** | in ToC (bloated) | `empire*/highmark*` |
 | Cigna | page link (browser) → index gz | signed, **~10 yr** | in ToC | `cigna-*.txt` |
 | CDPHP | human page → 3 product zips | stable S3 | no (product-level) | `cdphp.txt` |
@@ -79,9 +81,48 @@ the Schema 2.0 note at the bottom._
 - **Mint**: fetch index → fetch the two master ToCs → collect
   `in_network_files[].location` → manifest with `|zip|` decomp. Many-small-files
   shape: shard the manifest.
-- **Plan/EIN book: YES** — ToCs carry `plan_id` (ein) + `plan_sponsor_name`:
-  912 EINs / 855 sponsors measured. Public-sector heavy (school districts,
-  towns) — a different, upstate-flavored employer census than Aetna's.
+- **Plan/EIN book: YES — LOADED 2026-07-18** (`scripts/mrf/ingest-plans-hsq.mjs
+  --name=plan`): 851 ein employers / 2,074 plans into sql/020, tagged
+  `source='excellus-mrf'`, 848 net-new. Public-sector heavy (school districts,
+  towns) — an upstate-flavored census. 296 (34.8%) overlap `form5500_filings`.
+  Caveat: a minority of top-level `planName`s are product labels ("Blue Choice
+  25"), not sponsor names — the EIN is still the authoritative identity.
+
+## Univera Healthcare  🔓 cracked 2026-07-18 (T2)
+
+- **Index**: `https://mrf.healthsparq.com/unvra-egress.nophi.kyruushsq.com/prd/mrf/UNVRA_I/UNVRA/latest_metadata.json`
+  — open egress, same rule. Portal codes `UNVRA_I`/`UNVRA` from
+  `news.univerahealthcare.com/developer-info/transparency-coverage-mrf`. Saved:
+  `.harvest/mrf/univera-index.json` (62 MB). ✅ live 2026-07-18.
+- **Shape = Excellus's** (Kyruus zip family): 119,307 in-network entries but
+  only **3,186 distinct files** (~37× plan-wrapper bloat — dedup by fileName
+  before minting, the Anthem discipline). Files are
+  `G-<groupId>-innetwork-1_UNV_<ES|IND|LG|SM>_N.json.zip`, per-group × market
+  segment, stable on the egress. Product buckets: Healthy NY EPO (1,171),
+  Univera Access Silver/Gold/Platinum tiers.
+- **Mint**: dedup the 3,186 → shard (many small files). Univera is Excellus's
+  WNY sibling (both Lifetime Healthcare); same depth-not-coverage call — the
+  audit's upstate geography says it won't move the headline. Not minted.
+- **Plan/EIN book: thin at the top level** — only 23 ein planIds on in-network
+  entries; the 7 TABLE_OF_CONTENTS files carry the fuller employer book (unmined,
+  same per-employer-ToC hop as Excellus).
+
+## Independent Health  🔓 cracked 2026-07-18 (T2)
+
+- **Index**: `https://mrf.healthsparq.com/ihny-egress.nophi.kyruushsq.com/prd/mrf/IHNY_I/IHNY/latest_metadata.json`
+  — open egress. Portal codes `IHNY_I`/`IHNY` from
+  `independenthealth.com/individuals-and-families/tools-forms-and-more/transparency-in-coverage`
+  (the portal is served from `web.healthsparq.com`, but the egress host is the
+  same `mrf.healthsparq.com`). Saved: `.harvest/mrf/ihny-index.json` (427 KB).
+  ✅ live 2026-07-18.
+- **Shape = MetroPlus/MVP-ish** (NOT the zip-per-group family): only **4 distinct
+  in-network files**, plain `.json.gz`, product-level —
+  `2026-05-01_Independent-Health-<Association|Benefits-Corporation|Corporation>_<HMO|EPO|POS-PPO|IHSFS>_in-network-rates.json.gz`.
+  Trivially mintable (4 URLs, `|gz|`). Dated 2026-06-01.
+- **Plan/EIN book: YES (168 EINs)** in the index's `reportingPlans` — a real
+  Buffalo-area employer book (NYSHIP, iDirect, Passport Select, FlexFit). Load
+  with `ingest-plans-hsq.mjs --name=ein` (planName is a product, resolve via
+  Form 5500) when wanted. Not loaded this tranche (below the priority line).
 
 ## UnitedHealthcare / Oxford
 
@@ -96,8 +137,16 @@ the Schema 2.0 note at the bottom._
   files, ~48 GB) — its NY commercial book has no public FHIR directory at all.
   Behavioral shortcut: `…_Insurer_Behavior-Health_P3_…` is one national
   behavioral table, byte-identical across state entities (loaded 2026-07-12).
-- **Plan/EIN book: YES** — 67,111 index/TOC blobs, per-employer-group ToCs
-  (employer names in filenames). Unmined; enormous.
+- **Plan/EIN book: NAMES ONLY, no EIN (measured 2026-07-18, T2).** The index
+  is 86,722 blobs; **67,111 are per-employer `_index.json` ToCs** whose employer
+  NAME is in the filename but whose **EIN is only inside the blob** (reading all
+  67k is not "index-only"). So UHC's book, unlike the EIN-carrying HealthSparq
+  payers, is **not directly Form 5500-joinable**. Distinct-name census extracted
+  → `.harvest/mrf/uhc-employer-census.csv` (67,111 rows). A normalized-NAME join
+  to `form5500_filings` matched only ~1,774 exact / 2,412 suffix-stripped (≈3%)
+  — the book is overwhelmingly national small business, not NY. To make it
+  EIN-joinable you must read the per-employer ToCs (bounded at 67k, but a
+  separate job).
 
 ## Anthem / Empire BCBS NY + Highmark (WNY/NENY) — the signed-URL family
 
@@ -172,9 +221,17 @@ the Schema 2.0 note at the bottom._
   tracks the newest posting of that name). Plain json (`|none|`).
 - **Mint**: browse the listing site, take the INN files for the commercial
   networks (Beacon = the Carelon behavioral carve-out — our Emblem book came
-  from it). ⚠️ Carelon ships unescaped quotes in `business_name` — scanner
-  already tolerates it.
-- **Plan/EIN book: no** — network/product-level listing.
+  from it). ⚠️ **Beacon/EHIC flipped to schema v2.0** and Carelon's serializer
+  ships unescaped quotes inside `business_name`
+  (`"TAMELA "TAMMY" ROBY LMFT"`) — the default stream-json refs path dies on
+  it ("REFS PARSE ERROR … expected ','"; this killed both 2026-07-18
+  wide-emblem runs). **Scan Beacon with `EXTRA_ARGS='--refs=scan'`** — its
+  refs are id-first, and the scan path quote-repairs the bad objects
+  (2026-07-18: 64,160 refs, 1 repaired, 0 skipped). The HCP file is
+  provider-less junk (bare `negotiated_price`, no NPI anywhere in 6.7 MB) —
+  0 rows from it is correct, drop it from manifests.
+- **Plan/EIN book: no** — network/product-level listing (the v2.0 Beacon file
+  header does carry one plan_id/sponsor: EmblemHealth EHIC itself — not a book).
 
 ## Fidelis Care (Centene)
 

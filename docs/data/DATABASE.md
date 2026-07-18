@@ -447,7 +447,7 @@ _What payers actually pay, from their own published machine-readable files._
 
 The rate corpus. One row per (npi × tin × payer × plan/network × CPT × rate × POS × file date). A rate proves a CONTRACT as of a date — never patient cost, never standalone membership.
 
-**Table** · ≈ 10,565,386 rows · defined in sql/017 · powers `/rates`
+**Table** · ≈ 13,202,869 rows · defined in sql/017 · powers `/rates`
 
 **Joins:** `cpt_codes` · `directory_providers` (`npi`) · `org_tin_rate_summary` (`tin`) · `payer_rate_totals` (`payer`) · `plans` (`source_file`) · `provider_rate_summary` (`npi`) · `rate_bands_checked_payers` (`payer`) · `rate_bands_license_summary` (`billing_code`) · `rate_bands_payer_summary` (`payer`) · `rate_table_mv` (`tin`) · `tin_registry` (`tin`)
 
@@ -765,7 +765,7 @@ _Which employer buys which plan — the demand side of the rate corpus, and the 
 
 Plan sponsors from the Aetna ToC (EIN-keyed) — the employers behind the plans we hold rates for.
 
-**Table** · 2,315 rows · defined in sql/020 · powers `/plans`
+**Table** · 3,476 rows · defined in sql/020 · powers `/plans`
 
 **Joins:** `form5500_filings` (`ein`) · `plans`
 
@@ -785,7 +785,7 @@ Plan sponsors from the Aetna ToC (EIN-keyed) — the employers behind the plans 
 
 Employer plans; each points at a network product. The plan catalog (display cleanup NYS-44).
 
-**Table** · 15,221 rows · defined in sql/020 · powers `/plans`
+**Table** · 17,975 rows · defined in sql/020 · powers `/plans`
 
 **Joins:** `employers` · `provider_rate_signals` (`source_file`)
 
@@ -890,7 +890,7 @@ _The ledger and notification tables the automation writes to._
 
 The maintenance ledger: one row per run of the nightly matview cron ('daily') and the harvest runner ('harvest:<id>'). The /insights sync-health card reads it.
 
-**Table** · 6 rows · defined in sql/035 · powers `/insights`
+**Table** · 11 rows · defined in sql/035 · powers `/insights`
 
 | column | type |
 | --- | --- |
@@ -1132,7 +1132,7 @@ _In the database but not yet in the atlas metadata (mirror `lib/repos/admin.ts`)
 
 ### `audit_events`
 
-**Table** · 2,093 rows · 7 columns
+**Table** · 2,104 rows · 7 columns
 
 | column | type |
 | --- | --- |
@@ -1475,7 +1475,7 @@ _In the database but not yet in the atlas metadata (mirror `lib/repos/admin.ts`)
 
 ### `sessions`
 
-**Table** · 448 rows · 4 columns
+**Table** · 459 rows · 4 columns
 
 | column | type |
 | --- | --- |
