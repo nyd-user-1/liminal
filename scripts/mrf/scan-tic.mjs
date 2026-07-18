@@ -70,7 +70,18 @@ const unmatched = UNMATCHED_PATH ? new Set() : null;
 let unmatchedCapped = false;
 const SOURCE_FILE = arg("source-file", "");
 const FILE_DATE = arg("file-date", "");
-const CPTS = new Set((arg("codes", "90791,90834,90837,99214,90853")).split(","));
+// Default code set widened 2026-07-17 (Brendan's call) from the original five
+// (90791,90834,90837,99214,90853) to the full behavioral billing picture:
+// diagnostic pair, all psychotherapy durations, the prescriber add-on trio,
+// crisis, family therapy, interactive-complexity + screener add-ons, and the
+// E/M ladder both new and established. Rows scale with codes but the NPI list
+// still bounds the scan; pass --codes to narrow for a targeted rescan.
+const CPTS = new Set(
+  (arg(
+    "codes",
+    "90791,90792,90832,90833,90834,90836,90837,90838,90839,90840,90846,90847,90853,90785,96127,99204,99205,99213,99214,99215",
+  )).split(","),
+);
 
 // Two-pass mode for ref-dense files (Empire NY 39-series: ~10.5 KB heap per
 // retained group x 600k+ matched groups — no heap cap can work, NYS-25):

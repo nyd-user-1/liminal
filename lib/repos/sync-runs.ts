@@ -64,6 +64,16 @@ function toRun(r: {
   };
 }
 
+/** The run ledger itself, newest first — feeds the /insights history table. */
+export async function recentSyncRuns(limit = 30): Promise<SyncRun[]> {
+  if (!hasDb) return [];
+  const rows = (await sql`
+    SELECT id, job, trigger, status, started_at, finished_at, duration_ms, steps, error
+    FROM sync_runs ORDER BY started_at DESC LIMIT ${limit}
+  `) as Array<Parameters<typeof toRun>[0]>;
+  return rows.map(toRun);
+}
+
 export async function syncHealth(): Promise<SyncHealth | null> {
   if (!hasDb) return null;
   const rows = (await sql`
