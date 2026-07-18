@@ -1,0 +1,83 @@
+# Nightly matview rebuild — the CLOUD BELT (NYS-130).
+#
+# Belt to the Mac harvestd runner's suspenders. The runner (ops/harvest/
+# runner.mjs, LaunchAgent 01:04) is the PRIMARY rebuilder and does this every
+# night the laptop is awake. This workflow is the fallback for laptop-away
+# stretches: it runs the SAME shared chain (ops/harvest/sync-plan.mjs — 10
+# REFRESH CONCURRENTLY + 4 ANALYZE) via the SAME code path (rebuild-daily.mjs
+# -> runDailyRebuild), with the SAME sound skip-guard. So on a normal night —
+# when the Mac already rebuilt — this is a clean no-op: it sees the fresh 'daily'
+# row and skips. It only does real work when nothing rebuilt since the last
+# load. Its rows are ledgered as 'daily | belt' (SYNC_TRIGGER below), so any belt
+# row is instantly legible as "the cloud caught a laptop-away night."
+#
+# ── ONE MANUAL STEP (founder) ────────────────────────────────────────────────
+# Add a repository secret so this can reach Neon:
+#   GitHub repo -> Settings -> Secrets and variables -> Actions ->
+#     New repository secret
+#       Name:  DATABASE_URL
+#       Value: the Neon POOLER connection string (the same one in .env.local /
+#              what Vercel used), e.g.
+#              postgres://USER:PASS@ep-...-pooler.REGION.aws.neon.tech/neondb?sslmode=require
+# Until that secret exists, the scheduled run is a clean green no-op (it logs
+# that it is unconfigured and exits 0 — no failure-email noise).
+name: nightly-rebuild
+
+on:
+  schedule:
+    # 11:13 UTC = 06:13 EST / 07:13 EDT — comfortably AFTER the Mac runner's
+    # 01:04-local load + rebuild window in both DST states, so on a normal night
+    # the Mac's 'daily' row already exists and this skips. Off-minute on purpose:
+    # GitHub cron is best-effort and can run 10-30m late or drop under load —
+    # fine for a belt, which is never the primary.
+    - cron: "13 11 * * *"
+  workflow_dispatch: {}
+
+# Never run two rebuilds at once (a manual dispatch overlapping the schedule).
+concurrency:
+  group: nightly-rebuild
+  cancel-in-progress: false
+
+# Least privilege: read the repo and reach Neon over the network, nothing else.
+permissions:
+  contents: read
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SYNC_TRIGGER: belt
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Guard - is the DATABASE_URL secret set?
+        run: |
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "::notice::DATABASE_URL secret is not set - the cloud belt is not configured yet."
+            echo "Founder: add it under Settings -> Secrets and variables -> Actions (see the workflow header). Skipping."
+            echo "BELT_CONFIGURED=false" >> "$GITHUB_ENV"
+          else
+            echo "BELT_CONFIGURED=true" >> "$GITHUB_ENV"
+          fi
+
+      - name: Set up Node
+        if: env.BELT_CONFIGURED == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install psql client
+        if: env.BELT_CONFIGURED == 'true'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Install node dependencies
+        if: env.BELT_CONFIGURED == 'true'
+        run: npm ci
+
+      - name: Rebuild matviews (shared chain, sound skip-guard, ledgered)
+        if: env.BELT_CONFIGURED == 'true'
+        run: node ops/harvest/rebuild-daily.mjs

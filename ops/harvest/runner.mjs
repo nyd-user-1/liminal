@@ -129,9 +129,13 @@ async function openRun(job, timeoutMs) {
   try {
     // timeout_ms (sql/041) lets /insights judge "died" against this job's own
     // kill-timeout instead of a flat 30m — a long harvest is no longer false red.
+    // trigger is 'cron' for the Mac runner; the GitHub Actions cloud belt sets
+    // SYNC_TRIGGER=belt so a 'daily | belt' row is instantly legible as "the
+    // cloud caught a laptop-away night" (the belt only writes when it rebuilds).
+    const trigger = process.env.SYNC_TRIGGER || "cron";
     const [{ id }] = await sql`
       INSERT INTO sync_runs (job, trigger, timeout_ms)
-      VALUES (${job}, 'cron', ${timeoutMs ?? null}) RETURNING id`;
+      VALUES (${job}, ${trigger}, ${timeoutMs ?? null}) RETURNING id`;
     return id;
   } catch {
     return null;

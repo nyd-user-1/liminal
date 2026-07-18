@@ -19,7 +19,19 @@ The old Vercel cron (`app/api/cron/daily`) is **demoted to manual-only**
 (NYS-130): Hobby delivery proved best-effort and the full chain no longer fits
 one function's 300s cap at current scale. The route survives as an
 authenticated manual trigger; `sync-plan.mjs` is the shared source of truth so
-the two paths can't drift.
+the paths can't drift.
+
+**The cloud belt (`.github/workflows/nightly-rebuild.yml`).** A GitHub Actions
+schedule (11:13 UTC, after the Mac window) that runs the *same*
+`ops/harvest/rebuild-daily.mjs` → `runDailyRebuild` path against Neon via psql —
+the fallback for laptop-away stretches. Same shared chain, same sound skip-guard,
+so on a normal night (the Mac already rebuilt) it's a clean no-op; it only does
+real work when nothing rebuilt since the last load. Belt rows ledger as
+`daily | belt` (vs the Mac's `daily | cron`), so a belt row means "the cloud
+caught a night the laptop missed." **One manual step (founder):** add a repo
+secret `DATABASE_URL` (repo Settings → Secrets and variables → Actions → New
+repository secret) = the Neon pooler connection string. Until then the scheduled
+run is a clean green no-op. Also runnable locally: `node ops/harvest/rebuild-daily.mjs`.
 
 ## Install / control
 
