@@ -143,9 +143,20 @@ export function settingLabel(setting: string | null | undefined): string {
   return codes.length > 2 ? `${codes.length} settings` : setting;
 }
 
-/** 'Cigna national-oap' -> 'national-oap'. The insurer already has its own column. */
-export const networkLabel = (n: string | null | undefined, payer: string): string =>
-  !n ? "" : n.replace(new RegExp(`^${payer.split(" ")[0]}\\s+`, "i"), "");
+/** 'Cigna national-oap' -> 'national-oap'. The insurer already has its own column.
+ *  Defensive on both arguments (NYS-94 class): `payer` is typed non-null but
+ *  arrives from matview/signal rows the type system only asserts, so a null/
+ *  non-string would make `payer.split` throw an uncaught TypeError mid-render;
+ *  and its first token goes straight into a RegExp, so an unescaped metacharacter
+ *  ('+', '(', …) in a payer label would throw a SyntaxError instead. Guard the
+ *  split and escape the token; behavior is unchanged for the current payer set. */
+export const networkLabel = (n: string | null | undefined, payer: string | null | undefined): string => {
+  if (!n) return "";
+  const head = (payer ?? "").split(" ")[0];
+  if (!head) return n;
+  const escaped = head.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return n.replace(new RegExp(`^${escaped}\\s+`, "i"), "");
+};
 
 export interface RateTableData {
   rows: RateTableRow[];
