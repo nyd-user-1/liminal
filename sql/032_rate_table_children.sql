@@ -123,7 +123,14 @@ LEFT JOIN dir d ON d.npi = p.npi;
 
 -- (payer, tin, npi, network, setting) is the grain. `setting` is a pipe-joined
 -- service_code list up to ~90 chars, so it is hashed into the unique index
--- rather than indexed whole; the index exists so REFRESH CONCURRENTLY works.
+-- rather than indexed whole.
+-- CORRECTION (NYS-88): the original intent — "so REFRESH CONCURRENTLY works" —
+-- was wrong, and this md5 index never enabled it. REFRESH MATERIALIZED VIEW
+-- CONCURRENTLY needs a unique index on PLAIN COLUMNS; an expression column like
+-- md5(setting) disqualifies it (Postgres matview.c requires a real attribute
+-- number for every indexed column). sql/036 is the fix: a plain-column unique
+-- index on the verified-unique grain, dropping this md5 one — refresh went from
+-- impossible-concurrently (ACCESS EXCLUSIVE, hangs /rates) to non-blocking ~11.6s.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_rate_table_child_key
   ON rate_table_child_mv (payer, tin, npi, network, md5(setting));
 

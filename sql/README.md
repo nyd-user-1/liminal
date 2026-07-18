@@ -67,6 +67,15 @@ On a first build, run the matcher after the initial CREATE and refresh once more
 **The dev server caches repo reads in-process for 1h** — after a REFRESH it serves stale rows
 until restarted (`npm run dev`, port 3010).
 
+**`REFRESH … CONCURRENTLY` needs a unique index on PLAIN COLUMNS** (2026-07-17, NYS-88). An
+expression column disqualifies it — `md5(wide_col)` in the unique index (a tempting way to keep
+the index small when a key column is long) silently loses CONCURRENTLY, and Postgres only says so
+when you try to refresh. The failure mode is nasty: the refresh falls back to `ACCESS EXCLUSIVE`
+and hangs `/rates` for the duration. If a key column is too wide to index whole, add a plain hash
+**column** to the matview and index that column — do not hash inside the index. `rate_table_child_mv`
+hit this (sql/032 shipped an `md5(setting)` index that never worked; sql/036 replaced it with a
+plain-column key — impossible-concurrently → non-blocking ~11.6s).
+
 ---
 
 ## NPPES — monthly full + weekly incremental
