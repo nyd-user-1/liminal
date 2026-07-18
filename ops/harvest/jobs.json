@@ -15,8 +15,7 @@
       "run": "node --env-file=.env.local .harvest/status.mjs",
       "timeoutMinutes": 20,
       "attempts": 1,
-      "disabled": true,
-      "memo": "Directory-side coverage snapshot. DISABLED 2026-07-17: status.mjs aggregates 2.4M participation rows through the Neon HTTP driver and now trips undici's 300s headersTimeout (same failure family as NYS-65). Re-enable once it runs via psql or the query is matview-backed."
+      "memo": "Directory-side coverage snapshot. RE-ENABLED 2026-07-18: status.mjs now runs every query through a psql subprocess (no undici 300s ceiling, the NYS-65 family) and the per-payer aggregate's count(p.*)->count(p.id) fix cut it from ~7min to ~10s. Full run ~10s."
     },
     {
       "id": "nppes-weekly",
@@ -33,6 +32,14 @@
       "timeoutMinutes": 30,
       "attempts": 1,
       "memo": "Read-only capability probe (<=2 GETs per payer) — keeps payer_sources.last_probe_result honest."
+    },
+    {
+      "id": "db-atlas",
+      "every": "week",
+      "run": "node --env-file=.env.local scripts/db-atlas.mjs",
+      "timeoutMinutes": 20,
+      "attempts": 1,
+      "memo": "Regenerate docs/data/DATABASE.md + Obsidian atlas from the live schema."
     }
   ]
 }
