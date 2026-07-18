@@ -2,12 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ColumnPicker } from "@/components/ui/column-picker";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { Icon, type IconName } from "@/components/ui/icons";
-import { KebabMenu } from "@/components/ui/kebab-menu";
 import { DropdownMenu, MenuDivider, MenuItem, MenuSectionLabel } from "@/components/ui/dropdown-menu";
 import { SearchInput } from "@/components/ui/search-input";
 import { LoadMoreRow, Table, Td, Tr, useLazyBatch, useSentinel, useSort, type SortState } from "@/components/ui/table";
@@ -76,6 +74,22 @@ interface GroupHeaderEntry {
 const isGroupHeader = (x: unknown): x is GroupHeaderEntry =>
   typeof x === "object" && x !== null && (x as GroupHeaderEntry).__group === true;
 
+/** Pager numbers with ellipses: first · last · current±1 (source-footer style). */
+function pagerItems(current: number, count: number): Array<number | "gap"> {
+  if (count <= 7) return Array.from({ length: count }, (_, i) => i);
+  const wanted = [...new Set([0, count - 1, current - 1, current, current + 1])]
+    .filter((n) => n >= 0 && n < count)
+    .sort((a, b) => a - b);
+  const items: Array<number | "gap"> = [];
+  let prev = -1;
+  for (const n of wanted) {
+    if (prev !== -1 && n - prev > 1) items.push("gap");
+    items.push(n);
+    prev = n;
+  }
+  return items;
+}
+
 /** Visible-column state + localStorage persistence, shared by any table that
  *  wants a column picker. Pass no `storageKey` to keep everything visible and
  *  skip persistence entirely (nothing is read/written). */
@@ -124,6 +138,7 @@ export function DataTable<T>({
   subRows,
   isSubRow,
   groupBy,
+  paginate,
   selected,
   onSelectedChange,
   rowActions,
@@ -204,6 +219,11 @@ export function DataTable<T>({
    * `subRows` when both are set.
    */
   groupBy?: DataTableGroupLevel<T>[];
+  /**
+   * Classic pages instead of lazy scroll, with the built-in in-chrome footer
+   * (Total · Lines per page · pager). Overrides `lazy`/`tableFooter`.
+   */
+  paginate?: boolean | { pageSize?: number };
   /**
    * THE INDEX-PAGE STANDARD (see /clients). Leading select column + trailing
    * kebab column + the Filter/Columns/Export/Refresh cluster. All opt-in, so
@@ -312,11 +332,14 @@ export function DataTable<T>({
       ) : (
         <DropdownMenu
           label={`${c.label} column options`}
-          align={c.align === "right" ? "right" : "left"}
+          // Flank: the menu sits BESIDE the header (left edge on the trigger's
+          // right edge, auto-flipping at the viewport's right edge) so the
+          // column being sorted/filtered stays readable under it. Hover opens
+          // it; the grey pill is the affordance and it stays while open.
+          align="flank"
           width="w-60"
-          // The grey pill on hover is the click affordance ("this header is a
-          // control"), and it STAYS while the menu is open — aria-expanded
-          // comes from DropdownMenu's trigger.
+          widthPx={240}
+          openOnHover
           triggerClassName="-mx-2 -my-1 flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-1 transition-colors hover:bg-[#F3F4F6] hover:text-primary-deep aria-expanded:bg-[#F3F4F6]"
           trigger={
             <>
@@ -401,8 +424,9 @@ export function DataTable<T>({
   // ── group-by tree ─────────────────────────────────────────────────────────
   // Count-header entries spliced into the row stream. `groupToggled` inverts a
   // level's default state per path, so default-collapsed levels work without
-  // enumerating every path up front. `grouping` is the chip's on/off.
-  const [grouping, setGrouping] = useState(true);
+  // enumerating every path up front. `groupDepth` (View options → Group by)
+  // picks how many configured levels apply — 0 = flat.
+  const [groupDepth, setGroupDepth] = useState(groupBy?.length ?? 0);
   const [groupToggled, setGroupToggled] = useState<Set<string>>(new Set());
   const toggleGroup = (path: string) =>
     setGroupToggled((s) => {
@@ -410,12 +434,12 @@ export function DataTable<T>({
       if (!next.delete(path)) next.add(path);
       return next;
     });
-  const grouped = !!groupBy?.length && grouping;
+  const grouped = !!groupBy?.length && groupDepth > 0;
   const displayRows = useMemo<Array<T | GroupHeaderEntry>>(() => {
     if (!grouped) return treeRows;
     const out: Array<T | GroupHeaderEntry> = [];
     const walk = (list: T[], depth: number, prefix: string) => {
-      const level = groupBy![depth];
+      const level = depth < groupDepth ? groupBy![depth] : undefined;
       if (!level) {
         out.push(...list);
         return;
@@ -442,7 +466,20 @@ export function DataTable<T>({
     walk(sortedRows, 0, "");
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [grouped, groupBy, sortedRows, treeRows, groupToggled, sort]);
+  }, [grouped, groupBy, groupDepth, sortedRows, treeRows, groupToggled, sort]);
+
+  // ── pagination (opt-in) ───────────────────────────────────────────────────
+  // `paginate` swaps lazy scroll for classic pages and builds the in-chrome
+  // footer: Total · Lines per page · pager. Group headers count as lines.
+  const paginated = !!paginate;
+  const [pageSize, setPageSize] = useState(typeof paginate === "object" ? (paginate.pageSize ?? 15) : 15);
+  const [page, setPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil(displayRows.length / pageSize));
+  const currentPage = Math.min(page, pageCount - 1);
+  useEffect(() => {
+    setPage(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredRows.length, filterKey, sort.col, sort.dir, pageSize, groupDepth]);
 
   // ── batching + jump-to-row ────────────────────────────────────────────────
   // Hooks run unconditionally (rules of hooks); `lazy` only decides whether the
@@ -476,7 +513,11 @@ export function DataTable<T>({
     // parent set, the sort and the anchor reset it.
     resetKey: `${sort.col}:${sort.dir}:${filteredRows.length}:${filterKey}:${anchor}`,
   });
-  const rendered = lazy ? batch : displayRows;
+  const rendered = paginated
+    ? displayRows.slice(currentPage * pageSize, (currentPage + 1) * pageSize)
+    : lazy
+      ? batch
+      : displayRows;
 
   // Server-paged infinite scroll: once client batching has nothing left to
   // reveal (or lazy is off entirely), a bottom sentinel asks the caller for the
@@ -497,17 +538,6 @@ export function DataTable<T>({
   }, [lazy, scrollToKey, targetIndex, sort.col, sort.dir]);
 
   const hasToolbar = !!(toolbarExtra || toolbarLeft || storageKey || filter || onExport || onRefresh || activeFilterCols.length || groupBy?.length);
-  // Grouping made visible: the chip names the levels, its × flattens the
-  // table, and the unapplied chip re-applies the tree.
-  const groupChip = groupBy?.length ? (
-    <FilterChip
-      label="Group"
-      icon="corner-down-right"
-      value={grouping ? groupBy.map((g) => g.label).join(" → ") : undefined}
-      onClear={() => setGrouping(false)}
-      onClick={grouping ? undefined : () => setGrouping(true)}
-    />
-  ) : null;
   // One clearable chip per header-menu filter — the filter state stays visible
   // (and killable) without reopening the header.
   const filterChips = activeFilterCols.map((c) => {
@@ -522,57 +552,157 @@ export function DataTable<T>({
       />
     );
   });
-  // Opening the column picker from the kebab: reuse the anchored ColumnPicker
-  // (the one the header right-click uses), positioned under the kebab button.
-  const kebabRef = useRef<HTMLSpanElement>(null);
-  const openColMenuFromKebab = () => {
-    const r = kebabRef.current?.getBoundingClientRect();
-    setColMenu(r ? { x: r.right, y: r.bottom + 4 } : { x: 0, y: 0 });
-  };
-  // The same utilities in both variants — only where and how they render.
-  // collapseActions folds Columns/Export/Refresh into one horizontal kebab.
-  const utilities = collapseActions ? (
-    <span ref={kebabRef} className="inline-flex">
-      <KebabMenu label="Table options" icon="dots-horizontal">
-        {storageKey && <MenuItem icon="columns-3" label="Columns" onClick={openColMenuFromKebab} />}
-        {onExport && <MenuItem icon="download" label="Export" onClick={onExport} />}
-        {onRefresh && <MenuItem icon="refresh-cw" label="Refresh" onClick={onRefresh} />}
-      </KebabMenu>
-    </span>
-  ) : (
-    <>
-      {storageKey && <ColumnPicker options={pickerOptions} visible={visible} onToggle={toggle} />}
-      {onExport && (
-        <Button
-          variant="secondary"
-          size="sm"
-          leftIcon="download"
-          onClick={onExport}
-          className="!border-field-border !text-text-body hover:!border-field-border-focus"
-        >
-          Export
-        </Button>
+  // ONE access point for everything that isn't search or an applied filter —
+  // the View options panel (the source's view-options pattern): Group by,
+  // column Properties, Export, Refresh. Replaces the old floating Group chip
+  // and the Columns/Export/Refresh button triplet. (`collapseActions` is
+  // obsolete and ignored — the panel IS the collapsed form.)
+  void collapseActions;
+  const hasViewOptions = !!(groupBy?.length || storageKey || onExport || onRefresh);
+  const viewOptions = hasViewOptions ? (
+    <DropdownMenu
+      label="View options"
+      align="right"
+      width="w-72"
+      triggerClassName="inline-flex h-8 items-center gap-1.5 rounded-field border border-field-border bg-surface px-3 text-sm font-medium text-text-body transition-colors hover:border-field-border-focus aria-expanded:border-field-border-focus"
+      trigger={
+        <>
+          View options
+          <Icon name="chevron-down" size={14} />
+        </>
+      }
+    >
+      {!!groupBy?.length && (
+        <div className="flex items-center justify-between gap-3 px-2.5 py-2">
+          <span className="text-sm text-text-body">Group by</span>
+          <span className="inline-flex overflow-hidden rounded-field border border-field-border">
+            {[{ label: "None", depth: 0 }, ...groupBy.map((_, i) => ({ label: groupBy.slice(0, i + 1).map((l) => l.label).join(" → "), depth: i + 1 }))].map(
+              (o, i) => (
+                <button
+                  key={o.depth}
+                  type="button"
+                  onClick={() => setGroupDepth(o.depth)}
+                  className={`px-2.5 py-1 text-[13px] font-medium transition-colors ${i > 0 ? "border-l border-field-border" : ""} ${
+                    groupDepth === o.depth ? "bg-primary-wash text-primary" : "bg-surface text-text-muted hover:text-text"
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ),
+            )}
+          </span>
+        </div>
       )}
-      {onRefresh && (
-        <Button
-          variant="secondary"
-          size="sm"
-          leftIcon="refresh-cw"
-          onClick={onRefresh}
-          className="!border-field-border !text-text-body hover:!border-field-border-focus"
-        >
-          Refresh
-        </Button>
+      {storageKey && (
+        <>
+          {!!groupBy?.length && <MenuDivider />}
+          <MenuSectionLabel>Properties</MenuSectionLabel>
+          <div className="flex flex-wrap gap-1.5 px-2.5 pb-2 pt-1">
+            {pickerOptions.map((o) => {
+              const on = visible.has(o.key);
+              return (
+                <button
+                  key={o.key}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => toggle(o.key)}
+                  className={`rounded-full border px-2.5 py-1 text-[13px] font-medium transition-colors ${
+                    on
+                      ? "border-field-border bg-surface text-text-body hover:border-field-border-focus"
+                      : "border-border bg-canvas text-text-muted/70 hover:text-text-muted"
+                  }`}
+                >
+                  {o.label}
+                </button>
+              );
+            })}
+          </div>
+        </>
       )}
-    </>
-  );
+      {(onExport || onRefresh) && (storageKey || !!groupBy?.length) && <MenuDivider />}
+      {onExport && <MenuItem icon="download" label="Export (.csv)" onClick={onExport} />}
+      {onRefresh && <MenuItem icon="refresh-cw" label="Refresh" onClick={onRefresh} />}
+    </DropdownMenu>
+  ) : null;
   const actionsCluster = (
     <>
       {toolbarExtra}
       {filter}
-      {utilities}
+      {viewOptions}
     </>
   );
+
+  // The proper footer (paginate mode): Total left · Lines-per-page + pager
+  // right, inside the chrome (Table's sticky footer slot).
+  const builtFooter = paginated ? (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <span className="text-sm text-text-body">
+        Total <span className="font-semibold tabular-nums">{filteredRows.length.toLocaleString("en-US")}</span>
+      </span>
+      <span className="flex items-center gap-4">
+        <span className="flex items-center gap-2 text-sm text-text-muted">
+          Lines per page
+          <DropdownMenu
+            label="Lines per page"
+            align="right"
+            placement="top"
+            width="w-24"
+            triggerClassName="inline-flex h-7 items-center gap-1 rounded-field border border-field-border bg-surface px-2 text-sm font-medium text-text-body transition-colors hover:border-field-border-focus"
+            trigger={
+              <>
+                <span className="tabular-nums">{pageSize}</span>
+                <Icon name="chevron-down" size={12} />
+              </>
+            }
+          >
+            {[15, 25, 50, 100].map((n) => (
+              <MenuItem key={n} label={String(n)} selected={n === pageSize} onClick={() => setPageSize(n)} />
+            ))}
+          </DropdownMenu>
+        </span>
+        <span className="flex items-center gap-1">
+          <button
+            type="button"
+            aria-label="Previous page"
+            disabled={currentPage === 0}
+            onClick={() => setPage(currentPage - 1)}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-text-body transition-colors hover:bg-canvas disabled:opacity-40 disabled:hover:bg-transparent"
+          >
+            <Icon name="chevron-left" size={15} />
+          </button>
+          {pagerItems(currentPage, pageCount).map((p, i) =>
+            p === "gap" ? (
+              <span key={`gap${i}`} className="px-0.5 text-sm text-text-muted">
+                …
+              </span>
+            ) : (
+              <button
+                key={p}
+                type="button"
+                aria-label={`Page ${p + 1}`}
+                aria-current={p === currentPage ? "page" : undefined}
+                onClick={() => setPage(p)}
+                className={`inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1 text-sm font-medium tabular-nums transition-colors ${
+                  p === currentPage ? "bg-primary text-white" : "text-text-body hover:bg-canvas"
+                }`}
+              >
+                {p + 1}
+              </button>
+            ),
+          )}
+          <button
+            type="button"
+            aria-label="Next page"
+            disabled={currentPage >= pageCount - 1}
+            onClick={() => setPage(currentPage + 1)}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-text-body transition-colors hover:bg-canvas disabled:opacity-40 disabled:hover:bg-transparent"
+          >
+            <Icon name="chevron-right" size={15} />
+          </button>
+        </span>
+      </span>
+    </div>
+  ) : null;
 
   return (
     // min-w-0 is load-bearing: without it this flex child grows past its
@@ -588,7 +718,6 @@ export function DataTable<T>({
       {!stacked && hasToolbar && (
         <Toolbar className="shrink-0 flex-wrap" actions={actionsCluster}>
           {toolbarLeft}
-          {groupChip}
           {filterChips}
         </Toolbar>
       )}
@@ -607,22 +736,22 @@ export function DataTable<T>({
       <Table
         head={head}
         stickyHeader={fillHeight}
-        footer={tableFooter}
+        footer={paginated ? builtFooter : tableFooter}
         toolbar={
           // Stacked: the toolbar IS the card's header section — search + filter
-          // flex-grow on the left, the utilities kebab pinned right. The column
-          // header band stays white with teal text (Table's default), not tinted.
+          // + applied-filter chips flex-grow on the left, the single View
+          // options access point pinned right. The column header band stays
+          // white with teal text (Table's default), not tinted.
           stacked && hasToolbar ? (
             <>
               <div className="flex flex-1 flex-wrap items-center gap-2.5">
                 {toolbarLeft}
                 {filter}
-                {groupChip}
                 {filterChips}
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 {toolbarExtra}
-                {utilities}
+                {viewOptions}
               </div>
             </>
           ) : undefined
@@ -747,10 +876,10 @@ export function DataTable<T>({
             </td>
           </tr>
         )}
-        {lazy && hasMore && (
+        {!paginated && lazy && hasMore && (
           <LoadMoreRow sentinelRef={sentinelRef} colSpan={shown.length + (selectable ? 1 : 0) + (rowActions ? 1 : 0)} />
         )}
-        {onEndReached && !(lazy && hasMore) && (
+        {!paginated && onEndReached && !(lazy && hasMore) && (
           <LoadMoreRow sentinelRef={endSentinelRef} colSpan={shown.length + (selectable ? 1 : 0) + (rowActions ? 1 : 0)} />
         )}
       </Table>
@@ -818,10 +947,9 @@ function HeaderMenu<T>({
     return m;
   }, [col, rows]);
   const values = counts ? [...counts.keys()].sort((a, b) => a.localeCompare(b)) : null;
-  // Long value lists get a search at the top of the menu (the img-64 source
-  // pattern) — jump to a value instead of scrolling for it.
+  // Every filter list gets the search on top (the img-64 source pattern) —
+  // consistent across columns, not a per-cardinality surprise.
   const [term, setTerm] = useState("");
-  const searchable = !!values && values.length > 8;
   const shownValues = values && term ? values.filter((v) => v.toLowerCase().includes(term.toLowerCase())) : values;
   return (
     <>
@@ -846,15 +974,13 @@ function HeaderMenu<T>({
         <>
           {col.sortValue && <MenuDivider />}
           <MenuSectionLabel>Filter</MenuSectionLabel>
-          {searchable && (
-            <SearchInput
-              placeholder={`Search ${col.label.toLowerCase()}…`}
-              aria-label={`Search ${col.label} values`}
-              value={term}
-              onChange={(e) => setTerm(e.target.value)}
-              className="mb-1.5 w-full"
-            />
-          )}
+          <SearchInput
+            placeholder={`Search ${col.label.toLowerCase()}…`}
+            aria-label={`Search ${col.label} values`}
+            value={term}
+            onChange={(e) => setTerm(e.target.value)}
+            className="mb-1.5 w-full"
+          />
           <div className="max-h-56 overflow-y-auto">
             {shownValues!.length === 0 && <div className="px-2.5 py-2 text-sm text-text-muted">No matching values.</div>}
             {shownValues!.map((v) => (

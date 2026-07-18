@@ -90,3 +90,22 @@ table-overflow containment (min-w-0 ancestors).
 - 2026-07-18: /networks gained the real "Orgs priced" column (90837 anchor)
   — EmptyCell "No rates" is the honest missing-rate cell from the ruling.
 - 2026-07-18: scale-out handed to ui-agent: docs/TASK-DATATABLE-SCALEOUT.md.
+
+## Round 3 (founder critique pass, screenshots re-checked)
+
+- [✓] R3.1 Header menu FLANKS the trigger (left edge on button's right edge;
+      auto-flips at the viewport edge for the last column) — sorted column
+      stays readable. Hover opens it (180ms leave grace); click still works.
+- [✓] R3.2 Filter search on EVERY filter list (consistency rule: filter =
+      declared facet columns; search always rides the filter list).
+- [✓] R3.3 Kind tabs REMOVED (tabs are for objects, not views); Type filter
+      moved into its header menu.
+- [✓] R3.4 Group chip + Columns/Export/Refresh triplet REMOVED → single
+      "View options" panel (Group by segmented, Properties chips, Export,
+      Refresh). collapseActions now a no-op.
+- [✓] R3.5 Proper in-chrome footer: Total · Lines per page · pager
+      (paginate mode, /networks pageSize 15).
+- [✓] R3.6 NYS-148 card: aggregate ⇄ row, SAME eight slots, skeleton-loader
+      transition (the Code/sports game-log composition), dotted RelatedLinks
+      in Connections, InsurerMark logos, insurer → /insurers/[id] (404 ok).
+- [✓] R3.7 Insurer cells: logo + RelatedLink in table AND card.

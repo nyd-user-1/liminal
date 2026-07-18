@@ -1,55 +1,61 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { InsurerMark } from "@/components/rates/insurer-mark";
 import { Badge } from "@/components/ui/badge";
 import { BulkAction, DataTable, EmptyCell, type DataTableColumn } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { KebabMenu } from "@/components/ui/kebab-menu";
 import { MenuItem } from "@/components/ui/dropdown-menu";
+import { RelatedLink } from "@/components/ui/text-link";
 import { SearchInput } from "@/components/ui/search-input";
-import { Tabs } from "@/components/ui/tabs";
 import { TextLink } from "@/components/ui/text-link";
 import { useToast } from "@/components/ui/toast";
-import type { NetworkListRow } from "@/lib/repos/networks";
+import type { NetworkListRow, NetworkRateStat, OrgNetworkRatesSummary } from "@/lib/repos/networks";
+import { adminLabel, kindLabel } from "./labels";
+import { NetworkIdentityCard } from "./network-card";
 
-// The canonical-network index (sql/044, NYS-49) — the reference for the stacked
-// full-feature DataTable (NYS-147): status tabs with counts above the card,
-// per-column header menus (sort / filter / hide) with their toolbar chips,
-// EmptyCell for every missing value, the select column feeding the floating
-// bulk-action bar, plus the column picker, sortable headers, and real CSV
-// export. 69 rows, so search / filter / sort are all client-side — no round trip.
-
-const ADMIN_LABEL: Record<string, string> = {
-  carelon: "Carelon",
-  optum: "Optum",
-  evernorth: "Evernorth",
-  magnacare: "MagnaCare",
-  multiplan: "MultiPlan",
-  cigna: "Cigna",
-  uhc: "UnitedHealth",
-};
-
-/** Display name for the administrator facet — the same string everywhere
- *  (cell, header-menu filter, CSV), so the filter matches what the eye sees. */
-const adminLabel = (n: NetworkListRow) => (n.administrator ? (ADMIN_LABEL[n.administrator] ?? n.administrator) : "Insurer-run");
+// The canonical-network index (sql/044, NYS-49) — the reference for the
+// NYS-147/148 template: identity card (aggregate ⇄ row via the skeleton
+// transition) → hairline → the stacked full-feature DataTable (hover header
+// menus with sort/filter/hide, View options panel, EmptyCell, select column +
+// floating bulk bar, paginated footer). 69 rows, so search / filter / sort are
+// client-side — no round trip.
 
 const csvFor = (list: NetworkListRow[]) => {
   const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replaceAll('"', '""')}"` : v);
   return [
     ["Network", "Insurer", "Administrator", "Type", "Notes"].join(","),
-    ...list.map((n) => [n.name, n.insurer, adminLabel(n), n.kind, n.notes ?? ""].map(esc).join(",")),
+    ...list.map((n) => [n.name, n.insurer, adminLabel(n), kindLabel(n), n.notes ?? ""].map(esc).join(",")),
   ].join("\n");
 };
 
-export function NetworksIndex({ initial, orgsPriced = {} }: { initial: NetworkListRow[]; orgsPriced?: Record<string, number> }) {
+export function NetworksIndex({
+  initial,
+  orgsPriced = {},
+  summary = null,
+}: {
+  initial: NetworkListRow[];
+  orgsPriced?: Record<string, NetworkRateStat>;
+  summary?: OrgNetworkRatesSummary | null;
+}) {
   const toast = useToast();
   const [q, setQ] = useState("");
-  const [tab, setTab] = useState("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  // Search first, kind tab second — the tab counts read off the SEARCHED set,
-  // so each tab advertises exactly what clicking it will show.
-  const searched = useMemo(() => {
+  // The card's focus: null = aggregate. Every swap passes through the
+  // skeleton state so the card reads as re-filling in place.
+  const [focus, setFocus] = useState<NetworkListRow | null>(null);
+  const [cardLoading, setCardLoading] = useState(false);
+  const skeletonTimer = useRef<number | null>(null);
+  const focusRow = (n: NetworkListRow | null) => {
+    setFocus(n);
+    setCardLoading(true);
+    if (skeletonTimer.current !== null) window.clearTimeout(skeletonTimer.current);
+    skeletonTimer.current = window.setTimeout(() => setCardLoading(false), 450);
+  };
+
+  const rows = useMemo(() => {
     const term = q.trim().toLowerCase();
     if (!term) return initial;
     return initial.filter(
@@ -59,7 +65,6 @@ export function NetworksIndex({ initial, orgsPriced = {} }: { initial: NetworkLi
         adminLabel(n).toLowerCase().includes(term),
     );
   }, [initial, q]);
-  const rows = useMemo(() => (tab === "all" ? searched : searched.filter((n) => n.kind === tab)), [searched, tab]);
 
   const selectedRows = useMemo(() => initial.filter((n) => selected.has(n.id)), [initial, selected]);
 
@@ -91,7 +96,15 @@ export function NetworksIndex({ initial, orgsPriced = {} }: { initial: NetworkLi
       label: "Insurer",
       sortValue: (n) => n.insurer,
       filterValue: (n) => n.insurer,
-      render: (n) => <span className="text-text-body">{n.insurer}</span>,
+      cellClassName: "max-w-[20rem]",
+      render: (n) => (
+        <span className="flex min-w-0 items-center gap-2.5">
+          <InsurerMark payer={n.insurer} />
+          <RelatedLink href={`/insurers/${n.insurerId}`} title={`Open ${n.insurer}`}>
+            <span className="truncate">{n.insurer}</span>
+          </RelatedLink>
+        </span>
+      ),
     },
     {
       key: "administrator",
@@ -109,16 +122,17 @@ export function NetworksIndex({ initial, orgsPriced = {} }: { initial: NetworkLi
       key: "kind",
       label: "Type",
       sortValue: (n) => n.kind,
-      render: (n) => <span className="capitalize text-text-body">{n.kind}</span>,
+      filterValue: (n) => kindLabel(n),
+      render: (n) => <span className="text-text-body">{kindLabel(n)}</span>,
     },
     {
       key: "orgs",
       label: "Orgs priced",
       headTitle: "Organizations with an attested 90837 rate resolving to this network (sql/048)",
       align: "right",
-      sortValue: (n) => orgsPriced[n.id] ?? 0,
+      sortValue: (n) => orgsPriced[n.id]?.orgs ?? 0,
       render: (n) => {
-        const c = orgsPriced[n.id];
+        const c = orgsPriced[n.id]?.orgs;
         return c ? (
           <span className="tabular-nums text-text-body">{c.toLocaleString("en-US")}</span>
         ) : (
@@ -144,17 +158,16 @@ export function NetworksIndex({ initial, orgsPriced = {} }: { initial: NetworkLi
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <Tabs
-        slideActive
-        className="mb-3 shrink-0"
-        items={[
-          { key: "all", label: "All", count: searched.length },
-          { key: "network", label: "Networks", count: searched.filter((n) => n.kind === "network").length },
-          { key: "product", label: "Products", count: searched.filter((n) => n.kind === "product").length },
-        ]}
-        active={tab}
-        onChange={setTab}
+      <NetworkIdentityCard
+        focus={focus}
+        loading={cardLoading}
+        all={initial}
+        orgStats={orgsPriced}
+        summary={summary}
+        onClear={() => focusRow(null)}
       />
+      {/* The frame's hairline — the object-tab row (NYS-148) slots in above it. */}
+      <div className="my-4 shrink-0 border-b border-border" />
       <DataTable
         stacked
         columns={columns}
@@ -163,10 +176,13 @@ export function NetworksIndex({ initial, orgsPriced = {} }: { initial: NetworkLi
         storageKey="networks.columns"
         defaultSort={{ col: "insurer", dir: "asc" }}
         groupBy={[{ key: "insurer", label: "Insurer", value: (n) => n.insurer }]}
+        paginate={{ pageSize: 15 }}
         fillHeight
         className="min-h-0 flex-1"
         selected={selected}
         onSelectedChange={setSelected}
+        onRowClick={(n) => focusRow(focus?.id === n.id ? null : n)}
+        rowClassName={(n) => (focus?.id === n.id ? "bg-primary-wash/40" : undefined)}
         bulkActions={
           <>
             <BulkAction icon="download" label="Export CSV" onClick={() => downloadCsv("networks-selected.csv", selectedRows)} />
@@ -205,13 +221,9 @@ export function NetworksIndex({ initial, orgsPriced = {} }: { initial: NetworkLi
         footnote={
           rows.length === 0 ? (
             <div className="rounded-card border border-border bg-surface shadow-card">
-              <EmptyState icon="globe" title="No networks" subtext="Try a broader search or another tab." />
+              <EmptyState icon="globe" title="No networks" subtext="Try a broader search or clear the filters." />
             </div>
-          ) : (
-            <span className="text-sm text-text-muted">
-              {initial.length} canonical networks · resolved from 1,133 raw payer networks
-            </span>
-          )
+          ) : undefined
         }
       />
     </div>

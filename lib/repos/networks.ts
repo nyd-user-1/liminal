@@ -351,16 +351,51 @@ export async function listNetworkOrgRates(
   }));
 }
 
-/** Per-network priced-org counts for one code — annotates the /networks index. */
-export async function networkOrgCounts(billingCode: string): Promise<Map<string, number>> {
+/** Per-network priced-org count + freshest attestation, for one code. */
+export interface NetworkRateStat {
+  orgs: number;
+  asOf: string | null;
+}
+
+export async function networkOrgCounts(billingCode: string): Promise<Map<string, NetworkRateStat>> {
   if (!hasDb) return new Map();
   const rows = (await sql`
-    SELECT network_id, count(*)::int AS orgs
+    SELECT network_id, count(*)::int AS orgs, max(as_of) AS as_of
     FROM org_network_rates
     WHERE billing_code = ${billingCode}
     GROUP BY network_id
-  `) as Array<{ network_id: string; orgs: number }>;
-  return new Map(rows.map((r) => [r.network_id, Number(r.orgs)]));
+  `) as Array<{ network_id: string; orgs: number; as_of: string | Date | null }>;
+  return new Map(rows.map((r) => [r.network_id, { orgs: Number(r.orgs), asOf: r.as_of ? isoDateOnly(r.as_of) : null }]));
+}
+
+/** Whole-corpus rollup of org_network_rates — the aggregate identity card. */
+export interface OrgNetworkRatesSummary {
+  networks: number;
+  orgs: number;
+  leaves: number;
+  /** % of (org × network × code) leaves resolving to ONE exact figure. */
+  singleRatePct: number;
+  asOf: string | null;
+}
+
+export async function orgNetworkRatesSummary(): Promise<OrgNetworkRatesSummary | null> {
+  if (!hasDb) return null;
+  const [r] = (await sql`
+    SELECT count(DISTINCT network_id)::int AS networks,
+           count(DISTINCT tin)::int        AS orgs,
+           count(*)::int                   AS leaves,
+           round(100.0 * count(*) FILTER (WHERE n_rates = 1) / greatest(count(*), 1))::int AS single_pct,
+           max(as_of)                      AS as_of
+    FROM org_network_rates
+  `) as Array<{ networks: number; orgs: number; leaves: number; single_pct: number; as_of: string | Date | null }>;
+  if (!r) return null;
+  return {
+    networks: Number(r.networks),
+    orgs: Number(r.orgs),
+    leaves: Number(r.leaves),
+    singleRatePct: Number(r.single_pct),
+    asOf: r.as_of ? isoDateOnly(r.as_of) : null,
+  };
 }
 
 export async function listNetworks(): Promise<NetworkListRow[]> {
