@@ -6,11 +6,12 @@ import { requireUser } from "@/lib/auth";
 import { platformInventory } from "@/lib/repos/admin";
 import { practiceSnapshot } from "@/lib/repos/dashboard";
 import { latestLeadReport } from "@/lib/repos/lead-reports";
-import { syncHealth } from "@/lib/repos/sync-runs";
+import { recentSyncRuns, syncHealth } from "@/lib/repos/sync-runs";
 import { InsightsHeader } from "./insights-header";
 import { NightReport } from "./night-report";
 import { Observatory } from "./observatory";
 import { PracticeStrip } from "./practice-strip";
+import { RunHistory } from "./run-history";
 import { SyncHealthCard } from "./sync-health";
 
 // /insights (né /dashboard) — the practice front door, and (for the founder)
@@ -40,11 +41,12 @@ export default async function InsightsPage() {
 
   // The observatory reads no PHI and the strip reads no platform tables, so
   // both flights go out together; each is independently memoized in its repo.
-  const [snapshot, inventory, report, health] = await Promise.all([
+  const [snapshot, inventory, report, health, runs] = await Promise.all([
     practiceSnapshot(user),
     isAdmin ? platformInventory() : null,
     isAdmin ? latestLeadReport() : null,
     isAdmin ? syncHealth() : null,
+    isAdmin ? recentSyncRuns() : null,
   ]);
 
   const firstName = user.name.split(" ")[0];
@@ -76,6 +78,7 @@ export default async function InsightsPage() {
           <Divider />
           <section className="flex min-w-0 flex-col gap-4">
             <SyncHealthCard health={health} />
+            {runs && runs.length > 0 && <RunHistory runs={runs} />}
           </section>
         </>
       )}
