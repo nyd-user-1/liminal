@@ -362,27 +362,52 @@ let partsRLen = 0;
 let carryR = Buffer.alloc(0);
 let refObjectsParsed = 0;
 let refFalseHits = 0; // id key seen but not at an object brace (id-last layout)
+let refQuoteRepairs = 0; // objects salvaged by escaping quotes inside business_name
+let refSkippedUnparseable = 0; // objects dropped after repair also failed
 
-function finishRefObj() {
-  let text = Buffer.concat(partsR, partsRLen).toString("utf8").trim();
-  partsR = [];
-  partsRLen = 0;
-  let obj = null;
+// Carelon's v2.0 files ship unescaped double quotes inside business_name
+// values (`"TAMELA "TAMMY" ROBY LMFT"`). A quote only closes the value when
+// followed by `}` or `,`; escape the rest so JSON.parse can take the object.
+function repairBusinessNameQuotes(text) {
+  return text.replace(
+    /("business_name"\s*:\s*")((?:[^"\\]|\\.|"(?!\s*[},]))*)("\s*[},])/g,
+    (m, open, val, close) => open + val.replace(/(?<!\\)"/g, '\\"') + close
+  );
+}
+
+function tryParseChopping(text) {
   for (let chop = 0; chop < 10; chop++) {
     try {
-      obj = JSON.parse(text);
-      break;
+      return JSON.parse(text);
     } catch {
       const last = text[text.length - 1];
       if (last === "]" || last === "}" || last === ",") text = text.slice(0, -1).trimEnd();
-      else break;
+      else return null;
     }
   }
+  return null;
+}
+
+function finishRefObj() {
+  const text = Buffer.concat(partsR, partsRLen).toString("utf8").trim();
+  partsR = [];
+  partsRLen = 0;
+  let obj = tryParseChopping(text);
   if (!obj) {
-    clearInterval(ticker);
-    console.error("REFS SCAN: ref object failed to parse — wrong layout for --refs=scan");
-    console.error("sample:", text.slice(0, 200));
-    process.exit(2);
+    obj = tryParseChopping(repairBusinessNameQuotes(text));
+    if (obj) refQuoteRepairs++;
+  }
+  if (!obj) {
+    if (refObjectsParsed === 0) {
+      clearInterval(ticker);
+      console.error("REFS SCAN: ref object failed to parse — wrong layout for --refs=scan");
+      console.error("sample:", text.slice(0, 200));
+      process.exit(2);
+    }
+    refSkippedUnparseable++;
+    if (refSkippedUnparseable <= 3)
+      console.error("REFS SCAN: skipped unparseable ref object:", text.slice(0, 160));
+    return;
   }
   refObjectsParsed++;
   handleProviderReference(obj);
@@ -450,6 +475,10 @@ const finishRefs = async (tail) => {
       console.error("REFS SCAN: id-last layout detected (0 objects, id keys mid-object) — use --refs=stream");
       process.exit(2);
     }
+    if (refQuoteRepairs || refSkippedUnparseable)
+      console.error(
+        `REFS SCAN: quote-repaired ${refQuoteRepairs}, skipped ${refSkippedUnparseable} of ${refObjectsParsed + refSkippedUnparseable} ref objects`
+      );
     return;
   }
   if (tail?.length) await refsWrite(tail);
