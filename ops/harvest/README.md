@@ -5,10 +5,21 @@ One launchd job fires `runner.mjs` at **01:04 every night**, wrapped in
 every due job **sequentially** (one Neon writer, one laptop's bandwidth,
 payers that WAF-ban greed), retries failures with backoff, honors the
 `KILL SWITCH` convention from `.harvest/babysit.sh`, ledgers every run into
-`sync_runs` (the same table the Vercel matview cron writes — both surface on
-**/insights → Nightly sync**), and emails `LIMINAL_OPS_EMAIL` when anything
-fails. At 04:12 the Vercel cron rebuilds the matviews, so anything loaded
-overnight is in the app by morning.
+`sync_runs` (the same table surfaced on **/insights → Nightly sync**), and
+emails `LIMINAL_OPS_EMAIL` when anything fails.
+
+**Then it rebuilds the matviews itself.** After the last load, the runner runs
+the ten `REFRESH MATERIALIZED VIEW CONCURRENTLY` + four `ANALYZE` of
+`sync-plan.mjs` via **psql** and ledgers it as job `daily` — so everything
+loaded overnight is in the app by morning. This is the PRIMARY rebuild path
+(NYS-129): psql has no 300s ceiling, and running it here makes the
+loads→rebuild ordering a code fact, not a schedule coincidence. It skips
+cleanly if a `daily` run already succeeded today (`DAILY_FORCE=1` overrides).
+The old Vercel cron (`app/api/cron/daily`) is **demoted to manual-only**
+(NYS-130): Hobby delivery proved best-effort and the full chain no longer fits
+one function's 300s cap at current scale. The route survives as an
+authenticated manual trigger; `sync-plan.mjs` is the shared source of truth so
+the two paths can't drift.
 
 ## Install / control
 
@@ -38,7 +49,13 @@ walk away. That night the runner scans it (`run-payer.sh`), loads the CSVs
 | `2p-<name>.txt`       | run-two-pass.sh → load (ref-dense payers)  |
 
 A failed manifest job stays in `queue/` and retries the next night (2
-in-run attempts first), so a flaky payer CDN heals itself.
+in-run attempts first), so a flaky payer CDN heals itself. A manifest line is
+`url|decomp|payer|network|slug|filedate[|zerook]`; `run-payer.sh` now fails the
+job (nonzero exit → no load, retry, alert) on any per-file pipe failure
+(PIPESTATUS) **or** an empty scan — so a partial/empty harvest can never ledger
+as a green tick (NYS-132). For a network that legitimately matches zero NY
+providers (e.g. Emblem's HCP), add a 7th `zerook` field to that line to allow
+its empty output.
 
 ## What still needs a human (on purpose)
 

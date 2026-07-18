@@ -24,6 +24,9 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+// The nightly matview rebuild plan, shared with app/api/cron/daily so the two
+// executors can never drift (NYS-129). See sync-plan.mjs for the ordering.
+import { VIEWS, ANALYZE_TABLES, IDENT } from "./sync-plan.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const RUN_DIR = path.join(ROOT, ".harvest", "runner");
@@ -61,6 +64,13 @@ const STEM_RE = /^[A-Za-z0-9._-]+$/;
 const SUSPECT_FRACTION = 0.2;
 const SUSPECT_MIN_HISTORY = 2;
 const SUSPECT_FLOOR_MS = 15_000;
+
+// NYS-129 — the nightly matview rebuild the runner runs after the loads.
+// Generous vs the measured ~6-10m chain; ledgered as timeout_ms so the
+// /insights "died" math (sql/041) judges it against its own kill-timeout.
+const DAILY_TIMEOUT_MS = 25 * 60_000;
+// A single hung REFRESH must not wedge the whole night — bound each psql call.
+const PSQL_STMT_TIMEOUT_MS = 15 * 60_000;
 
 // ── env ───────────────────────────────────────────────────────────────────────
 // The runner reads .env.local itself (children get it via their own
@@ -294,6 +304,173 @@ async function runJob(job) {
   return { id: job.id, ok: false, note, logFile };
 }
 
+// ── nightly matview rebuild (NYS-129 — the runner is now the PRIMARY executor)─
+// Build libpq env from DATABASE_URL so psql connects WITHOUT the
+// credential-bearing URL in argv (where `ps` would expose the password). Same
+// connection the neon HTTP client uses, just over a real Postgres session —
+// which, unlike the HTTP driver, has no 300s ceiling on a long REFRESH.
+function pgEnvFromUrl(urlStr) {
+  const u = new URL(urlStr);
+  const env = { ...process.env };
+  env.PGHOST = u.hostname;
+  if (u.port) env.PGPORT = u.port;
+  if (u.username) env.PGUSER = decodeURIComponent(u.username);
+  if (u.password) env.PGPASSWORD = decodeURIComponent(u.password);
+  env.PGDATABASE = u.pathname.replace(/^\//, "");
+  env.PGSSLMODE = u.searchParams.get("sslmode") || "require"; // Neon requires SSL
+  const cb = u.searchParams.get("channel_binding");
+  if (cb) env.PGCHANNELBINDING = cb;
+  return env;
+}
+
+// Run one statement through psql. ON_ERROR_STOP makes a SQL error a nonzero
+// exit; -qAt trims stdout to just the value (used for the count). Never throws
+// — a failure is data about the step, like everywhere else here.
+function psqlExec(statement, pgEnv, timeoutMs = PSQL_STMT_TIMEOUT_MS) {
+  return new Promise((resolve) => {
+    const child = spawn("psql", ["-v", "ON_ERROR_STOP=1", "-qAt", "-c", statement], {
+      cwd: ROOT,
+      env: pgEnv,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (d) => (stdout += d));
+    child.stderr.on("data", (d) => (stderr += d));
+    const timer = setTimeout(() => {
+      try {
+        child.kill("SIGKILL");
+      } catch {}
+    }, timeoutMs);
+    child.on("error", (e) => {
+      clearTimeout(timer);
+      resolve({ ok: false, error: `psql spawn failed: ${e.message ?? e}` });
+    });
+    child.on("exit", (code) => {
+      clearTimeout(timer);
+      if (code === 0) resolve({ ok: true, stdout: stdout.trim() });
+      else resolve({ ok: false, error: (stderr.trim() || `psql exited ${code}`).slice(0, 500) });
+    });
+  });
+}
+
+// The skip-guard. A flat "rebuilt within N hours" window is UNSOUND here: an
+// off-cadence rebuild (an operator's manual one, the demoted Vercel route)
+// landing within the window of the nightly would make the nightly skip even
+// though tonight's loads still need reflecting — staleness, the worst failure.
+// So the guard is "nothing has loaded since the last successful rebuild": skip
+// only if the newest ok 'daily' row is newer than everything else that ran AND
+// is itself recent (the recency bound still forces a periodic rebuild — fresh
+// planner stats — on a truly idle stretch). Any load writes a sync_runs row, so
+// the moment tonight's jobs run, last_other jumps past the last rebuild and the
+// guard correctly declines to skip. Returns the redundant rebuild's timestamp,
+// or null if a rebuild is warranted.
+async function dailyRebuildRedundant() {
+  if (!sql) return null;
+  try {
+    const [row] = await sql`
+      SELECT
+        (SELECT max(started_at) FROM sync_runs WHERE job = 'daily' AND status = 'ok') AS last_daily_ok,
+        (SELECT max(started_at) FROM sync_runs WHERE job <> 'daily') AS last_other`;
+    const lastDailyOk = row?.last_daily_ok ? new Date(row.last_daily_ok) : null;
+    if (!lastDailyOk) return null; // never rebuilt → must run
+    const lastOther = row?.last_other ? new Date(row.last_other) : null;
+    const nothingSince = !lastOther || lastDailyOk >= lastOther;
+    const recent = Date.now() - lastDailyOk.getTime() < EVERY_HOURS.day * 3_600_000;
+    return nothingSince && recent ? lastDailyOk : null;
+  } catch {
+    return null;
+  }
+}
+
+// NYS-129 — the runner IS the nightly matview rebuild now, not a watchdog for
+// Vercel's. It runs the shared VIEWS/ANALYZE chain (sync-plan.mjs) via psql
+// after the night's loads: a real session has no 300s ceiling (the Vercel
+// route's cap now guillotines the full chain at 13.4M rows), it runs inside the
+// runner's lock right after the data that should feed it, and it's ledgered as
+// job 'daily' so the /insights sync-health card judges it exactly like the old
+// cron. The return shape matches a job result so it rides the same email + bell
+// + exit-code path as everything else.
+export async function runDailyRebuild() {
+  const id = "daily-matviews";
+  const logFile = path.join(LOG_DIR, `daily-${stamp()}.log`);
+  const appendLog = (line) => fs.appendFileSync(logFile, line + "\n");
+
+  if (!process.env.DATABASE_URL) {
+    log("daily rebuild: no DATABASE_URL — skipping");
+    return { id, ok: true, note: "no DATABASE_URL — skipped", logFile };
+  }
+  // Skip cleanly only if nothing has loaded since the last successful rebuild
+  // (see dailyRebuildRedundant). DAILY_FORCE=1 overrides — for an operator
+  // forcing a rebuild, and for verification.
+  if (process.env.DAILY_FORCE !== "1") {
+    const fresh = await dailyRebuildRedundant();
+    if (fresh) {
+      const agoMin = Math.round((Date.now() - fresh.getTime()) / 60_000);
+      log(`daily rebuild: nothing loaded since the ok rebuild ${agoMin}m ago — skipping`);
+      return { id, ok: true, skipped: true, note: `skipped — nothing changed since rebuild ${agoMin}m ago`, logFile };
+    }
+  }
+
+  const pgEnv = pgEnvFromUrl(process.env.DATABASE_URL);
+  const ledgerId = await openRun("daily", DAILY_TIMEOUT_MS);
+  const started = Date.now();
+  const steps = [];
+  appendLog(`── daily matview rebuild @ ${now().toISOString()} (harvestd/psql, runner-primary) ──`);
+  log(`daily rebuild: ${VIEWS.length} views + ${ANALYZE_TABLES.length} analyze via psql`);
+
+  for (const v of VIEWS) {
+    if (!IDENT.test(v)) {
+      steps.push({ step: v, ms: 0, error: "refused: not a bare identifier" });
+      appendLog(`REFRESH ${v} — REFUSED (not a bare identifier)`);
+      continue;
+    }
+    const t0 = Date.now();
+    const r = await psqlExec(`REFRESH MATERIALIZED VIEW CONCURRENTLY ${v}`, pgEnv);
+    const ms = Date.now() - t0;
+    if (!r.ok) {
+      // Independent views (sync-plan header): a failure keeps prior contents
+      // and the run goes on; the step carries the error and the run closes
+      // 'error' so a human is told.
+      steps.push({ step: v, ms, error: r.error });
+      appendLog(`REFRESH ${v} — ERROR after ${Math.round(ms / 1000)}s: ${r.error}`);
+      continue;
+    }
+    const c = await psqlExec(`SELECT count(*) FROM ${v}`, pgEnv, 120_000);
+    const rows = c.ok ? Number.parseInt(c.stdout, 10) : undefined;
+    steps.push({ step: v, ms, ...(Number.isFinite(rows) ? { rows } : {}) });
+    appendLog(`REFRESH ${v} — ok ${Math.round(ms / 1000)}s${Number.isFinite(rows) ? ` (rows=${rows})` : ""}`);
+  }
+  for (const tbl of ANALYZE_TABLES) {
+    const label = `analyze ${tbl}`;
+    if (!IDENT.test(tbl)) {
+      steps.push({ step: label, ms: 0, error: "refused: not a bare identifier" });
+      continue;
+    }
+    const t0 = Date.now();
+    const r = await psqlExec(`ANALYZE ${tbl}`, pgEnv);
+    const ms = Date.now() - t0;
+    steps.push(r.ok ? { step: label, ms } : { step: label, ms, error: r.error });
+    appendLog(`ANALYZE ${tbl} — ${r.ok ? `ok ${Math.round(ms / 1000)}s` : `ERROR: ${r.error}`}`);
+  }
+
+  const ms = Date.now() - started;
+  const failed = steps.filter((s) => s.error);
+  await closeRun(
+    ledgerId,
+    failed.length ? "error" : "ok",
+    ms,
+    steps,
+    failed.length ? failed.map((s) => `${s.step}: ${s.error}`).join(" | ") : null,
+  );
+  const note = failed.length
+    ? `${failed.length} of ${steps.length} steps failed`
+    : `rebuilt ${VIEWS.length} views + ${ANALYZE_TABLES.length} analyze in ${Math.round(ms / 1000)}s`;
+  appendLog(`── done: ${note} ──`);
+  log(`daily rebuild: ${note}`);
+  return { id, ok: failed.length === 0, note, logFile };
+}
+
 // ── the queue: declared jobs + manifest drop-folder ───────────────────────────
 export function manifestJobs() {
   if (!fs.existsSync(QUEUE_DIR)) return [];
@@ -387,6 +564,13 @@ async function main() {
       }
       results.push(result);
     }
+
+    // The night's loads are done — rebuild the matviews so everything loaded
+    // above is in the app by morning (NYS-129). This is the LAST thing the
+    // runner does, on purpose: the rebuild must follow every load, and running
+    // it here makes the runner→rebuild ordering a code fact, not a schedule
+    // coincidence. Skips itself cleanly if a 'daily' run already succeeded today.
+    results.push(await runDailyRebuild());
 
     await emailFailures(results);
     // A suspect run needs a human as much as a failure — both raise the bell and

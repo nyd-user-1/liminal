@@ -2,80 +2,34 @@ import { NextResponse, type NextRequest } from "next/server";
 import { hasDb, sql } from "@/lib/db";
 import { sendOpsAlertEmail } from "@/lib/email";
 import { notifyAdmins } from "@/lib/repos/notifications";
+// The rebuild plan (VIEWS/ANALYZE_TABLES, in dependency order) lives in ONE
+// place so this route and the harvestd runner can never drift — see the header
+// of ops/harvest/sync-plan.mjs for why the order matters and why every REFRESH
+// is CONCURRENTLY. Adding a matview means editing that file, not this one.
+import { VIEWS, ANALYZE_TABLES, IDENT } from "@/ops/harvest/sync-plan.mjs";
 
-// The nightly rebuild of everything the app derives rather than stores.
+// The manual/emergency rebuild of everything the app derives rather than stores
+// (/rates, /directory, /orgs, /recruiting read materialized views, not the
+// 13M-row base tables — that precompute is the only reason /rates answers in
+// under a second instead of 20-30).
 //
-// The rate/participation surfaces (/rates, /directory, /orgs, /recruiting) read
-// materialized views, not the 9M-row base tables — that precompute is the only
-// reason /rates answers in under a second instead of 20-30. Nothing refreshes
-// them on its own: until now they were rebuilt by hand after an ingest, which
-// means that between ingests the numbers quietly aged. This is that routine,
-// scheduled.
-//
-// EVERY REFRESH IS CONCURRENTLY, AND THAT IS NOT AN OPTIMISATION. A plain
-// REFRESH takes an ACCESS EXCLUSIVE lock on the view for the whole rebuild — on
-// a live app that is /rates hanging for the duration. CONCURRENTLY builds
-// alongside and swaps, so readers never block. It costs more wall-clock and
-// requires a UNIQUE index on the view; all ten have one (see each sql/0XX
-// file), so this is available everywhere and there is no reason to take the
-// lock. It also cannot run inside a transaction block — hence one statement per
-// call, never a batch.
-//
-// ORDER MATTERS IN EXACTLY ONE PLACE: rate_table_mv (sql/027) joins
-// org_tin_rosters (sql/025), so the roster is rebuilt first. Everything else
-// reads only base tables and could run in any order — they run sequentially
-// anyway, because the point is to be gentle with a database the app is still
-// serving from.
-//
-// A FAILING STEP DOES NOT STOP THE RUN. The views are independent; one that
-// errors keeps its previous contents, which is the same staleness the app
-// already tolerates between refreshes — so the remaining nine should still get
-// their night. The run is marked 'error' and the failure recorded per-step.
+// DEMOTED TO MANUAL-ONLY (NYS-130). This route is no longer scheduled. Two
+// facts killed the Vercel cron: Hobby delivery is best-effort and silently
+// skipped its window (the 2026-07-18 incident, proven by Neon's compute log),
+// and — even when manually delivered that same day — the full chain was
+// guillotined at exactly 300s, because at 13.4M rate rows it no longer fits one
+// function under maxDuration. The PRIMARY nightly executor is now the harvestd
+// runner (ops/harvest/runner.mjs), which runs this same chain via psql after
+// the night's loads, with no 300s ceiling. This endpoint survives as an
+// authenticated manual trigger (Bearer CRON_SECRET) — useful for a targeted
+// re-run, but it will still time out on the full chain at current scale, so for
+// a guaranteed full rebuild use the runner (`ops/harvest/install.sh run`) or
+// psql directly. If an automatic cloud-side belt is ever wanted again (e.g. a
+// laptop-away week), split this at the org_tin_rosters boundary first.
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// MEASURED, not guessed — 2026-07-17, against the live book (9.34M rate rows,
-// 2.4M participation rows): all ten refreshes + four ANALYZEs run ~190s end to
-// end. That fits one function under Vercel's 300s cap with ~110s to spare, so
-// this is a single route rather than the daily-1/daily-2 split the brief
-// allowed for. The margin is the thing to watch: the chain scales with
-// provider_rate_signals, so if that table roughly doubles this wants splitting
-// at the org_tin_rosters boundary (everything above it is independent).
-// Per-step timings are in the report, and every run records its own in
-// sync_runs — so the split becomes a decision made on data, not a guess.
 export const maxDuration = 300;
-
-/** Refreshed here, in dependency order — the one that matters is
- *  org_tin_rosters BEFORE rate_table_mv (027 joins it). Identifiers, so never
- *  parameterisable: they are compile-time constants, and IDENT below is the
- *  belt to that brace. Measured seconds are this file's only claim to knowing
- *  what it costs. */
-const VIEWS = [
-  "provider_rate_summary", // 021 — /directory + /recruiting rate column   40.4s
-  "provider_participation_summary", // 023 — accepting/network sort         8.5s
-  "rate_bands_license_summary", // 024 — /rates bands                      19.5s
-  "rate_bands_payer_summary", // 024                                       12.3s
-  "rate_bands_checked_payers", // 024                                      13.8s
-  "payer_rate_totals", // 026                                              14.4s
-  "org_tin_rate_summary", // 025                                           25.6s
-  "org_tin_rosters", // 025 — MUST precede rate_table_mv                    8.8s
-  "rate_table_mv", // 027 — joins org_tin_rosters                          29.4s
-  "rate_table_child_mv", // 032 — needs sql/036's index to go concurrent   11.6s
-] as const;
-
-/** ANALYZE, not VACUUM: the planner needs current statistics over tables that
- *  grow by millions of rows an ingest, and a stale n_distinct on
- *  provider_rate_signals is how a rates query goes from 0.3s back to 30s
- *  (NYS-52). VACUUM is autovacuum's job and a far heavier thing to schedule.
- *  All four together measured 5.7s — the cheapest insurance here. */
-const ANALYZE_TABLES = [
-  "provider_rate_signals",
-  "provider_network_participation",
-  "nppes_npi",
-  "directory_providers",
-] as const;
-
-const IDENT = /^[a-z_][a-z0-9_]*$/;
 
 export interface SyncStep {
   step: string;
