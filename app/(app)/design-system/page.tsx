@@ -1201,7 +1201,7 @@ export default function DesignSystemPage() {
             </Spec>
             <Spec
               name="RelatedLink"
-              desc="A value that IS a record in another table — dotted teal, click to cross over. Pairs with the index page standard."
+              desc="A value that IS a record in another table — muted-teal dotted underline at rest; on hover the text goes teal and a solid teal underline wipes in over the dotted line."
               wide
             >
               <div className="w-full space-y-3">
@@ -1216,11 +1216,12 @@ export default function DesignSystemPage() {
                 </div>
                 <p className="text-[13px] text-text-body">
                   One meaning only: <em>this value lives in another table; click to go there</em> — as distinct from the
-                  row&rsquo;s own identity link (solid teal, wipe on hover) and the row&rsquo;s own drill-down. It stops
-                  propagation, because the row click means &ldquo;open this row&rdquo; and this means &ldquo;open the
-                  OTHER record&rdquo;. Live on /published-rates (Billing ID → the org book) and /orgs/registry (the
-                  Billing TIN badge). Use it sparingly: if every value on a row is dotted, none of them read as a
-                  crossing.
+                  row&rsquo;s own identity link (solid teal, wipe on hover) and the row&rsquo;s own drill-down. At rest
+                  it&rsquo;s a muted-teal dotted underline; on hover the solid teal fills in over the dotted line via the
+                  same underline-wipe motion the standard TextLink uses. It stops propagation, because the row click
+                  means &ldquo;open this row&rdquo; and this means &ldquo;open the OTHER record&rdquo;. Live on
+                  /published-rates (Billing ID → the org book) and /orgs/registry (the Billing TIN badge). Use it
+                  sparingly: if every value on a row is dotted, none of them read as a crossing.
                 </p>
               </div>
             </Spec>

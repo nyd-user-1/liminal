@@ -14,10 +14,12 @@ import { Icon, type IconName } from "@/components/ui/icons";
 //     it for the thing the row IS, never merely for a link that matters.
 //   • primary   — 600 weight, teal, no underline
 //   • underline — muted body text, static underline; hover → teal
-//   • related   — the RELATED-RECORD treatment: body text under a faint dotted
-//     teal underline, going teal on hover. It means one thing and only one
-//     thing: "this value lives in another table; click to go there." Reach for
-//     it through the RelatedLink wrapper below, never by hand.
+//   • related   — the RELATED-RECORD treatment: body text under a muted-teal
+//     dotted underline at rest; on hover the text goes teal and a solid teal
+//     underline WIPES in over the dotted line (the .link-wipe motion), so the
+//     dotted rest-line appears to fill in left→right. It means one thing and
+//     only one thing: "this value lives in another table; click to go there."
+//     Reach for it through the RelatedLink wrapper below, never by hand.
 
 const base = "inline-flex items-center gap-1.5 text-[15px] transition-colors";
 
@@ -26,12 +28,19 @@ const VARIANTS = {
   underline: "font-medium text-text underline underline-offset-2 hover:text-primary",
   wipe: "group font-normal text-primary",
   name: "group font-medium text-primary",
-  related:
-    "font-normal text-text-body underline decoration-dotted decoration-primary/40 underline-offset-[3px] hover:text-primary hover:decoration-primary",
+  // The dotted rest-underline lives on the wipe span (WIPE_SPAN_EXTRA), not the
+  // anchor — an inline-block span won't render the anchor's text-decoration, so
+  // the two underlines (dotted rest, solid wipe) must share the one element.
+  related: "group font-normal text-text-body hover:text-primary",
 } as const;
 
-/** Variants whose underline wipes in on hover — they need the .link-wipe span. */
-const WIPE_VARIANTS = new Set<keyof typeof VARIANTS>(["wipe", "name"]);
+/** Variants whose underline wipes in on hover — they wrap children in the
+ *  .link-wipe span. `related` carries a dotted underline on that same span so
+ *  the dotted rest-line is present and the solid teal appears to fill it in. */
+const WIPE_VARIANTS = new Set<keyof typeof VARIANTS>(["wipe", "name", "related"]);
+const WIPE_SPAN_EXTRA: Partial<Record<keyof typeof VARIANTS, string>> = {
+  related: "underline decoration-dotted decoration-primary/50 underline-offset-[3px] group-hover:decoration-primary",
+};
 
 export function TextLink({
   href,
@@ -50,7 +59,11 @@ export function TextLink({
   const content = (
     <>
       {icon && <Icon name={icon} size={16} />}
-      {WIPE_VARIANTS.has(variant) ? <span className="link-wipe">{children}</span> : children}
+      {WIPE_VARIANTS.has(variant) ? (
+        <span className={`link-wipe ${WIPE_SPAN_EXTRA[variant] ?? ""}`}>{children}</span>
+      ) : (
+        children
+      )}
     </>
   );
   if (href) {
