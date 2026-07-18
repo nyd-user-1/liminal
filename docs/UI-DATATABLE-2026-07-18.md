@@ -71,7 +71,7 @@ table-overflow containment (min-w-0 ancestors).
       changed; catalog note.
 - [✓] 6.2 ui-agent handoff brief (scale to Find-my-plan NYS-37, /plans
       NYS-39, /orgs, NYS-148 record shape).
-- [ ] 6.3 Commit (own files only), report, Linear comment on NYS-147.
+- [✓] 6.3 Commit (own files only), report, Linear comment on NYS-147.
 
 ## Decisions log (append as they happen)
 
