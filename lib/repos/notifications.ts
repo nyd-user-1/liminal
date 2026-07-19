@@ -66,7 +66,7 @@ export async function notifyAdmins(opts: {
   if (!hasDb) return;
   await sql`
     INSERT INTO notifications (user_id, kind, title, body, href)
-    SELECT id, ${opts.kind}, ${opts.title}, ${opts.body ?? null}, ${opts.href ?? "/insights"}
+    SELECT id, ${opts.kind}, ${opts.title}, ${opts.body ?? null}, ${opts.href ?? "/workspace"}
     FROM users WHERE role = 'admin'
   `;
 }

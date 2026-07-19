@@ -165,7 +165,7 @@ export async function sendOpsAlertEmail(opts: {
     html: shell({
       heading: opts.subject,
       bodyHtml: `<p style="margin:0 0 14px;">${esc(opts.intro)}</p>${rows}`,
-      cta: { label: "Open Insights", href: `${appBaseUrl()}/insights` },
+      cta: { label: "Open Workspace", href: `${appBaseUrl()}/workspace` },
     }),
   });
 }

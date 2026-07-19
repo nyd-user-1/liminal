@@ -10,7 +10,7 @@ import type { Notification } from "@/lib/repos/notifications";
 // The TopBar bell — real at last. Fetches the session user's notifications,
 // wears the unread count as a red CountBadge, and opens a DropdownMenu of
 // recent items; each click navigates to the notification's href (pipeline
-// alerts land on /insights). Opening the menu IS the read event: the badge
+// alerts land on /workspace). Opening the menu IS the read event: the badge
 // clears, the per-item dots stay for that viewing, and there is no per-row
 // read UI to manage. Producers write rows via lib/repos/notifications.ts.
 
@@ -82,12 +82,12 @@ export function TopBarBell() {
               label={n.title}
               subtitle={`${n.body ? `${n.body} · ` : ""}${timeAgo(n.createdAt)}`}
               trailing={n.readAt === null ? <DotBadge variant="danger" /> : undefined}
-              onClick={() => router.push(n.href ?? "/insights")}
+              onClick={() => router.push(n.href ?? "/workspace")}
             />
           ))
         )}
         <MenuDivider />
-        <MenuItem icon="activity" label="View sync health" onClick={() => router.push("/insights")} />
+        <MenuItem icon="activity" label="View sync health" onClick={() => router.push("/workspace")} />
       </DropdownMenu>
     </span>
   );

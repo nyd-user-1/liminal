@@ -1,9 +1,13 @@
+import { promises as fs } from "fs";
+import os from "os";
+import path from "path";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icons";
 import { ListRow } from "@/components/ui/list-row";
 import { formatDate } from "@/lib/format";
 import type { ReportEntry } from "@/lib/repos/reports";
+import { CopyCard } from "./copy-card";
 import { EcoSection } from "./section";
 
 // The fleet — the ten standing terminals that do the work, and the trail of what
@@ -26,7 +30,19 @@ const FLEET: Agent[] = [
   { name: "qa", model: "opus", blurb: "End-to-end headless product drives after big change days — reads the output, not the exit code." },
 ];
 
-export function Fleet({ reports }: { reports: ReportEntry[] }) {
+/** The agent's identity file (~/.claude/agents/<name>-agent.md, docs-agent-maintained).
+ *  Null where the file isn't readable (e.g. deployed) — the card degrades to plain. */
+async function agentDoc(name: string): Promise<string | null> {
+  try {
+    const p = path.join(os.homedir(), ".claude", "agents", `${name}-agent.md`);
+    return await fs.readFile(p, "utf8");
+  } catch {
+    return null;
+  }
+}
+
+export async function Fleet({ reports }: { reports: ReportEntry[] }) {
+  const docs = await Promise.all(FLEET.map((a) => agentDoc(a.name)));
   return (
     <EcoSection
       icon="users-round"
@@ -35,16 +51,28 @@ export function Fleet({ reports }: { reports: ReportEntry[] }) {
       blurb="Ten standing terminals, each a specialist with its own seam. The lead briefs; they execute, report, and hand back — the same loop, every night."
     >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {FLEET.map((a) => (
-          <Card key={a.name} className="flex min-w-0 flex-col gap-1.5 p-4">
-            <span className="flex flex-wrap items-center gap-2">
-              <span className="text-[15px] font-semibold text-text">{a.name}</span>
-              <Badge variant={a.model === "fable" ? "info" : "neutral"}>{a.model}</Badge>
-              {a.mine && <Badge variant="success">built this page</Badge>}
-            </span>
-            <p className="text-sm leading-relaxed text-text-muted">{a.blurb}</p>
-          </Card>
-        ))}
+        {FLEET.map((a, i) => {
+          const card = (
+            <Card className="flex h-full min-w-0 flex-col gap-1.5 p-4">
+              <span className="flex flex-wrap items-center gap-2">
+                <span className="text-[15px] font-semibold text-text">{a.name}</span>
+                <Badge variant={a.model === "fable" ? "info" : "neutral"}>{a.model}</Badge>
+                {a.mine && <Badge variant="success">built this page</Badge>}
+              </span>
+              <p className="text-sm leading-relaxed text-text-muted">{a.blurb}</p>
+            </Card>
+          );
+          const doc = docs[i];
+          return doc ? (
+            <CopyCard key={a.name} text={doc}>
+              {card}
+            </CopyCard>
+          ) : (
+            <div key={a.name} className="min-w-0">
+              {card}
+            </div>
+          );
+        })}
       </div>
 
       {reports.length > 0 && (

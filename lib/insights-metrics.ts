@@ -1,6 +1,6 @@
 import type { PlatformInventory } from "@/lib/repos/admin";
 
-// Pure helpers for the /insights ecosystem scoreboard. No DB, no PHI — they read
+// Pure helpers for the /workspace ecosystem scoreboard. No DB, no PHI — they read
 // the numbers the platform already produced (the live inventory + the lead's
 // nightly report) and shape them for the coverage-&-growth cards.
 

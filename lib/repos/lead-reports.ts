@@ -2,7 +2,7 @@ import { hasDb, sql } from "@/lib/db";
 import { isoDateOnly } from "@/lib/format";
 
 // Lead night reports (sql/037) — the multi-terminal digest the lead session
-// writes for the founder, surfaced on /insights as an editable note. Markdown
+// writes for the founder, surfaced on /workspace as an editable note. Markdown
 // body, one row per day. No PHI belongs in these: they describe the BUILD.
 
 export type LeadReport = {

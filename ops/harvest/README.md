@@ -5,7 +5,7 @@ One launchd job fires `runner.mjs` at **01:04 every night**, wrapped in
 every due job **sequentially** (one Neon writer, one laptop's bandwidth,
 payers that WAF-ban greed), retries failures with backoff, honors the
 `KILL SWITCH` convention from `.harvest/babysit.sh`, ledgers every run into
-`sync_runs` (the same table surfaced on **/insights → Nightly sync**), and
+`sync_runs` (the same table surfaced on **/workspace → Nightly sync**), and
 emails `LIMINAL_OPS_EMAIL` when anything fails.
 
 **Then it rebuilds the matviews itself.** After the last load, the runner runs
@@ -85,5 +85,5 @@ its empty output.
 
 - State/logs: `.harvest/runner/` (untracked) — `runner.log`, `state.json`,
   `logs/<job>-<stamp>.log`, `launchd.log`
-- Ledger: `sync_runs` rows with `job = 'harvest:<id>'` → /insights card
+- Ledger: `sync_runs` rows with `job = 'harvest:<id>'` → /workspace card
 - Email: `LIMINAL_OPS_EMAIL` + `LIMINAL_RESEND_API_KEY` in `.env.local`

@@ -130,7 +130,7 @@ export async function GET(req: NextRequest) {
 
   await closeRun(runId, steps, startedAt);
   const failed = steps.filter((s) => s.error);
-  // The alert must reach a human, not just the ledger: /insights shows red on
+  // The alert must reach a human, not just the ledger: /workspace shows red on
   // the next visit, but nothing guarantees a visit. Best-effort — a down email
   // provider must not turn a half-failed refresh into a fully-failed response.
   if (failed.length) {

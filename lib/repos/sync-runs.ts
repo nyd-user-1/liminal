@@ -4,7 +4,7 @@ import { isoDateTime } from "@/lib/format";
 // sync_runs (sql/035) — the maintenance ledger. Two writers share it: the
 // nightly matview cron (job 'daily', app/api/cron/daily) and the local harvest
 // runner (job 'harvest:<name>', ops/harvest/runner.mjs). One reader: the
-// /insights sync-health card. Health is judged here, not in the component,
+// /workspace sync-health card. Health is judged here, not in the component,
 // so "red" means the same thing everywhere.
 
 export type SyncStep = { step: string; ms: number; rows?: number; error?: string };
@@ -68,7 +68,7 @@ function toRun(r: {
     // A DB status of 'suspect' (sql/041, NYS-124 — a success the runner didn't
     // trust) intentionally falls through to "error" here: it needs a human,
     // exactly like a failure, and the reason rides in `error`. Surfacing it as
-    // its own amber badge is a /insights follow-up (that state union is owned by
+    // its own amber badge is a /workspace follow-up (that state union is owned by
     // the UI, not this repo).
     state: died ? "died" : running ? "running" : r.status === "ok" ? "ok" : "error",
     startedAt: isoDateTime(r.started_at),
@@ -80,7 +80,7 @@ function toRun(r: {
   };
 }
 
-/** The run ledger itself, newest first — feeds the /insights history table. */
+/** The run ledger itself, newest first — feeds the /workspace history table. */
 export async function recentSyncRuns(limit = 30): Promise<SyncRun[]> {
   if (!hasDb) return [];
   const rows = (await sql`

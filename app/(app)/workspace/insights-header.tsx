@@ -71,14 +71,14 @@ export function InsightsHeader({ greeting, canBrief }: { greeting: string; canBr
 
   const left =
     view.kind === "loading" ? (
-      <div className="flex max-w-[68ch] animate-pulse flex-col gap-2.5" aria-hidden>
+      <div className="flex animate-pulse flex-col gap-2.5" aria-hidden>
         <span className="h-6 w-3/5 rounded bg-canvas" />
         <span className="mt-1 h-3.5 w-full rounded bg-canvas" />
         <span className="h-3.5 w-[92%] rounded bg-canvas" />
         <span className="h-3.5 w-[70%] rounded bg-canvas" />
       </div>
     ) : view.kind === "ready" ? (
-      <CopyCard chip="bottom" text={`${view.headline ? view.headline + "\n" : ""}${view.body}`} className="max-w-[68ch]">
+      <CopyCard chip="bottom" text={`${view.headline ? view.headline + "\n" : ""}${view.body}`}>
         <div className="flex flex-col gap-1.5">
           {view.headline && <h2 className="text-xl font-semibold leading-snug text-text">{view.headline}</h2>}
           <p className="whitespace-pre-line text-[15px] leading-relaxed text-text-body">{view.body}</p>

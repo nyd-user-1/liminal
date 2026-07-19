@@ -12,7 +12,7 @@ import type { SessionUser } from "@/lib/auth";
 const WORKSPACE_NAV: SidebarNavItem[] = [
   // The front door: today's caseload for everyone, plus the platform
   // inventory for the founder. First item because it's where a day starts.
-  { label: "Insights", href: "/insights", icon: "wand-sparkles" },
+  { label: "Workspace", href: "/workspace", icon: "wand-sparkles" },
   // The composable board. Sits beside Insights for now — Insights is the
   // fixed page, Analytics is the one you build yourself.
   { label: "Analytics", href: "/analytics", icon: "columns-3" },

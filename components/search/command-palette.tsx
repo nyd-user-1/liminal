@@ -24,7 +24,7 @@ type SearchGroup = { type: string; label: string; icon: IconName; items: SearchI
 // Static jump-to destinations — the workspace's top-level routes, always
 // filterable by label so ⌘K doubles as a keyboard nav.
 const DESTINATIONS: { label: string; href: string; icon: IconName }[] = [
-  { label: "Insights", href: "/insights", icon: "wand-sparkles" },
+  { label: "Workspace", href: "/workspace", icon: "wand-sparkles" },
   { label: "Calendar", href: "/calendar", icon: "calendar" },
   { label: "Inbox", href: "/inbox", icon: "inbox" },
   { label: "Clients", href: "/clients", icon: "users" },

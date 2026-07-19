@@ -6,7 +6,7 @@ import { Tabs } from "@/components/ui/tabs";
 // the same spot on every page. Tabs marks the active item off the pathname.
 
 const ITEMS = [
-  { key: "insights", label: "Insights", href: "/insights" },
+  { key: "insights", label: "Workspace", href: "/workspace" },
   { key: "analytics", label: "Analytics", href: "/analytics" },
   { key: "dashboard", label: "Dashboard", href: "/dashboard" },
 ];

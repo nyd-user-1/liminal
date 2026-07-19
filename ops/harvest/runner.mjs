@@ -6,7 +6,7 @@
 // the nohup-and-hope era: jobs are declared in ops/harvest/jobs.json, MRF
 // manifests dropped into .harvest/mrf/manifests/queue/ become jobs
 // automatically, every run is ledgered to sync_runs (the same table the
-// Vercel matview cron writes, so /insights shows both), and failures email
+// Vercel matview cron writes, so /workspace shows both), and failures email
 // LIMINAL_OPS_EMAIL. If the Mac slept through 01:04, launchd runs the job on
 // next wake and the interval math below self-heals — nothing is ever "missed",
 // only late.
@@ -67,7 +67,7 @@ const SUSPECT_FLOOR_MS = 15_000;
 
 // NYS-129 — the nightly matview rebuild the runner runs after the loads.
 // Generous vs the measured ~6-10m chain; ledgered as timeout_ms so the
-// /insights "died" math (sql/041) judges it against its own kill-timeout.
+// /workspace "died" math (sql/041) judges it against its own kill-timeout.
 const DAILY_TIMEOUT_MS = 25 * 60_000;
 // A single hung REFRESH must not wedge the whole night — bound each psql call.
 const PSQL_STMT_TIMEOUT_MS = 15 * 60_000;
@@ -127,7 +127,7 @@ function tail(file, lines = 15) {
 async function openRun(job, timeoutMs) {
   if (!sql) return null;
   try {
-    // timeout_ms (sql/041) lets /insights judge "died" against this job's own
+    // timeout_ms (sql/041) lets /workspace judge "died" against this job's own
     // kill-timeout instead of a flat 30m — a long harvest is no longer false red.
     // trigger is 'cron' for both the Mac runner and the GitHub Actions cloud
     // belt — the sync_runs.trigger CHECK only allows 'cron'|'manual', and a
@@ -393,7 +393,7 @@ async function dailyRebuildRedundant() {
 // after the night's loads: a real session has no 300s ceiling (the Vercel
 // route's cap now guillotines the full chain at 13.4M rows), it runs inside the
 // runner's lock right after the data that should feed it, and it's ledgered as
-// job 'daily' so the /insights sync-health card judges it exactly like the old
+// job 'daily' so the /workspace sync-health card judges it exactly like the old
 // cron. The return shape matches a job result so it rides the same email + bell
 // + exit-code path as everything else.
 export async function runDailyRebuild() {
@@ -589,7 +589,7 @@ async function main() {
           INSERT INTO notifications (user_id, kind, title, body, href)
           SELECT id, 'sync_failure',
                  ${`Harvest runner — ${flagged.length} of ${results.length} jobs need attention`},
-                 ${flagged.map((r) => r.id).join(", ")}, '/insights'
+                 ${flagged.map((r) => r.id).join(", ")}, '/workspace'
           FROM users WHERE role = 'admin'`;
       } catch {
         /* ledger only */

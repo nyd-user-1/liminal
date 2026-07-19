@@ -18,7 +18,7 @@
 //
 // The domain grouping, per-table meaning, and "which page consumes it" metadata
 // below MIRROR lib/repos/admin.ts (platformInventory) — that repo function is
-// the app's authority (it powers /insights' Observatory and /admin/data); this
+// the app's authority (it powers /workspace' Observatory and /admin/data); this
 // is the atlas's copy of the same knowledge. Keep them in step: a table added
 // there wants a line here. Tables present in the DB but absent from the metadata
 // still appear, under "Unmapped tables", with their columns and count — so the

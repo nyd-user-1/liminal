@@ -2,7 +2,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 
 // Best-effort reader for the agent fleet's shipped reports (docs/reports/*.md).
-// Powers the /insights "fleet" ledger. Filesystem, no DB, no PHI. If the reports
+// Powers the /workspace "fleet" ledger. Filesystem, no DB, no PHI. If the reports
 // directory isn't present in the deployment bundle it returns [] and the ledger
 // simply doesn't render — the fleet roster stands on its own.
 

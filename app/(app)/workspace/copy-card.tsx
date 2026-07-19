@@ -40,7 +40,7 @@ export function CopyCard({
     <div
       onClick={onClick}
       title="Click to copy"
-      className={`group relative min-w-0 cursor-copy ${className}`}
+      className={`group relative min-w-0 cursor-pointer ${className}`}
     >
       {children}
       <span
