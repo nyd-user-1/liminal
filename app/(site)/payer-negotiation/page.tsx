@@ -24,7 +24,6 @@ const CONTACT = "mailto:partnerships@liminal.demo";
 
 export default async function PayerNegotiationPage() {
   const spread = await get90837Spread();
-  const hasSpread = spread.rows.length > 0;
 
   return (
     <>
@@ -46,12 +45,6 @@ export default async function PayerNegotiationPage() {
         <div className="mt-12">
           <PayerSpreadTable spread={spread} />
         </div>
-        {hasSpread && (
-          <p className="mx-auto mt-8 max-w-2xl text-pretty text-center text-[15px] leading-relaxed text-text-body">
-            A rate that sits near the bottom of this list isn&rsquo;t a verdict on your work — it&rsquo;s a contract
-            that predates the evidence. The ask changes when you can show the payer their own peers&rsquo; numbers.
-          </p>
-        )}
       </Section>
 
       {/* What a Leuk practice actually gets — described truthfully. */}
@@ -86,10 +79,6 @@ export default async function PayerNegotiationPage() {
             },
           ]}
         />
-        <p className="mt-8 max-w-3xl text-[15px] leading-relaxed text-text-muted">
-          A published band is ammunition for the ask, not a guarantee of an offer — and never what a patient pays. We
-          show you the market; the conversation is still yours to have.
-        </p>
       </Section>
 
       <CtaBand

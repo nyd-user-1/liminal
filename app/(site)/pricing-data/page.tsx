@@ -7,9 +7,10 @@ import { StatBand } from "@/components/site/stat-band";
 import { CtaBand } from "@/components/site/cta-band";
 import { InsurerStrip } from "@/components/site/insurer-strip";
 import { Placeholder } from "@/components/site/placeholder";
+import { CountUp } from "@/components/site/count-up";
 import { PayerSpreadTable } from "@/components/site/payer-spread-table";
 import { RateIntelFamily } from "@/components/site/rate-intel-family";
-import { getCorpusStats, get90837Spread, formatCompact } from "@/lib/repos/public-stats";
+import { getCorpusStats, get90837Spread } from "@/lib/repos/public-stats";
 
 // /pricing-data — the corpus page. Payer transparency data reveals what every
 // plan actually pays; where others show one illustrative example, we show the
@@ -25,13 +26,15 @@ export const metadata: Metadata = {
     "Millions of payer-published in-network rates across New York, refreshed nightly. See the market median for a session, by payer — the data behind the answer.",
 };
 
-// "13.6M+" for estimate-backed counts, or a visible placeholder when a read is
-// unavailable (offline dev / a not-yet-built table). Never a hardcoded number.
-function plus(n: number | null, token: string): ReactNode {
-  return n != null ? `${formatCompact(n)}+` : <Placeholder token={token} />;
-}
-function exact(n: number | null, token: string): ReactNode {
-  return n != null ? formatCompact(n) : <Placeholder token={token} />;
+// A live corpus number that counts up on scroll-into-view, or a visible
+// placeholder when a read is unavailable (offline dev / a not-yet-built table).
+// Never a hardcoded number.
+function statValue(n: number | null, opts: { compact?: boolean; suffix?: string }, token: string): ReactNode {
+  return n != null ? (
+    <CountUp to={n} format={opts.compact ? "compact" : "int"} suffix={opts.suffix ?? ""} />
+  ) : (
+    <Placeholder token={token} />
+  );
 }
 
 export default async function PricingDataPage() {
@@ -43,7 +46,7 @@ export default async function PricingDataPage() {
       <PageHero
         eyebrow="Rate intelligence"
         title="Know what every payer actually pays."
-        lede="Payers publish their in-network rates. We hold millions of them across New York, resolved to real insurers and networks and refreshed nightly — so a rate stops being a mystery and starts being evidence."
+        lede="Payers publish their in-network rates. We hold millions of them across New York, matched to real insurers and networks and refreshed nightly — so a rate stops being a mystery and starts being evidence."
         primary={{ href: "/join", label: "Bring your practice onto Leuk" }}
         secondary={{ href: "/providers", label: "Browse the directory" }}
       />
@@ -59,33 +62,33 @@ export default async function PricingDataPage() {
           className="mt-14"
           stats={[
             {
-              value: plus(stats.attestedRates, "{{STAT:attested_rates}}"),
-              label: "Payer-attested in-network rates on file",
-              note: "From payer MRF / Transparency-in-Coverage files",
+              value: statValue(stats.attestedRates, { compact: true, suffix: "+" }, "{{STAT:attested_rates}}"),
+              label: "In-network rates",
+              note: "Published by payers under price transparency",
             },
             {
-              value: plus(stats.clinicians, "{{STAT:clinicians}}"),
-              label: "New York behavioral clinicians in the directory",
+              value: statValue(stats.clinicians, { compact: true, suffix: "+" }, "{{STAT:clinicians}}"),
+              label: "New York providers",
               note: "NPPES + New York Medicaid",
             },
             {
-              value: plus(stats.billingOrgs, "{{STAT:billing_orgs}}"),
-              label: "Billing organizations resolved",
-              note: "Mapped from published rate files",
+              value: statValue(stats.billingOrgs, { compact: true, suffix: "+" }, "{{STAT:billing_orgs}}"),
+              label: "Billing entities",
+              note: "From published payer rate files",
             },
             {
-              value: exact(stats.insurers, "{{STAT:insurers}}"),
-              label: "Canonical insurers",
-              note: "Resolved from the NY DFS registry",
+              value: statValue(stats.insurers, {}, "{{STAT:insurers}}"),
+              label: "Insurers",
+              note: "From the NY DFS registry",
             },
             {
-              value: exact(stats.networks, "{{STAT:networks}}"),
-              label: "Canonical networks",
-              note: "Deduplicated, administrator-aware",
+              value: statValue(stats.networks, {}, "{{STAT:networks}}"),
+              label: "Networks",
+              note: "Across New York payer books",
             },
             {
-              value: plus(stats.planFilings, "{{STAT:plan_filings}}"),
-              label: "Federal plan filings",
+              value: statValue(stats.planFilings, { compact: true, suffix: "+" }, "{{STAT:plan_filings}}"),
+              label: "Plan filings",
               note: "DOL Form 5500 registry",
             },
           ]}
@@ -124,7 +127,7 @@ export default async function PricingDataPage() {
         <SectionHeading
           eyebrow="How the data gets here"
           title="Published by the payer. Cleaned by us."
-          lede="Nothing here is scraped from a claim or guessed from a model. It is the payer's own attestation, resolved to a real entity and kept current."
+          lede="Nothing here is scraped from a claim or guessed from a model. It is the payer's own attestation, matched to a real entity and kept current."
           align="center"
         />
         <ol className="mx-auto mt-14 grid max-w-4xl gap-8 sm:grid-cols-3">
@@ -136,8 +139,8 @@ export default async function PricingDataPage() {
             },
             {
               icon: "wand-sparkles" as const,
-              title: "We resolve it",
-              body: "Raw files name entities inconsistently. We map each one to a canonical insurer and network from the NY regulator's registry, so a rate belongs to a payer you'd recognize.",
+              title: "We name it",
+              body: "Raw files name entities inconsistently. We match each one to a real insurer and network from the NY regulator's list, so a rate belongs to a payer you'd recognize.",
             },
             {
               icon: "refresh-cw" as const,
@@ -159,7 +162,7 @@ export default async function PricingDataPage() {
         </ol>
       </Section>
 
-      <InsurerStrip ground="page" caption="Rates resolved to the plans New Yorkers actually carry." />
+      <InsurerStrip ground="page" caption="Rates matched to the plans New Yorkers actually carry." />
 
       <CtaBand
         eyebrow="Put it to work"

@@ -7,8 +7,9 @@ import { Section, SectionHeading } from "@/components/site/section";
 import { StatBand } from "@/components/site/stat-band";
 import { CtaBand } from "@/components/site/cta-band";
 import { Placeholder } from "@/components/site/placeholder";
+import { CountUp } from "@/components/site/count-up";
 import { RateIntelFamily } from "@/components/site/rate-intel-family";
-import { getCorpusStats, get90837Spread, formatCompact } from "@/lib/repos/public-stats";
+import { getCorpusStats, get90837Spread } from "@/lib/repos/public-stats";
 import { formatDate } from "@/lib/format";
 
 // /payer-disputes — the evidence page. An underpayment dispute is strongest
@@ -23,16 +24,19 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Underpayment disputes — the payer's own receipts | Leuk",
   description:
-    "The strongest evidence in an underpayment dispute is the payer's own published in-network rate. That is exactly what the corpus is — an attestation, with a file date, resolved to a real entity.",
+    "The strongest evidence in an underpayment dispute is the payer's own published in-network rate. That is exactly what the corpus is — an attestation, with a file date, tied to a real entity.",
 };
 
 const CONTACT = "mailto:partnerships@liminal.demo";
 
-function exact(n: number | null, token: string): ReactNode {
-  return n != null ? formatCompact(n) : <Placeholder token={token} />;
-}
-function plus(n: number | null, token: string): ReactNode {
-  return n != null ? `${formatCompact(n)}+` : <Placeholder token={token} />;
+// A live corpus number that counts up on scroll-into-view, or a visible
+// placeholder when a read is unavailable. Never a hardcoded number.
+function statValue(n: number | null, opts: { compact?: boolean; suffix?: string }, token: string): ReactNode {
+  return n != null ? (
+    <CountUp to={n} format={opts.compact ? "compact" : "int"} suffix={opts.suffix ?? ""} />
+  ) : (
+    <Placeholder token={token} />
+  );
 }
 
 // The exhibit — the shape of the evidence, built from a real aggregate median.
@@ -128,7 +132,7 @@ export default async function PayerDisputesPage() {
               {[
                 "Each row is the payer's own in-network attestation — their disclosure, not our inference.",
                 "Every figure carries a file date, so it proves what was on the record and when.",
-                "It's resolved to a canonical insurer and network, so the exhibit names an entity the payer recognizes.",
+                "It's matched to a real insurer and network, so the exhibit names an entity the payer recognizes.",
               ].map((point) => (
                 <li key={point} className="flex items-start gap-3">
                   <Icon name="circle-check" size={20} className="mt-0.5 shrink-0 text-primary" />
@@ -157,26 +161,26 @@ export default async function PayerDisputesPage() {
       <Section>
         <SectionHeading
           eyebrow="Why it holds up in New York"
-          title="Resolved to the regulator's own registry."
-          lede="Payer files name the same company a dozen different ways. Name-matching guesses; we don't. Every rate is resolved to a canonical insurer drawn from the New York Department of Financial Services list — so an exhibit names the licensed entity, not a string that happened to match."
+          title="Matched to the regulator's own registry."
+          lede="Payer files name the same company a dozen different ways. Name-matching guesses; we don't. Every rate is matched to a real insurer drawn from the New York Department of Financial Services list — so an exhibit names the licensed entity, not a string that happened to match."
         />
         <StatBand
           className="mt-14"
           stats={[
             {
-              value: exact(stats.insurers, "{{STAT:insurers}}"),
-              label: "Canonical insurers",
-              note: "Resolved from the NY DFS registry",
+              value: statValue(stats.insurers, {}, "{{STAT:insurers}}"),
+              label: "Insurers",
+              note: "From the NY DFS registry",
             },
             {
-              value: exact(stats.networks, "{{STAT:networks}}"),
-              label: "Canonical networks",
-              note: "Deduplicated, administrator-aware",
+              value: statValue(stats.networks, {}, "{{STAT:networks}}"),
+              label: "Networks",
+              note: "Across New York payer books",
             },
             {
-              value: plus(stats.planFilings, "{{STAT:plan_filings}}"),
-              label: "Federal plan filings on file",
-              note: "DOL Form 5500 — name the plan and its sponsor",
+              value: statValue(stats.planFilings, { compact: true, suffix: "+" }, "{{STAT:plan_filings}}"),
+              label: "Plan filings",
+              note: "DOL Form 5500 — the plan and its sponsor",
             },
           ]}
         />
