@@ -69,6 +69,9 @@ const BOTTOM_COLUMNS: FooterColumn[] = [
     heading: "For providers",
     links: [
       ...PROVIDER_LINKS.map(({ label, href }) => ({ label, href })),
+      { label: "Rate data", href: "/pricing-data" },
+      { label: "Payer negotiation", href: "/payer-negotiation" },
+      { label: "Underpayment disputes", href: "/payer-disputes" },
       { label: "Refer a provider", href: "/join?ref=1" },
       { label: "Provider portal", href: "/sign-in" },
     ],
