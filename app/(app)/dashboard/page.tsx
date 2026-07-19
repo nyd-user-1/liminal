@@ -61,8 +61,8 @@ export default async function DashboardPage() {
             <div>
               <h2 className="text-lg font-semibold text-text">Platform data</h2>
               <p className="mt-0.5 max-w-3xl text-sm text-text-muted">
-                Everything the platform holds, what each table means, and which page it powers. Counts are live — ≈ marks a
-                planner estimate on tables too big to count on a page load. The{" "}
+                Everything the platform holds, what each table means, and which page it powers. Counts are live — a
+                trailing + marks a planner estimate on tables too big to count on a page load. The{" "}
                 <TextLink href="/admin/data" className="text-sm">
                   data dictionary
                 </TextLink>{" "}

@@ -8,7 +8,8 @@ import { Table, Td, Tr } from "@/components/ui/table";
 function formatCount(t: DictionaryTable): string {
   if (t.count === null) return "—";
   const n = t.count.toLocaleString("en-US");
-  return t.countKind === "estimate" ? `≈${n}` : n;
+  // Estimates carry a trailing "+" rather than a leading almost-equal glyph.
+  return t.countKind === "estimate" ? `${n}+` : n;
 }
 
 export function DataDictionary({ groups }: { groups: DictionaryGroup[] }) {
@@ -39,8 +40,8 @@ export function DataDictionary({ groups }: { groups: DictionaryGroup[] }) {
       ))}
 
       <p className="text-sm text-text-muted">
-        Counts are live (≈ = planner estimate). Sources: NPPES/Medicaid/OMH (foundation), payer FHIR directories
-        (membership), TiC MRF files (rates), Aetna ToC (employers/plans).
+        Counts are live (a trailing + marks a planner estimate). Sources: NPPES/Medicaid/OMH (foundation), payer FHIR
+        directories (membership), TiC MRF files (rates), Aetna ToC (employers/plans).
       </p>
     </div>
   );

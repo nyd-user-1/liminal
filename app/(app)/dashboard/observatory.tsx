@@ -14,7 +14,7 @@ import type { DictionaryGroup, DictionaryTable } from "@/lib/repos/admin";
 
 function formatCount(t: DictionaryTable): string {
   if (t.count === null) return "—";
-  return `${t.countKind === "estimate" ? "≈" : ""}${t.count.toLocaleString("en-US")}`;
+  return `${t.count.toLocaleString("en-US")}${t.countKind === "estimate" ? "+" : ""}`;
 }
 
 function TableCard({ t }: { t: DictionaryTable }) {

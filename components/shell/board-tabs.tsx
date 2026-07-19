@@ -9,6 +9,7 @@ const ITEMS = [
   { key: "insights", label: "Workspace", href: "/workspace" },
   { key: "analytics", label: "Analytics", href: "/analytics" },
   { key: "dashboard", label: "Dashboard", href: "/dashboard" },
+  { key: "data-dictionary", label: "Data Dictionary", href: "/workspace/data-dictionary" },
 ];
 
 export function BoardTabs() {
