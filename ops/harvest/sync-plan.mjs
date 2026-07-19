@@ -43,6 +43,7 @@ export const VIEWS = [
   "org_tin_rosters", // 025 — MUST precede rate_table_mv                    8.8s
   "rate_table_mv", // 027 — joins org_tin_rosters                          29.4s
   "rate_table_child_mv", // 032 — needs sql/036's index to go concurrent   11.6s
+  "org_network_rates", // 048 — exact-rate tree (network × TIN × code)
 ];
 
 // ANALYZE, not VACUUM: the planner needs current statistics over tables that
