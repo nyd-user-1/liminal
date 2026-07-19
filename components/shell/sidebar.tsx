@@ -23,6 +23,17 @@ export interface SidebarNavItem {
   count?: number;
 }
 
+/** A labeled, collapsible group of nav items (the Fathom sectioned pattern).
+    Rendered expanded in the full sidebar and the mobile sheet; in the collapsed
+    icon rail it becomes a single icon that links to its first child. */
+export interface SidebarNavGroup {
+  label: string;
+  icon: IconName;
+  children: SidebarNavItem[];
+}
+
+export type SidebarEntry = SidebarNavItem | SidebarNavGroup;
+
 export function Sidebar({
   items,
   user,
@@ -31,7 +42,7 @@ export function Sidebar({
   onNavigate,
   className = "",
 }: {
-  items: SidebarNavItem[];
+  items: SidebarEntry[];
   user: SessionUser;
   homeHref?: string;
   /** Render as the mobile nav sheet: full-width, no collapse, safe-area padded. */
@@ -120,6 +131,9 @@ export function Sidebar({
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-2.5">
         {items.map((item) => {
+          if ("children" in item) {
+            return <NavGroup key={item.label} group={item} collapsed={collapsed} onNavigate={onNavigate} />;
+          }
           const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
             <div key={item.href}>
@@ -215,5 +229,86 @@ export function Sidebar({
         )}
       </div>
     </aside>
+  );
+}
+
+// A collapsible sidebar section: a header row (icon + label + chevron) that
+// toggles a list of indented child links. Child active-state is an exact path
+// match so a nested route (e.g. /workspace/data-dictionary) lights only its own
+// item, not the "/workspace" sibling. In the collapsed rail there's no room to
+// nest, so the group folds to a single icon linking to its first child.
+function NavGroup({
+  group,
+  collapsed,
+  onNavigate,
+}: {
+  group: SidebarNavGroup;
+  collapsed: boolean;
+  onNavigate?: () => void;
+}) {
+  const pathname = usePathname();
+  const isChildActive = (href: string) => pathname === href;
+  const containsActive = group.children.some((c) => isChildActive(c.href));
+  const [open, setOpen] = useState(containsActive);
+  // Following a link into the family (client-side nav) re-opens the section.
+  useEffect(() => {
+    if (containsActive) setOpen(true);
+  }, [containsActive]);
+
+  if (collapsed) {
+    const first = group.children[0];
+    return (
+      <Tooltip label={group.label} placement="right" className="w-full">
+        <Link
+          href={first.href}
+          onClick={onNavigate}
+          aria-label={group.label}
+          className={`flex w-full items-center justify-center rounded-field px-2.5 py-2.5 transition-colors ${
+            containsActive ? "bg-sidebar-active text-white" : "text-sidebar-text hover:bg-sidebar-active/60 hover:text-white"
+          }`}
+        >
+          <Icon name={group.icon} className="shrink-0" />
+        </Link>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className={`flex w-full items-center gap-3 rounded-field px-2.5 py-2.5 text-[15px] font-medium transition-colors hover:bg-sidebar-active/60 hover:text-white ${
+          containsActive ? "text-white" : "text-sidebar-text"
+        }`}
+      >
+        <Icon name={group.icon} className="shrink-0" />
+        <span className="flex-1 truncate text-left">{group.label}</span>
+        <Icon name={open ? "chevron-down" : "chevron-right"} size={16} className="shrink-0 opacity-60" />
+      </button>
+      {open && (
+        <div className="mb-1 ml-[22px] mt-0.5 space-y-0.5 border-l border-sidebar-active/70 pl-1.5">
+          {group.children.map((child) => {
+            const active = isChildActive(child.href);
+            return (
+              <Link
+                key={child.href}
+                href={child.href}
+                onClick={onNavigate}
+                aria-current={active ? "page" : undefined}
+                className={`flex items-center gap-2.5 rounded-field px-2.5 py-2 text-[14px] font-medium transition-colors ${
+                  active ? "bg-sidebar-active text-white" : "text-sidebar-text hover:bg-sidebar-active/60 hover:text-white"
+                }`}
+              >
+                <Icon name={child.icon} size={16} className="shrink-0" />
+                <span className="flex-1 truncate">{child.label}</span>
+                {child.count !== undefined && <CountBadge count={child.count} />}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }

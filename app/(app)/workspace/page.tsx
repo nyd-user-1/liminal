@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { BoardTabs } from "@/components/shell/board-tabs";
 import { Divider } from "@/components/ui/divider";
 import { TextLink } from "@/components/ui/text-link";
 import { requireUser } from "@/lib/auth";
@@ -33,8 +32,9 @@ import { SyncHealthCard } from "./sync-health";
 //              · rules              the standards that make ten agents read as one
 //              · under the hood     the full platform inventory
 //
-// BoardTabs (Workspace · Analytics · Dashboard · Data Dictionary) sit above
-// everything. No page-level H1 — the TopBar owns it (ROUTE_TITLES → "Workspace").
+// The workspace family (Workspace · Analytics · Dashboard · Data dictionary ·
+// Docs) lives in the sidebar's collapsible Workspace section, not an in-page tab
+// row. No page-level H1 — the TopBar owns it (ROUTE_TITLES → "Workspace").
 
 export const dynamic = "force-dynamic";
 
@@ -76,8 +76,6 @@ export default async function WorkspacePage() {
 
   return (
     <div className="mx-auto flex min-w-0 max-w-[1400px] flex-col gap-6">
-      <BoardTabs />
-
       {/* The Summary card IS the briefing surface — orientation copy at rest,
           Claude's read of the overnight numbers when the wand is pressed. */}
       <SummaryCard canBrief={isAdmin} />

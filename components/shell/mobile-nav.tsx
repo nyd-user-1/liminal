@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { IconButton } from "@/components/ui/icon-button";
-import { Sidebar, type SidebarNavItem } from "@/components/shell/sidebar";
+import { Sidebar, type SidebarEntry } from "@/components/shell/sidebar";
 import type { SessionUser } from "@/lib/auth";
 
 // Mobile nav (<md): hamburger in the TopBar opens the Sidebar as a left
@@ -16,7 +16,7 @@ export function MobileNav({
   user,
   homeHref,
 }: {
-  items: SidebarNavItem[];
+  items: SidebarEntry[];
   user: SessionUser;
   homeHref: string;
 }) {

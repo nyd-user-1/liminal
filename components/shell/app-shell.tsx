@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { MobileNav } from "@/components/shell/mobile-nav";
 import { CommandPalette } from "@/components/search/command-palette";
-import { Sidebar, type SidebarNavItem } from "@/components/shell/sidebar";
+import { Sidebar, type SidebarEntry, type SidebarNavItem } from "@/components/shell/sidebar";
 import { TopBar } from "@/components/shell/topbar";
 import type { SessionUser } from "@/lib/auth";
 
@@ -14,13 +14,23 @@ import type { SessionUser } from "@/lib/auth";
 // single rounded top-left corner (md+); the root is navy so that corner reveals
 // the frame behind it. The panel stays grey so page cards keep their contrast.
 
-const WORKSPACE_NAV: SidebarNavItem[] = [
-  // The front door: today's caseload for everyone, plus the platform
-  // inventory for the founder. First item because it's where a day starts.
-  { label: "Workspace", href: "/workspace", icon: "wand-sparkles" },
-  // The composable board. Sits beside Insights for now — Insights is the
-  // fixed page, Analytics is the one you build yourself.
-  { label: "Analytics", href: "/analytics", icon: "columns-3" },
+const WORKSPACE_NAV: SidebarEntry[] = [
+  // The workspace family. These five surfaces used to sit in an in-page tab row
+  // (BoardTabs) above each board; they now live here as a collapsible sidebar
+  // section, so the boards themselves render clean. First entry because it's
+  // where a day starts. The group header opens/closes; "Workspace" is the
+  // caseload front door (+ the founder's platform inventory beneath it).
+  {
+    label: "Workspace",
+    icon: "wand-sparkles",
+    children: [
+      { label: "Workspace", href: "/workspace", icon: "wand-sparkles" },
+      { label: "Analytics", href: "/analytics", icon: "columns-3" },
+      { label: "Dashboard", href: "/dashboard", icon: "grid" },
+      { label: "Data dictionary", href: "/workspace/data-dictionary", icon: "grid" },
+      { label: "Docs", href: "/workspace/docs", icon: "file-text" },
+    ],
+  },
   { label: "Calendar", href: "/calendar", icon: "calendar" },
   { label: "Inbox", href: "/inbox", icon: "inbox" },
   { label: "Clients", href: "/clients", icon: "users" },
@@ -76,7 +86,7 @@ export function AppShell({
   children: ReactNode;
 }) {
   const nav = (variant === "workspace" ? WORKSPACE_NAV : PORTAL_NAV).map((item) =>
-    counts?.[item.href] !== undefined ? { ...item, count: counts[item.href] } : item,
+    "href" in item && counts?.[item.href] !== undefined ? { ...item, count: counts[item.href] } : item,
   );
   const homeHref = variant === "portal" ? "/portal" : "/calendar";
   return (

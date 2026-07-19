@@ -20,7 +20,7 @@ const ROUTE_TITLES: Array<[prefix: string, icon: IconName, title: string]> = [
   ["/workspace/docs", "file-text", "Docs"],
   ["/workspace", "wand-sparkles", "Workspace"],
   ["/analytics", "columns-3", "Analytics"],
-  // The pre-rename original, kept reachable via the BoardTabs rail.
+  // The pre-rename original, kept reachable via the sidebar's Workspace section.
   ["/dashboard", "grid", "Dashboard"],
   ["/calendar", "calendar", "Calendar"],
   ["/inbox", "inbox", "Inbox"],
