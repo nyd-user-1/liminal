@@ -40,7 +40,7 @@ export function MobileNav({
 
   return (
     <>
-      <IconButton icon="menu" label="Open menu" className="md:hidden" onClick={() => setOpen(true)} />
+      <IconButton icon="menu" label="Open menu" variant="onNavy" className="md:hidden" onClick={() => setOpen(true)} />
       {mounted &&
         createPortal(
           <div className={`fixed inset-0 z-50 md:hidden ${open ? "" : "pointer-events-none"}`}>

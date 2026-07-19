@@ -8,6 +8,11 @@ import type { SessionUser } from "@/lib/auth";
 // Catalog `AppShell` — Sidebar + main column (TopBar + canvas content).
 // Two variants: `workspace` (practitioner/admin) and `portal` (client).
 // Server component; layouts pass the session user down.
+//
+// Shell chrome: the navy Sidebar (left) + navy TopBar (top) read as one L-frame.
+// The grey content panel (`main`, bg-canvas) tucks into that junction with a
+// single rounded top-left corner (md+); the root is navy so that corner reveals
+// the frame behind it. The panel stays grey so page cards keep their contrast.
 
 const WORKSPACE_NAV: SidebarNavItem[] = [
   // The front door: today's caseload for everyone, plus the platform
@@ -75,7 +80,7 @@ export function AppShell({
   );
   const homeHref = variant === "portal" ? "/portal" : "/calendar";
   return (
-    <div className="flex h-dvh overflow-hidden bg-canvas">
+    <div className="flex h-dvh overflow-hidden bg-sidebar-bg">
       {/* ⌘K workspace search — client component, workspace variant only. */}
       {variant === "workspace" && <CommandPalette />}
       <Sidebar className="max-md:hidden" items={nav} user={user} homeHref={homeHref} />
@@ -86,7 +91,9 @@ export function AppShell({
           actions={topBarActions}
           leading={<MobileNav items={nav} user={user} homeHref={homeHref} />}
         />
-        <main className="flex-1 overflow-y-auto p-4 pb-[calc(1rem_+_env(safe-area-inset-bottom))] md:p-6 md:pb-6">
+        {/* The inset content panel: grey canvas, rounded only where it meets the
+            sidebar/topbar junction (md+); the navy root shows through that corner. */}
+        <main className="flex-1 overflow-y-auto bg-canvas p-4 pb-[calc(1rem_+_env(safe-area-inset-bottom))] md:rounded-tl-2xl md:p-6 md:pb-6">
           {children}
         </main>
       </div>

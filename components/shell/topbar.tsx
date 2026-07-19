@@ -8,10 +8,11 @@ import { TopBarBell } from "@/components/shell/topbar-bell";
 import { TOPBAR_ACTIONS_ID } from "@/components/shell/topbar-slot";
 import type { SessionUser } from "@/lib/auth";
 
-// Catalog `TopBar` — white strip: page icon + H1 inline-left (route-derived,
-// SSR-safe), right cluster = page actions (via TopBarActions portal, sized
-// sm) then the notification bell. Account/sign-out live in the sidebar's
-// UserChip menu, not here.
+// Catalog `TopBar` — navy strip (bg-sidebar-bg): page icon + H1 inline-left
+// (route-derived, SSR-safe), right cluster = page actions (via TopBarActions
+// portal, sized sm) then the notification bell. Together with the navy Sidebar
+// it forms the L-frame that the inset content panel tucks into (see AppShell).
+// Account/sign-out live in the sidebar's UserChip menu, not here.
 
 // Longest-prefix wins: order specific → general.
 const ROUTE_TITLES: Array<[prefix: string, icon: IconName, title: string]> = [
@@ -82,10 +83,10 @@ export function TopBar({
   const derived = routeTitle(pathname);
 
   return (
-    <header className="flex h-[calc(4rem_+_env(safe-area-inset-top))] shrink-0 items-center gap-2 border-b border-border bg-surface px-3 pt-[env(safe-area-inset-top)] md:gap-3 md:px-6">
+    <header className="flex h-[calc(4rem_+_env(safe-area-inset-top))] shrink-0 items-center gap-2 bg-sidebar-bg px-3 pt-[env(safe-area-inset-top)] md:gap-3 md:px-6">
       {leading}
       <div className="min-w-0 flex-1">
-        <PageHeader title={title ?? derived.title} />
+        <PageHeader title={title ?? derived.title} tone="onNavy" />
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <div id={TOPBAR_ACTIONS_ID} className="flex items-center gap-2" />
