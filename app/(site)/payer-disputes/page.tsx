@@ -120,7 +120,7 @@ export default async function PayerDisputesPage() {
       />
 
       {/* The argument + the exhibit, side by side. */}
-      <Section ground="canvas">
+      <Section ground="page">
         <div className="grid gap-12 lg:grid-cols-2 lg:items-center lg:gap-16">
           <div>
             <SectionHeading
@@ -158,7 +158,7 @@ export default async function PayerDisputesPage() {
       </Section>
 
       {/* NY credibility — the regulator's own registry, not name-matching. */}
-      <Section>
+      <Section ground="page">
         <SectionHeading
           eyebrow="Why it holds up in New York"
           title="Matched to the regulator's own registry."
@@ -190,7 +190,7 @@ export default async function PayerDisputesPage() {
         eyebrow="Build the case"
         title="Start from the payer's own number."
         lede="Tell us what you're seeing on underpayments, and we'll show you how the corpus turns a plan's own file into evidence."
-        ground="canvas"
+        ground="page"
         primary={{ href: CONTACT, label: "Talk to us" }}
         secondary={{ href: "/for-providers", label: "For providers" }}
       />

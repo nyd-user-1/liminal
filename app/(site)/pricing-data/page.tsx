@@ -52,7 +52,7 @@ export default async function PricingDataPage() {
       />
 
       {/* Corpus scale — the credibility is the count. */}
-      <Section ground="canvas">
+      <Section ground="page">
         <SectionHeading
           eyebrow="What's behind the answer"
           title="Not a sample. The corpus."
@@ -96,7 +96,7 @@ export default async function PricingDataPage() {
       </Section>
 
       {/* The real benchmark moment — one session, thirteen prices. */}
-      <Section>
+      <Section ground="page">
         <div className="grid gap-12 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-center lg:gap-16">
           <div>
             <SectionHeading
@@ -123,7 +123,7 @@ export default async function PricingDataPage() {
       </Section>
 
       {/* How the data gets here — one quiet, confident section. */}
-      <Section ground="canvas">
+      <Section ground="page">
         <SectionHeading
           eyebrow="How the data gets here"
           title="Published by the payer. Cleaned by us."
@@ -168,7 +168,7 @@ export default async function PricingDataPage() {
         eyebrow="Put it to work"
         title="See where your rates sit."
         lede="Clinicians and practices on Leuk see their own payer mix beside the market — the same corpus, pointed at your codes."
-        ground="surface"
+        ground="page"
         primary={{ href: "/join", label: "Bring your practice onto Leuk" }}
         secondary={{ href: "/for-providers", label: "For providers" }}
       />

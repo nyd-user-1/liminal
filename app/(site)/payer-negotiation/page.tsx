@@ -36,7 +36,7 @@ export default async function PayerNegotiationPage() {
       />
 
       {/* The leverage moment — the spread IS the argument. */}
-      <Section ground="canvas">
+      <Section ground="page">
         <SectionHeading
           eyebrow="Why you might be underpaid"
           title="The same work, priced apart."
@@ -48,7 +48,7 @@ export default async function PayerNegotiationPage() {
       </Section>
 
       {/* What a Leuk practice actually gets — described truthfully. */}
-      <Section>
+      <Section ground="page">
         <SectionHeading
           title="What a Leuk practice sees."
           lede="Not a promise of a raise — a clear picture of where you stand. Everything here is built from payers' own published attestations; none of it is a projection."
@@ -85,7 +85,7 @@ export default async function PayerNegotiationPage() {
         eyebrow="Walk in prepared"
         title="Bring the payer's own number to the table."
         lede="Join Leuk and see your payer mix beside the market median, by code, kept current."
-        ground="canvas"
+        ground="page"
         primary={{ href: "/join", label: "Bring your practice onto Leuk" }}
         secondary={{ href: "/for-providers", label: "For providers" }}
       />
