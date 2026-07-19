@@ -30,7 +30,20 @@ Last sync: 2026-07-18 ~21:30 (start-of-session pull; NYS-150 filed).
   2026-08-21. **Tranche 2 (TASK-DATA-FIREHOSE) DISPATCHED by the lead**
   (Agent tool, 2026-07-18 ~22:20): NYS-25 diag + NYS-26 measure + MRF
   universe walk → staged manifests + NYS-50 broad-code projection.
-  Founder is out of this loop except manifest minting.
+  Founder is out of this loop except manifest minting. **T2 DONE + lead-
+  reviewed 2026-07-18 ~23:00 (accepted)**: coverage 47.3→47.9%; Empire OOM
+  three-killer root cause PROVEN (39F0-1 pass B clean, 476,322 rows /
+  31,024 NPIs, DONE 22:54); NPPES blind spot nearly closed (571 net-new,
+  not thousands); Oscar S3 bucket cracked → Optum BH carve-out files
+  (+419 measured). Rulings: **sql/053 granted** (571-NPI re-key + NPPES
+  names column, post-2am clean window); **NYS-50 load shape = (a)
+  distinct-collapse** (provisional — architecture call, founder veto open);
+  **no fleet all-codes rescan** until founder eyes that ruling;
+  **Oscar/OBH entity aliases must be pre-seeded** before its manifests
+  load. Founder-only: mint `oscar-obh.txt` (top staged win); June-batch
+  Anthem URLs die Tue Jul 21 ~10:00 EDT — prefer re-minting the 2026-08
+  ToC over racing them. `.harvest/mrf/diag39/39F0-1.csv` awaits a
+  post-window load (June gz held on disk until then).
 - **ops-agent** — idle-green. Belt CONFIRMED live: founder added
   DATABASE_URL 2026-07-18; nightly-rebuild dispatch runs green (2×, ~6m30s
   each, 22:18/22:35Z). NYS-149 honesty pass for run-stream.sh/run-two-pass.sh
@@ -61,5 +74,25 @@ Last sync: 2026-07-18 ~21:30 (start-of-session pull; NYS-150 filed).
 - NYS-50 · COMMENT (founder ruling 2026-07-18) · code panel goes as broad
   as possible — eventually all codes; projection-first implementation in
   TASK-DATA-FIREHOSE task 4.
-- NYS-34 · COMMENT · founder ruled: agent judgment + reversible mechanism;
-  quality-agent dispatched on the design (merge-map escape hatch).
+- NYS-34 · COMMENT/near-close · sql/052 applied (1db2381, lead-verified
+  16,934 map rows / 106,658 persons): inert merge-map + directory_persons
+  view, reversible; surface flip founder-gated.
+- NEW premise-check · directory.ts:257 medicaid-preference renders the
+  sparser row for ~16,934 providers (rationale measurably false); fix =
+  consume directory_persons on the approved flip.
+- data-t2 intents ×7 · per docs/reports/2026-07-19-data-t2.md §Linear
+  intents: CLOSE NYS-25 (three-killer evidence) · CLOSE NYS-26
+  (77,275/8,035/571) · CLOSE NYS-29+30 (universe walk done) · NYS-50
+  load-shape decision issue (lead ruled (a) distinct-collapse,
+  provisional) · NEW Healthfirst NY MRF discovery · NEW Emblem INN
+  enumeration (browser errand) · NEW refs-last (rl/ziprl) + Oscar/OBH
+  crack NYS-100-bar record.
+
+## Lead-account note (2026-07-18 ~23:15)
+
+Prior lead (other account) hit its session limit ~23:00 — resets 2am NY;
+its ~2am Linear batch did NOT file. This account3 lead has **no Linear
+MCP** — every intent above stays queued here until a Linear-capable lead
+syncs. Firehose review + rulings above were issued by the prior lead
+pre-cutoff and are recorded verbatim; founder holds the ui-agent kickoff
+(TASK-WORKSPACE-V2) and will paste it directly.
