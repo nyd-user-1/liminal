@@ -20,4 +20,6 @@ Last sync: 2026-07-18 evening.
 
 ## Pending Linear intents (file at next end-of-session sync)
 
-- none — board is current as of the last sync.
+- NEW issue (Data Engine, epic): "Rate data → sellable API" — from
+  docs/RATE-API-ROADMAP.md (lead-corrected grain/SQL/refresh). Not yet
+  briefed; needs founder priority call vs the coverage backlog.
