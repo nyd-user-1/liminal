@@ -24,9 +24,11 @@
 // still appear, under "Unmapped tables", with their columns and count — so the
 // atlas can never silently omit something the schema grew.
 //
-// The matview refresh registry is READ from the nightly cron itself
-// (app/api/cron/daily/route.ts VIEWS array) rather than restated, so this stays
-// honest if that list changes.
+// The matview refresh registry is READ from the shared rebuild plan
+// (ops/harvest/sync-plan.mjs VIEWS array) rather than restated, so this stays
+// honest if that list changes. The nightly cron and the harvest runner both
+// import that one array (NYS-129, the no-fork guarantee), so reading it is the
+// same as reading what the cron actually refreshes.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -38,7 +40,7 @@ import { TABLE_GROUPS } from "../lib/table-atlas.mjs";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT_MD = path.join(ROOT, "docs", "data", "DATABASE.md");
 const VAULT_DIR = path.join(os.homedir(), "Vaults", "hq", "liminal", "atlas");
-const CRON_ROUTE = path.join(ROOT, "app", "api", "cron", "daily", "route.ts");
+const SYNC_PLAN = path.join(ROOT, "ops", "harvest", "sync-plan.mjs");
 const BIG_ROW_THRESHOLD = 500_000; // above this we trust the estimate, never count(*)
 const SAFE_IDENT = /^[a-z_][a-z0-9_]*$/;
 
@@ -133,11 +135,16 @@ async function introspect() {
   });
 }
 
-// Read the nightly cron's VIEWS array — the refresh registry, not restated.
+// Read the shared rebuild plan's VIEWS array — the refresh registry, not
+// restated. The array lives in ops/harvest/sync-plan.mjs as
+// `export const VIEWS = [ … ];` (the cron route imports it), so slice from the
+// declaration to its closing `];`.
 function cronViews() {
   try {
-    const src = fs.readFileSync(CRON_ROUTE, "utf8");
-    const block = src.slice(src.indexOf("const VIEWS"), src.indexOf("] as const", src.indexOf("const VIEWS")));
+    const src = fs.readFileSync(SYNC_PLAN, "utf8");
+    const start = src.indexOf("const VIEWS");
+    if (start < 0) return new Set();
+    const block = src.slice(start, src.indexOf("];", start));
     return new Set([...block.matchAll(/"([a-z_][a-z0-9_]*)"/g)].map((m) => m[1]));
   } catch {
     return new Set();

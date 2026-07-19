@@ -1,17 +1,20 @@
 # Operations Runbook
 
 Everything that runs on its own — where it runs, when, how to know it worked,
-and how to turn each piece off. Two schedulers do all the automated work:
+and how to turn each piece off. **One scheduler** does the automated work now:
 
 | Runner | Where | When | What it does |
 | --- | --- | --- | --- |
-| **harvestd** | this laptop (launchd) | **01:04** local, nightly | runs every due data job + loads any dropped MRF manifest |
-| **matview cron** | Vercel (cron) | **04:12 ET** (`12 8 * * *` UTC) | rebuilds the ten derived views + ANALYZE |
+| **harvestd** | this laptop (launchd) | **01:04** local, nightly | runs every due data job, loads any dropped MRF manifest, **then rebuilds the matviews** those loads feed |
 
-The order is deliberate: harvestd loads new rows overnight, then the cron three
-hours later rebuilds the views that read them — so anything harvested is in the
-app by morning. Both write one row per run to **`sync_runs`**, and both surface
-on **/insights → Nightly sync**.
+harvestd is the whole nightly loop: it loads new rows, then — in the same run,
+right after the loads — rebuilds the eleven derived views (via `psql`, no 300 s
+ceiling) so anything harvested is in the app by morning. The old Vercel
+`/api/cron/daily` cron that used to do the rebuild is **demoted to a manual /
+emergency HTTP path and no longer scheduled** (NYS-130 — the 13.4 M-row chain
+outgrew Vercel's 300 s function cap). Every unit of work — each job and the
+rebuild — writes one row to **`sync_runs`**, all surfaced on
+**/workspace → Nightly sync**.
 
 > **This file is the source of truth.** It's mirrored to a Linear Document for
 > reading; edit it here.
@@ -31,6 +34,9 @@ until the work is done. The runner:
   itself;
 - honors the **KILL SWITCH** convention;
 - **ledgers** every run into `sync_runs` (`job = 'harvest:<id>'`);
+- **rebuilds the matviews last** — after the night's loads it runs the shared
+  rebuild plan (§2) via `psql`, ledgered as job `daily`; skipped cleanly when
+  nothing has loaded since the last good rebuild (`DAILY_FORCE=1` overrides);
 - **emails** `LIMINAL_OPS_EMAIL` and drops an in-app notification if anything
   failed.
 
@@ -121,92 +127,120 @@ on first morning wake instead.
 
 ---
 
-## 2. The matview cron — `/api/cron/daily`
+## 2. The matview rebuild — the shared plan the runner runs
 
-At **04:12 ET** a Vercel cron rebuilds everything the app *derives* rather than
-stores. The rate/participation surfaces (`/rates`, `/directory`, `/orgs`,
-`/recruiting`) read materialized views, not the 9M-row base tables — that
-precompute is the only reason `/rates` answers in under a second. Nothing
-refreshes them on its own; this is that routine, scheduled.
+The app derives its rate/participation surfaces (`/rates`, `/directory`,
+`/orgs`, `/recruiting`) from materialized views, not the 13M-row base tables —
+that precompute is the only reason `/rates` answers in under a second. Those
+views must be rebuilt after each night's loads, and **the harvestd runner does
+it**, as the last thing it does each night.
 
-- **Ten views, then four ANALYZEs.** The refresh list lives in the `VIEWS` array
-  in `app/api/cron/daily/route.ts` — **that array is the refresh registry** the
-  Database Atlas reads to mark which matviews are nightly-refreshed.
+- **One plan, two possible executors, no drift.** The refresh list — **eleven
+  views, then four ANALYZEs**, in dependency order — lives once, in
+  `ops/harvest/sync-plan.mjs` (`VIEWS` / `ANALYZE_TABLES`). Both the runner and
+  the demoted Vercel route `import` it, so adding a matview means editing that
+  one file, never two (NYS-129, "don't fork"). **That `VIEWS` array is the
+  refresh registry** the Database Atlas reads to mark which matviews are rebuilt
+  nightly.
+- **The runner runs it via `psql`, right after the loads.** A real Postgres
+  session has no 300 s ceiling, it runs inside the runner's lock on the data it
+  just loaded, and it's ledgered as job `daily` — so `/workspace` judges it
+  exactly like every other job. Measured ~6–10 min for the full chain
+  (2026-07-17, 9.34M rate rows); each run records its own per-step timings in
+  `sync_runs`.
+- **It skips cleanly when there's nothing to do.** If no job has loaded since the
+  last successful `daily` rebuild, the runner logs "nothing changed" and skips —
+  a quiet night doesn't burn a rebuild. `DAILY_FORCE=1` overrides (for an
+  operator or a verification run).
 - **Every refresh is `CONCURRENTLY`, and that is not an optimisation.** A plain
   `REFRESH` takes `ACCESS EXCLUSIVE` on the view for the whole rebuild — i.e.
   `/rates` hanging, nightly, unattended. `CONCURRENTLY` builds alongside and
   swaps, so readers never block. It requires a UNIQUE index on each view (all
-  ten have one) and cannot run in a transaction block — hence one statement per
-  call.
+  eleven have one) and cannot run in a transaction block — hence one statement
+  per call.
 - **Order matters in exactly one place:** `rate_table_mv` (sql/027) joins
   `org_tin_rosters` (sql/025), so the roster is rebuilt first. Everything else
   reads only base tables.
 - **A failing step does not stop the run.** The views are independent; one that
-  errors keeps its previous contents (the same staleness the app already
-  tolerates between refreshes), the run is marked `error`, and the failure is
-  recorded per-step.
+  errors keeps its previous contents (the staleness the app already tolerates
+  between refreshes), the run closes `error`, and the failure is recorded
+  per-step and emailed.
 - **ANALYZE, not VACUUM:** a stale `n_distinct` on `provider_rate_signals` is how
-  a rates query goes from 0.3 s back to 30 s (NYS-52). The four ANALYZEs are the
-  cheapest insurance here.
-- **Timing:** measured ~190 s cold end-to-end against the live book (9.34M rate
-  rows), which fits one Vercel function under the 300 s cap with ~110 s to
-  spare — so it's a single route, not a daily-1/daily-2 split. The margin scales
-  with `provider_rate_signals`; when that roughly doubles it wants splitting at
-  the `org_tin_rosters` boundary. Every run records its own per-step timings in
-  `sync_runs`, so that call is made on data.
+  a rates query goes from 0.3 s back to 30 s (NYS-52). The four ANALYZEs
+  (`provider_rate_signals`, `provider_network_participation`, `nppes_npi`,
+  `directory_providers`) are the cheapest insurance here.
+- **Timeouts bound the night:** the whole rebuild is ledgered with a 25 min job
+  budget (`DAILY_TIMEOUT_MS`) and each `psql` statement is capped at 15 min, so
+  one hung `REFRESH` can't wedge the run.
 
-### CRON_SECRET (required, or the endpoint refuses everyone)
+### The demoted Vercel route — `/api/cron/daily` (manual / emergency only)
 
-The route is guarded by `CRON_SECRET`. Vercel Cron sends
-`Authorization: Bearer $CRON_SECRET` automatically when the env var is set, so
-the same check serves the scheduler and a human with the secret.
+The route that used to be the scheduler still exists, but **it is no longer
+scheduled** — `vercel.json` has no `crons` entry (NYS-130). Two facts killed the
+cron: Vercel Hobby cron delivery is best-effort and silently skipped its window
+(the 2026-07-18 incident, proven by Neon's compute log), and even a manual
+delivery that day was guillotined at exactly 300 s, because at 13.4M rate rows
+the full chain no longer fits one function under `maxDuration`. It survives as an
+**authenticated manual trigger** — useful for a targeted single-view re-run, but
+it still times out on the full chain at current scale, so for a guaranteed full
+rebuild use the runner (`ops/harvest/install.sh run`) or psql. If an automatic
+cloud-side belt is ever wanted again (a laptop-away week), split the chain at the
+`org_tin_rosters` boundary first.
+
+#### CRON_SECRET (guards the manual route, or it refuses everyone)
+
+The route is guarded by `CRON_SECRET`. Vercel sends
+`Authorization: Bearer $CRON_SECRET` when the env var is set, so the same check
+serves a human with the secret.
 
 - **Unset `CRON_SECRET` is a CLOSED door:** the endpoint 503s ("CRON_SECRET is
-  not set on this deployment"). It spends real database time, so the failure mode
-  of a missing secret must be "nobody can run it", never "anybody can".
-- Set it on Vercel Production (`vercel env add CRON_SECRET production`, value
-  from `openssl rand -hex 32`) and in local `.env.local`. It is already in
-  `.env.local` and documented in `.env.example`. **Prod is set** — the endpoint
-  returns **401** (not 503) to an unauthenticated request, which is the tell
-  that the secret is present (NYS-87, closed).
+  not set on this deployment"). It spends real database time, so a missing secret
+  must mean "nobody can run it", never "anybody can".
+- Set it on Vercel Production (`vercel env add CRON_SECRET production`, value from
+  `openssl rand -hex 32`) and in local `.env.local` (already there, in
+  `.env.example`). **Prod is set** — the endpoint returns **401** (not 503) to an
+  unauthenticated request, the tell that the secret is present (NYS-87, closed).
 
-Manual run (with the secret):
+Manual run (with the secret; expect a timeout on the full chain — use it for one
+view):
 
 ```bash
 curl -sS -H "Authorization: Bearer $CRON_SECRET" https://<deployment>/api/cron/daily
-# → { ok: true, ms: ~190000, steps: [...] } ; a sync_runs row is written (trigger='manual')
+# → { ok, ms, steps: [...] } ; a sync_runs row is written (trigger='manual')
 ```
 
 ---
 
-## 3. Watching it — /insights, the bell, the email
+## 3. Watching it — /workspace, the bell, the email
 
 Three layers over the one `sync_runs` ledger (health is judged in
 `lib/repos/sync-runs.ts`, so "red" means the same thing everywhere):
 
 - **Glanceable — the bell.** The TopBar bell (NYS-100) carries a red count for
   every admin when a nightly step fails; the dropdown names what failed; the
-  click lands on /insights.
-- **Ambient — the /insights sync-health card.** Green when the last nightly ran
+  click lands on /workspace.
+- **Ambient — the /workspace sync-health card.** Green when the last nightly ran
   clean and recently; red on a failed step; **stale** (amber) when the nightly
-  hasn't run in 26 h (the cron fires daily, so a quiet day means it silently
-  stopped). Shows the latest matview run and the latest run of each harvest job.
-- **Deep — the ops email.** Both producers email `LIMINAL_OPS_EMAIL` (via
-  `LIMINAL_RESEND_API_KEY`) on any failed step. The Vercel cron uses the app's
-  `sendOpsAlertEmail`; harvestd calls the Resend REST API directly (it's plain
-  node, not the Next app).
+  hasn't run in 26 h (the runner fires nightly, so a quiet day means it silently
+  stopped). Shows the latest `daily` matview rebuild and the latest run of each
+  harvest job.
+- **Deep — the ops email.** harvestd emails `LIMINAL_OPS_EMAIL` (via
+  `LIMINAL_RESEND_API_KEY`) on any failed step — the rebuild rides the same path
+  as every job — calling the Resend REST API directly (it's plain node, not the
+  Next app). The demoted Vercel route, when a human runs it, uses the app's
+  `sendOpsAlertEmail`.
 
 ### How to know a night worked
 
-**A green sync-health card and two _silent_ emails.** No failure email from the
-04:12 cron and none from the 01:04 runner, and the card green with a recent
-`finished_at`, means both schedulers ran clean. The first **full green night**
-— every job passing under the watched pipeline — is the near-term proof the
+**A green sync-health card and a silent inbox.** No failure email from the 01:04
+runner — which does both the loads and the `daily` rebuild — and the card green
+with a recent `finished_at`, means the night ran clean. The first **full green
+night** (every job plus the rebuild passing) is the near-term proof the
 automation holds unattended.
 
 If the card is **red**: open it, read the failed step name, then the matching
-log — matview failures are in the Vercel function log; harvest failures in
-`.harvest/runner/logs/<job>-<stamp>.log`. If the card is **stale**: harvestd
+log under `.harvest/runner/logs/` — the matview rebuild is `daily-<stamp>.log`,
+each harvest job is `<job>-<stamp>.log`. If the card is **stale**: harvestd
 didn't run — check `install.sh status` and the lid-physics caveat.
 
 ---
@@ -216,13 +250,14 @@ didn't run — check `install.sh status` and the lid-physics caveat.
 | var | used by | purpose |
 | --- | --- | --- |
 | `DATABASE_URL` | everything | Neon connection string |
-| `CRON_SECRET` | `/api/cron/daily` | guards the matview cron (unset ⇒ 503) |
-| `LIMINAL_OPS_EMAIL` | both producers | where failure alerts go |
-| `LIMINAL_RESEND_API_KEY` | both producers | Resend API key for the alert email |
+| `CRON_SECRET` | `/api/cron/daily` | guards the manual/emergency rebuild route (unset ⇒ 503) |
+| `DAILY_FORCE` | `runner.mjs` | `=1` forces the nightly rebuild even if nothing loaded |
+| `LIMINAL_OPS_EMAIL` | harvestd (+ manual route) | where failure alerts go |
+| `LIMINAL_RESEND_API_KEY` | harvestd (+ manual route) | Resend API key for the alert email |
 | `LIMINAL_EMAIL_FROM` | harvestd | optional From: (defaults to a Resend sandbox sender) |
 
 ## Sources
 
 `ops/harvest/README.md` · `ops/harvest/runner.mjs` · `ops/harvest/install.sh` ·
-`ops/harvest/jobs.json` · `app/api/cron/daily/route.ts` ·
-`lib/repos/sync-runs.ts` · `vercel.json`.
+`ops/harvest/jobs.json` · `ops/harvest/sync-plan.mjs` ·
+`app/api/cron/daily/route.ts` · `lib/repos/sync-runs.ts` · `vercel.json`.

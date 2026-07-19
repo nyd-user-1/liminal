@@ -26,13 +26,13 @@ CSV → `provider_rate_signals`. The runners are what harvestd invokes per manif
 
 | Script | Purpose | Invocation | Writes to | Resumable | Cron-able | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| `scan-tic.mjs` | **The core scanner** — fast single-pass TiC scan, filtered to our NPIs × the behavioral CPT set; emits CSV | piped: `… \| gunzip -c \| node scan-tic.mjs --npis= --out= --payer= --network= --source-file= --file-date=` | CSV / stdout | per-file | via harvestd (manifest) | active |
+| `scan-tic.mjs` | **The core scanner** — fast single-pass TiC scan, filtered to our NPIs × the behavioral CPT set; emits CSV. `--codes=all` drops the CPT panel (emit every code any of our NPIs price — NYS-50, founder-ruled breadth; measure one dense file first); `SCAN_DIAG=1` names each big allocation pre-parse for OOM forensics | piped: `… \| gunzip -c \| node scan-tic.mjs --npis= --out= --payer= --network= --source-file= --file-date= [--codes=all]` | CSV / stdout | per-file | via harvestd (manifest) | active |
 | `stream-uhc-behavioral.mjs` | Reference TiC streamer scan-tic is validated against (~50× slower) | `… \| node stream-uhc-behavioral.mjs --npis= --out= …` | CSV | per-file | no | superseded (kept as the correctness oracle) |
 | `load-rate-signals.mjs` | Load scan-tic CSVs into the rate corpus | `node … load-rate-signals.mjs --as-of= file.csv [more…]` | `provider_rate_signals` | idempotent (ON CONFLICT) | via harvestd (`<name>.txt`) | active |
 | `stream-load.mjs` | Read scan-tic CSV from **stdin** and batch-insert (no disk) — for files too big for local disk (Aetna) | `… scan-tic --out=- \| node stream-load.mjs --as-of=` | `provider_rate_signals` | idempotent | via harvestd (`stream-`) | active |
-| `run-payer.sh` | Generic manifest runner (`url\|decomp\|payer\|network\|slug\|filedate` lines) → scan → load | `bash run-payer.sh <manifest> <outdir>` | CSVs → `provider_rate_signals` | per-file | via harvestd | active |
+| `run-payer.sh` | Generic manifest runner (`url\|decomp\|payer\|network\|slug\|filedate[\|zerook[\|codes]]` lines) → scan → load. `decomp` ∈ `gz`/`zip`/`none` + **`rl`/`ziprl`** — refs-LAST files (UBH/Optum + Oscar generators put `provider_references` AFTER `in_network`): downloaded to a temp file, then the refs section is streamed first so the scanner's phase model holds (`--payer=auto` can't work on a reordered stream — label explicitly) | `bash run-payer.sh <manifest> <outdir>` | CSVs → `provider_rate_signals` | per-file | via harvestd | active |
 | `run-stream.sh` | Streaming manifest runner: curl → gunzip → scan `--out=-` → stream-load | `bash run-stream.sh <manifest> <label> <as-of>` | `provider_rate_signals` | per-file | via harvestd (`stream-`) | active |
-| `run-two-pass.sh` | Two-pass runner for ref-dense files (pass A collects group-ids, pass B emits) — Empire 39-series (NYS-25) | `bash run-two-pass.sh <manifest> <outdir>` | `provider_rate_signals` | per-file | via harvestd (`2p-`) | active |
+| `run-two-pass.sh` | Two-pass runner for ref-dense files — Empire 39-series (NYS-25). **Downloaded once to disk** (resumable, retried) then scanned twice from the local copy (pass A collects group-ids, pass B emits); disk beats streaming for the 60+ GB empire2/highmark2 chunks CloudFront kills mid-refs (curl exit 56) — from disk, ~2 min/pass at <300 MB heap | `bash run-two-pass.sh <manifest> <outdir>` | `provider_rate_signals` | per-file | via harvestd (`2p-`) | active |
 | `run-oxford.sh` | One-off Oxford sweep (the LLC/CT/OHI entity triplets) | `bash run-oxford.sh` | CSVs | no | no | one-off |
 | `repair-carelon.mjs` | Stream filter — escapes unescaped quotes in Carelon/Beacon `business_name` values so the JSON parses | `cat beacon.json \| node repair-carelon.mjs \| node scan-tic.mjs …` | stdout (stream) | n/a | pipe stage | active |
 | `extract-anthem-ny.mjs` | Anthem/Elevance ToC miner — stream the 10.5 GB index, keep the first signed URL per NY basename | `curl … \| gunzip -c \| node extract-anthem-ny.mjs > files.txt` | file (URL list) | no | no | active (harvest prep) |
@@ -100,7 +100,8 @@ divides by. See `scripts/cms/LICENSE_NOTE.md` for the CPT-descriptor rule.
 
 | Script | Purpose | Invocation | Writes to | Resumable | Cron-able | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| `ingest-form5500.mjs` | **Form 5500 loader** — DOL/EFAST2 filings + Schedule A, health/welfare universe only, via psql COPY (NYS-101) | `node … ingest-form5500.mjs --year=2024 [--dir=.harvest/form5500]` | `form5500_filings`, `form5500_schedule_a` (sql/040) | idempotent upsert | annual (per plan-year) | active (new) |
+| `ingest-form5500.mjs` | **Form 5500 loader** — DOL/EFAST2 filings + Schedule A, health/welfare universe only, via psql COPY (NYS-101) | `node … ingest-form5500.mjs --year=2024 [--dir=.harvest/form5500]` | `form5500_filings`, `form5500_schedule_a` (sql/040) | idempotent upsert | annual (per plan-year) | active |
+| `ingest-form5500-sf.mjs` | **Form 5500-SF loader** — the SMALL-employer half (<100 participants file the short form; no Schedule A). Same 4A health gate, same bare-EIN key, separate table so SF's contribution is measurable — multiplies the matchable-EIN universe for name-only employer census (NYS-146) | `node … ingest-form5500-sf.mjs --year=2024 [--dir=.harvest/form5500]` | `form5500_sf_filings` (sql/040) | idempotent upsert (newest DATE_RECEIVED wins) | annual (per plan-year) | active (new) |
 
 ## Docs / schema (`scripts/`)
 
@@ -131,6 +132,16 @@ Not data-engine, but part of the repo's script surface.
 | `add-lena-marcus-availability.mjs` | Give two demo practitioners a real availability slate so their spotlight cards compute | `availability` | one-off (demo) |
 | `probe-photon.mjs` | STEP-0 handshake for Photon e-prescribing (Neutron sandbox, read-only) | none | one-off (handshake) |
 | `sync-photon-patients.mjs` | Demo: sync every client to Photon for a real `photon_patient_id` | `clients.photon_patient_id` + Photon | one-off (demo) |
+| `seed-workspace-notifications.mjs` | Seed the TopBar bell with the real events of the last two days (reports + platform changes); idempotent `WHERE NOT EXISTS` on (user_id, title), one row per admin, no PHI | `notifications` | one-off (demo) |
+
+## Ops instruments (`ops/`)
+
+Not data loaders — the fleet's own instruments. Live under `ops/`, invoked on
+demand (or by a session hook), never scheduled.
+
+| Script | Purpose | Invocation | Writes to | Resumable | Cron-able | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| `usage-gauge.mjs` | **The fleet fuel gauge** (NYS-123) — reads each Claude account's 5-hour rate-limit window (statusline snapshot → probe → token proxy) and prints a GREEN/AMBER/RED verdict; exit code = worst verdict (0/10/20/30). Pure local file reads, no network. The pacing policy it feeds is [`docs/ops/PACING.md`](./PACING.md) | `node ops/usage-gauge.mjs [--json] [--account <substr>]` | none (read-only) | n/a | on demand / SessionStart hook | active (new) |
 
 ---
 
@@ -144,6 +155,6 @@ Not data-engine, but part of the repo's script surface.
   payer's manifest monthly (gated on the ToC's published date) so a fresh
   `file_date` lands as new rows, turning point-in-time rates into longitudinal
   history.
-- **`db-atlas.mjs`** — built this tranche (row above); becomes the weekly
-  `db-atlas` job that keeps `docs/data/DATABASE.md` and the Obsidian atlas in
-  sync with the live schema.
+_(`db-atlas.mjs` graduated — it's the weekly `db-atlas` job now, keeping
+`docs/data/DATABASE.md` and the Obsidian atlas in sync with the live schema.
+See the Docs/schema row above.)_
