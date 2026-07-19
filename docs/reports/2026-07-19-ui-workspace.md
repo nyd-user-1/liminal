@@ -98,3 +98,47 @@ Headless re-verify (admin, 1440): 0 console errors, 0 overflow, one H1.
   shape).
 - The board snapshot in `lib/linear-backlog.ts` is hand-captured; a live Linear
   pull would retire the `ASOF` stamp (relates to NYS-122 self-summoning cadence).
+
+## Round 3 (founder review, 07-19 — commit 14b08e0)
+
+Third review pass off the founder's 07-19 feedback + dev-tools mockups. ui-agent
+(account 3) built most of it before its session limit cut off mid-S4; ui-agent
+(account 2) picked up, finished the wiring + S7/S8, and verified. Headless
+1440/390: 0 console errors, 0 page overflow, one H1 (TopBar). All nine landed.
+
+1. **S1 greeting gone** — `insights-header.tsx` resting state renders `null`
+   ("Good to see you…" absent from DOM); the Summary card orients instead.
+2. **S2 work queue → table** — `work-queue.tsx` is a plain `DataTable` with a
+   **Created** column (dates derived in `lib/linear-backlog.ts` from issue #, a
+   deterministic `createdFor`); the three pin slots + the vertical marquee are
+   gone (marquee keyframes deleted from `globals.css`).
+3. **S3 editable reports** — new generic `DocSheet` (GET/PATCH) replaces the
+   read-only `report-sheet.tsx`; `PATCH /api/reports/[slug]` writes back to
+   `docs/reports/`. Same all-white note-editor canvas, now editable + Save.
+4. **S4 fleet grid** — `fleet-grid.tsx`: `LibraryCard` roster, 2×3 then "View
+   more" (the /library gallery pattern). `fleet.tsx` is now roster-only.
+5. **S5 agent card → editor** — clicking a card opens its identity file in the
+   `DocSheet`; new `GET/PATCH /api/agents/[name]` (admin-only, slug-guarded,
+   reads/writes `~/.claude/agents/<name>-agent.md`).
+6. **S6 Agent column** — `reports-table.tsx` derives the filing agent from the
+   report slug (`agentForReport`, with overrides for non-name-led slugs).
+7. **S7 "Rules"** — the Taste section title is now just "Rules".
+8. **S8 Operations tabs** — new `runs-panel.tsx`: one `Tabs` bar (Harvest Runs ·
+   History Logs · Agent Reports), each controlling one table; the three formerly
+   stacked tables collapse into it. Tab switch flashes a **table-shaped skeleton**
+   (`animate-pulse` bars mirroring the DataTable — the `/Code/sports` load
+   pattern the founder asked for), then settles. `sync-health.tsx` slims to the
+   nightly gauge (its harvest table moved into the Harvest tab).
+9. **S9 verify + commit** — screenshots re-checked at 1440/390; both API routes
+   200; committed local, own hunks only (rates/* left to their owning session).
+
+### Notes
+- No new primitives — reused `Tabs`, `DataTable`, `LibraryCard`, `Tag`,
+  `KebabMenu`, `NotesEditor`, `Card`, `Banner`. `RunsPanel`, `FleetGrid`,
+  `DocSheet`, `AgentCard` are local compositions.
+- In-seam call: the ecosystem column reorders to **fleet roster → Operations**
+  (was Pipelines → fleet), so you meet the fleet before its reports tab; and the
+  section renamed Pipelines → "Operations" since it now spans harvest/history/
+  reports, not just pipelines. Reversible; flag if you'd rather keep "Pipelines".
+- The skeleton hold is a fixed 420ms (`SWAP_MS`) — deliberate, so the swap reads
+  as a load. Tune or gate on reduced-motion if it feels artificial.
