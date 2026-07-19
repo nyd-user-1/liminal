@@ -30,6 +30,7 @@ const ROUTE_TITLES: Array<[prefix: string, icon: IconName, title: string]> = [
   ["/directory", "globe", "Directory"],
   ["/billing", "dollar", "Billing"],
   ["/rates", "activity", "Rates"],
+  ["/codes", "dollar", "Billing codes"],
   // Soft launch: direct-URL only, no sidebar entry. Sits after /rates but the
   // prefix match is exact-or-"/rates/", so the two never collide.
   ["/published-rates", "dollar", "Published rates"],
