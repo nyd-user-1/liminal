@@ -195,20 +195,6 @@ body {
   .mkt-rise, .mkt-fade, .mkt-develop { animation: none; opacity: 1; transform: none; }
 }
 
-/* ── Work-queue vertical marquee (/workspace) ───────────────────────────────
-   The board list scrolls itself gently; the track holds two copies of the list
-   so -50% loops seamlessly. Pauses on hover so an item can be clicked, and is
-   fully off under reduced-motion (the list still renders, just static). */
-@keyframes wq-marquee {
-  from { transform: translateY(0); }
-  to   { transform: translateY(-50%); }
-}
-.wq-track { animation: wq-marquee var(--wq-dur, 60s) linear infinite; }
-.wq-viewport:hover .wq-track { animation-play-state: paused; }
-@media (prefers-reduced-motion: reduce) {
-  .wq-track { animation: none; }
-}
-
 /* ── Bottom-sheet slide-up (product UI, e.g. NoteSheet) ─────────────────── */
 @keyframes sheet-rise {
   from { transform: translateY(100%); }

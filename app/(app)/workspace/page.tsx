@@ -18,7 +18,7 @@ import { NightReport } from "./night-report";
 import { Observatory } from "./observatory";
 import { ObjectStrip } from "./object-strip";
 import { PracticeStrip } from "./practice-strip";
-import { RunHistory } from "./run-history";
+import { RunsPanel } from "./runs-panel";
 import { EcoSection } from "./section";
 import { SyncHealthCard } from "./sync-health";
 import { Taste } from "./taste";
@@ -63,13 +63,6 @@ export default async function InsightsPage() {
     isAdmin ? recentReports() : [],
   ]);
 
-  const firstName = user.name.split(" ")[0];
-
-  const greeting =
-    snapshot.scope === "all"
-      ? `Good to see you, ${firstName}. Here's the whole practice today.`
-      : `Good to see you, ${firstName}. Here's your day.`;
-
   // The four objects the platform is built on — counts read straight off the
   // inventory the page already fetched (no request-time query), an estimate
   // where an exact count(*) would scan millions of rows.
@@ -97,7 +90,7 @@ export default async function InsightsPage() {
       {/* Layer 1 — the briefing, then the objects + the work queue (admin), or
           the practitioner's own day (everyone else). */}
       <section className="flex min-w-0 flex-col gap-4">
-        <InsightsHeader greeting={greeting} canBrief={isAdmin} />
+        <InsightsHeader canBrief={isAdmin} />
         {isAdmin ? (
           <div className="flex min-w-0 flex-col gap-4">
             <ObjectStrip counts={objectCounts} />
@@ -121,14 +114,14 @@ export default async function InsightsPage() {
               </EcoSection>
             )}
 
+            <Fleet />
+
             {health && (
-              <EcoSection icon="wrench" title="Pipelines">
+              <EcoSection icon="wrench" title="Operations">
                 <SyncHealthCard health={health} />
-                {runs && runs.length > 0 && <RunHistory runs={runs} />}
+                <RunsPanel harvests={health.harvests} runs={runs ?? []} reports={reports} />
               </EcoSection>
             )}
-
-            <Fleet reports={reports} />
 
             <NextRung />
 

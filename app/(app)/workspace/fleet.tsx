@@ -1,33 +1,26 @@
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { Icon } from "@/components/ui/icons";
-import { ListRow } from "@/components/ui/list-row";
-import { formatDate } from "@/lib/format";
-import type { ReportEntry } from "@/lib/repos/reports";
-import { CopyCard } from "./copy-card";
+import { FleetGrid, type FleetAgent } from "./fleet-grid";
 import { EcoSection } from "./section";
 
-// The fleet — the ten standing terminals that do the work, and the trail of what
-// they shipped. The roster is who's on staff; the ledger below reads the actual
-// reports on disk (docs/reports/), newest first, so "the fleet is producing" is
-// shown, not asserted. If the reports dir isn't bundled the roster stands alone.
+// The fleet — the ten standing terminals that do the work. The roster is who's
+// on staff; each card opens that agent's identity file in the editor. What they
+// shipped lives in the Operations panel's Agent Reports tab, not here.
 
-type Agent = { name: string; model: "fable" | "opus"; blurb: string; mine?: boolean };
+type RosterAgent = Omit<FleetAgent, "doc">;
 
-const FLEET: Agent[] = [
-  { name: "lead", model: "fable", blurb: "Writes the briefs, reviews every report, rules on every flag — dispatcher today, reviewer as the loop matures." },
-  { name: "data", model: "fable", blurb: "Supply-side acquisition — harvests payer MRF/TiC + FHIR directories, cracks walled payers, runs the loaders." },
-  { name: "quality", model: "opus", blurb: "Data trustworthiness — matview/repo correctness, measure-before-port forensics, the thin product surfaces." },
-  { name: "ui", model: "opus", blurb: "Guardian of the design system — composes the 44 primitives, kills one-offs, keeps every surface on-system.", mine: true },
-  { name: "docs", model: "opus", blurb: "Institutional memory — Linear structure and the three living documents, kept dual-homed with the code." },
-  { name: "review", model: "opus", blurb: "Adversarial review of a commit range — findings only, re-verifies every claim against reality." },
-  { name: "security", model: "opus", blurb: "Standing posture — PHI/HIPAA handling, auth on every route, secret hygiene across both repos." },
-  { name: "ops", model: "opus", blurb: "The automation fleets and their tripwires; sequences migrations so no sql/0XX range collides." },
-  { name: "research", model: "opus", blurb: "Discovery spikes that end in a sized, buildable brief — a number, never a vibe." },
-  { name: "qa", model: "opus", blurb: "End-to-end headless product drives after big change days — reads the output, not the exit code." },
+const FLEET: RosterAgent[] = [
+  { name: "lead", label: "Lead", model: "Fable", blurb: "Writes the briefs, reviews every report, rules on every flag — dispatcher today, reviewer as the loop matures." },
+  { name: "data", label: "Data", model: "Fable", blurb: "Supply-side acquisition — harvests payer MRF/TiC + FHIR directories, cracks walled payers, runs the loaders." },
+  { name: "quality", label: "Quality", model: "Opus", blurb: "Data trustworthiness — matview/repo correctness, measure-before-port forensics, the thin product surfaces." },
+  { name: "ui", label: "UI", model: "Opus", blurb: "Guardian of the design system — composes the 44 primitives, kills one-offs, keeps every surface on-system.", mine: true },
+  { name: "docs", label: "Docs", model: "Opus", blurb: "Institutional memory — Linear structure and the three living documents, kept dual-homed with the code." },
+  { name: "review", label: "Review", model: "Opus", blurb: "Adversarial review of a commit range — findings only, re-verifies every claim against reality." },
+  { name: "security", label: "Security", model: "Opus", blurb: "Standing posture — PHI/HIPAA handling, auth on every route, secret hygiene across both repos." },
+  { name: "ops", label: "Ops", model: "Opus", blurb: "The automation fleets and their tripwires; sequences migrations so no sql/0XX range collides." },
+  { name: "research", label: "Research", model: "Opus", blurb: "Discovery spikes that end in a sized, buildable brief — a number, never a vibe." },
+  { name: "qa", label: "QA", model: "Opus", blurb: "End-to-end headless product drives after big change days — reads the output, not the exit code." },
 ];
 
 /** The agent's identity file (~/.claude/agents/<name>-agent.md, docs-agent-maintained).
@@ -41,58 +34,12 @@ async function agentDoc(name: string): Promise<string | null> {
   }
 }
 
-export async function Fleet({ reports }: { reports: ReportEntry[] }) {
+export async function Fleet() {
   const docs = await Promise.all(FLEET.map((a) => agentDoc(a.name)));
+  const agents: FleetAgent[] = FLEET.map((a, i) => ({ ...a, doc: docs[i] }));
   return (
-    <EcoSection
-      icon="users-round"
-      eyebrow="The workforce"
-      title="The agent fleet"
-      blurb="Ten standing terminals, each a specialist with its own seam. The lead briefs; they execute, report, and hand back — the same loop, every night."
-    >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {FLEET.map((a, i) => {
-          const card = (
-            <Card className="flex h-full min-w-0 flex-col gap-1.5 p-4">
-              <span className="flex flex-wrap items-center gap-2">
-                <span className="text-[15px] font-semibold text-text">{a.name}</span>
-                <Badge variant={a.model === "fable" ? "info" : "neutral"}>{a.model}</Badge>
-                {a.mine && <Badge variant="success">built this page</Badge>}
-              </span>
-              <p className="text-sm leading-relaxed text-text-muted">{a.blurb}</p>
-            </Card>
-          );
-          const doc = docs[i];
-          return doc ? (
-            <CopyCard key={a.name} text={doc}>
-              {card}
-            </CopyCard>
-          ) : (
-            <div key={a.name} className="min-w-0">
-              {card}
-            </div>
-          );
-        })}
-      </div>
-
-      {reports.length > 0 && (
-        <div className="mt-1 flex min-w-0 flex-col gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">Latest reports</span>
-          <div className="flex min-w-0 flex-col gap-2">
-            {reports.map((r) => (
-              <ListRow
-                key={r.slug}
-                leading={<Icon name="file-text" size={16} className="text-text-muted" />}
-                title={r.title}
-                meta={<span className="font-mono text-[11px] tracking-wide">{r.slug}</span>}
-                trailing={
-                  <span className="text-[13px] tabular-nums text-text-muted">{formatDate(`${r.date}T12:00:00`)}</span>
-                }
-              />
-            ))}
-          </div>
-        </div>
-      )}
+    <EcoSection icon="users-round" title="The agent fleet">
+      <FleetGrid agents={agents} />
     </EcoSection>
   );
 }

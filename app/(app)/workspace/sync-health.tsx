@@ -1,13 +1,15 @@
+"use client";
+
 import { Badge, DotBadge } from "@/components/ui/badge";
 import { Banner } from "@/components/ui/banner";
 import { Card } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/format";
 import type { SyncHealth, SyncRun } from "@/lib/repos/sync-runs";
 
-// The machine-room gauge: is the nightly matview rebuild alive, and what did
-// the harvest runner do last night? Red is reserved for "someone should act
-// today" — a failed or silently-stopped nightly; amber covers the benign
-// in-between states (first run pending, a run currently in flight).
+// The machine-room gauge: is the nightly matview rebuild alive? Red is reserved
+// for "someone should act today" — a failed or silently-stopped nightly; amber
+// covers the benign in-between states (first run pending, a run currently in
+// flight). The harvest/history/report tables live in the Operations panel below.
 
 const DOT: Record<SyncRun["state"], "success" | "danger" | "warning"> = {
   ok: "success",
@@ -32,7 +34,7 @@ function runMeta(run: SyncRun): string {
 }
 
 export function SyncHealthCard({ health }: { health: SyncHealth }) {
-  const { nightly, nightlyStale, harvests } = health;
+  const { nightly, nightlyStale } = health;
   const red = nightly !== null && (nightly.state === "error" || nightly.state === "died" || nightlyStale);
 
   return (
@@ -73,19 +75,6 @@ export function SyncHealthCard({ health }: { health: SyncHealth }) {
             <div key={s.step} className="flex min-w-0 items-baseline gap-2 text-sm">
               <span className="font-medium text-danger">{s.step}</span>
               <span className="min-w-0 truncate text-text-muted">{s.error}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {harvests.length > 0 && (
-        <div className="flex flex-col gap-1.5 border-t border-border pt-3">
-          <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">Harvest runs</span>
-          {harvests.map((h) => (
-            <div key={h.id} className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
-              <DotBadge variant={DOT[h.state]} />
-              <span className="font-medium text-text">{h.job.replace(/^harvest:/, "")}</span>
-              <span className="min-w-0 truncate text-text-muted">{runMeta(h)}</span>
             </div>
           ))}
         </div>

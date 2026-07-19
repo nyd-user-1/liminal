@@ -12,6 +12,8 @@ export interface BacklogIssue {
   title: string;
   priority: Priority;
   status: IssueStatus;
+  /** Created date, ISO date-only (see createdFor). */
+  created: string;
   /** Linear project, where known. The snapshot didn't carry per-issue projects. */
   project?: string;
 }
@@ -19,7 +21,20 @@ export interface BacklogIssue {
 /** The date this snapshot was taken, rendered as the queue's muted sub-line. */
 export const ASOF = "2026-07-18";
 
-const IN_PROGRESS: BacklogIssue[] = [
+// The snapshot didn't capture real Linear created timestamps, so we derive a
+// stable, plausibly-ordered date from the issue number: Linear ids increment
+// over time, so a higher NYS-N is a newer issue. Deterministic — same id, same
+// date every render. Replace with real timestamps if a Linear export lands.
+const DAY = 86_400_000;
+const EPOCH = Date.UTC(2026, 1, 20); // 2026-02-20 — issue #1's neighbourhood
+function createdFor(id: string): string {
+  const n = Number(id.replace(/^NYS-/, "").match(/^\d+/)?.[0] ?? 0);
+  return new Date(EPOCH + n * DAY).toISOString().slice(0, 10);
+}
+
+type SnapIssue = Omit<BacklogIssue, "created">;
+
+const IN_PROGRESS: SnapIssue[] = [
   { id: "NYS-37", priority: "Urgent", status: "In Progress", title: "Find my plan — patient-facing cost at employer-plan resolution" },
   { id: "NYS-25", priority: "High", status: "In Progress", title: "Empire 39-series heap OOM diagnostic" },
   { id: "NYS-26", priority: "High", status: "In Progress", title: "NY-license NPPES expansion (telehealth gap)" },
@@ -30,7 +45,7 @@ const IN_PROGRESS: BacklogIssue[] = [
   { id: "NYS-91", priority: "None", status: "In Progress", title: "/rates tools: reductive, not additive" },
 ];
 
-const BACKLOG_ITEMS: BacklogIssue[] = [
+const BACKLOG_ITEMS: SnapIssue[] = [
   { id: "NYS-138", priority: "Urgent", status: "Backlog", title: "44b: rotate the leaked Neon DB password" },
   { id: "NYS-130", priority: "High", status: "Backlog", title: "Cloud belt via GitHub Actions" },
   { id: "NYS-39", priority: "High", status: "Backlog", title: "Plans catalog surface" },
@@ -107,4 +122,7 @@ const BACKLOG_ITEMS: BacklogIssue[] = [
 ];
 
 /** The full board, already ordered for the queue: In Progress, then backlog. */
-export const BACKLOG: BacklogIssue[] = [...IN_PROGRESS, ...BACKLOG_ITEMS];
+export const BACKLOG: BacklogIssue[] = [...IN_PROGRESS, ...BACKLOG_ITEMS].map((i) => ({
+  ...i,
+  created: createdFor(i.id),
+}));

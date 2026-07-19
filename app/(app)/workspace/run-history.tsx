@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { formatDateTime } from "@/lib/format";
 import type { SyncRun } from "@/lib/repos/sync-runs";
+import { jobDescription } from "./job-descriptions";
 
 // The run ledger, in full, under the sync-health gauge (see sync-health.tsx).
 // The card answers "is the nightly alive right now?" with one line per job;
@@ -27,13 +28,25 @@ function stepsSummary(run: SyncRun): string {
   return `${run.steps.length} steps${failed > 0 ? ` · ${failed} failed` : ""}`;
 }
 
-const columns: DataTableColumn<SyncRun>[] = [
+/** Column set shared with the Sync health card's Harvest runs table — same
+ *  ledger, same shape, so the two never read as two different tables. */
+export const runColumns: DataTableColumn<SyncRun>[] = [
   {
     key: "job",
     label: "Job",
     fixed: true,
     sortValue: (r) => r.job,
     render: (r) => <span className="font-medium text-text">{r.job}</span>,
+  },
+  {
+    key: "description",
+    label: "Description",
+    cellClassName: "max-w-xs truncate",
+    render: (r) => (
+      <span className="text-text-muted" title={jobDescription(r.job)}>
+        {jobDescription(r.job)}
+      </span>
+    ),
   },
   {
     key: "status",
@@ -70,7 +83,7 @@ export function RunHistory({ runs }: { runs: SyncRun[] }) {
     <div className="flex min-w-0 flex-col gap-2">
       <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">Run history</span>
       <DataTable
-        columns={columns}
+        columns={runColumns}
         rows={runs}
         rowKey={(r) => r.id}
         defaultSort={{ col: "started", dir: "desc" }}

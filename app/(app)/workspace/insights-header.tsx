@@ -33,7 +33,7 @@ function parseBriefing(text: string): { headline: string | null; body: string } 
   return { headline: text.slice(0, idx).trim(), body: text.slice(idx + 1).trim() };
 }
 
-export function InsightsHeader({ greeting, canBrief }: { greeting: string; canBrief: boolean }) {
+export function InsightsHeader({ canBrief }: { canBrief: boolean }) {
   const [enabled, setEnabled] = useState(false);
   const [view, setView] = useState<View>({ kind: "greeting" });
   const mounted = useRef(false);
@@ -91,12 +91,11 @@ export function InsightsHeader({ greeting, canBrief }: { greeting: string; canBr
         </div>
       </CopyCard>
     ) : view.kind === "error" ? (
-      <div className="flex flex-col gap-1">
-        <p className="text-[15px] text-text-muted">{greeting}</p>
-        <p className="text-[13px] text-text-muted">{view.reason}</p>
-      </div>
+      <p className="text-[13px] text-text-muted">{view.reason}</p>
     ) : (
-      <p className="text-[15px] text-text-muted">{greeting}</p>
+      // Resting state renders nothing — the Summary card above orients; the
+      // briefing only appears once the wand is pressed.
+      null
     );
 
   return (

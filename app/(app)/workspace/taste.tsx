@@ -51,7 +51,7 @@ const STANDARDS: Standard[] = [
 
 export function Taste() {
   return (
-    <EcoSection icon="palette" title="The standards that make ten agents read like one hand">
+    <EcoSection icon="palette" title="Rules">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {STANDARDS.map((st) => (
           <Card key={st.title} className="flex min-w-0 gap-3 p-5">
