@@ -1,7 +1,7 @@
 # NYS-34 — Person-level merge across directory sources (design + reversible map)
 
 quality-agent · 2026-07-18 (dated 07-19 per brief) · lead-dispatched single-task tranche
-Status: **DESIGNED + VALIDATED READ-ONLY. Not applied — one gate remains: a sql/0XX number.**
+Status: **APPLIED as `sql/052_provider_merge_map.sql` (inert map + view). Verified. Local commit, not pushed. Surface flip stays founder-gated.**
 
 ## TL;DR
 
@@ -147,6 +147,27 @@ Surface-flip: point `/directory` count + listing, the observatory
 `directory_providers` card, and `/orgs` roster joins at `directory_persons`; add a
 `directory_persons` matview if the view's `NOT EXISTS` is too slow on the listing
 path (measure first). One founder review of the render change, then wire consumers.
+
+## Apply confirmation (lead assigned sql/052; survivor=nppes endorsed)
+
+Applied `sql/052_provider_merge_map.sql` to the live DB, `-v ON_ERROR_STOP=1`:
+`CREATE TABLE / CREATE INDEX ×2 / INSERT 0 16934 / CREATE VIEW`. Harvest lock
+clear at apply time; well before the 01:04 runner. Verified against the persisted
+objects (not the dry-run):
+
+| Check | Expected | Got |
+|---|---|---|
+| `provider_merge_map` rows | 16,934 | **16,934** |
+| tier `npi_name_match` (conf 1.00) | 16,515 | **16,515** |
+| tier `npi_name_divergent` (conf 0.85) | 419 | **419** |
+| distinct `merged_id` (each merged once) | 16,934 | **16,934** |
+| survivors that are NOT nppes | 0 | **0** |
+| `directory_persons` view rows | 106,658 | **106,658** (130ms) |
+
+The table + view are **inert** — no repo consumes them, so no rendered surface
+changed. Escape hatch confirmed in the migration footer (`TRUNCATE` the map / drop
+the view, or delete one tier). Surface flip remains a founder-gated follow-up; I
+did not touch any consumer.
 
 ## Housekeeping
 
