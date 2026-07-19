@@ -7,6 +7,13 @@
 export type Priority = "Urgent" | "High" | "Medium" | "Low" | "None";
 export type IssueStatus = "In Progress" | "Backlog";
 
+/** The Linear URL for an issue id. Some snapshot ids bundle several numbers
+ *  ("NYS-9/7/6"); link to the first, which is the one that resolves. */
+export function linearIssueUrl(id: string): string {
+  const first = id.match(/NYS-\d+/)?.[0] ?? id;
+  return `https://linear.app/nysgpt/issue/${first}`;
+}
+
 export interface BacklogIssue {
   id: string;
   title: string;
