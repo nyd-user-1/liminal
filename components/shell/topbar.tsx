@@ -16,6 +16,7 @@ import type { SessionUser } from "@/lib/auth";
 // Longest-prefix wins: order specific → general.
 const ROUTE_TITLES: Array<[prefix: string, icon: IconName, title: string]> = [
   ["/workspace/data-dictionary", "grid", "Data dictionary"],
+  ["/workspace/docs", "file-text", "Docs"],
   ["/workspace", "wand-sparkles", "Workspace"],
   ["/analytics", "columns-3", "Analytics"],
   // The pre-rename original, kept reachable via the BoardTabs rail.
