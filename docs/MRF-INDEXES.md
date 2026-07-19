@@ -14,6 +14,7 @@ the Schema 2.0 note at the bottom._
 | Excellus | open HealthSparq egress JSON (ToC hop) | stable | YES (851 EINs loaded) | — (sized, unminted) |
 | Univera | open HealthSparq egress JSON (ToC hop) | stable | thin at top (23 EINs) | — (sized, unminted) |
 | Independent Health | open HealthSparq egress JSON | stable | YES (168 EINs) | ✅ 4 files loaded 2026-07-18 (ad-hoc) |
+| Oscar (+ Optum BH carve-out) | open S3 bucket, **listing enabled** | stable S3 | no (plan-level) | staged `oscar-obh.txt` + `oscar-medical.txt` |
 | UHC/Oxford | open JSON API (21 MB, all blobs) | stable API path | names-only (67,111, NO EIN) | `uhc-p3.txt` |
 | Anthem/Empire + Highmark | S3 ToC gz (10.5 GB, mine it) | **signed, ~1 mo** | in ToC (bloated) | `empire*/highmark*` |
 | Cigna | page link (browser) → index gz | signed, **~10 yr** | in ToC | `cigna-*.txt` |
@@ -123,6 +124,34 @@ the Schema 2.0 note at the bottom._
   Buffalo-area employer book (NYSHIP, iDirect, Passport Select, FlexFit). Load
   with `ingest-plans-hsq.mjs --name=ein` (planName is a product, resolve via
   Form 5500) when wanted. Not loaded this tranche (below the priority line).
+
+## Oscar Health (+ the Optum BH carve-out)  🔓 cracked 2026-07-19 (T2)
+
+- **Index**: none needed — `https://hioscar-cms-tic-us-east-1.s3.amazonaws.com/`
+  is an S3 bucket with **public LISTING enabled** (`?list-type=2&prefix=…`).
+  Found by grepping the SPA bundle behind
+  `hioscar.com/transparency-in-coverage-files/oscar` (the page renders links
+  client-side; the bundle hardcodes the bucket). ✅ live 2026-07-19.
+- **Layout**: `oscar/{negotiated_rates,optum,cigna,qualcare,davis_vision}/`,
+  monthly folders, current through 2026-07-01.
+  - `oscar/optum/<YYYY-MM-01>/OSCAR-HEALTH_*_OBH_MRRF_PRD_*.zip` — **the Optum
+    Behavioral Health carve-out rate files** (MRRF = rates; ignore the tiny
+    per-plan MRAAF allowed-amount zips). THIS is the data §3 of
+    PAYER-RESEARCH.md documents as withheld from UHC's own files — for Oscar
+    it publishes here. Measured 2026-07-19: the NY-SG file (70 MB zip) alone
+    carries **28,480 book NPIs / 692k rows** on the 20-code panel, +419
+    net-new vs everything held; all-codes = 948 distinct codes / 4.06M rows.
+  - `oscar/negotiated_rates/<YYYYMMDD>/oscar/*-in-network.json` — Oscar's own
+    medical book, 29 files / 1.46 GB.
+- ⚠️ **Refs-LAST layout** (both the UBH and Oscar generators):
+  `provider_references` comes AFTER `in_network`, so plain scan-tic retains
+  nothing and reports 0 rows. Use the `rl`/`ziprl` decomp in `run-payer.sh`
+  (fetch to temp file, stream the refs section first). `--payer=auto` cannot
+  see the header on a reordered stream — label explicitly.
+- **`healthfirst/` on the same bucket is Health First of FLORIDA** (plan names
+  `HEALTH-FIRST-FL-*`), NOT Healthfirst NY — recorded so nobody re-celebrates
+  the wrong crack. Healthfirst NY's MRF entry point remains undiscovered.
+- **Plan/EIN book: no** — plan-level names only in the UBH headers.
 
 ## UnitedHealthcare / Oxford
 

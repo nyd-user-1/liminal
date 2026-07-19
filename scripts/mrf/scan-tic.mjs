@@ -76,12 +76,17 @@ const FILE_DATE = arg("file-date", "");
 // crisis, family therapy, interactive-complexity + screener add-ons, and the
 // E/M ladder both new and established. Rows scale with codes but the NPI list
 // still bounds the scan; pass --codes to narrow for a targeted rescan.
-const CPTS = new Set(
-  (arg(
-    "codes",
-    "90791,90792,90832,90833,90834,90836,90837,90838,90839,90840,90846,90847,90853,90785,96127,99204,99205,99213,99214,99215",
-  )).split(","),
+// --codes=all (NYS-50, founder-ruled breadth): drop the code panel entirely —
+// every item any of our NPIs price gets emitted, all billing-code types (CPT,
+// HCPCS, RC…). The NPI list is then the ONLY scope; rows scale with the
+// payer's full code universe, so measure one dense file before a fleet run.
+const CODES_RAW = arg(
+  "codes",
+  "90791,90792,90832,90833,90834,90836,90837,90838,90839,90840,90846,90847,90853,90785,96127,99204,99205,99213,99214,99215",
 );
+const ALL_CODES = CODES_RAW === "all";
+const CPTS = new Set(ALL_CODES ? [] : CODES_RAW.split(","));
+const wantCode = (c) => ALL_CODES || CPTS.has(c);
 
 // Two-pass mode for ref-dense files (Empire NY 39-series: ~10.5 KB heap per
 // retained group x 600k+ matched groups — no heap cap can work, NYS-25):
@@ -189,8 +194,20 @@ const stats = {
   itemsSeen: 0,
   itemsMatchedCode: 0,
   rows: 0,
-  byCode: Object.fromEntries([...CPTS].map((c) => [c, 0])),
+  maxItemBytes: 0,
+  byCode: ALL_CODES ? {} : Object.fromEntries([...CPTS].map((c) => [c, 0])),
   start: Date.now(),
+};
+// SCAN_DIAG=1 (NYS-25): name each big allocation BEFORE it happens, so an OOM
+// kill lands right after the line that identifies the dying allocation. Logs
+// every matched item above SCAN_DIAG_ITEM_MB (default 4) pre-parse, and adds
+// rss/external to the ticker (Buffer bytes live outside the V8 heap — a heap
+// ticker alone can't see item-byte accumulation).
+const DIAG = !!process.env.SCAN_DIAG;
+const DIAG_ITEM_MIN = Number(process.env.SCAN_DIAG_ITEM_MB || 4) * 1048576;
+const diagMem = () => {
+  const m = process.memoryUsage();
+  return `heap=${(m.heapUsed / 1048576).toFixed(0)}MB rss=${(m.rss / 1048576).toFixed(0)}MB ext=${(m.external / 1048576).toFixed(0)}MB`;
 };
 const logStatus = () => {
   const mb = (stats.bytes / 1e6).toFixed(0);
@@ -199,7 +216,11 @@ const logStatus = () => {
   const heap = (process.memoryUsage().heapUsed / 1048576).toFixed(0);
   console.error(
     `[${mins}m] ${mb} MB uncompressed | refs ${stats.refsSeen} (retained ${stats.refsRetained}) | items ${stats.itemsSeen} (cpt-hit ${stats.itemsMatchedCode}) | rows ${stats.rows} | heap ${heap}MB` +
-      (unmatched ? ` | unmatched ${unmatched.size}` : "")
+      (unmatched ? ` | unmatched ${unmatched.size}` : "") +
+      (DIAG
+        ? ` | DIAG ${diagMem()} openItem=${(partsLen / 1048576).toFixed(1)}MB(${mode}) maxItem=${(stats.maxItemBytes / 1048576).toFixed(1)}MB` +
+          (collectedGids ? ` gids=${collectedGids.size}` : ` retainedMap=${retained.size}`)
+        : "")
   );
 };
 const ticker = setInterval(logStatus, 15000);
@@ -308,7 +329,8 @@ async function emitRows(item) {
           );
           if (w !== true) await w;
           stats.rows++;
-          if (stats.byCode[item.billing_code] !== undefined) stats.byCode[item.billing_code]++;
+          if (ALL_CODES) stats.byCode[item.billing_code] = (stats.byCode[item.billing_code] ?? 0) + 1;
+          else if (stats.byCode[item.billing_code] !== undefined) stats.byCode[item.billing_code]++;
         }
       }
     }
@@ -529,9 +551,14 @@ async function finishItemStreaming() {
   const cm = head.match(/"billing_code"\s*:\s*"([^"]+)"/);
   const code = cm?.[1];
   const myParts = parts;
+  const myLen = partsLen;
   parts = [];
   partsLen = 0;
-  if (!code || !CPTS.has(code)) return; // false-positive capture — drop
+  if (!code || !wantCode(code)) return; // false-positive capture — drop
+  if (DIAG)
+    console.error(
+      `DIAG stream-parse item: code=${code} bytes=${(myLen / 1048576).toFixed(1)}MB ${diagMem()}`
+    );
   stats.itemsMatchedCode++;
   // right-trim inter-item junk (`,` + ws) back to the final `}` — v3's parser
   // aborts the pipeline on trailing bytes BEFORE flushing any entries
@@ -568,7 +595,12 @@ async function finishItemStreaming() {
 }
 
 async function finishItem() {
+  if (partsLen > stats.maxItemBytes) stats.maxItemBytes = partsLen;
   if (partsLen > HUGE_ITEM) return finishItemStreaming();
+  if (DIAG && partsLen >= DIAG_ITEM_MIN)
+    console.error(
+      `DIAG JSON.parse item: bytes=${(partsLen / 1048576).toFixed(1)}MB ${diagMem()}`
+    );
   // full matched item accumulated in parts (brace onward), minus trailing junk
   let text = Buffer.concat(parts, partsLen).toString("utf8").trim();
   parts = [];
@@ -587,7 +619,7 @@ async function finishItem() {
   if (!item) abort("matched item failed to parse after trims");
   // head-window test can false-positive (code text inside description) —
   // re-check the parsed item so behavior matches the reference implementation
-  if (!CPTS.has(String(item.billing_code))) return;
+  if (!wantCode(String(item.billing_code))) return;
   stats.itemsMatchedCode++;
   await emitRows(item);
 }
@@ -599,6 +631,7 @@ function decide() {
     // an item whose billing_code escaped the head window — never silent
     abort(`item without billing_code in first ${HEAD_WINDOW} bytes`, head);
   }
+  if (ALL_CODES) return "CAPTURE";
   return CODE_RE.test(head.toString("utf8")) ? "CAPTURE" : "SKIP";
 }
 
@@ -767,10 +800,14 @@ if (collectedGids) {
   console.error(`gids collected: ${collectedGids.size} -> ${COLLECT_GIDS_PATH}`);
 }
 flushTinNames();
-const done = () =>
-  console.error(
-    "DONE",
-    JSON.stringify({ ...stats, elapsedMin: (Date.now() - stats.start) / 60000 })
-  );
+const done = () => {
+  let s = { ...stats, elapsedMin: (Date.now() - stats.start) / 60000 };
+  if (ALL_CODES) {
+    // all-codes byCode can run to thousands of keys — summarize for the log
+    const entries = Object.entries(stats.byCode).sort((a, b) => b[1] - a[1]);
+    s = { ...s, distinctCodes: entries.length, byCode: Object.fromEntries(entries.slice(0, 25)) };
+  }
+  console.error("DONE", JSON.stringify(s));
+};
 if (out) out.end(done);
 else done();
