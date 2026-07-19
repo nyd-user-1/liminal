@@ -123,3 +123,17 @@ file, invariant across tranches and across repos.
 *Mirror of the seed memory `liminal-operating-model`. Dual-homed: this repo file is
 the source of truth; the Linear Document is the readable mirror (docs-agent keeps
 them in step).*
+
+## Linear governance (founder ruling, 2026-07-18)
+
+Linear MCP measured at 43% of usage. Effective immediately:
+
+- **Only the lead calls Linear.** No other agent/terminal connects the
+  Linear MCP or files issues directly.
+- The lead syncs TWICE per session: once at start (pull the open board into
+  `docs/QUEUE.md`) and once at end (batch-file everything owed).
+- Executors write **Linear intents** in their reports instead — a short
+  block per item: `issue (or NEW) · action (comment/close/create) ·
+  evidence`. The lead executes them in the end-of-session batch.
+- `docs/QUEUE.md` is the shared brain between syncs: the lead keeps warm
+  assignments + pending intents there; briefs point at it.

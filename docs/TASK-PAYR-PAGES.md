@@ -161,3 +161,35 @@ Cross-link all three (a quiet "family" band or footer links on each).
 Flags, not decisions, for: route naming/nav placement if no existing
 pattern fits · any aggregate that would need a new matview · a contact-form
 want · anything that would touch another seat's files.
+
+## Addendum (2026-07-18 evening) — founder reference material
+
+`docs/reference/rate-intel-inspo/` holds 15 founder-curated screenshots
+(Turquoise Health "Signal" et al.). LOOK AT THEM before designing. The
+patterns they carry, distilled:
+
+1. **Corpus-scale stats band** ("What's behind the answer": 200+ payers ·
+   5,000+ hospitals · 350B+ rates) — our version uses OUR live numbers.
+2. **Payer × code × negotiated-rate table with payer logos**, shown beside
+   the raw file JSON — the "we turn their files into your answer" visual.
+3. **Pipeline diagram**: sources (PAYER MRF · CLAIMS · MEDICARE ·
+   REFERENCES · CONTRACTS) flowing into "clear rates" steps.
+4. **Benchmark answer block**: question → comparison table (Your rate vs
+   market, volume, opportunity labels) → key-insight bullets with dollar
+   impact. (Marketing shows the SHAPE with real aggregate data; never
+   invent a fake client.)
+5. **%-of-Medicare framing** (service-line bars, % CMS chips on org price
+   cards) — we hold `medicare_benchmark_ny`; a real %-of-Medicare moment is
+   available and highly credible.
+6. **Feature walkthrough rail**: Search rates / Filter by market / Search
+   any code / Filter by service line — left step list, right live-looking
+   mock.
+7. **Org profile cards** (location · specialization · EIN · NPI) and
+   **DRG/code spotlight cards** (code + payer badge + org price cards).
+8. **Annotated natural-language query** (knowledge-graph entity chips over
+   a benchmark question) — the "ask it in English" promise.
+9. **GFE/estimate card** (patient-facing estimate composition) — patient
+   lens; relevant to Find-my-plan framing, not a claim we make yet.
+
+These are INSPIRATION for structure and moments — Liminal's visual system
+(warm paper, watercolor, our tokens) still governs every pixel.
