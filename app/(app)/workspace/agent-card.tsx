@@ -34,7 +34,7 @@ export function AgentCard({
     if (!doc) return;
     try {
       await navigator.clipboard.writeText(doc);
-      toast("Copied the identity file.", "success");
+      toast("Copied markdown", "success");
     } catch {
       toast("Couldn't copy — clipboard unavailable.", "danger");
     }
@@ -54,7 +54,7 @@ export function AgentCard({
       menu={
         doc && (
           <KebabMenu label={`${label} actions`}>
-            <MenuItem icon="copy" label="Copy identity file" onClick={copy} />
+            <MenuItem icon="copy" label="Copy as Markdown" onClick={copy} />
           </KebabMenu>
         )
       }

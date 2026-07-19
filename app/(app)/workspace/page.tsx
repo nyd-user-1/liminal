@@ -1,49 +1,44 @@
 import { redirect } from "next/navigation";
 import { BoardTabs } from "@/components/shell/board-tabs";
-import { Card } from "@/components/ui/card";
 import { Divider } from "@/components/ui/divider";
 import { TextLink } from "@/components/ui/text-link";
 import { requireUser } from "@/lib/auth";
-import { rateSignalCount, tableCount } from "@/lib/insights-metrics";
+import { nightlyMetrics, rateSignalCount, tableCount } from "@/lib/insights-metrics";
 import { platformInventory } from "@/lib/repos/admin";
 import { practiceSnapshot } from "@/lib/repos/dashboard";
 import { latestLeadReport } from "@/lib/repos/lead-reports";
 import { recentReports } from "@/lib/repos/reports";
 import { recentSyncRuns, syncHealth } from "@/lib/repos/sync-runs";
-import { CoverageGrowth } from "./coverage-growth";
+import { CoverageGrowth, type CoverageGrowthData } from "./coverage-growth";
 import { Fleet } from "./fleet";
-import { InsightsHeader } from "./insights-header";
-import { NextRung } from "./next-rung";
-import { NightReport } from "./night-report";
+import { NightWork } from "./night-report";
 import { Observatory } from "./observatory";
-import { ObjectStrip } from "./object-strip";
 import { PracticeStrip } from "./practice-strip";
+import { RulesPanel } from "./rules-panel";
 import { RunsPanel } from "./runs-panel";
 import { EcoSection } from "./section";
+import { SummaryCard } from "./summary-card";
 import { SyncHealthCard } from "./sync-health";
-import { Taste } from "./taste";
-import { WorkQueue } from "./work-queue";
 
-// /insights — the practice front door, and (for the founder) the ecosystem's
+// /workspace — the practice front door, and (for the founder) the ecosystem's
 // front door beneath it. Two audiences, one page:
 //
 //   Layer 1  every staff role: today's caseload, scoped to who's asking.
-//   Layer 2  admin only: the self-sustaining, self-healing data ecosystem, read
-//            as one narrative column —
-//              · the engine      coverage & growth (the corpus compounding nightly)
-//              · overnight       the lead's night report, editable in place
-//              · plumbing        the pipelines (sync-health + run history)
-//              · the workforce   the ten-agent fleet + the reports it ships
-//              · the next rung   the mechanisms that make it run itself
-//              · taste           the standards that make ten agents read as one
-//              · under the hood  the full platform inventory
+//   Layer 2  admin only: the self-sustaining, self-healing data ecosystem —
+//              · the summary       an on-demand AI briefing, in the Summary card
+//              · coverage & growth  the corpus compounding nightly + the pins
+//              · operations         sync-health + the harvest/history/report/queue tabs
+//              · overnight          the lead's night report, editable in a sheet
+//              · the workforce      the ten-agent fleet
+//              · rules              the standards that make ten agents read as one
+//              · under the hood     the full platform inventory
 //
-// BoardTabs (Insights · Analytics · Dashboard) sit above everything.
-// No page-level H1 — the TopBar owns it (ROUTE_TITLES → "Workspace").
+// BoardTabs (Workspace · Analytics · Dashboard · Data Dictionary) sit above
+// everything. No page-level H1 — the TopBar owns it (ROUTE_TITLES → "Workspace").
 
 export const dynamic = "force-dynamic";
 
-export default async function InsightsPage() {
+export default async function WorkspacePage() {
   const user = await requireUser();
   // The workspace layout already bounces clients, but a layout and its page
   // render CONCURRENTLY — without this the page would still run its caseload
@@ -63,76 +58,66 @@ export default async function InsightsPage() {
     isAdmin ? recentReports() : [],
   ]);
 
-  // The four objects the platform is built on — counts read straight off the
-  // inventory the page already fetched (no request-time query), an estimate
-  // where an exact count(*) would scan millions of rows.
-  const objectCounts = {
+  // The Coverage & growth scoreboard — counts straight off the inventory the
+  // page already fetched, growth/coverage from the lead's night report so the
+  // cards can never disagree with the prose the founder edits below.
+  const m = nightlyMetrics(report?.bodyMd);
+  const coverage: CoverageGrowthData = {
     providers: inventory?.specials?.directoryNpis ?? null,
-    rates: rateSignalCount(inventory),
-    orgs: inventory?.specials?.rateTins ?? null,
-    plans: tableCount(inventory, "form5500_filings"),
+    rateRows: m.rateRows ?? rateSignalCount(inventory),
+    rateDelta: m.rateDelta,
+    coveragePct: m.coveragePct,
+    coverageDelta: m.coverageDelta,
+    providersPriced: inventory?.specials?.rateNpis ?? null,
+    payers: inventory?.specials?.ratePayers ?? null,
+    billingEntities: inventory?.specials?.rateTins ?? null,
+    planFilings: tableCount(inventory, "form5500_filings"),
   };
 
   return (
     <div className="mx-auto flex min-w-0 max-w-[1400px] flex-col gap-6">
       <BoardTabs />
 
-      {/* Orientation — a static Summary card; the page's only H1 is the TopBar's. */}
-      <Card className="flex min-w-0 flex-col gap-1.5 p-5">
-        <h2 className="text-[15px] font-semibold text-text">Summary</h2>
-        <p className="max-w-3xl text-sm leading-relaxed text-text-muted">
-          The founder&apos;s control room. Up top, live counts of the four objects the platform is built on —
-          providers, in-network rates, billing entities, plan filings — each opening to the tables behind it. Below
-          sit an on-demand AI briefing, the work queue, the agent fleet, and last night&apos;s sync health.
-        </p>
-      </Card>
+      {/* The Summary card IS the briefing surface — orientation copy at rest,
+          Claude's read of the overnight numbers when the wand is pressed. */}
+      <SummaryCard canBrief={isAdmin} />
 
-      {/* Layer 1 — the briefing, then the objects + the work queue (admin), or
-          the practitioner's own day (everyone else). */}
-      <section className="flex min-w-0 flex-col gap-4">
-        <InsightsHeader canBrief={isAdmin} />
-        {isAdmin ? (
-          <div className="flex min-w-0 flex-col gap-4">
-            <ObjectStrip counts={objectCounts} />
-            <WorkQueue />
-          </div>
-        ) : (
-          <PracticeStrip snapshot={snapshot} />
-        )}
-      </section>
+      {/* Layer 1 — the objects + the pins, then operations (admin), or the
+          practitioner's own day (everyone else). */}
+      {isAdmin ? (
+        <div className="flex min-w-0 flex-col gap-8">
+          <CoverageGrowth data={coverage} />
+          {health && (
+            <EcoSection title="Operations">
+              <SyncHealthCard health={health} />
+              <RunsPanel harvests={health.harvests} runs={runs ?? []} reports={reports} />
+            </EcoSection>
+          )}
+        </div>
+      ) : (
+        <PracticeStrip snapshot={snapshot} />
+      )}
 
       {/* Layer 2 — the ecosystem, as one narrative column (admin only). */}
       {isAdmin && (
         <>
           <Divider className="mt-2" />
           <div className="flex min-w-0 flex-col gap-12">
-            <CoverageGrowth inventory={inventory} report={report} />
-
             {report && (
-              <EcoSection icon="note" title="The night's work">
-                <NightReport report={report} />
+              <EcoSection title="The night's work">
+                <NightWork report={report} />
               </EcoSection>
             )}
 
             <Fleet />
 
-            {health && (
-              <EcoSection icon="wrench" title="Operations">
-                <SyncHealthCard health={health} />
-                <RunsPanel harvests={health.harvests} runs={runs ?? []} reports={reports} />
-              </EcoSection>
-            )}
-
-            <NextRung />
-
-            <Taste />
+            <RulesPanel />
 
             {inventory && (
               <EcoSection
-                icon="grid"
                 title="Platform data"
                 aside={
-                  <TextLink href="/admin/data" className="text-sm">
+                  <TextLink href="/workspace/data-dictionary" className="text-sm">
                     Data dictionary
                   </TextLink>
                 }

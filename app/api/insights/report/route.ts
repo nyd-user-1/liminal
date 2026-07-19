@@ -5,8 +5,10 @@ import { latestLeadReport, saveLeadReport } from "@/lib/repos/lead-reports";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// The /insights night report — GET the latest, PUT the founder's edits.
-// Admin-only both ways; build notes, never PHI.
+// The /workspace night report — GET the latest, save the founder's edits. It
+// backs the DocSheet editor now, so GET returns the {title, subtitle, bodyMd}
+// shape the sheet reads and PATCH takes {bodyMd} (the legacy PUT stays for any
+// caller that still sends the full record). Admin-only; build notes, never PHI.
 
 function authResponse(e: unknown): NextResponse | null {
   return e instanceof AuthError ? NextResponse.json({ error: e.message }, { status: e.status }) : null;
@@ -15,7 +17,23 @@ function authResponse(e: unknown): NextResponse | null {
 export async function GET() {
   try {
     await requireRole("admin");
-    return NextResponse.json({ report: await latestLeadReport() });
+    const r = await latestLeadReport();
+    if (!r) return NextResponse.json({ error: "No night report yet." }, { status: 404 });
+    return NextResponse.json({ title: r.title, subtitle: r.reportDate, bodyMd: r.bodyMd });
+  } catch (e) {
+    return authResponse(e) ?? NextResponse.json({ error: "Unexpected error." }, { status: 500 });
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    await requireRole("admin");
+    const { bodyMd } = (await req.json()) as { bodyMd?: unknown };
+    if (typeof bodyMd !== "string") return NextResponse.json({ error: "bodyMd required." }, { status: 400 });
+    const r = await latestLeadReport();
+    if (!r) return NextResponse.json({ error: "No night report to edit." }, { status: 404 });
+    await saveLeadReport(r.reportDate, r.title, bodyMd);
+    return NextResponse.json({ title: r.title, subtitle: r.reportDate, bodyMd });
   } catch (e) {
     return authResponse(e) ?? NextResponse.json({ error: "Unexpected error." }, { status: 500 });
   }

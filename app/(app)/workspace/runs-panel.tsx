@@ -7,19 +7,22 @@ import type { ReportEntry } from "@/lib/repos/reports";
 import type { SyncRun } from "@/lib/repos/sync-runs";
 import { ReportsTable } from "./reports-table";
 import { runColumns } from "./run-history";
+import { WorkQueue } from "./work-queue";
 
 // The operations ledger as one tabbed panel: the harvest runner, the full run
-// history, and the reports the fleet has filed — three tables that used to stack,
-// now one tab each (the founder's dev-tools mock). Switching tabs flashes a
-// table-shaped skeleton — the /Code/sports loading pattern, animate-pulse bars
-// sized to the rows about to land — so the swap reads as a load, not a jump.
+// history, the reports the fleet has filed, and the work queue — four tables
+// that used to stack, now one tab each (the founder's dev-tools mock). Switching
+// tabs flashes a table-shaped skeleton — the /Code/sports loading pattern,
+// animate-pulse bars sized to the rows about to land — so the swap reads as a
+// load, not a jump.
 
-type TabKey = "harvest" | "history" | "reports";
+type TabKey = "harvest" | "history" | "reports" | "queue";
 
 const TABS = [
   { key: "harvest", label: "Harvest Runs" },
   { key: "history", label: "History Logs" },
   { key: "reports", label: "Agent Reports" },
+  { key: "queue", label: "Work queue" },
 ];
 
 // How long the skeleton holds on a tab switch — long enough to register as a
@@ -98,8 +101,10 @@ export function RunsPanel({
           defaultSort={{ col: "started", dir: "desc" }}
           stacked
         />
-      ) : (
+      ) : active === "reports" ? (
         <ReportsTable reports={reports} />
+      ) : (
+        <WorkQueue />
       )}
     </div>
   );
