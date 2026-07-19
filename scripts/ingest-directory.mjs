@@ -466,7 +466,7 @@ async function ingestNppes(input = process.stdin) {
         medicaid_id: medicaidId(f),
         raw: npiAllowlist
           ? JSON.stringify({
-              note: "telehealth-gap class ingest 2026-07-12 — NY-licensed, out-of-state practice (docs/TASK-TELEHEALTH-GAP.md)",
+              note: `telehealth-gap class ingest ${new Date().toISOString().slice(0, 10)} — NY-licensed, out-of-state practice (${allowArg.split("=")[1]})`,
               practice_state: f[NP.state] || null,
             })
           : null,
