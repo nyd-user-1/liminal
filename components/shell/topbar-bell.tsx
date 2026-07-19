@@ -76,15 +76,18 @@ export function TopBarBell() {
             You&apos;re all caught up.
           </div>
         ) : (
-          items.map((n) => (
-            <MenuItem
-              key={n.id}
-              label={n.title}
-              subtitle={`${n.body ? `${n.body} · ` : ""}${timeAgo(n.createdAt)}`}
-              trailing={n.readAt === null ? <DotBadge variant="danger" /> : undefined}
-              onClick={() => router.push(n.href ?? "/workspace")}
-            />
-          ))
+          // ~8 rows tall; the rest scroll rather than run the menu off-screen.
+          <div className="max-h-96 overflow-y-auto">
+            {items.map((n) => (
+              <MenuItem
+                key={n.id}
+                label={n.title}
+                subtitle={`${n.body ? `${n.body} · ` : ""}${timeAgo(n.createdAt)}`}
+                trailing={n.readAt === null ? <DotBadge variant="danger" /> : undefined}
+                onClick={() => router.push(n.href ?? "/workspace")}
+              />
+            ))}
+          </div>
         )}
         <MenuDivider />
         <MenuItem icon="activity" label="View sync health" onClick={() => router.push("/workspace")} />

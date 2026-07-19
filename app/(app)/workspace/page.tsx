@@ -3,6 +3,7 @@ import { BoardTabs } from "@/components/shell/board-tabs";
 import { Divider } from "@/components/ui/divider";
 import { TextLink } from "@/components/ui/text-link";
 import { requireUser } from "@/lib/auth";
+import { rateSignalCount, tableCount } from "@/lib/insights-metrics";
 import { platformInventory } from "@/lib/repos/admin";
 import { practiceSnapshot } from "@/lib/repos/dashboard";
 import { latestLeadReport } from "@/lib/repos/lead-reports";
@@ -14,11 +15,13 @@ import { InsightsHeader } from "./insights-header";
 import { NextRung } from "./next-rung";
 import { NightReport } from "./night-report";
 import { Observatory } from "./observatory";
+import { ObjectStrip } from "./object-strip";
 import { PracticeStrip } from "./practice-strip";
 import { RunHistory } from "./run-history";
 import { EcoSection } from "./section";
 import { SyncHealthCard } from "./sync-health";
 import { Taste } from "./taste";
+import { WorkQueue } from "./work-queue";
 
 // /insights — the practice front door, and (for the founder) the ecosystem's
 // front door beneath it. Two audiences, one page:
@@ -66,14 +69,42 @@ export default async function InsightsPage() {
       ? `Good to see you, ${firstName}. Here's the whole practice today.`
       : `Good to see you, ${firstName}. Here's your day.`;
 
+  // The four objects the platform is built on — counts read straight off the
+  // inventory the page already fetched (no request-time query), an estimate
+  // where an exact count(*) would scan millions of rows.
+  const objectCounts = {
+    providers: inventory?.specials?.directoryNpis ?? null,
+    rates: rateSignalCount(inventory),
+    orgs: inventory?.specials?.rateTins ?? null,
+    plans: tableCount(inventory, "form5500_filings"),
+  };
+
   return (
     <div className="mx-auto flex min-w-0 max-w-[1400px] flex-col gap-6">
       <BoardTabs />
 
-      {/* Layer 1 — the practice, scoped to whoever's asking. */}
+      {/* Orientation — one static H2 + paragraph; the page's only H1 is the TopBar's. */}
+      <div className="flex min-w-0 flex-col gap-1">
+        <h2 className="text-lg font-semibold text-text">Workspace</h2>
+        <p className="max-w-3xl text-sm leading-relaxed text-text-muted">
+          The founder&apos;s control room. Up top, live counts of the four objects the platform is built on —
+          providers, in-network rates, billing entities, plan filings — each opening to the tables behind it. Below
+          sit an on-demand AI briefing, the work queue, the agent fleet, and last night&apos;s sync health.
+        </p>
+      </div>
+
+      {/* Layer 1 — the briefing, then the objects + the work queue (admin), or
+          the practitioner's own day (everyone else). */}
       <section className="flex min-w-0 flex-col gap-4">
         <InsightsHeader greeting={greeting} canBrief={isAdmin} />
-        <PracticeStrip snapshot={snapshot} />
+        {isAdmin ? (
+          <div className="flex min-w-0 flex-col gap-4">
+            <ObjectStrip counts={objectCounts} />
+            <WorkQueue />
+          </div>
+        ) : (
+          <PracticeStrip snapshot={snapshot} />
+        )}
       </section>
 
       {/* Layer 2 — the ecosystem, as one narrative column (admin only). */}
@@ -84,23 +115,13 @@ export default async function InsightsPage() {
             <CoverageGrowth inventory={inventory} report={report} />
 
             {report && (
-              <EcoSection
-                icon="note"
-                eyebrow="Overnight"
-                title="The night's work"
-                blurb="What every terminal shipped while you slept — the lead's digest, editable in place."
-              >
+              <EcoSection icon="note" title="The night's work">
                 <NightReport report={report} />
               </EcoSection>
             )}
 
             {health && (
-              <EcoSection
-                icon="wrench"
-                eyebrow="Plumbing"
-                title="Pipelines"
-                blurb="Is the data flowing, and is it healthy? The nightly matview rebuild and every harvest run, judged the same way everywhere."
-              >
+              <EcoSection icon="wrench" title="Pipelines">
                 <SyncHealthCard health={health} />
                 {runs && runs.length > 0 && <RunHistory runs={runs} />}
               </EcoSection>
@@ -115,9 +136,7 @@ export default async function InsightsPage() {
             {inventory && (
               <EcoSection
                 icon="grid"
-                eyebrow="Under the hood"
                 title="Platform data"
-                blurb="Everything the platform holds, what each table means, and which page it powers. Counts are live — ≈ marks a planner estimate on tables too big to count on a page load."
                 aside={
                   <TextLink href="/admin/data" className="text-sm">
                     Data dictionary

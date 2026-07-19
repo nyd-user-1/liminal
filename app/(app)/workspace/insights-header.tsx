@@ -4,15 +4,17 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/ui/icons";
 import { TextLink } from "@/components/ui/text-link";
 import { Toggle } from "@/components/ui/toggle";
+import { Tooltip } from "@/components/ui/tooltip";
+import { TopBarActions } from "@/components/shell/topbar-slot";
 import { formatDateTime } from "@/lib/format";
 import type { BriefingResult } from "@/lib/briefing";
 import { CopyCard } from "./copy-card";
 
-// The Insights masthead. Left side is the greeting — until the Briefing
-// switch is thrown, at which point Claude's read of the inventory takes the
-// greeting's place as a headline + short article (the sports /game
-// "highlights" pattern: on-demand AI copy where static copy sat). Right side
-// is the whole control surface: icon, "Briefing", switch. No explainer.
+// The workspace masthead. Left side is the greeting — until the switch is
+// thrown, at which point Claude's read of the inventory takes the greeting's
+// place as a headline + short article (the sports /game "highlights" pattern:
+// on-demand AI copy where static copy sat). The switch itself (wand icon +
+// Toggle) is portaled into the TopBar strip, left of the bell — no label.
 //
 // The model is only ever called from the switch (POST). Page loads with the
 // switch already on ask only for what's cached (GET — never generates).
@@ -100,14 +102,19 @@ export function InsightsHeader({ greeting, canBrief }: { greeting: string; canBr
     );
 
   return (
-    <div className="flex min-w-0 items-start justify-between gap-6">
+    <div className="flex min-w-0 items-start gap-6">
       <div className="min-w-0 flex-1">{left}</div>
+      {/* The control lives in the TopBar strip, immediately left of the bell —
+          portaled there so it still shares this component's state and fetch. */}
       {canBrief && (
-        <span className="flex shrink-0 items-center gap-2 pt-0.5">
-          <Icon name="wand-sparkles" size={16} className="text-primary" />
-          <span className="text-sm font-medium text-text">Briefing</span>
-          <Toggle checked={enabled} onChange={onToggle} />
-        </span>
+        <TopBarActions>
+          <Tooltip label={enabled ? "Turn off the AI briefing" : "Generate an AI briefing"} placement="bottom">
+            <span className="flex items-center gap-2">
+              <Icon name="wand-sparkles" size={16} className="text-primary" />
+              <Toggle checked={enabled} onChange={onToggle} />
+            </span>
+          </Tooltip>
+        </TopBarActions>
       )}
     </div>
   );

@@ -41,9 +41,8 @@ export function CoverageGrowth({
   return (
     <EcoSection
       icon="activity"
-      eyebrow="The engine"
       title="Coverage & growth"
-      blurb="The supply side, compounding while the practice sleeps — every payer harvest widens what we can price and nudges coverage toward the phase ceiling."
+      info="The supply side, compounding while the practice sleeps — every payer harvest widens what we can price and nudges coverage toward the phase ceiling."
       aside={
         <TextLink href="/rates" variant="primary" className="text-sm">
           Open /rates

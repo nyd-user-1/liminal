@@ -51,12 +51,7 @@ const STANDARDS: Standard[] = [
 
 export function Taste() {
   return (
-    <EcoSection
-      icon="palette"
-      eyebrow="Plumbing and taste"
-      title="The standards that make ten agents read like one hand"
-      blurb="The invariants every terminal inherits — the reason work from ten seams still looks authored by one."
-    >
+    <EcoSection icon="palette" title="The standards that make ten agents read like one hand">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {STANDARDS.map((st) => (
           <Card key={st.title} className="flex min-w-0 gap-3 p-5">

@@ -43,9 +43,15 @@ export function nightlyMetrics(bodyMd: string | null | undefined): NightlyMetric
  * figure when it has one.
  */
 export function rateSignalCount(inv: PlatformInventory | null): number | null {
+  return tableCount(inv, "provider_rate_signals");
+}
+
+/** Live row count for any registered table, plucked from the inventory the page
+ *  already fetched. Null when the inventory is absent or the table isn't loaded. */
+export function tableCount(inv: PlatformInventory | null, name: string): number | null {
   if (!inv) return null;
   for (const g of inv.groups) {
-    const t = g.tables.find((x) => x.name === "provider_rate_signals");
+    const t = g.tables.find((x) => x.name === name);
     if (t) return t.count;
   }
   return null;

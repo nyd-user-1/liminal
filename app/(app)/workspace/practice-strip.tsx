@@ -4,7 +4,6 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ListRow } from "@/components/ui/list-row";
 import { StatCard } from "@/components/ui/stat-card";
-import { TextLink } from "@/components/ui/text-link";
 import { formatCents, formatTime } from "@/lib/format";
 import type { PracticeSnapshot } from "@/lib/repos/dashboard";
 import { CopyCard } from "./copy-card";
@@ -73,12 +72,7 @@ export function PracticeStrip({ snapshot }: { snapshot: PracticeSnapshot }) {
           }
         >
         <Card className="flex h-full min-w-0 flex-col gap-3 p-5">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="text-[15px] font-semibold text-text">Next up</h3>
-            <TextLink href="/calendar" className="text-sm">
-              Calendar
-            </TextLink>
-          </div>
+          <h3 className="text-[15px] font-semibold text-text">Next up</h3>
           {s.nextUp.length === 0 ? (
             <EmptyState icon="calendar-check" title="Nothing left today" subtext="The rest of the day is yours." />
           ) : (
@@ -100,12 +94,7 @@ export function PracticeStrip({ snapshot }: { snapshot: PracticeSnapshot }) {
         <div className="flex min-w-0 flex-col gap-4">
           <CopyCard text={`Sessions this week: ${s.sessionsThisWeek} (${s.sessionsThisWeek - s.sessionsLastWeek >= 0 ? "+" : ""}${s.sessionsThisWeek - s.sessionsLastWeek} vs last week, ${s.sessionsLastWeek})`}>
           <Card className="flex flex-col gap-1.5 p-5">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-medium text-text-muted">Sessions this week</span>
-              <TextLink href="/calendar" className="text-sm">
-                Calendar
-              </TextLink>
-            </div>
+            <span className="text-sm font-medium text-text-muted">Sessions this week</span>
             <span className="text-[32px] font-bold leading-tight text-text">{s.sessionsThisWeek}</span>
             <WeekDelta now={s.sessionsThisWeek} prev={s.sessionsLastWeek} />
           </Card>
@@ -119,12 +108,7 @@ export function PracticeStrip({ snapshot }: { snapshot: PracticeSnapshot }) {
             }
           >
           <Card className="flex flex-col gap-1.5 p-5">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-medium text-text-muted">Awaiting pharmacy</span>
-              <TextLink href="/orders" className="text-sm">
-                Orders
-              </TextLink>
-            </div>
+            <span className="text-sm font-medium text-text-muted">Awaiting pharmacy</span>
             <span className="text-[32px] font-bold leading-tight text-text">{s.rxRouting ?? "—"}</span>
             <span className="text-sm text-text-muted">
               {s.rxRouting === null ? "e-prescribing not connected" : "prescriptions still routing to a pharmacy"}

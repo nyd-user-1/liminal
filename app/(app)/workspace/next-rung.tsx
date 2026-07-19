@@ -37,12 +37,7 @@ const RUNGS: Rung[] = [
 
 export function NextRung() {
   return (
-    <EcoSection
-      icon="arrow-right"
-      eyebrow="Self-sustaining, self-healing"
-      title="The next rung"
-      blurb="Plumbing keeps it alive; these make it run itself. Each is a mechanism the fleet still leans on a human for."
-    >
+    <EcoSection icon="arrow-right" title="The next rung">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         {RUNGS.map((r) => (
           <Card key={r.id} className="flex min-w-0 flex-col gap-2 p-5">
