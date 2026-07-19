@@ -104,11 +104,16 @@ export function Sidebar({
           collapsed ? "justify-center" : ""
         } ${
           active
-            ? "bg-surface text-text shadow-sm before:absolute before:left-0 before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-primary"
+            ? "bg-surface text-text shadow-sm"
             : "text-text-body hover:bg-page-edge/60 hover:text-text"
         }`}
       >
-        <Icon name={item.icon} className={`shrink-0 ${active ? "text-primary" : ""}`} />
+        <Icon
+          name={item.icon}
+          className={`shrink-0 transition-colors ${
+            active ? "fill-primary-wash text-text" : "text-text-body group-hover:fill-primary-wash group-hover:text-text"
+          }`}
+        />
         {!collapsed && (
           <>
             <span className="flex-1 truncate">{item.label}</span>
