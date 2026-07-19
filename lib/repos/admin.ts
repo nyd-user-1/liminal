@@ -166,19 +166,10 @@ function factsFor(name: string, s: InventorySpecials | null): DictionaryFact[] |
 /** Planned/gap rows — NOT real relations, so they're absent from the shared
  *  registry (db-atlas introspects the live catalog and would never see them).
  *  Appended to their domain group by title. */
-const PLANNED_ROWS: Record<string, DictionaryTable[]> = {
-  "Insurance graph": [
-    {
-      name: "insurers / networks (canonical)",
-      count: null,
-      countKind: "exact",
-      meaning:
-        "Canonical insurers + canonical networks + label crosswalk — until then, FHIR and MRF vocabularies do not join.",
-      links: "—",
-      planned: "NYS-48, NYS-49",
-    },
-  ],
-};
+// (Empty since 2026-07-19: the canonical insurer/network layer shipped as
+// sql/042–044 and lives in the atlas as real tables — the last planned row
+// here fed the AI briefing a stale "NOT BUILT YET" for two days.)
+const PLANNED_ROWS: Record<string, DictionaryTable[]> = {};
 
 function buildDictionaryGroups(
   counts: Record<string, number | undefined>,
