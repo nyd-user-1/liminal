@@ -65,6 +65,32 @@ section blurbs absent from the body.
   compositions.
 - **Pin overflow policy:** a 4th pin drops the oldest (FIFO), not a shake.
 
+## Revision 2 (founder review pass)
+
+Headless re-verify (admin, 1440): 0 console errors, 0 overflow, one H1.
+
+- **Object cards** — per-card icons removed; dialog header/root icons removed too.
+- **Briefing switch → wand button** — `Toggle` deleted (`role=switch` count 0);
+  a single wand-sparkles icon button now sits left of the bell and does what the
+  switch did (press = generate / press again = clear). Verified 1 button.
+- **Intro → Summary card** — the static brief is now a `Card` titled "Summary".
+- **Section header icons removed** — `EcoSection` no longer renders a leading
+  icon ("icon litter").
+- **Coverage & growth ⓘ → dialog** — the oversized tooltip is gone; the ⓘ is a
+  button opening a small `Modal` (`section-info.tsx`). "Open /rates" aside removed.
+- **Latest reports → table** — `reports-table.tsx` (same `DataTable` as Run
+  history). Row click opens the report in the note editor's document window
+  (`report-sheet.tsx` + `GET /api/reports/[slug]`, admin-only, slug-validated),
+  read-only. Verified: sheet opens, editor renders the report body (NYS-34 report
+  → 8,950 chars incl. "merge"). Tables in reports render as literal text (the
+  editor's markdown parser has GFM tables off) — no crash, content preserved.
+- **Note editor all-white canvas** (`components/notes/note-sheet.tsx`) — editor
+  body bg `canvas → surface`; the note paper drops `rounded-card`, `border`,
+  `shadow-card`, and the gray margin, so editor + canvas are one white sheet; the
+  ⋮ kebab is kept. Transcript tab given the same treatment.
+- **`fleet.tsx` still unstaged** — my ReportsTable swap shares the import hunk
+  with the concurrent session's AgentCard refactor; rides in the working tree.
+
 ## Linear intents (no MCP in this root — recording here)
 
 - Consider promoting `ObjectStrip`'s object→tables tree into a shared "object

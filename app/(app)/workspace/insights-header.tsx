@@ -3,8 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/ui/icons";
 import { TextLink } from "@/components/ui/text-link";
-import { Toggle } from "@/components/ui/toggle";
-import { Tooltip } from "@/components/ui/tooltip";
 import { TopBarActions } from "@/components/shell/topbar-slot";
 import { formatDateTime } from "@/lib/format";
 import type { BriefingResult } from "@/lib/briefing";
@@ -104,16 +102,23 @@ export function InsightsHeader({ greeting, canBrief }: { greeting: string; canBr
   return (
     <div className="flex min-w-0 items-start gap-6">
       <div className="min-w-0 flex-1">{left}</div>
-      {/* The control lives in the TopBar strip, immediately left of the bell —
-          portaled there so it still shares this component's state and fetch. */}
+      {/* The briefing trigger — a single wand button in the TopBar strip, left
+          of the bell. Pressing it does what the old switch did: on generates an
+          AI briefing, on again clears it. Portaled so it still shares this
+          component's state and fetch. */}
       {canBrief && (
         <TopBarActions>
-          <Tooltip label={enabled ? "Turn off the AI briefing" : "Generate an AI briefing"} placement="bottom">
-            <span className="flex items-center gap-2">
-              <Icon name="wand-sparkles" size={16} className="text-primary" />
-              <Toggle checked={enabled} onChange={onToggle} />
-            </span>
-          </Tooltip>
+          <button
+            type="button"
+            onClick={() => onToggle(!enabled)}
+            aria-pressed={enabled}
+            title={enabled ? "Turn off the AI briefing" : "Generate an AI briefing"}
+            className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-field transition-colors hover:bg-[#F3F4F6] ${
+              enabled ? "text-primary" : "text-text-body"
+            }`}
+          >
+            <Icon name="wand-sparkles" size={18} />
+          </button>
         </TopBarActions>
       )}
     </div>

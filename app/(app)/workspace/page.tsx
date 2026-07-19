@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { BoardTabs } from "@/components/shell/board-tabs";
+import { Card } from "@/components/ui/card";
 import { Divider } from "@/components/ui/divider";
 import { TextLink } from "@/components/ui/text-link";
 import { requireUser } from "@/lib/auth";
@@ -83,15 +84,15 @@ export default async function InsightsPage() {
     <div className="mx-auto flex min-w-0 max-w-[1400px] flex-col gap-6">
       <BoardTabs />
 
-      {/* Orientation — one static H2 + paragraph; the page's only H1 is the TopBar's. */}
-      <div className="flex min-w-0 flex-col gap-1">
-        <h2 className="text-lg font-semibold text-text">Workspace</h2>
+      {/* Orientation — a static Summary card; the page's only H1 is the TopBar's. */}
+      <Card className="flex min-w-0 flex-col gap-1.5 p-5">
+        <h2 className="text-[15px] font-semibold text-text">Summary</h2>
         <p className="max-w-3xl text-sm leading-relaxed text-text-muted">
           The founder&apos;s control room. Up top, live counts of the four objects the platform is built on —
           providers, in-network rates, billing entities, plan filings — each opening to the tables behind it. Below
           sit an on-demand AI briefing, the work queue, the agent fleet, and last night&apos;s sync health.
         </p>
-      </div>
+      </Card>
 
       {/* Layer 1 — the briefing, then the objects + the work queue (admin), or
           the practitioner's own day (everyone else). */}

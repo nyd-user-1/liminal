@@ -2,7 +2,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { StatCard } from "@/components/ui/stat-card";
-import { TextLink } from "@/components/ui/text-link";
 import { nightlyMetrics, rateSignalCount } from "@/lib/insights-metrics";
 import type { PlatformInventory } from "@/lib/repos/admin";
 import type { LeadReport } from "@/lib/repos/lead-reports";
@@ -40,14 +39,8 @@ export function CoverageGrowth({
 
   return (
     <EcoSection
-      icon="activity"
       title="Coverage & growth"
       info="The supply side, compounding while the practice sleeps — every payer harvest widens what we can price and nudges coverage toward the phase ceiling."
-      aside={
-        <TextLink href="/rates" variant="primary" className="text-sm">
-          Open /rates
-        </TextLink>
-      }
     >
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         {/* Hero 1 — the corpus size */}

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Icon, type IconName } from "@/components/ui/icons";
+import type { IconName } from "@/components/ui/icons";
 import { Modal } from "@/components/ui/modal";
 
 // Layer 1, row one — the four objects the platform is built on, as live counts.
@@ -121,10 +121,9 @@ function CountUp({ to, estimate }: { to: number; estimate?: boolean }) {
 
 function TreeDialog({ def, onClose }: { def: ObjectDef; onClose: () => void }) {
   return (
-    <Modal open onClose={onClose} title={def.label} icon={def.icon} width="max-w-xl">
+    <Modal open onClose={onClose} title={def.label} width="max-w-xl">
       <div className="flex flex-col">
         <div className="flex items-center gap-2 pb-1">
-          <Icon name={def.icon} size={16} className="text-primary" />
           <span className="font-mono text-[13px] text-text">{def.root}</span>
           <span className="text-[13px] text-text-muted">— root</span>
         </div>
@@ -162,10 +161,7 @@ export function ObjectStrip({ counts }: { counts: Record<ObjectKey, number | nul
               className="group block w-full text-left"
             >
               <Card className="cursor-pointer p-5 transition-colors group-hover:border-primary/40">
-                <div className="flex items-start justify-between gap-2">
-                  <span className="text-sm font-medium text-text-muted">{o.label}</span>
-                  <Icon name={o.icon} size={16} className="text-text-muted transition-colors group-hover:text-primary" />
-                </div>
+                <span className="text-sm font-medium text-text-muted">{o.label}</span>
                 <div className="mt-1 text-[32px] font-bold leading-tight text-text">
                   {n === null ? "—" : <CountUp to={n} estimate={o.estimate} />}
                 </div>

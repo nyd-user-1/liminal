@@ -109,7 +109,6 @@ export function NoteSheet({
   // Compact (Gmail default-compose size) unless expanded to the big ~1200px view.
   const [big, setBig] = useState(defaultBig);
   const [tab, setTab] = useState("note");
-  const [editorFocused, setEditorFocused] = useState(false);
   const [askOpen, setAskOpen] = useState(false);
   const [askContext, setAskContext] = useState("");
   const [summaryLoading, setSummaryLoading] = useState(true);
@@ -313,7 +312,7 @@ export function NoteSheet({
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col bg-canvas">
+      <div className="flex min-h-0 flex-1 flex-col bg-surface">
         {error && <p className="p-10 text-center text-[15px] text-danger">{error}</p>}
         {!error && !note && (
           <div className="flex flex-1 items-center justify-center text-primary">
@@ -408,11 +407,9 @@ export function NoteSheet({
 
               <main className="min-h-0 flex-1 overflow-y-auto">
                 {tab === "note" ? (
-                  <div
-                    className={`group relative mx-auto my-6 min-h-[70%] max-w-3xl rounded-card border bg-surface p-8 shadow-card transition-colors ${
-                      editorFocused ? "border-primary" : "border-border"
-                    }`}
-                  >
+                  // One continuous white paper surface — no card, border, or
+                  // shadow; the editor and its canvas are the same sheet.
+                  <div className="group relative mx-auto min-h-[70%] max-w-3xl bg-surface px-8 py-6">
                     {/* hover kebab — top-right of the note card; stays visible while open */}
                     <div className="absolute right-3 top-3 z-10 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 has-[[aria-expanded=true]]:opacity-100">
                       <KebabMenu>
@@ -436,28 +433,21 @@ export function NoteSheet({
                         {!locked && <MenuItem icon="trash" label="Delete note" danger onClick={remove} />}
                       </KebabMenu>
                     </div>
-                    <div
-                      onFocus={() => setEditorFocused(true)}
-                      onBlur={(e) => {
-                        if (!e.currentTarget.contains(e.relatedTarget)) setEditorFocused(false);
+                    <NotesEditor
+                      key={`${note.id}:${locked}`}
+                      ref={editorRef}
+                      value={bodyMd}
+                      readOnly={locked}
+                      onChange={(md) => {
+                        setBodyMd(md);
+                        setDirty(true);
                       }}
-                    >
-                      <NotesEditor
-                        key={`${note.id}:${locked}`}
-                        ref={editorRef}
-                        value={bodyMd}
-                        readOnly={locked}
-                        onChange={(md) => {
-                          setBodyMd(md);
-                          setDirty(true);
-                        }}
-                        onSave={save}
-                      />
-                    </div>
+                      onSave={save}
+                    />
                   </div>
                 ) : (
                   data.transcript && (
-                    <div className="mx-auto my-6 max-w-3xl rounded-card border border-border bg-surface p-8 shadow-card">
+                    <div className="mx-auto max-w-3xl bg-surface px-8 py-6">
                       <h3 className="mb-4 text-[16px] font-semibold text-text">Chapters</h3>
                       <ChapterList chapters={deriveChapters(data.transcript.segments)} />
                       <div className="my-6 h-px bg-border" />
