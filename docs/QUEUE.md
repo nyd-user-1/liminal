@@ -78,13 +78,39 @@ sparser-record bug) · NYS-157 (SF cadence + docs).
 - **budget-pacing** (ops-agent) — NYS-123 fuel-gauge (ops/usage-gauge.mjs +
   docs/ops/PACING.md). Corrected: window resets **7am** NY, not 2am.
 
+## Overnight outcome (2026-07-19 ~morning, fleet hit limits)
+
+- **data-t3** — died at session limit, but committed most work first
+  (8ef5aec/8eb4039/fe155c3). LEAD-VERIFIED on live DB: directory 106,512→
+  **107,083** (+571 exactly, NYS-26 re-key); structured first/last on
+  **114,718** rows (NYS-45); Empire +~21k net-new rows (39F0 load).
+  **Big finding in the T2 update: CDPHP all-codes counted run = 663.9M rows,
+  ×521 the 20-code volume** — hardens NYS-151 (load-shape MUST be ruled
+  before any fleet all-codes rescan; distinct-collapse is not optional at
+  that multiple). NO data-t3 round report (died first) → its commits are
+  clean but need a close-out + the 39F0 completeness re-check on the next
+  tranche. Oscar/OBH aliases pre-seeded in sql/046 tail (fe155c3) — verify
+  tripwire views before minting oscar-obh.txt.
+- **workspace-v3** — died at session limit having committed NOTHING; round 4
+  did not land. TASK-WORKSPACE-V3.md is committed and ready — relaunch with
+  the one-line kickoff on a FRESH (green) account. /workspace stays at
+  round 3 (the version with the founder's flagged issues).
+- **Fleet gauge RED** on brendan@nysgpt.com (both agents drove it to 100%);
+  Pro accounts green. Per docs/ops/PACING.md the lead stopped dispatching on
+  the RED account rather than dry it further — the exact pattern NYS-123 exists
+  to prevent, now observed working.
+
 ## PUSH STATUS — held deliberately
 
-Briefing data-fix committed (1336594). NOT pushed yet: pushing deploys ALL
-local commits incl. /workspace round 3 (un-corrected). Lead pushes AFTER
-workspace-v3 round 4 lands + is reviewed, so the morning deploy shows the
-corrected page. Never stage components/rates/*, docs/UI-PUSH-2026-07-18.md,
-or another agent's in-flight files.
+HELD. 25 commits ahead of origin. Round 4 did NOT land (workspace-v3 died),
+so the precondition in the founder's "push when you're done" is unmet —
+pushing now would deploy the un-corrected round 3 (the opposite of what he
+asked to see) AND the customer-facing payr pages, which were corrected but
+never explicitly greenlit for deploy. Decision teed up for the founder:
+(a) relaunch round 4 on a green account, review, then push everything; or
+(b) push round 3 now if he wants the internal page live as-is. Lead did not
+push on a RED account overnight. Never stage components/rates/*,
+docs/UI-PUSH-2026-07-18.md, or another agent's in-flight files.
 
 ## Lead-account note (2026-07-18 ~23:15 — RESOLVED)
 
