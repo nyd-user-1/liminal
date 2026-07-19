@@ -55,43 +55,41 @@ Last sync: 2026-07-18 ~21:30 (start-of-session pull; NYS-150 filed).
   reported before any surface flips). Behind it: NYS-133 directory search
   reorder; suspect-badge (amber) on /workspace.
 
-## Pending Linear intents (file at next end-of-session sync)
+## Linear intents — ALL FILED (lead batch, 2026-07-19 ~07:00 by an Opus lead w/ MCP)
 
-- NEW issue (Leuk): "Public rate-intelligence marketing family
-  (/pricing-data · /payer-negotiation · /payer-disputes)" — NYS-100-quality
-  record per the ui-payr report §Linear intents (shipped b80a029,
-  headless-verified, live-data-only; follow-ups: nav placement,
-  %-of-Medicare, Steps variant).
-- NYS-146 · CLOSE · form5500_sf_filings live (52,375 rows, 31,016 net-new
-  EINs, registry 67,915→98,947 +45.7%); loader scripts/ingest-form5500-sf.mjs;
-  NY caveat in the data report.
-- NEW (Data Engine) · SF loader into the annual harvest cadence — ops-agent
-  seam (jobs.json), fold into/beside the form5500 job at next vintage.
-- NEW (Data Engine) · docs-agent: add form5500_sf_filings + SF loader to
-  SCRIPTS.md/DATABASE.md (dual-homed).
-- NYS-147 · COMMENT · data-layer collateral of the 0a98c7c revert restored:
-  org_network_rates re-adopted (c2b76ed), measured facts stand.
-- NYS-50 · COMMENT (founder ruling 2026-07-18) · code panel goes as broad
-  as possible — eventually all codes; projection-first implementation in
-  TASK-DATA-FIREHOSE task 4.
-- NYS-34 · COMMENT/near-close · sql/052 applied (1db2381, lead-verified
-  16,934 map rows / 106,658 persons): inert merge-map + directory_persons
-  view, reversible; surface flip founder-gated.
-- NEW premise-check · directory.ts:257 medicaid-preference renders the
-  sparser row for ~16,934 providers (rationale measurably false); fix =
-  consume directory_persons on the approved flip.
-- data-t2 intents ×7 · per docs/reports/2026-07-19-data-t2.md §Linear
-  intents: CLOSE NYS-25 (three-killer evidence) · CLOSE NYS-26
-  (77,275/8,035/571) · CLOSE NYS-29+30 (universe walk done) · NYS-50
-  load-shape decision issue (lead ruled (a) distinct-collapse,
-  provisional) · NEW Healthfirst NY MRF discovery · NEW Emblem INN
-  enumeration (browser errand) · NEW refs-last (rl/ziprl) + Oscar/OBH
-  crack NYS-100-bar record.
+CLOSED: NYS-146 (SF load) · NYS-25 (Empire OOM, three-killer + 476,322 rows) ·
+NYS-26 (571 net-new) · NYS-29 (HealthSparq walked) · NYS-30 (Oscar cracked) ·
+NYS-34 (sql/052 applied). COMMENTED: NYS-147 (org_network_rates restored) ·
+NYS-50 (broad-codes ruling). NEW: NYS-151 (load-shape decision, lead ruled
+(a) distinct-collapse provisional) · NYS-152 (Healthfirst NY MRF discovery) ·
+NYS-153 (Emblem INN errand) · NYS-154 (refs-last + Oscar/OBH shipped record) ·
+NYS-155 (rate-intel marketing family shipped) · NYS-156 (directory.ts:257
+sparser-record bug) · NYS-157 (SF cadence + docs).
 
-## Lead-account note (2026-07-18 ~23:15)
+## In flight (dispatched 2026-07-19 ~06:50, post-7am-reset window)
 
-Prior lead (other account) hit its session limit ~23:00 — resets 2am NY;
-its ~2am Linear batch did NOT file. This account3 lead has **no Linear
+- **workspace-v3** (ui-agent) — TASK-WORKSPACE-V3, the founder's round-4
+  list (9 tasks: briefing-in-summary-card, Operations-up + Work-queue-4th-tab,
+  Linear row links, pinning, one Coverage&growth group deduped, night-work
+  cards, Rules tabs, schema dialogs + Data Dictionary tab, label/glyph sweep).
+- **data-t3** (data-agent) — TASK-DATA-T3: fill T2 placeholders, sql/053
+  (571 re-key + NPPES names, GRANTED), Oscar/OBH alias pre-seed, 39F0 load
+  post-cron, 2026-08 Anthem re-mint stage.
+- **budget-pacing** (ops-agent) — NYS-123 fuel-gauge (ops/usage-gauge.mjs +
+  docs/ops/PACING.md). Corrected: window resets **7am** NY, not 2am.
+
+## PUSH STATUS — held deliberately
+
+Briefing data-fix committed (1336594). NOT pushed yet: pushing deploys ALL
+local commits incl. /workspace round 3 (un-corrected). Lead pushes AFTER
+workspace-v3 round 4 lands + is reviewed, so the morning deploy shows the
+corrected page. Never stage components/rates/*, docs/UI-PUSH-2026-07-18.md,
+or another agent's in-flight files.
+
+## Lead-account note (2026-07-18 ~23:15 — RESOLVED)
+
+Prior lead (other account) hit its session limit ~23:00; its Linear batch
+did NOT file then. Now FILED (this session regained MCP). Original note: no Linear
 MCP** — every intent above stays queued here until a Linear-capable lead
 syncs. Firehose review + rulings above were issued by the prior lead
 pre-cutoff and are recorded verbatim; founder holds the ui-agent kickoff
