@@ -1,98 +1,58 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import type { IconName } from "@/components/ui/icons";
-import { PageHeader } from "@/components/ui/page-header";
+import { AccountMenu } from "@/components/shell/account-menu";
 import { TopBarBell } from "@/components/shell/topbar-bell";
-import { TOPBAR_ACTIONS_ID } from "@/components/shell/topbar-slot";
+import { OPEN_COMMAND_PALETTE } from "@/components/search/command-palette";
+import { Icon } from "@/components/ui/icons";
 import type { SessionUser } from "@/lib/auth";
 
-// Catalog `TopBar` — navy strip (bg-sidebar-bg): page icon + H1 inline-left
-// (route-derived, SSR-safe), right cluster = page actions (via TopBarActions
-// portal, sized sm) then the notification bell. Together with the navy Sidebar
-// it forms the L-frame that the inset content panel tucks into (see AppShell).
-// Account/sign-out live in the sidebar's UserChip menu, not here.
-
-// Longest-prefix wins: order specific → general.
-const ROUTE_TITLES: Array<[prefix: string, icon: IconName, title: string]> = [
-  ["/workspace/data-dictionary", "grid", "Data dictionary"],
-  ["/workspace/docs", "file-text", "Docs"],
-  ["/workspace", "wand-sparkles", "Workspace"],
-  ["/analytics", "columns-3", "Analytics"],
-  // The pre-rename original, kept reachable via the sidebar's Workspace section.
-  ["/dashboard", "grid", "Dashboard"],
-  ["/calendar", "calendar", "Calendar"],
-  ["/inbox", "inbox", "Inbox"],
-  ["/clients", "users", "Clients"],
-  ["/prescriptions", "pill-bottle", "Prescriptions"],
-  ["/orders", "send", "Orders"],
-  ["/catalog", "grid", "Catalog"],
-  ["/directory", "globe", "Directory"],
-  ["/billing", "dollar", "Billing"],
-  ["/rates", "activity", "Rates"],
-  ["/codes", "dollar", "Billing codes"],
-  // Soft launch: direct-URL only, no sidebar entry. Sits after /rates but the
-  // prefix match is exact-or-"/rates/", so the two never collide.
-  ["/published-rates", "dollar", "Published rates"],
-  ["/orgs", "id-card", "Organizations"],
-  ["/networks", "link", "Networks"],
-  ["/plans", "credit-card", "Plans"],
-  ["/recruiting", "users-round", "Recruiting"],
-  ["/library", "clipboard", "Library"],
-  // Settings is a tabbed section (services/locations/availability) — one constant
-  // title, tab bar switches the panel. See app/(app)/settings/layout.tsx.
-  ["/settings", "gear", "Settings"],
-  ["/design-system", "paint-roller", "Design System"],
-  ["/admin/data", "grid", "Data dictionary"],
-  ["/portal/dashboard", "grid", "Dashboard"],
-  ["/portal/appointments", "calendar-check", "Appointments"],
-  ["/portal/medications", "pill-bottle", "Medications"],
-  ["/portal/records", "file-text", "Records"],
-  ["/portal/resources", "globe", "Resources"],
-  ["/portal/forms", "clipboard", "Forms"],
-  ["/portal/invoices", "credit-card", "Invoices"],
-  ["/portal/messages", "message", "Messages"],
-  ["/portal/profile", "person-circle", "Profile"],
-];
-
-// /portal is the patient's own record and carries its own entity header (the
-// name as H1, the client-record exception to the one-H1-in-the-TopBar rule),
-// so the strip names the destination rather than greeting — the greeting moved
-// to /portal/dashboard, which renders its own.
-function routeTitle(pathname: string): { icon: IconName; title: string } {
-  if (pathname === "/portal") return { icon: "id-card", title: "Home" };
-  const hit = ROUTE_TITLES.find(([p]) => pathname === p || pathname.startsWith(`${p}/`));
-  return hit ? { icon: hit[1], title: hit[2] } : { icon: "grid", title: "Leuk" };
-}
+// Catalog `TopBar` — the utility bar (warm-paper `bg-page`, forming the L-frame
+// with the Sidebar; the white content panel tucks into their junction). It
+// carries no page title: the route H1 now lives at the top of the content
+// surface (ContentHeader). Left: the mobile hamburger + the ⌘K search
+// affordance (workspace only). Right: the notification bell + the account menu.
 
 export function TopBar({
-  title,
   user,
-  actions,
   leading,
+  showSearch = false,
 }: {
-  /** Optional override; defaults to the route-derived title. */
-  title?: string;
   user: SessionUser;
-  actions?: ReactNode;
-  /** Slot before the title — the mobile hamburger. */
+  /** Slot before the search field — the mobile hamburger. */
   leading?: ReactNode;
+  /** Show the ⌘K search trigger (workspace variant only — the palette is too). */
+  showSearch?: boolean;
 }) {
-  const pathname = usePathname();
-  const derived = routeTitle(pathname);
-
   return (
-    <header className="flex h-[calc(4rem_+_env(safe-area-inset-top))] shrink-0 items-center gap-2 bg-sidebar-bg px-3 pt-[env(safe-area-inset-top)] md:gap-3 md:px-6">
+    <header className="flex h-[calc(4rem_+_env(safe-area-inset-top))] shrink-0 items-center gap-2 bg-page px-3 pt-[env(safe-area-inset-top)] md:gap-3 md:px-6">
       {leading}
-      <div className="min-w-0 flex-1">
-        <PageHeader title={title ?? derived.title} tone="onNavy" />
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <div id={TOPBAR_ACTIONS_ID} className="flex items-center gap-2" />
-        {actions}
+      {showSearch && <SearchTrigger />}
+      <div className="ml-auto flex shrink-0 items-center gap-2">
         <TopBarBell />
+        <AccountMenu user={user} />
       </div>
     </header>
+  );
+}
+
+// A search field in look, a button in behavior: it opens the ⌘K CommandPalette
+// (which owns the actual search). Full "Search… ⌘K" pill at md+, icon-only on
+// mobile so the utility bar stays uncramped.
+function SearchTrigger() {
+  const open = () => window.dispatchEvent(new Event(OPEN_COMMAND_PALETTE));
+  return (
+    <button
+      type="button"
+      onClick={open}
+      aria-label="Search"
+      className="group flex h-9 items-center gap-2 rounded-field border border-border bg-surface px-2.5 text-text-muted transition-colors hover:border-primary hover:text-text md:w-72"
+    >
+      <Icon name="search" size={18} className="shrink-0" />
+      <span className="hidden text-[14px] md:inline">Search…</span>
+      <kbd className="ml-auto hidden rounded-[5px] border border-border bg-canvas px-1.5 py-0.5 text-[12px] font-medium md:inline">
+        ⌘K
+      </kbd>
+    </button>
   );
 }

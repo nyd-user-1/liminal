@@ -1,6 +1,7 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { redirect } from "next/navigation";
+import { BoardTabs } from "@/components/shell/board-tabs";
 import { requireUser } from "@/lib/auth";
 import { DocsGallery, type DocMeta } from "./docs-gallery";
 
@@ -60,6 +61,7 @@ export default async function WorkspaceDocsPage() {
   const docs = await readDocs();
   return (
     <div className="mx-auto flex min-w-0 max-w-[1400px] flex-col gap-6">
+      <BoardTabs />
       <DocsGallery docs={docs} />
     </div>
   );

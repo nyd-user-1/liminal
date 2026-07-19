@@ -18,6 +18,9 @@ import { SearchInput } from "@/components/ui/search-input";
 // round-trip per corpus, in parallel) and the previous results stay on screen
 // while the next query resolves, so the list never blanks between keystrokes.
 
+// Window event the TopBar search button dispatches to open the palette.
+export const OPEN_COMMAND_PALETTE = "leuk:open-command-palette";
+
 type SearchItem = { id: string; title: string; subtitle?: string; href: string };
 type SearchGroup = { type: string; label: string; icon: IconName; items: SearchItem[] };
 
@@ -55,6 +58,14 @@ export function CommandPalette() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // The TopBar's search affordance is a plain button (no keyboard) — it opens
+  // the palette by dispatching this event, so the trigger can live anywhere.
+  useEffect(() => {
+    const open = () => setOpen(true);
+    window.addEventListener(OPEN_COMMAND_PALETTE, open);
+    return () => window.removeEventListener(OPEN_COMMAND_PALETTE, open);
   }, []);
 
   // Reset on open (the input autoFocuses on mount — see below).

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import { BoardTabs } from "@/components/shell/board-tabs";
 import { Divider } from "@/components/ui/divider";
 import { TextLink } from "@/components/ui/text-link";
 import { requireUser } from "@/lib/auth";
@@ -43,6 +44,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto flex min-w-0 max-w-[1400px] flex-col gap-6">
+      <BoardTabs />
       <section className="flex min-w-0 flex-col gap-4">
         <p className="text-[15px] text-text-muted">
           {snapshot.scope === "all"

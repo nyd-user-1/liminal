@@ -3,18 +3,15 @@ import { Icon, type IconName } from "@/components/ui/icons";
 
 // Catalog `IconButton` — bare 20px icon, ~36px hit area.
 // Variants: default (grey hover fill) · filled (solid primary square) ·
-// circular (floating panel-edge close) · danger (red icon) · onNavy (muted
-// on-navy icon that brightens on the sidebar-active band — for the navy
-// TopBar strip / sidebar chrome).
+// circular (floating panel-edge close) · danger (red icon).
 
-type Variant = "default" | "filled" | "circular" | "danger" | "onNavy";
+type Variant = "default" | "filled" | "circular" | "danger";
 
 const variants: Record<Variant, string> = {
   default: "rounded-field text-text-body hover:bg-[#F3F4F6]",
   filled: "rounded-field bg-primary text-white hover:bg-primary-hover",
   circular: "rounded-full border border-border bg-surface text-text-body shadow-card hover:bg-canvas",
   danger: "rounded-field text-danger hover:bg-danger-tint",
-  onNavy: "rounded-field text-sidebar-text hover:bg-sidebar-active hover:text-white",
 };
 
 export function IconButton({

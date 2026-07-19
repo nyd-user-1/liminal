@@ -61,7 +61,7 @@ export function TopBarBell() {
       <DropdownMenu
         label="Notifications"
         width="w-80"
-        triggerClassName="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-field text-sidebar-text transition-colors hover:bg-sidebar-active hover:text-white"
+        triggerClassName="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-field text-text-body transition-colors hover:bg-black/[0.04] hover:text-text"
         trigger={
           <>
             <Icon name="bell" />

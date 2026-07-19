@@ -1,36 +1,27 @@
 import type { ReactNode } from "react";
 import { MobileNav } from "@/components/shell/mobile-nav";
 import { CommandPalette } from "@/components/search/command-palette";
-import { Sidebar, type SidebarEntry, type SidebarNavItem } from "@/components/shell/sidebar";
+import { ContentHeader } from "@/components/shell/content-header";
+import { Sidebar, type SidebarNavItem } from "@/components/shell/sidebar";
 import { TopBar } from "@/components/shell/topbar";
 import type { SessionUser } from "@/lib/auth";
 
-// Catalog `AppShell` — Sidebar + main column (TopBar + canvas content).
+// Catalog `AppShell` — Sidebar + main column (TopBar utility bar + content).
 // Two variants: `workspace` (practitioner/admin) and `portal` (client).
 // Server component; layouts pass the session user down.
 //
-// Shell chrome: the navy Sidebar (left) + navy TopBar (top) read as one L-frame.
-// The grey content panel (`main`, bg-canvas) tucks into that junction with a
-// single rounded top-left corner (md+); the root is navy so that corner reveals
-// the frame behind it. The panel stays grey so page cards keep their contrast.
+// Shell chrome: the warm-paper Sidebar (left) + warm-paper TopBar (top) read as
+// one L-frame. The white content panel (`main`, bg-surface) tucks into that
+// junction with a single rounded top-left corner (md+); the paper root shows
+// through that corner. The route H1 sits at the top of the content surface
+// (ContentHeader), not in the TopBar — the TopBar is a utility bar (search /
+// bell / account).
 
-const WORKSPACE_NAV: SidebarEntry[] = [
-  // The workspace family. These five surfaces used to sit in an in-page tab row
-  // (BoardTabs) above each board; they now live here as a collapsible sidebar
-  // section, so the boards themselves render clean. First entry because it's
-  // where a day starts. The group header opens/closes; "Workspace" is the
-  // caseload front door (+ the founder's platform inventory beneath it).
-  {
-    label: "Workspace",
-    icon: "wand-sparkles",
-    children: [
-      { label: "Workspace", href: "/workspace", icon: "wand-sparkles" },
-      { label: "Analytics", href: "/analytics", icon: "columns-3" },
-      { label: "Dashboard", href: "/dashboard", icon: "grid" },
-      { label: "Data dictionary", href: "/workspace/data-dictionary", icon: "grid" },
-      { label: "Docs", href: "/workspace/docs", icon: "file-text" },
-    ],
-  },
+const WORKSPACE_NAV: SidebarNavItem[] = [
+  // Workspace is a single top-level destination; its sub-views (Analytics,
+  // Dashboard, Data dictionary, Docs) switch via the in-content BoardTabs, not
+  // the sidebar. First entry because it's where a day starts.
+  { label: "Workspace", href: "/workspace", icon: "wand-sparkles" },
   { label: "Calendar", href: "/calendar", icon: "calendar" },
   { label: "Inbox", href: "/inbox", icon: "inbox" },
   { label: "Clients", href: "/clients", icon: "users" },
@@ -72,38 +63,35 @@ const PORTAL_NAV: SidebarNavItem[] = [
 export function AppShell({
   variant,
   user,
-  title,
-  topBarActions,
   counts,
   children,
 }: {
   variant: "workspace" | "portal";
   user: SessionUser;
-  title?: string;
-  topBarActions?: ReactNode;
   /** Optional per-href sidebar count badges, e.g. { "/inbox": 3 }. */
   counts?: Record<string, number>;
   children: ReactNode;
 }) {
   const nav = (variant === "workspace" ? WORKSPACE_NAV : PORTAL_NAV).map((item) =>
-    "href" in item && counts?.[item.href] !== undefined ? { ...item, count: counts[item.href] } : item,
+    counts?.[item.href] !== undefined ? { ...item, count: counts[item.href] } : item,
   );
   const homeHref = variant === "portal" ? "/portal" : "/calendar";
   return (
-    <div className="flex h-dvh overflow-hidden bg-sidebar-bg">
+    <div className="flex h-dvh overflow-hidden bg-page">
       {/* ⌘K workspace search — client component, workspace variant only. */}
       {variant === "workspace" && <CommandPalette />}
-      <Sidebar className="max-md:hidden" items={nav} user={user} homeHref={homeHref} />
+      <Sidebar className="max-md:hidden" items={nav} homeHref={homeHref} />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
-          title={title}
           user={user}
-          actions={topBarActions}
-          leading={<MobileNav items={nav} user={user} homeHref={homeHref} />}
+          showSearch={variant === "workspace"}
+          leading={<MobileNav items={nav} homeHref={homeHref} />}
         />
-        {/* The inset content panel: grey canvas, rounded only where it meets the
-            sidebar/topbar junction (md+); the navy root shows through that corner. */}
-        <main className="flex-1 overflow-y-auto bg-canvas p-4 pb-[calc(1rem_+_env(safe-area-inset-bottom))] md:rounded-tl-2xl md:p-6 md:pb-6">
+        {/* The inset content panel: white surface, rounded only where it meets
+            the sidebar/topbar junction (md+); the paper root shows through that
+            corner. The scrollbar is hidden (scrolling still works). */}
+        <main className="flex-1 overflow-y-auto bg-surface p-4 pb-[calc(1rem_+_env(safe-area-inset-bottom))] [scrollbar-width:none] md:rounded-tl-2xl md:p-6 md:pb-6 [&::-webkit-scrollbar]:hidden">
+          <ContentHeader className="mb-6" />
           {children}
         </main>
       </div>
