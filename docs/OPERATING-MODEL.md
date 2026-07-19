@@ -109,8 +109,12 @@ file, invariant across tranches and across repos.
 
 ## Standing decisions (don't re-litigate)
 
-- Stay **NY-behavioral** until the 49.4% coverage run + depth are done; geo /
-  specialty expansion is a product call, deferred (a founder call, not a lead one).
+- **Expansion is APPROVED** (founder ruling, 2026-07-18 evening — this was
+  always his call, and he made it): harvest everything reachable from every
+  MRF, priority order (1) New York, (2) our current market + provider
+  universe, (3) national back-out. Code panel as broad as possible (NYS-50).
+  The zero-terminal harvestd queue is the default path; manifest-minting
+  stays human. (Retires the old "NY-behavioral until 49.4%" wait-state.)
 - An **always-on box** (Mac mini / cloud VM) is the upgrade when lid-physics or a
   missed night actually bites — not before.
 - The **01:04 runner → 04:12 matview cron** ordering is load-bearing; never invert.
