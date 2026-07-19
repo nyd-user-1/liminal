@@ -8,6 +8,7 @@ import { FilterChip } from "@/components/ui/filter-chip";
 import { KebabMenu } from "@/components/ui/kebab-menu";
 import { MenuItem } from "@/components/ui/dropdown-menu";
 import { SearchInput } from "@/components/ui/search-input";
+import { Tabs } from "@/components/ui/tabs";
 import { TextLink } from "@/components/ui/text-link";
 import { useToast } from "@/components/ui/toast";
 import type { NetworkListRow } from "@/lib/repos/networks";
@@ -32,6 +33,7 @@ export function NetworksIndex({ initial }: { initial: NetworkListRow[] }) {
   const toast = useToast();
   const [q, setQ] = useState("");
   const [insurer, setInsurer] = useState<string | undefined>();
+  const [tab, setTab] = useState("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const insurerOptions = useMemo(
@@ -39,7 +41,9 @@ export function NetworksIndex({ initial }: { initial: NetworkListRow[] }) {
     [initial],
   );
 
-  const rows = useMemo(() => {
+  // Search + insurer first, the kind tab second — the tab counts read the
+  // searched set, so each tab advertises exactly what clicking it will show.
+  const searched = useMemo(() => {
     const term = q.trim().toLowerCase();
     return initial.filter((n) => {
       if (insurer && n.insurer !== insurer) return false;
@@ -51,6 +55,7 @@ export function NetworksIndex({ initial }: { initial: NetworkListRow[] }) {
       );
     });
   }, [initial, q, insurer]);
+  const rows = useMemo(() => (tab === "all" ? searched : searched.filter((n) => n.kind === tab)), [searched, tab]);
 
   const columns: DataTableColumn<NetworkListRow>[] = [
     {
@@ -101,6 +106,17 @@ export function NetworksIndex({ initial }: { initial: NetworkListRow[] }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      <Tabs
+        slideActive
+        className="mb-3 shrink-0"
+        items={[
+          { key: "all", label: "All", count: searched.length },
+          { key: "network", label: "Networks", count: searched.filter((n) => n.kind === "network").length },
+          { key: "product", label: "Products", count: searched.filter((n) => n.kind === "product").length },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
       <DataTable
         stacked
         columns={columns}
