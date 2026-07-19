@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { MobileNav } from "@/components/shell/mobile-nav";
 import { CommandPalette } from "@/components/search/command-palette";
 import { ContentHeader } from "@/components/shell/content-header";
-import { Sidebar, type SidebarNavItem } from "@/components/shell/sidebar";
+import { Sidebar, type SidebarNavSection } from "@/components/shell/sidebar";
 import { TopBar } from "@/components/shell/topbar";
 import type { SessionUser } from "@/lib/auth";
 
@@ -14,50 +14,73 @@ import type { SessionUser } from "@/lib/auth";
 // one L-frame. The white content panel (`main`, bg-surface) tucks into that
 // junction with a single rounded top-left corner (md+); the paper root shows
 // through that corner. The route H1 sits at the top of the content surface
-// (ContentHeader), not in the TopBar — the TopBar is a utility bar (search /
-// bell / account).
+// (ContentHeader), not in the TopBar — the TopBar is a utility bar (context
+// pill / search / bell). The account chip lives at the bottom of the Sidebar.
 
-const WORKSPACE_NAV: SidebarNavItem[] = [
-  // Workspace is a single top-level destination; its sub-views (Analytics,
-  // Dashboard, Data dictionary, Docs) switch via the in-content BoardTabs, not
-  // the sidebar. First entry because it's where a day starts.
-  { label: "Workspace", href: "/workspace", icon: "wand-sparkles" },
-  { label: "Calendar", href: "/calendar", icon: "calendar" },
-  { label: "Inbox", href: "/inbox", icon: "inbox" },
-  { label: "Clients", href: "/clients", icon: "users" },
-  // Photon e-prescribing, grouped after Clients: the Rx you wrote, the pharmacy
-  // orders they became, and the formulary that feeds the prescribe flow.
-  { label: "Prescriptions", href: "/prescriptions", icon: "pill-bottle" },
-  { label: "Orders", href: "/orders", icon: "send" },
-  { label: "Catalog", href: "/catalog", icon: "grid" },
-  { label: "Directory", href: "/directory", icon: "globe" },
-  { label: "Billing", href: "/billing", icon: "dollar" },
-  { label: "Rates", href: "/rates", icon: "activity" },
-  { label: "Organizations", href: "/orgs", icon: "id-card" },
-  { label: "Networks", href: "/networks", icon: "link" },
-  { label: "Plans", href: "/plans", icon: "credit-card" },
-  { label: "Recruiting", href: "/recruiting", icon: "users-round" },
-  { label: "Library", href: "/library", icon: "clipboard" },
-  { label: "Settings", href: "/settings", icon: "gear" },
-  { label: "Design system", href: "/design-system", icon: "paint-roller" },
+// The practitioner nav, categorized (Fathom pattern): a headerless top group,
+// then collapsible sections. Workspace is a single top item — its sub-views
+// (Analytics / Dashboard / Data dictionary / Docs) are in-content tabs, not
+// sidebar children.
+const WORKSPACE_NAV: SidebarNavSection[] = [
+  {
+    items: [
+      { label: "Workspace", href: "/workspace", icon: "grid" },
+      { label: "Calendar", href: "/calendar", icon: "calendar" },
+      { label: "Inbox", href: "/inbox", icon: "inbox" },
+      { label: "Clients", href: "/clients", icon: "users" },
+    ],
+  },
+  {
+    header: "Practice",
+    icon: "hand-heart",
+    items: [
+      { label: "Prescriptions", href: "/prescriptions", icon: "pill-bottle" },
+      { label: "Orders", href: "/orders", icon: "send" },
+      { label: "Billing", href: "/billing", icon: "dollar" },
+      { label: "Catalog", href: "/catalog", icon: "grid" },
+      { label: "Library", href: "/library", icon: "clipboard" },
+    ],
+  },
+  {
+    header: "Intelligence",
+    icon: "columns-3",
+    items: [
+      { label: "Rates", href: "/rates", icon: "activity" },
+      { label: "Directory", href: "/directory", icon: "globe" },
+      { label: "Organizations", href: "/orgs", icon: "id-card" },
+      { label: "Networks", href: "/networks", icon: "link" },
+      { label: "Plans", href: "/plans", icon: "credit-card" },
+      { label: "Recruiting", href: "/recruiting", icon: "users-round" },
+    ],
+  },
+  {
+    header: "System",
+    icon: "monitor-check",
+    items: [
+      { label: "Settings", href: "/settings", icon: "gear" },
+      { label: "Design system", href: "/design-system", icon: "paint-roller" },
+    ],
+  },
 ];
 
 // Home is the patient's own record (the /clients/[id] shell, read-only), so
 // Medications / Records / Invoices each exist twice: once as a tab of that
-// record and once as their own destination here. That duplication is
-// deliberate — the record is the whole picture, the nav items are the direct
-// route to one part of it.
-const PORTAL_NAV: SidebarNavItem[] = [
-  { label: "Home", href: "/portal", icon: "id-card" },
-  { label: "Appointments", href: "/portal/appointments", icon: "calendar-check" },
-  { label: "Medications", href: "/portal/medications", icon: "pill-bottle" },
-  { label: "Records", href: "/portal/records", icon: "file-text" },
-  { label: "Resources", href: "/portal/resources", icon: "globe" },
-  { label: "Forms", href: "/portal/forms", icon: "clipboard" },
-  { label: "Invoices", href: "/portal/invoices", icon: "credit-card" },
-  { label: "Messages", href: "/portal/messages", icon: "message" },
-  { label: "Profile", href: "/portal/profile", icon: "person-circle" },
-  { label: "Dashboard", href: "/portal/dashboard", icon: "grid" },
+// record and once as their own destination here. One flat, headerless group.
+const PORTAL_NAV: SidebarNavSection[] = [
+  {
+    items: [
+      { label: "Home", href: "/portal", icon: "id-card" },
+      { label: "Appointments", href: "/portal/appointments", icon: "calendar-check" },
+      { label: "Medications", href: "/portal/medications", icon: "pill-bottle" },
+      { label: "Records", href: "/portal/records", icon: "file-text" },
+      { label: "Resources", href: "/portal/resources", icon: "globe" },
+      { label: "Forms", href: "/portal/forms", icon: "clipboard" },
+      { label: "Invoices", href: "/portal/invoices", icon: "credit-card" },
+      { label: "Messages", href: "/portal/messages", icon: "message" },
+      { label: "Profile", href: "/portal/profile", icon: "person-circle" },
+      { label: "Dashboard", href: "/portal/dashboard", icon: "grid" },
+    ],
+  },
 ];
 
 export function AppShell({
@@ -72,21 +95,21 @@ export function AppShell({
   counts?: Record<string, number>;
   children: ReactNode;
 }) {
-  const nav = (variant === "workspace" ? WORKSPACE_NAV : PORTAL_NAV).map((item) =>
-    counts?.[item.href] !== undefined ? { ...item, count: counts[item.href] } : item,
-  );
+  const base = variant === "workspace" ? WORKSPACE_NAV : PORTAL_NAV;
+  const sections: SidebarNavSection[] = counts
+    ? base.map((s) => ({
+        ...s,
+        items: s.items.map((item) => (counts[item.href] !== undefined ? { ...item, count: counts[item.href] } : item)),
+      }))
+    : base;
   const homeHref = variant === "portal" ? "/portal" : "/calendar";
   return (
     <div className="flex h-dvh overflow-hidden bg-page">
       {/* ⌘K workspace search — client component, workspace variant only. */}
       {variant === "workspace" && <CommandPalette />}
-      <Sidebar className="max-md:hidden" items={nav} homeHref={homeHref} />
+      <Sidebar className="max-md:hidden" sections={sections} user={user} homeHref={homeHref} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar
-          user={user}
-          showSearch={variant === "workspace"}
-          leading={<MobileNav items={nav} homeHref={homeHref} />}
-        />
+        <TopBar showSearch={variant === "workspace"} leading={<MobileNav sections={sections} user={user} homeHref={homeHref} />} />
         {/* The inset content panel: white surface, rounded only where it meets
             the sidebar/topbar junction (md+); the paper root shows through that
             corner. The scrollbar is hidden (scrolling still works). */}

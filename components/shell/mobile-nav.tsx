@@ -4,18 +4,20 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { IconButton } from "@/components/ui/icon-button";
-import { Sidebar, type SidebarNavItem } from "@/components/shell/sidebar";
+import { Sidebar, type SidebarNavSection } from "@/components/shell/sidebar";
+import type { SessionUser } from "@/lib/auth";
 
 // Mobile nav (<md): hamburger in the TopBar opens the Sidebar as a left
 // sheet over the scrim. Escape, scrim click, or following a link closes it.
 // Stays mounted so the slide can animate; inert + aria-hidden while closed.
-// (The account menu is reached from the TopBar utility bar, not the sheet.)
 
 export function MobileNav({
-  items,
+  sections,
+  user,
   homeHref,
 }: {
-  items: SidebarNavItem[];
+  sections: SidebarNavSection[];
+  user: SessionUser;
   homeHref: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -56,7 +58,7 @@ export function MobileNav({
                 open ? "translate-x-0" : "-translate-x-full"
               }`}
             >
-              <Sidebar sheet items={items} homeHref={homeHref} onNavigate={() => setOpen(false)} />
+              <Sidebar sheet sections={sections} user={user} homeHref={homeHref} onNavigate={() => setOpen(false)} />
             </div>
           </div>,
           document.body,

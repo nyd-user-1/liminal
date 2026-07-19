@@ -9,11 +9,12 @@ import { Icon } from "@/components/ui/icons";
 import { UserChip } from "@/components/ui/user-chip";
 import type { SessionUser } from "@/lib/auth";
 
-// The account control — UserChip trigger + the account menu. Lives in the
-// TopBar utility bar (right cluster), Stellate-style; it used to sit in the
-// sidebar footer. Owns sign-out, the light/dark appearance toggle (shared with
-// the marketing site via `mkt-theme`), and the ⌘, → Settings shortcut.
-export function AccountMenu({ user }: { user: SessionUser }) {
+// The account control — UserChip trigger + the account menu. Lives at the
+// bottom of the Sidebar (opens upward). Owns sign-out, the light/dark
+// appearance toggle (shared with the marketing site via `mkt-theme`), and the
+// ⌘, → Settings shortcut. `collapsed` folds the chip to just the avatar in the
+// icon rail.
+export function AccountMenu({ user, collapsed = false }: { user: SessionUser; collapsed?: boolean }) {
   const router = useRouter();
 
   const signOut = async () => {
@@ -53,10 +54,13 @@ export function AccountMenu({ user }: { user: SessionUser }) {
   return (
     <DropdownMenu
       label="Account menu"
-      placement="bottom"
-      align="right"
+      placement="top"
+      align="left"
       width="w-64"
-      trigger={<UserChip name={user.name} hue={user.avatarHue} src={user.photoUrl} className="max-w-[220px]" />}
+      triggerClassName={collapsed ? "flex w-full justify-center" : "w-full"}
+      trigger={
+        <UserChip name={user.name} hue={user.avatarHue} src={user.photoUrl} collapsed={collapsed} className="max-w-full" />
+      }
     >
       {/* Identity header */}
       <div className="flex items-center gap-3 px-2.5 py-2">

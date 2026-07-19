@@ -2,17 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { AccountMenu } from "@/components/shell/account-menu";
 import { CountBadge } from "@/components/ui/badge";
 import { Icon, type IconName } from "@/components/ui/icons";
 import { Logo } from "@/components/ui/logo";
 import { Tooltip } from "@/components/ui/tooltip";
+import type { SessionUser } from "@/lib/auth";
 
 // Catalog `Sidebar` — the warm-paper column (part of the app L-frame with the
-// TopBar): Logo + collapse chevron, then a config-driven nav list (icon + label
-// + optional count). Active item = solid-teal pill; idle = navy ink on paper,
-// teal-wash on hover. Collapses to an icon-only rail. The account menu is NOT
-// here — it lives in the TopBar utility bar (AccountMenu).
+// TopBar). Logo + collapse chevron; a Fathom-style categorized nav (a headerless
+// top group, then collapsible small-caps sections whose children sit against a
+// left hairline rail); the account chip at the bottom. Active row = a white
+// rounded pill with a teal left-accent bar. Collapses to an icon-only rail.
 
 export interface SidebarNavItem {
   label: string;
@@ -21,14 +23,26 @@ export interface SidebarNavItem {
   count?: number;
 }
 
+/** A nav section. The first (headerless) section is the always-open top group;
+    the rest render a small-caps header + icon + collapse chevron. */
+export interface SidebarNavSection {
+  header?: string;
+  icon?: IconName;
+  items: SidebarNavItem[];
+}
+
+const SECTIONS_KEY = "leuk-nav-sections";
+
 export function Sidebar({
-  items,
+  sections,
+  user,
   homeHref = "/",
   sheet = false,
   onNavigate,
   className = "",
 }: {
-  items: SidebarNavItem[];
+  sections: SidebarNavSection[];
+  user: SessionUser;
   homeHref?: string;
   /** Render as the mobile nav sheet: full-width, no collapse, safe-area padded. */
   sheet?: boolean;
@@ -40,14 +54,34 @@ export function Sidebar({
   const [collapsedState, setCollapsed] = useState(false);
   const collapsed = sheet ? false : collapsedState;
 
-  // Longest-prefix wins: a parent route (e.g. /portal) is a prefix of all its
-  // children (/portal/appointments), so match on the *most specific* item only
-  // — otherwise "Home" would stay lit on every portal subpage.
-  const matchLen = (href: string) => (pathname === href || pathname.startsWith(`${href}/`) ? href.length : -1);
-  const activeLen = Math.max(-1, ...items.map((i) => matchLen(i.href)));
+  // Section open/closed state, remembered in localStorage (sections default open).
+  const [closed, setClosed] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    try {
+      setClosed(JSON.parse(localStorage.getItem(SECTIONS_KEY) || "{}"));
+    } catch {
+      /* first run / private mode — everything stays open */
+    }
+  }, []);
+  const isOpen = (header: string) => closed[header] !== true;
+  const toggleSection = (header: string) =>
+    setClosed((prev) => {
+      const next = { ...prev, [header]: !prev[header] };
+      try {
+        localStorage.setItem(SECTIONS_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
 
-  // Icon-only rail → every control gets the Tooltip chip (flying right, past
-  // the rail) in place of the unstyleable native `title`.
+  // Longest-prefix wins so a parent route doesn't stay lit on a child; matched
+  // across every item in every section.
+  const matchLen = (href: string) => (pathname === href || pathname.startsWith(`${href}/`) ? href.length : -1);
+  const activeLen = Math.max(-1, ...sections.flatMap((s) => s.items.map((i) => matchLen(i.href))));
+  const isActive = (href: string) => activeLen >= 0 && matchLen(href) === activeLen;
+
+  // Icon-only rail → every control gets the Tooltip chip in place of the native title.
   const withTip = (label: string, node: ReactNode) =>
     collapsed ? (
       <Tooltip label={label} placement="right" className="w-full">
@@ -56,6 +90,34 @@ export function Sidebar({
     ) : (
       node
     );
+
+  const navLink = (item: SidebarNavItem) => {
+    const active = isActive(item.href);
+    return withTip(
+      item.label,
+      <Link
+        href={item.href}
+        onClick={onNavigate}
+        aria-label={collapsed ? item.label : undefined}
+        aria-current={active ? "page" : undefined}
+        className={`group relative flex w-full items-center gap-3 rounded-field px-2.5 py-2 text-[15px] font-medium transition-colors ${
+          collapsed ? "justify-center" : ""
+        } ${
+          active
+            ? "bg-surface text-text shadow-sm before:absolute before:left-0 before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-primary"
+            : "text-text-body hover:bg-page-edge/60 hover:text-text"
+        }`}
+      >
+        <Icon name={item.icon} className={`shrink-0 ${active ? "text-primary" : ""}`} />
+        {!collapsed && (
+          <>
+            <span className="flex-1 truncate">{item.label}</span>
+            {item.count !== undefined && <CountBadge count={item.count} />}
+          </>
+        )}
+      </Link>,
+    );
+  };
 
   return (
     <aside
@@ -77,7 +139,7 @@ export function Sidebar({
               type="button"
               onClick={() => setCollapsed((c) => !c)}
               aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-field text-text-body transition-colors hover:bg-black/[0.04] hover:text-text"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-field text-text-body transition-colors hover:bg-page-edge/60 hover:text-text"
             >
               <Icon name={collapsed ? "chevron-right" : "chevron-left"} size={18} />
             </button>
@@ -86,34 +148,56 @@ export function Sidebar({
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {items.map((item) => {
-          const active = activeLen >= 0 && matchLen(item.href) === activeLen;
+        {sections.map((section, si) => {
+          // Collapsed rail: no headers/rails — just icons, with a hairline
+          // separator before each titled section so the groups still read.
+          if (collapsed) {
+            return (
+              <div key={section.header ?? "top"} className={si > 0 && section.header ? "mt-1.5 border-t border-page-edge pt-1.5" : ""}>
+                {section.items.map((item) => (
+                  <div key={item.href}>{navLink(item)}</div>
+                ))}
+              </div>
+            );
+          }
+          // Headerless top group.
+          if (!section.header) {
+            return (
+              <div key="top" className="space-y-0.5">
+                {section.items.map((item) => (
+                  <div key={item.href}>{navLink(item)}</div>
+                ))}
+              </div>
+            );
+          }
+          const open = isOpen(section.header);
           return (
-            <div key={item.href}>
-              {withTip(
-                item.label,
-                <Link
-                  href={item.href}
-                  onClick={onNavigate}
-                  aria-label={collapsed ? item.label : undefined}
-                  aria-current={active ? "page" : undefined}
-                  className={`flex w-full items-center gap-3 rounded-field px-2.5 py-2.5 text-[15px] font-medium transition-colors ${
-                    active ? "bg-primary text-white" : "text-text-body hover:bg-primary-wash/60 hover:text-text"
-                  } ${collapsed ? "justify-center" : ""}`}
-                >
-                  <Icon name={item.icon} className="shrink-0" />
-                  {!collapsed && (
-                    <>
-                      <span className="flex-1 truncate">{item.label}</span>
-                      {item.count !== undefined && <CountBadge count={item.count} />}
-                    </>
-                  )}
-                </Link>,
+            <div key={section.header} className="pt-3">
+              <button
+                type="button"
+                onClick={() => toggleSection(section.header!)}
+                aria-expanded={open}
+                className="flex w-full items-center gap-2 rounded-field px-2.5 py-1.5 text-text-muted transition-colors hover:text-text-body"
+              >
+                {section.icon && <Icon name={section.icon} size={14} className="shrink-0" />}
+                <span className="flex-1 truncate text-left text-[11px] font-semibold uppercase tracking-wider">{section.header}</span>
+                <Icon name={open ? "chevron-down" : "chevron-right"} size={14} className="shrink-0" />
+              </button>
+              {open && (
+                <div className="ml-[18px] mt-0.5 space-y-0.5 border-l border-page-edge pl-2">
+                  {section.items.map((item) => (
+                    <div key={item.href}>{navLink(item)}</div>
+                  ))}
+                </div>
               )}
             </div>
           );
         })}
       </nav>
+
+      <div className="border-t border-page-edge p-3">
+        <AccountMenu user={user} collapsed={collapsed} />
+      </div>
     </aside>
   );
 }

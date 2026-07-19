@@ -2,29 +2,26 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { AccountMenu } from "@/components/shell/account-menu";
 import { TopBarBell } from "@/components/shell/topbar-bell";
 import { routeTitle } from "@/components/shell/route-title";
 import { OPEN_COMMAND_PALETTE } from "@/components/search/command-palette";
 import { Icon } from "@/components/ui/icons";
-import type { SessionUser } from "@/lib/auth";
 
 // Catalog `TopBar` — the utility bar (warm-paper `bg-page`, forming the L-frame
 // with the Sidebar). No page title here: the route H1 lives at the top of the
-// content surface (ContentHeader). Reads left → right (Stellate shape):
+// content surface (ContentHeader). Reads left → right (Stellate / Vercel shape):
 //
-//   [Leuk › Section ⌄]  ···········  [Search… ⌘K]  [bell]  [account]
+//   [Leuk › Section ⇅]  ···········  [Search… ⌘K]  [bell]
 //
 // The context pill and the search pill both open the ⌘K palette — its GO-TO
-// destinations double as the section switcher. Both pills wear the light-on-
-// paper treatment (bg-surface + border-border), not navy.
+// destinations double as the section switcher. The account chip is NOT here; it
+// lives at the bottom of the Sidebar. Both pills wear the light-on-paper
+// treatment (bg-surface + border-border), not navy.
 
 export function TopBar({
-  user,
   leading,
   showSearch = true,
 }: {
-  user: SessionUser;
   /** Slot before the context pill — the mobile hamburger. */
   leading?: ReactNode;
   /** Show the ⌘K search pill. Off only where the palette isn't mounted (portal). */
@@ -39,16 +36,15 @@ export function TopBar({
       <div className="ml-auto flex shrink-0 items-center gap-2">
         {showSearch && <SearchTrigger />}
         <TopBarBell />
-        <AccountMenu user={user} />
       </div>
     </header>
   );
 }
 
-// The far-left context / switcher pill: brand › current section + a switcher
-// chevron (Stellate's "Acme › Content API ⇅"). Opens the ⌘K palette, whose
-// GO-TO list is the section switcher. Desktop-only — on mobile the hamburger +
-// sidebar sheet carry the brand.
+// The far-left context / switcher pill (Vercel "All Projects ⇅"): brand › current
+// section + a stacked up/down switcher glyph. Opens the ⌘K palette, whose GO-TO
+// list is the section switcher. Desktop-only — on mobile the hamburger + sidebar
+// sheet carry the brand.
 function ContextPill({ section }: { section: string }) {
   const open = () => window.dispatchEvent(new Event(OPEN_COMMAND_PALETTE));
   return (
@@ -62,7 +58,10 @@ function ContextPill({ section }: { section: string }) {
       <span className="font-semibold">Leuk</span>
       <Icon name="chevron-right" size={15} className="shrink-0 text-text-muted" />
       <span className="max-w-[180px] truncate font-medium">{section}</span>
-      <Icon name="chevron-down" size={15} className="ml-0.5 shrink-0 text-text-muted" />
+      <span className="ml-0.5 flex shrink-0 flex-col text-text-muted" aria-hidden>
+        <Icon name="chevron-up" size={12} className="-mb-[3px]" />
+        <Icon name="chevron-down" size={12} className="-mt-[3px]" />
+      </span>
     </button>
   );
 }
