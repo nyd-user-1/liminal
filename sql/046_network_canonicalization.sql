@@ -179,3 +179,46 @@ LEFT JOIN network_aliases a
   ON a.source = 'fhir' AND a.payer_label = ps.slug AND a.network_label = pn.network_name;
 
 COMMENT ON TABLE payer_network_map IS 'NYS-144: every raw FHIR network dispositioned into a scope bucket; canonical network_id where one exists. Rebuilt by re-running this migration (rules are the state).';
+
+-- ── Pre-seed 2026-07-19 (data-agent T3): Oscar OBH carve-out + Health First FL ──
+-- Harvest labels for the staged Oscar-bucket manifests (oscar-obh.txt,
+-- oscar-medical.txt, healthfirst-fl-obh.txt), seeded BEFORE first load per the
+-- entity-layer rule. Placed here rather than in 043/044: 'oscar' is minted in
+-- THIS file, so an alias in 043/044 would break FK order on a fresh replay.
+-- Health First FL is HEALTH FIRST of FLORIDA (Rockledge) — never alias it to
+-- Healthfirst NY.
+
+INSERT INTO insurers (id, name, kind, parent_id, notes) VALUES
+  ('health-first-fl', 'Health First Health Plans (Florida)', 'carrier', NULL,
+   'Rockledge FL health-system plan; tier-3 national back-out. NOT Healthfirst NY.')
+ON CONFLICT (id) DO NOTHING;
+
+-- Oscar's NAIC group (4818), verified against loaded dfs_insurers 2026-07-19
+-- (15281 AH + 16597 HMO both carry group 4818); the oscar row above predates
+-- the check.
+UPDATE insurers SET naic_group_code = '4818'
+WHERE id = 'oscar' AND naic_group_code IS DISTINCT FROM '4818';
+
+INSERT INTO insurer_aliases (source, label, insurer_id) VALUES
+  ('mrf', 'Oscar Health',               'oscar'),
+  ('mrf', 'Oscar Health (Optum BH)',    'oscar'),
+  ('mrf', 'Health First FL (Optum BH)', 'health-first-fl'),
+  ('naic-group', '4818',                'oscar')
+ON CONFLICT (source, label) DO NOTHING;
+
+-- The OBH manifests carry explicit market-segment labels. Whether the two
+-- Oscar segments publish one identical panel is unmeasured, so each label gets
+-- its own product row (the MetroPlus precedent) instead of an asserted merge.
+-- oscar-medical.txt runs network=auto — its file-derived labels stay on the
+-- worklist until proven, by design.
+INSERT INTO networks (id, insurer_id, administrator_id, name, kind, notes) VALUES
+  ('oscar-obh-ny-sg',      'oscar',           'optum', 'Oscar NY Small Group (Optum BH)',         'product', 'OBH_MRRF carve-out; 28,480 book NPIs / 692k rows measured pre-staging'),
+  ('oscar-obh-individual', 'oscar',           'optum', 'Oscar Individual Multi-State (Optum BH)', 'product', 'OBH_MRRF carve-out'),
+  ('hf-fl-obh',            'health-first-fl', 'optum', 'Health First FL Behavioral (Optum BH)',   'network', 'zerook line — ~0 NY-book rows expected')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO network_aliases (source, payer_label, network_label, network_id) VALUES
+  ('mrf', 'Oscar Health (Optum BH)',    'Oscar NY small group',         'oscar-obh-ny-sg'),
+  ('mrf', 'Oscar Health (Optum BH)',    'Oscar individual multi-state', 'oscar-obh-individual'),
+  ('mrf', 'Health First FL (Optum BH)', 'Health First FL',              'hf-fl-obh')
+ON CONFLICT (source, payer_label, network_label) DO NOTHING;
