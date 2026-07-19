@@ -33,18 +33,12 @@ export default async function PayerNegotiationPage() {
         lede="Every plan already published what it pays in-network. The problem was never leverage — it was visibility. We hold each payer's own figure next to all the others, so the conversation starts from evidence instead of a hunch."
         primary={{ href: "/for-providers", label: "For providers" }}
         secondary={{ href: CONTACT, label: "Talk to us" }}
+        innerClassName="pb-15 sm:pb-15"
       />
 
-      {/* The leverage moment — the spread IS the argument. */}
-      <Section ground="page">
-        <SectionHeading
-          eyebrow="Why you might be underpaid"
-          title="The same work, priced apart."
-          lede="Here is one behavioral code across New York's books — the payer's own published in-network median, ranked. When the top book pays multiples of the bottom for identical work, the gap is the conversation."
-        />
-        <div className="mt-12">
-          <PayerSpreadTable spread={spread} />
-        </div>
+      {/* The leverage moment — the spread IS the argument, straight off the hero. */}
+      <Section ground="page" innerClassName="pt-0 sm:pt-0">
+        <PayerSpreadTable spread={spread} />
       </Section>
 
       {/* What a Leuk practice actually gets — described truthfully. */}

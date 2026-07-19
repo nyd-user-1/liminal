@@ -16,6 +16,7 @@ export function PageHero({
   ground = "page",
   illo,
   aside,
+  innerClassName = "",
   children,
 }: {
   eyebrow?: string;
@@ -26,6 +27,7 @@ export function PageHero({
   ground?: "wash" | "surface" | "canvas" | "page";
   illo?: { src: string; alt: string; width: number; height: number };
   aside?: ReactNode;
+  innerClassName?: string;
   children?: ReactNode;
 }) {
   const groundCls = { wash: "bg-primary-wash", canvas: "bg-canvas", surface: "bg-surface", page: "bg-page" }[ground];
@@ -33,7 +35,7 @@ export function PageHero({
   return (
     <section className={groundCls}>
       <div
-        className={`mx-auto w-full max-w-6xl px-6 py-20 sm:py-28 ${twoCol ? "lg:grid lg:grid-cols-2 lg:items-center lg:gap-16" : ""}`}
+        className={`mx-auto w-full max-w-6xl px-6 py-20 sm:py-28 ${twoCol ? "lg:grid lg:grid-cols-2 lg:items-center lg:gap-16" : ""} ${innerClassName}`}
       >
         <div className={twoCol ? "" : "max-w-3xl"}>
           {eyebrow && (
