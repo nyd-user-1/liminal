@@ -100,17 +100,39 @@ sparser-record bug) · NYS-157 (SF cadence + docs).
   the RED account rather than dry it further — the exact pattern NYS-123 exists
   to prevent, now observed working.
 
-## PUSH STATUS — held deliberately
+## PUSH STATUS — DONE (2026-07-19 morning, founder greenlit "push all work")
 
-HELD. 25 commits ahead of origin. Round 4 did NOT land (workspace-v3 died),
-so the precondition in the founder's "push when you're done" is unmet —
-pushing now would deploy the un-corrected round 3 (the opposite of what he
-asked to see) AND the customer-facing payr pages, which were corrected but
-never explicitly greenlit for deploy. Decision teed up for the founder:
-(a) relaunch round 4 on a green account, review, then push everything; or
-(b) push round 3 now if he wants the internal page live as-is. Lead did not
-push on a RED account overnight. Never stage components/rates/*,
-docs/UI-PUSH-2026-07-18.md, or another agent's in-flight files.
+PUSHED: `2cef29d..29ddc0f`, 31 commits, clean fast-forward (origin was strictly
+behind; no divergence). Vercel deploying everything: /workspace round 4
+(9/9, lead-verified: 1 H1, 0 "≈", 0 "Briefing", Data Dictionary tab, 0
+overflow), the rate-intel marketing family, all supply-side data work, sql/052
+merge, budget gauge, briefing fix. Fresh dev server restarted (killed 3010 +
+rm -rf .next + npm run dev; Ready 403ms). Still never stage
+components/rates/* or docs/UI-PUSH-2026-07-18.md (other session's).
+
+## In flight (2026-07-19 ~morning, fleet GREEN 28%, reset 1:10pm)
+
+- **workspace-r5** (ui-agent) — two founder additions: Docs tab
+  (/workspace/docs, editable docs cards via DocSheet) + /codes index page
+  (all 20 billing codes; distinguish the 5 shown in /rates from the 15 not
+  yet surfaced — NYS-50 gap made visible).
+- **data-t4b** (data-agent) — relaunch of TASK-DATA-T4: 39F0 load-completeness
+  reconcile (June URLs die Tue Jul 21), Oscar/OBH tripwire verify (mint-ready
+  gate), distinct-collapse PROOF to scratch (informs NYS-151).
+
+## Deferred to end-of-session batch (docs-refresh action items)
+
+- **Stale memory:** "01:04-runner-before-04:12-cron ordering load-bearing" is
+  OBSOLETE post-NYS-130 (runner does the rebuild via psql; Vercel cron =
+  manual/emergency). Fix liminal-harvestd, liminal-operating-model, the
+  OPERATING-MODEL.md standing decision, and the Linear Operations Runbook
+  Document (a reader on the old version hunts for a 04:12 cron that's gone).
+- **Registry lag (NYS-115, quality-agent seam):** 8 relations render
+  "Unmapped" in the dictionary (form5500_sf_filings, org_network_rates,
+  provider_merge_map + entity satellites) — one metadata line each in
+  lib/table-atlas.mjs. Small quality pass.
+- **NYS-151 load-shape ruling** still needs founder confirmation before any
+  all-codes fleet rescan (data-t4b's proof will size it).
 
 ## Lead-account note (2026-07-18 ~23:15 — RESOLVED)
 
