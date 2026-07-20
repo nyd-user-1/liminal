@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { logEvent } from "@/lib/audit";
 import { AuthError, requireRole } from "@/lib/auth";
-import { authorNames, createNote, listNotes, listTemplates } from "@/lib/repos/notes";
+import { amendmentCountsFor, authorNames, createNote, listNotes, listTemplates } from "@/lib/repos/notes";
 import type { NoteStatus, NoteTemplateKind } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +14,13 @@ function onAuthError(e: unknown) {
   throw e;
 }
 
-/** GET /api/notes?clientId=&status= → { notes, authors } */
+/**
+ * GET /api/notes?clientId=&status= → { notes, authors, amendmentCounts }
+ *
+ * amendmentCounts lets a timeline badge a signed-and-amended note without a
+ * fetch per row. Notes with no amendments are absent from the map, not 0.
+ * The read itself is audited inside listNotes() (action "note.list").
+ */
 export async function GET(req: Request) {
   try {
     await requireRole("practitioner");
@@ -23,8 +29,12 @@ export async function GET(req: Request) {
     const statusParam = url.searchParams.get("status");
     const status = STATUSES.includes(statusParam as NoteStatus) ? (statusParam as NoteStatus) : undefined;
     const notes = await listNotes({ clientId, status });
-    const authors = await authorNames(notes.map((n) => n.authorId));
-    return NextResponse.json({ notes, authors });
+    const noteIds = notes.map((n) => n.id);
+    const [authors, amendmentCounts] = await Promise.all([
+      authorNames(notes.map((n) => n.authorId)),
+      amendmentCountsFor(noteIds),
+    ]);
+    return NextResponse.json({ notes, authors, amendmentCounts });
   } catch (e) {
     return onAuthError(e);
   }

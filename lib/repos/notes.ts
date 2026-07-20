@@ -311,6 +311,31 @@ export async function listAmendmentsFor(noteIds: string[]): Promise<Record<strin
   return out;
 }
 
+/**
+ * Amendment counts for many notes, keyed by note id. For list/timeline views
+ * that only need to badge a row as amended — counting in SQL avoids dragging
+ * every amendment body across the wire to compute a length.
+ * Notes with no amendments are absent from the map, not zero.
+ */
+export async function amendmentCountsFor(noteIds: string[]): Promise<Record<string, number>> {
+  const unique = [...new Set(noteIds)];
+  if (unique.length === 0) return {};
+  if (hasDb) {
+    const rows = (await sql`
+      SELECT note_id, count(*)::int AS n
+        FROM note_amendments
+       WHERE note_id = ANY(${unique})
+       GROUP BY note_id
+    `) as Array<{ note_id: string; n: number }>;
+    return Object.fromEntries(rows.map((r) => [r.note_id, Number(r.n)]));
+  }
+  const out: Record<string, number> = {};
+  for (const a of mockStore().noteAmendments.values()) {
+    if (unique.includes(a.noteId)) out[a.noteId] = (out[a.noteId] ?? 0) + 1;
+  }
+  return out;
+}
+
 /** A note plus its correction chain — the full clinical record for one note. */
 export async function getNoteWithAmendments(id: string): Promise<NoteWithAmendments | null> {
   const note = await getNote(id);

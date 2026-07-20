@@ -70,6 +70,25 @@ export async function listFiles(clientId: string): Promise<FileRecord[]> {
   return files;
 }
 
+/**
+ * Uploader display names by user id — the "who uploaded" column. Names only,
+ * no PHI beyond them, and not audited: a name lookup is not a record read.
+ * Ids with no matching user fall back to "Practitioner" at the call site.
+ */
+export async function uploaderNames(ids: string[]): Promise<Record<string, string>> {
+  const unique = [...new Set(ids.filter(Boolean))];
+  if (unique.length === 0) return {};
+  if (hasDb) {
+    const rows = (await sql`SELECT id, name FROM users WHERE id = ANY(${unique})`) as Array<{
+      id: string;
+      name: string;
+    }>;
+    return Object.fromEntries(rows.map((r) => [r.id, r.name]));
+  }
+  const users = mockStore().users;
+  return Object.fromEntries(unique.filter((id) => users.has(id)).map((id) => [id, users.get(id)!.name]));
+}
+
 export interface SaveFileMeta {
   clientId: string;
   uploaderId: string;
