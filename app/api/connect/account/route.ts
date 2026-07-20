@@ -38,6 +38,19 @@ export async function POST(req: NextRequest) {
 
     const account = await stripe.accounts.create({
       controller: CONNECT_CONTROLLER,
+      // WITHOUT THIS THE MONEY LOOP IS DEAD. A destination charge can only pay
+      // an account that holds an active `transfers` capability, and capabilities
+      // are never granted implicitly — an account created without requesting
+      // them reports `capabilities: {}` forever and its onboarding collects the
+      // WRONG requirement set (bank + ToS only, no identity/representative), so
+      // even a fully "completed" onboarding leaves the account unable to be
+      // paid. Measured 2026-07-20 against a live sandbox pair. card_payments is
+      // requested alongside so the account can also be a settlement merchant if
+      // we ever move off destination charges (separate charges & transfers).
+      capabilities: {
+        transfers: { requested: true },
+        card_payments: { requested: true },
+      },
       business_profile: {
         mcc: BEHAVIORAL_HEALTH_MCC,
         // Most solo therapists have no website; Stripe requires SOME description
