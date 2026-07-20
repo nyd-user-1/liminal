@@ -1,5 +1,24 @@
 # Lead queue — warm assignments + pending Linear intents
 
+**2026-07-20 OVERNIGHT (fable lead): Stripe tranche 1 SHIPPED + tranche 2
+nearly done.** Full record: NYS-168 (Stripe tranche 1) + NYS-169 (TABLE
+STANDARD v2, founder scope expansion) both Done; lead review
+`docs/reports/2026-07-20-lead-review-stripe-t1.md`. Backlog filed: NYS-170
+(/rates dup rowKeys) · NYS-171 (Anthem-June count perf) · NYS-172 (marketplace
+polish batch) · NYS-173 (DECISION fork 7: on_behalf_of vs own-data
+Transactions — blocked on T6 evidence). **ONLY OPEN ITEM: T6 e2e drive,
+founder-gated on sandbox Connect signup** (Dashboard → Connect → enable on
+acct_1T1DhaFZHX4S0kX2); agent stripe-t6-drive parked ready, earnings-surface
+parked for the 2 demo screenshots (resume with charge id). Env: sandbox keys
+live in .env.local (QUOTED values), two-scope stripe-listen detached, whsec
+captured. NEW HOUSE RULE all kickoffs: `git diff --cached --name-only` before
+EVERY commit (shared-index sweep incident, resolved). ui-workspace-v4's dead
+session recovered at 740770d. ~20 local commits, push founder-gated.
+
+**Original 2026-07-20 note:** THE BIG PROJECT = Stripe Connect marketplace.
+Decision record + tranche-1 brief: `docs/TASK-STRIPE-MARKETPLACE.md`
+(committed a2c0230). Handoff memory: handoff-2026-07-20-stripe-marketplace.
+
 Maintained by the lead (see OPERATING-MODEL.md → Linear governance).
 Last sync: 2026-07-18 ~21:30 (start-of-session pull; NYS-150 filed).
 
@@ -133,6 +152,95 @@ components/rates/* or docs/UI-PUSH-2026-07-18.md (other session's).
   lib/table-atlas.mjs. Small quality pass.
 - **NYS-151 load-shape ruling** still needs founder confirmation before any
   all-codes fleet rescan (data-t4b's proof will size it).
+
+## Founder rulings — 2026-07-19 evening (new lead session, prior lead stalled on API errors)
+
+- **Shell reskin PUSHED** (`2e94ff7..ae2274b`, 9 commits, founder-approved
+  as-is). Founder will review the deployed look after the decision queue clears.
+- **NYS-151 RESOLVED + all-codes RETIRED:** distinct-collapse confirmed as the
+  shape *if ever needed*, but the panel stays at the ~20 identified codes — no
+  all-codes fleet harvesting, period. CDPHP proof (died at 96%) cancelled, not
+  rerun; nys151 artifacts deleted (~25 GB freed). Linear: close NYS-151 with the
+  ruling; comment NYS-50 (broad-code scanner stays built, harvest scope = 20).
+- **Minted (founder yes):** `oscar-obh.txt` + `healthfirst-fl-obh.txt` both in
+  `manifests/queue/` for tonight's 01:04 runner.
+- **June Anthem leftovers DELETED** (founder yes, header rows shown): 3 shard
+  files / 293 signed URLs + 39F0-1.csv/gids/chunks. 39F0 fully banked in DB.
+- **Empire June-label ruling PENDING** — founder asked for a plainer
+  explanation (delivered); recommendation on the table = one `empire-par-
+  indemnity` canonical + primary-network rule for semicolon-joined labels.
+  Blocks 2p-anthem re-mint loads only; nothing else waits on it.
+- **NEW task (founder):** Azimutt schema export is useless without relational
+  lines (DB declares no FKs → Azimutt draws nothing). Dispatch docs-agent:
+  `scripts/azimutt-export.mjs` emitting docs/liminal-schema.azimutt.json WITH
+  inferred relations from lib/table-atlas.mjs join knowledge + key conventions
+  (npi/tin/ein/insurer/network/code). Dispatch as soon as the founder's
+  decision review wraps.
+
+## Founder rulings, round 2 (2026-07-19 ~22:30) + dispatches in flight
+
+- **Empire June labels: lead's option-2 proposal REJECTED.** Founder direction:
+  cross-reference our insurers/networks against Serif Health's model first
+  (payer list + name/type/state network shape — inputs saved to
+  docs/reference/serif-payers.txt + serif-networks-sample.txt), then rule.
+  June rows stay unmapped meanwhile (harmless). Ruling re-surfaces when the
+  cross-ref report lands.
+- **Harvest transparency is a product requirement now:** /workspace Operations
+  gets (a) 8-row fixed tables w/ manual scroll — auto-scroll animation stays
+  ONLY on marketing pages; (b) an "Anthem-June" 5th tab = the 476,114 June
+  39F0 rows straight from provider_rate_signals; (c) per-job anatomy dialog —
+  what each harvest downloads, every schema field, green check = harvested,
+  blank = ignored. Brief: docs/TASK-WORKSPACE-V4.md.
+- **NOTED FOR LATER (founder, do not lose):** a Serif-style full code catalog
+  menu — categories → subcategories → code chips (their Codes panel:
+  "Facility-Based Behavioral Health → Mental Health → 10 codes", "Diagnostics
+  & Therapeutic → Psychiatry → 30 codes"). We hold hcpcs_codes + /codes; the
+  ask is the browsable menu of ALL codes, not harvesting them.
+- **In flight (Agent tool, ~22:35):** ui-workspace-v4 (TASK-WORKSPACE-V4) ·
+  docs-azimutt (relational Azimutt export, founder wants NOW) ·
+  data-serif-crossref (→ docs/reports/2026-07-19-serif-crossref.md).
+- Founder has a "big, big project" to hand over once decks are clear — keep
+  lead context lean.
+
+## PARKED LIST — now LIVES IN LINEAR: parent **NYS-159** + subs NYS-160..167
+(filed 2026-07-20 ~00:05 on founder instruction; new label taxonomy =
+`session/*` + `domain/*` + `seam/*`; same-seam tickets get batched into one
+agent pass. Additions since the list below was written: Manifest tab w/
+expiration dates = NYS-162; Anthem-June amended to 20 rows in NYS-161.)
+
+## Original parked list (superseded by NYS-159, kept for context) — (2026-07-19 ~23:45)
+
+1. File the OON/allowed-amounts sizing-spike Linear ticket (approved).
+
+2. Relaunch ui-agent on TASK-WORKSPACE-V4 — **amended: Anthem-June tab = a
+   simple 20-row table, NOT the 476k server-paged table**; 8-row Operations
+   tables + anatomy dialog unchanged.
+
+3. Lead's Linear batch (closes/comments/intents) — founder: "save for later."
+
+4. **EMPIRE RULING MADE (founder yes):** 18 June labels → ~13 Serif-shaped
+   named networks via the label→atom bridge, PLUS nullable `network_type` +
+   `state` columns on `networks`. Execution parked (data-agent tranche when
+   dispatched).
+
+5. Fix stale docs/memory (obsolete 04:12-cron ordering) — approved, parked.
+
+6. Quality pass: 8 unmapped Data-Dictionary relations, one registry line each
+   (NYS-115) — approved, parked.
+
+7. Push the local commits (bb2fa37 Azimutt, 310c8ba Serif report, queue notes)
+   — approved, parked.
+
+8. Tonight's 01:04 runner: Oscar-OBH + Healthfirst-FL-OBH harvest + matview
+   rebuild — runs automatically, founder approved leaving it.
+
+9. Universe table, most basic form: make the **17,149 URLs we already hold**
+   (the vault inventory) a table with clickable live links. Caveat told to
+   founder: signed URLs (Anthem/BCBS-style) expire — many old ones are dead
+   links; stable-host ones (CDPHP, Oscar S3, etc.) work. The FULL universe
+   (incl. files we skipped) is NOT on disk — needs a ToC walk, separate go.
+
+New founder formatting rule (memorized): blank line between bullets, always.
 
 ## Lead-account note (2026-07-18 ~23:15 — RESOLVED)
 
