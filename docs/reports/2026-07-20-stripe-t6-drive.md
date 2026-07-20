@@ -759,3 +759,64 @@ account's own `py_1TvC5y…` carries `amount=150.00` **and**
 `application_fee_amount=1500`, and its balance transaction decomposes
 `150.00 / 15.00 / 135.00`. **The Earnings Transactions view has real data**, with
 no `on_behalf_of`.
+
+---
+
+## Cleanup — live DB returned to its pre-drive baseline
+
+```
+                         BEFORE            AFTER
+stripe_events              35                0     (pre-drive baseline: 0) ✓
+stripe_payment_splits       1                0     (pre-drive baseline: 0) ✓
+INV-2026-9003          paid, 1 payment    removed  (it was seeded for this drive) ✓
+stripe_connect_accounts     1                1     ← KEPT, deliberately
+```
+
+- `seed-test-invoice.mjs --cleanup` → `invoices 1, payments 1, splits 1` removed.
+- `stripe_events` deleted 35 → 0. Safe: the drive is finished, and a redelivery
+  of any of these would only re-run against an invoice that no longer exists.
+- **`stripe_connect_accounts` row KEPT** (`acct_1TvBKiJvfwWFuhCf`,
+  `charges_enabled=true`, `payouts_enabled=true`) — the documented exception.
+  Deleting the row while the Stripe account exists creates drift, and the
+  onboarded account is reusable, which matters because re-onboarding costs
+  another human captcha pass.
+- **Stripe-side test objects stay** per the brief: the PaymentIntent, charge,
+  application fee, transfer, and the connected account's `py_…` all still exist,
+  so the earnings agent's deep-link resolves. All three of my *throwaway*
+  accounts were deleted.
+- Temp drivers (`scripts/qa/_tmp-*.mjs`) removed; never staged, never committed.
+
+## Final verdict
+
+**T6 PASSES.** A client paid Liminal $150.00, Liminal kept $15.00 (10.00%), and
+$135.00 landed in the therapist's connected account — confirmed against Stripe's
+own API, not our logs. Both proof events arrived on their correct scopes and were
+recorded green, with zero unprocessed and zero errored events across the drive.
+
+### Open items for the lead
+
+1. **DEFECT (MEDIUM) — `stripe_payment_splits.transfer_id` never populated.**
+   Route owner's seam. Fix by backfilling from `transfer.created`.
+
+2. **T5 emails bounce on demo addresses.** Both send correctly with right
+   amounts; `@liminal.demo` isn't real, so `last_event: bounced`. Real
+   deliverability remains unverified and can't be verified against demo
+   addresses.
+
+3. **`sendEmail` still discards the Resend message id** (PART 1 flag) — ids had
+   to be pulled from the Resend API.
+
+4. **Secret hygiene** — the forwarder passes `--api-key` on the command line,
+   visible in `ps`.
+
+5. **Stray sandbox account `acct_1TvAliFTCTVBltm7`** — not mine, untouched.
+
+### What I could not verify
+
+- **Real email delivery** — bounced by design on demo addresses.
+- **Payout to a real bank** — test-mode bank; `payouts_enabled=true` and
+  available balance $135.00 are as far as this goes.
+- **The onboarding UX itself** — completed by a human because it is captcha-gated;
+  I verified its start and end states, not the middle.
+- `on_behalf_of` behavior end-to-end — rejected in the probe for lack of an
+  active `card_payments` capability; reported as a constraint, not a measurement.
