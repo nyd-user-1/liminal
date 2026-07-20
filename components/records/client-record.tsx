@@ -36,6 +36,7 @@ import type { ServiceOption } from "@/components/billing/new-invoice-panel";
 import type { InvoiceListItem } from "@/lib/repos/invoices";
 import type { PolicyWithPayer } from "@/lib/repos/policies";
 import type { PractitionerOption } from "@/lib/repos/clients";
+import type { FileAccess } from "@/lib/repos/files";
 import type { Appointment, Client, ClientStatus, FileRecord, Payer, Referral } from "@/lib/types";
 
 // A client record IS a board: the same dashboard the practice gets, scoped to
@@ -58,6 +59,10 @@ export interface ClientRecordBundle {
   policies: PolicyWithPayer[];
   payers: Payer[];
   files: FileRecord[];
+  /** fileId → download history, for the Documents card's "Last downloaded"
+   *  column. Both producers of this bundle must fill it, or the column appears
+   *  on the deep-link path and vanishes on the rail path. */
+  fileAccess: Record<string, FileAccess>;
   appointments: Appointment[];
   /** InvoiceListItem extends Invoice, so ONE read feeds both the Billing
    *  summary card (which wants Invoice) and the Billing card (which wants the
@@ -393,6 +398,7 @@ export function ClientRecord({
               ...Object.fromEntries(r.practitioners.map((p) => [p.id, p.name])),
               ...(r.client.userId ? { [r.client.userId]: `${r.client.firstName} ${r.client.lastName}` } : {}),
             }}
+            access={r.fileAccess}
             bare
           />
         ),

@@ -9,12 +9,15 @@ import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { MenuItem } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FileUpload } from "@/components/ui/file-upload";
+import { Icon } from "@/components/ui/icons";
 import { KebabMenu } from "@/components/ui/kebab-menu";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { SearchInput } from "@/components/ui/search-input";
 import { Tag, type TagHue } from "@/components/ui/tag";
 import { useToast } from "@/components/ui/toast";
+import { Tooltip } from "@/components/ui/tooltip";
 import { formatDate } from "@/lib/format";
+import type { FileAccess } from "@/lib/repos/files";
 import type { FileKind, FileRecord } from "@/lib/types";
 
 // Documents — the client record's real file list. FileUpload gives both a
@@ -63,6 +66,7 @@ export function FilesTab({
   clientId,
   files,
   uploaderNames,
+  access,
   readOnly = false,
   bare = false,
 }: {
@@ -70,6 +74,13 @@ export function FilesTab({
   files: FileRecord[];
   /** uploaderId → display name. Absent ids fall back to an honest label. */
   uploaderNames?: Record<string, string>;
+  /**
+   * fileId → download history, from `fileAccessHistory`. A file that was never
+   * downloaded is absent from the map; the map being absent ENTIRELY means the
+   * caller did not load history, which is a different thing — so the column is
+   * dropped rather than reporting every document as never downloaded.
+   */
+  access?: Record<string, FileAccess>;
   /** Patient-portal variant: the dropzone goes, the list stays. */
   readOnly?: boolean;
   /** Board variant: the host card owns the width, so drop the page measure. */
@@ -141,6 +152,30 @@ export function FilesTab({
   const selectedIds = rows.filter((f) => selected.has(f.id)).map((f) => f.id);
   const latest = files.reduce<string | null>((max, f) => (max == null || f.createdAt > max ? f.createdAt : max), null);
 
+  // The trust line, in the footer slot that already carries this table's
+  // honest provenance. Every clause is one the blob-privacy audit actually
+  // measured (docs/reports/2026-07-20-blob-privacy-audit.md): a private bucket
+  // separate from the public one, a storage URL that serves nothing without
+  // authorization, a logged download. It says NOTHING about encryption — that
+  // was never tested, and a trust surface may only claim what was proven.
+  const storageNote = (
+    <span className="inline-flex min-w-0 items-center gap-1.5">
+      <Icon name="lock" size={14} className="shrink-0 text-text-muted" />
+      <span className="truncate">
+        {readOnly ? "Stored privately · every download recorded" : "files table · private storage, every download recorded"}
+      </span>
+      <Tooltip
+        label={
+          readOnly
+            ? "Only you and your care team can open these."
+            : "The storage URL serves nothing without an authorized sign-in."
+        }
+      >
+        <Icon name="info" size={14} className="text-text-muted" />
+      </Tooltip>
+    </span>
+  );
+
   const columns: DataTableColumn<FileRecord>[] = [
     {
       key: "name",
@@ -197,6 +232,27 @@ export function FilesTab({
       render: (f) => <span className="text-text-muted">{formatDate(f.createdAt)}</span>,
       sortValue: (f) => f.createdAt,
     },
+    // The audit trail, made visible. Present only when the caller loaded it —
+    // with no history in hand, "Never" would be a claim we cannot support.
+    ...(access
+      ? [
+          {
+            key: "lastDownloaded",
+            label: "Last downloaded",
+            render: (f: FileRecord) => {
+              const a = access[f.id];
+              if (!a) return <span className="text-text-muted">Never</span>;
+              const times = `${a.downloads} download${a.downloads === 1 ? "" : "s"}`;
+              return (
+                <Tooltip label={a.lastByName ? `${times} · last by ${a.lastByName}` : times}>
+                  <span className="text-text-muted">{formatDate(a.lastAt)}</span>
+                </Tooltip>
+              );
+            },
+            sortValue: (f: FileRecord) => access[f.id]?.lastAt ?? "",
+          } satisfies DataTableColumn<FileRecord>,
+        ]
+      : []),
     {
       key: "storage",
       label: "Stored",
@@ -292,7 +348,7 @@ export function FilesTab({
               <MenuItem icon="download" label="Download" onClick={() => downloadFile(f.id)} />
             </KebabMenu>
           )}
-          source="files table · bytes in private blob storage"
+          source={storageNote}
           updatedAt={latest ? `Latest ${formatDate(latest)}` : undefined}
         />
       )}

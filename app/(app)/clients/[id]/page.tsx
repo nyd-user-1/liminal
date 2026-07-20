@@ -4,7 +4,7 @@ import { logEvent } from "@/lib/audit";
 import { listAppointments } from "@/lib/repos/appointments";
 import { getClient, listClients, listPractitioners } from "@/lib/repos/clients";
 import { listReferrals } from "@/lib/repos/directory";
-import { listFiles } from "@/lib/repos/files";
+import { fileAccessHistory, listFiles } from "@/lib/repos/files";
 import { clientBillingSummary, listInvoices } from "@/lib/repos/invoices";
 import { listPayers, listPolicies } from "@/lib/repos/policies";
 import { listServices } from "@/lib/repos/services";
@@ -52,6 +52,9 @@ export default async function ClientDetailPage({
     ]);
   await logEvent({ actorId: user?.id ?? null, action: "client.view", entity: "client", entityId: id });
 
+  // Needs the file ids, so it follows the batch rather than joining it.
+  const fileAccess = await fileAccessHistory(files.map((f) => f.id));
+
   // Photon's org id rides on the M2M token, so it follows the credentials from
   // sandbox to production instead of needing its own env var. A Photon outage
   // must not take the whole client record down — the Rx card degrades alone.
@@ -64,6 +67,7 @@ export default async function ClientDetailPage({
     policies,
     payers,
     files,
+    fileAccess,
     appointments,
     invoices,
     referrals,

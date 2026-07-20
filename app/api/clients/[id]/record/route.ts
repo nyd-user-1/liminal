@@ -4,7 +4,7 @@ import { logEvent } from "@/lib/audit";
 import { listAppointments } from "@/lib/repos/appointments";
 import { getClient, listPractitioners } from "@/lib/repos/clients";
 import { listReferrals } from "@/lib/repos/directory";
-import { listFiles } from "@/lib/repos/files";
+import { fileAccessHistory, listFiles } from "@/lib/repos/files";
 import { clientBillingSummary, listInvoices } from "@/lib/repos/invoices";
 import { listPayers, listPolicies } from "@/lib/repos/policies";
 import { listServices } from "@/lib/repos/services";
@@ -51,6 +51,9 @@ export async function GET(_req: NextRequest, { params }: Params) {
       ]);
     await logEvent({ actorId: user.id, action: "client.view", entity: "client", entityId: id });
 
+    // Needs the file ids, so it follows the batch rather than joining it.
+    const fileAccess = await fileAccessHistory(files.map((f) => f.id));
+
     // A Photon outage must not take the record down — the Rx card degrades
     // alone, the same bargain the page strikes.
     const orgId = hasPhoton ? await photonOrgId().catch(() => "") : "";
@@ -62,6 +65,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
       policies,
       payers,
       files,
+      fileAccess,
       appointments,
       invoices,
       referrals,

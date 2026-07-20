@@ -1,8 +1,8 @@
 import { EmptyState } from "@/components/ui/empty-state";
 import { logEvent } from "@/lib/audit";
-import { listFiles } from "@/lib/repos/files";
+import { fileAccessHistory, listFiles } from "@/lib/repos/files";
 import { authorNames, listAmendmentsFor, listNotes } from "@/lib/repos/notes";
-import { requirePortalClient } from "../data";
+import { portalFileAccess, requirePortalClient } from "../data";
 import { RecordsList } from "./records-list";
 
 // Portal Records — finalised clinical notes (view-only Modal) + shared files.
@@ -39,6 +39,12 @@ export default async function PortalRecordsPage() {
   ]);
   await logEvent({ actorId: user.id, action: "portal.records.view", entity: "client", entityId: client.id });
 
+  // The accounting of who retrieved this client's documents. Scoped to THEIR
+  // file ids, so no other client's activity can reach this page. Only two kinds
+  // of actor can appear: the client themself, or practice staff — the download
+  // proxy refuses everyone else, so an actor that is not this user is staff.
+  const access = await fileAccessHistory(files.map((f) => f.id));
+
   return (
     <>
       <RecordsList
@@ -55,14 +61,18 @@ export default async function PortalRecordsPage() {
             authorName: names[a.authorId] ?? "Practitioner",
           })),
         }))}
-        files={files.map((f) => ({
-          id: f.id,
-          name: f.name,
-          sizeBytes: f.sizeBytes,
-          createdAt: f.createdAt,
-          uploaderName: names[f.uploaderId] ?? "Your care team",
-          isDemo: f.provenance === "demo_seed",
-        }))}
+        files={files.map((f) => {
+          const a = access[f.id];
+          return {
+            id: f.id,
+            name: f.name,
+            sizeBytes: f.sizeBytes,
+            createdAt: f.createdAt,
+            uploaderName: names[f.uploaderId] ?? "Your care team",
+            isDemo: f.provenance === "demo_seed",
+            access: portalFileAccess(a, user.id),
+          };
+        })}
       />
     </>
   );

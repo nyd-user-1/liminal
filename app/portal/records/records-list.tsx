@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { MenuItem } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Icon } from "@/components/ui/icons";
 import { KebabMenu } from "@/components/ui/kebab-menu";
 import { LibraryCard } from "@/components/ui/library-card";
 import { Modal } from "@/components/ui/modal";
@@ -14,6 +15,7 @@ import { Select } from "@/components/ui/select";
 import { Tabs } from "@/components/ui/tabs";
 import { Tag, type TagHue } from "@/components/ui/tag";
 import { Toolbar } from "@/components/ui/toolbar";
+import { Tooltip } from "@/components/ui/tooltip";
 import { formatDate } from "@/lib/format";
 
 // Portal Records — content tabs (All / Clinical notes / Documents) over a
@@ -52,6 +54,9 @@ interface FileItem {
   /** Seeded demo rows are real files with real bytes, but they weren't put
    *  here by the practice — the row says so rather than passing as clinical. */
   isDemo: boolean;
+  /** Who last retrieved this document, from the audit trail. Null = nobody has
+   *  downloaded it yet, which is a fact worth stating rather than a blank. */
+  access: { who: string; detail: string } | null;
 }
 
 function formatSize(bytes: number): string {
@@ -142,6 +147,9 @@ type RecordRow = {
   note: NoteItem | null;
   /** Set for a document — downloads through the proxy. */
   fileId: string | null;
+  /** Documents only: who last downloaded it. Notes are read in a modal and
+   *  write no per-note row, so theirs stays null rather than implying one. */
+  access: { who: string; detail: string } | null;
 };
 
 const cardGrid = (children: ReactNode) => (
@@ -170,6 +178,7 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
         amended: n.amendments.length > 0,
         note: n,
         fileId: null,
+        access: null,
       })),
     [notes],
   );
@@ -191,6 +200,7 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
           amended: false,
           note: null,
           fileId: f.id,
+          access: f.access,
         };
       }),
     [files],
@@ -264,6 +274,25 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
       label: "Shared by",
       render: (r) => <span className="text-text-muted">{r.sharedBy}</span>,
       sortValue: (r) => r.sharedBy.toLowerCase(),
+    },
+    {
+      // An accounting of who retrieved each document — the audit trail turned
+      // back toward the person the records are about. A note has no entry
+      // because opening one in the modal writes no per-note row; claiming
+      // otherwise would be the kind of overstatement this column exists to
+      // avoid.
+      key: "downloadedBy",
+      label: "Downloaded by",
+      render: (r) => {
+        if (!r.fileId) return <span className="text-text-muted">—</span>;
+        if (!r.access) return <span className="text-text-muted">Not yet</span>;
+        return (
+          <Tooltip label={r.access.detail}>
+            <span className="text-text-muted">{r.access.who}</span>
+          </Tooltip>
+        );
+      },
+      sortValue: (r) => r.access?.who.toLowerCase() ?? "",
     },
     {
       key: "size",
@@ -357,6 +386,21 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
         onChange={setTab}
         items={[{ key: "all", label: "All" }, ...SECTIONS.map((s) => ({ key: s.key, label: s.title }))]}
       />
+
+      {/* The trust line, in the patient's own words. Every clause is one the
+          blob-privacy audit measured (docs/reports/2026-07-20-blob-privacy-audit.md):
+          a private bucket separate from the public one, a storage URL that
+          serves nothing without an authorized sign-in, a recorded download. It
+          says NOTHING about encryption — that was never tested. Scoped to
+          DOCUMENTS deliberately: a note opens in a modal and writes no
+          per-note row, so it has no download to account for. */}
+      <p className="mb-4 flex shrink-0 items-start gap-2 text-[13px] text-text-muted">
+        {/* items-start, not items-center: the line wraps at narrow widths and a
+            centred icon would float between the two lines. */}
+        <Icon name="lock" size={14} className="mt-0.5 shrink-0" />
+        Documents are stored privately — a storage link opens nothing without your sign-in. Every download is recorded,
+        and the Downloaded by column shows who.
+      </p>
 
       {view === "table" ? (
         // Height-bounded so the card ends above the viewport and the rows scroll

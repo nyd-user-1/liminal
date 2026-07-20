@@ -109,6 +109,91 @@ export async function uploaderNames(ids: string[]): Promise<Record<string, strin
   return Object.fromEntries(unique.filter((id) => users.has(id)).map((id) => [id, users.get(id)!.name]));
 }
 
+/** How many times a document's bytes went out, and to whom most recently. */
+export interface FileAccess {
+  /** Successful byte deliveries. */
+  downloads: number;
+  /** The most recent delivery, ISO. */
+  lastAt: string;
+  /** User id of the most recent downloader — null if the actor no longer resolves. */
+  lastById: string | null;
+  /** Display name of the most recent downloader — null if it no longer resolves. */
+  lastByName: string | null;
+}
+
+/**
+ * Download history for a set of documents, keyed by file id. Files that were
+ * never downloaded are simply absent from the result.
+ *
+ * Counts `file.download` and NOTHING else, deliberately:
+ *
+ *  - A successful download writes BOTH `file.view` (once authorized) and
+ *    `file.download` (once the bytes are out), so counting the two together
+ *    would double every access.
+ *  - `file.view` rows written before af5b0e3 cannot be trusted. The download
+ *    handler audited its lookup BEFORE authorizing, so a REFUSED request left a
+ *    `file.view` behind claiming an access that never happened. Those phantoms
+ *    have no `file.download` next to them, so counting deliveries steps around
+ *    them instead of surfacing a view that never occurred.
+ *
+ * The number therefore means exactly one thing: the bytes were served this many
+ * times. Not audited itself — asking who touched a record is not a record read,
+ * and both surfaces that call this already log their own view.
+ */
+export async function fileAccessHistory(fileIds: string[]): Promise<Record<string, FileAccess>> {
+  const ids = [...new Set(fileIds.filter(Boolean))];
+  if (ids.length === 0) return {};
+
+  if (hasDb) {
+    const rows = (await sql`
+      SELECT a.entity_id,
+             count(*)::int                            AS downloads,
+             max(a.at)                                AS last_at,
+             (array_agg(a.actor_id ORDER BY a.at DESC))[1] AS last_by_id,
+             (array_agg(u.name     ORDER BY a.at DESC))[1] AS last_by_name
+        FROM audit_events a
+        LEFT JOIN users u ON u.id = a.actor_id
+       WHERE a.entity = 'file'
+         AND a.action = 'file.download'
+         AND a.entity_id = ANY(${ids}::text[])
+       GROUP BY a.entity_id
+    `) as Array<{
+      entity_id: string;
+      downloads: number;
+      last_at: string | Date;
+      last_by_id: string | null;
+      last_by_name: string | null;
+    }>;
+    return Object.fromEntries(
+      rows.map((r) => [
+        r.entity_id,
+        {
+          downloads: Number(r.downloads),
+          lastAt: isoDateTime(r.last_at),
+          lastById: r.last_by_id,
+          lastByName: r.last_by_name,
+        },
+      ]),
+    );
+  }
+
+  const wanted = new Set(ids);
+  const users = mockStore().users;
+  const out: Record<string, FileAccess> = {};
+  for (const e of mockStore().auditEvents) {
+    if (e.entity !== "file" || e.action !== "file.download" || !e.entityId || !wanted.has(e.entityId)) continue;
+    const prev = out[e.entityId];
+    // Events accumulate in order, so a later row is always the more recent one.
+    out[e.entityId] = {
+      downloads: (prev?.downloads ?? 0) + 1,
+      lastAt: e.at,
+      lastById: e.actorId,
+      lastByName: e.actorId ? (users.get(e.actorId)?.name ?? null) : null,
+    };
+  }
+  return out;
+}
+
 export interface SaveFileMeta {
   clientId: string;
   uploaderId: string;

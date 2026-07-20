@@ -10,12 +10,12 @@ import { hasPhoton, getPhotonPreferredPharmacies, listPhotonPatientOrders, listP
 import { listAppointments } from "@/lib/repos/appointments";
 import { listPractitioners } from "@/lib/repos/clients";
 import { listReferrals } from "@/lib/repos/directory";
-import { listFiles } from "@/lib/repos/files";
+import { fileAccessHistory, listFiles } from "@/lib/repos/files";
 import { getInvoice, listInvoices } from "@/lib/repos/invoices";
 import { authorNames, listAmendmentsFor, listNotes } from "@/lib/repos/notes";
 import { listPayers, listPolicies } from "@/lib/repos/policies";
 import { hasStripe } from "@/lib/stripe";
-import { requirePortalClient } from "./data";
+import { portalFileAccess, requirePortalClient } from "./data";
 import { MedicationsList } from "./medications/medications-list";
 import { InvoicesList } from "./invoices/invoices-list";
 import { RecordsList } from "./records/records-list";
@@ -78,6 +78,9 @@ export default async function PortalHomePage() {
   ]);
   const sharedNotes = notes.filter((n) => n.status !== "draft");
   const amendmentsByNote = await listAmendmentsFor(sharedNotes.map((n) => n.id));
+  // Scoped to this client's own file ids — no other client's activity is
+  // reachable from here. Needs the ids, so it follows the batch above.
+  const fileAccess = await fileAccessHistory(files.map((f) => f.id));
 
   // Invoices: same shape the standalone portal Invoices page builds — drafts
   // stay hidden until the practice sends them.
@@ -169,6 +172,7 @@ export default async function PortalHomePage() {
                   createdAt: f.createdAt,
                   uploaderName: noteAuthors[f.uploaderId] ?? "Your care team",
                   isDemo: f.provenance === "demo_seed",
+                  access: portalFileAccess(fileAccess[f.id], user.id),
                 }))}
               />
             ),
@@ -207,7 +211,9 @@ export default async function PortalHomePage() {
             key: "files",
             label: "Files",
             count: files.length,
-            content: <FilesTab clientId={client.id} files={files} uploaderNames={noteAuthors} readOnly />,
+            content: (
+              <FilesTab clientId={client.id} files={files} uploaderNames={noteAuthors} access={fileAccess} readOnly />
+            ),
           },
         ]}
       />
