@@ -84,12 +84,27 @@ export async function PATCH(req: Request, { params }: Ctx) {
   }
 }
 
-/** DELETE /api/notes/:id — soft delete (clinical data is never hard-deleted). */
+/**
+ * DELETE /api/notes/:id — soft delete, drafts only. A signed note cannot be
+ * deleted (409); it is corrected with an amendment, like any other
+ * post-signature error.
+ */
 export async function DELETE(_req: Request, { params }: Ctx) {
   try {
     const user = await requireRole("practitioner");
     const { id } = await params;
-    const ok = await deleteNote(id);
+    let ok: boolean;
+    try {
+      ok = await deleteNote(id);
+    } catch (e) {
+      if (e instanceof NoteLockedError) {
+        return NextResponse.json(
+          { error: "This note is signed and cannot be deleted. File an amendment instead." },
+          { status: 409 },
+        );
+      }
+      throw e;
+    }
     if (!ok) return NextResponse.json({ error: "Note not found." }, { status: 404 });
     await logEvent({ actorId: user.id, action: "note.delete", entity: "note", entityId: id });
     return NextResponse.json({ ok: true });

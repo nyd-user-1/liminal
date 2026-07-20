@@ -213,8 +213,18 @@ export async function signNote(id: string): Promise<Note | null> {
   return next;
 }
 
-/** Soft delete — clinical data is never hard-deleted. */
+/**
+ * Soft delete — clinical data is never hard-deleted, and a SIGNED note cannot
+ * be deleted at all. Refusing the edit but allowing the delete would have been
+ * incoherent: a delete is the most complete silent edit there is, and a signed
+ * note is an attestation that someone made. A note signed onto the wrong chart
+ * is corrected the same way every other post-signature error is — an amendment
+ * saying so. Drafts remain freely deletable.
+ */
 export async function deleteNote(id: string): Promise<boolean> {
+  const existing = await readNote(id);
+  if (!existing) return false;
+  if (!isEditable(existing)) throw new NoteLockedError(id);
   if (hasDb) {
     const rows = (await sql`
       UPDATE notes SET deleted_at = now(), updated_at = now()
