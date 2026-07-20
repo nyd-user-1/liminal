@@ -13,9 +13,12 @@ import { getStripe } from "@/lib/stripe";
  * any signed-in practitioner mint a session for someone else's account and read
  * their balances and payouts.
  *
- * Component set matches the "Get paid" surface (T3): onboarding, the
- * notification banner (Stripe's own "you need to do X" strip), account
- * management, and the money views.
+ * Component set serves BOTH provider surfaces: the "Get paid" card (T3 —
+ * onboarding, the notification banner, account management) and the Earnings
+ * page (payments/payment_details/payouts/payouts_list/balances — founder go
+ * 2026-07-20). payment_details is what renders the application-fee split per
+ * charge. disputes_list is deliberately absent: destination charges put
+ * disputes on the PLATFORM, so a connected account's list is empty by design.
  */
 export const dynamic = "force-dynamic";
 
@@ -42,6 +45,9 @@ export async function POST(req: NextRequest) {
         account_management: { enabled: true },
         balances: { enabled: true },
         payouts: { enabled: true },
+        payouts_list: { enabled: true },
+        payments: { enabled: true },
+        payment_details: { enabled: true },
       },
     });
 
