@@ -232,8 +232,12 @@ never happened and the "active" gate was crossed on stale data. Capture the
 ledger rows verbatim in the report.
 
 ```bash
-psql "$DATABASE_URL" -c "select event_id, type, account_scope, processed_at, error from stripe_events order by created_at;"
+psql "$DATABASE_URL" -c "select id, type, stripe_account_id, processed_at, error from stripe_events order by received_at;"
 ```
+
+(`stripe_account_id` is NULL for platform-scope events and the `acct_…` for
+connected-scope events, so it doubles as the scope check — one row with it NULL
+`checkout.session.completed`, one with it set `account.updated`.)
 
 For `INV-2026-9003` the expected result is:
 
