@@ -319,6 +319,34 @@ export async function recordPaymentSplit(input: {
   });
 }
 
+/**
+ * Backfill the transfer id onto an existing split.
+ *
+ * For a destination charge the Transfer does NOT exist yet when
+ * checkout.session.completed fires — Stripe creates it moments later and
+ * announces it as its own `transfer.created` event. So the split is written
+ * with transfer_id NULL and stays that way unless something reconciles it,
+ * which left the audit record permanently incomplete (measured 2026-07-20).
+ *
+ * Returns false when no split matches — that is normal for transfers we didn't
+ * originate, not an error.
+ */
+export async function attachTransferToSplit(paymentIntentId: string, transferId: string): Promise<boolean> {
+  if (hasDb) {
+    const rows = (await sql`
+      UPDATE stripe_payment_splits
+      SET transfer_id = ${transferId}
+      WHERE payment_intent_id = ${paymentIntentId} AND transfer_id IS NULL
+      RETURNING id
+    `) as Array<{ id: string }>;
+    return rows.length > 0;
+  }
+  const s = mock().splits.get(paymentIntentId);
+  if (!s || s.transferId) return false;
+  s.transferId = transferId;
+  return true;
+}
+
 /** Splits for one connected account, newest first — the "you've been paid" feed. */
 export async function listPaymentSplits(
   destinationAccountId: string,

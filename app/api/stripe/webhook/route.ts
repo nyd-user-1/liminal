@@ -4,6 +4,7 @@ import { logEvent } from "@/lib/audit";
 import { sendDisputeAlert, sendPaymentReceipt, sendTherapistPaid } from "@/lib/email/stripe-notifications";
 import { getInvoice, recordPayment } from "@/lib/repos/invoices";
 import {
+  attachTransferToSplit,
   claimStripeEvent,
   completeStripeEvent,
   connectAccountContact,
@@ -78,6 +79,9 @@ export async function POST(req: NextRequest) {
       case "payout.paid":
       case "payout.failed":
         await handlePayout(event.type, event.data.object as Stripe.Payout, event.account ?? null);
+        break;
+      case "transfer.created":
+        await handleTransferCreated(event.data.object as Stripe.Transfer);
         break;
       case "charge.dispute.created":
         await handleDispute(event.data.object as Stripe.Dispute);
@@ -212,6 +216,46 @@ async function handleAccountUpdated(account: Stripe.Account) {
       stripeAccount: account.id,
       chargesEnabled: synced.chargesEnabled,
       payoutsEnabled: synced.payoutsEnabled,
+    },
+  });
+}
+
+/**
+ * Completes the audit record. A destination charge's Transfer does not exist
+ * when checkout.session.completed fires — Stripe creates it moments afterwards
+ * and announces it here — so the split row is written with transfer_id NULL and
+ * would stay that way forever. Measured 2026-07-20: money always correct, audit
+ * record permanently incomplete, which is the one thing that table exists for.
+ *
+ * `transfer_group` is `group_<payment_intent_id>` for a destination charge, so
+ * the link needs no extra API call; `source_transaction` (the charge) is the
+ * fallback path when the group isn't in that shape.
+ *
+ * NOTE ON THE ECONOMICS (the intuitive model is wrong): the transfer moves the
+ * FULL charge amount, and the application fee is deducted on the CONNECTED
+ * side. So transfer.amount == gross ($150), NOT gross − fee. The therapist's
+ * $135 is the net on their own balance transaction.
+ */
+async function handleTransferCreated(transfer: Stripe.Transfer) {
+  const group = transfer.transfer_group ?? "";
+  let paymentIntentId = group.startsWith("group_pi_") ? group.slice("group_".length) : null;
+  if (!paymentIntentId && typeof transfer.source_transaction === "string") {
+    paymentIntentId = null; // charge id, not a PI — left for a future reconcile pass
+  }
+  if (!paymentIntentId) return;
+
+  const attached = await attachTransferToSplit(paymentIntentId, transfer.id);
+  if (!attached) return; // not ours, or already reconciled
+  await logEvent({
+    actorId: null,
+    action: "payment.split_transfer_attached",
+    entity: "invoice",
+    entityId: null,
+    meta: {
+      transfer: transfer.id,
+      payment_intent: paymentIntentId,
+      destination: typeof transfer.destination === "string" ? transfer.destination : (transfer.destination?.id ?? null),
+      amount_cents: transfer.amount,
     },
   });
 }
