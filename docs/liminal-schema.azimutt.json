@@ -1,0 +1,6499 @@
+{
+  "tables": [
+    {
+      "schema": "public",
+      "table": "appointments",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "client_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "practitioner_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "service_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "location_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "name": "starts_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "ends_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "video_room",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "booked_via",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "notes_brief",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "cancelled_reason",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "appointments_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Calendar events tying client + practitioner + service + location with a status lifecycle."
+    },
+    {
+      "schema": "public",
+      "table": "audit_events",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false
+        },
+        {
+          "name": "actor_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "name": "action",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "entity",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "entity_id",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "meta",
+          "type": "jsonb",
+          "nullable": false
+        },
+        {
+          "name": "at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "audit_events_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Append-only PHI access/change log (HIPAA); no UPDATE/DELETE ever."
+    },
+    {
+      "schema": "public",
+      "table": "availability",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "practitioner_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "weekday",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "start_time",
+          "type": "time without time zone",
+          "nullable": false
+        },
+        {
+          "name": "end_time",
+          "type": "time without time zone",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "availability_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Weekly recurring bookable windows per practitioner (weekday 0=Sun)."
+    },
+    {
+      "schema": "public",
+      "table": "clients",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "name": "first_name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "last_name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "dob",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "email",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "phone",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "address",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "gender",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "pronouns",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "tags",
+          "type": "text[]",
+          "nullable": false
+        },
+        {
+          "name": "primary_practitioner_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "photon_patient_id",
+          "type": "text",
+          "nullable": true
+        }
+      ],
+      "primaryKey": {
+        "name": "clients_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Patient/client records; user_id links an optional portal login. PHI."
+    },
+    {
+      "schema": "public",
+      "table": "cms_gpci",
+      "columns": [
+        {
+          "name": "state",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "locality_code",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "locality_name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "mac",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "gpci_work",
+          "type": "numeric(7,3)",
+          "nullable": false
+        },
+        {
+          "name": "gpci_pe",
+          "type": "numeric(7,3)",
+          "nullable": false
+        },
+        {
+          "name": "gpci_mp",
+          "type": "numeric(7,3)",
+          "nullable": false
+        },
+        {
+          "name": "source_release",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "effective_year",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "cms_gpci_pkey",
+        "columns": "{state,locality_code,effective_year}"
+      },
+      "comment": "Geographic practice cost indices, 109 localities. NY has five (Manhattan · NYC Suburbs/LI · Poughkeepsie · Queens · Rest of NY) — the geography multiplier that makes the same code pay differently in Manhattan and Buffalo."
+    },
+    {
+      "schema": "public",
+      "table": "cms_pfs_config",
+      "columns": [
+        {
+          "name": "key",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "value",
+          "type": "numeric",
+          "nullable": false
+        },
+        {
+          "name": "source",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "effective_year",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "cms_pfs_config_pkey",
+        "columns": "{key}"
+      },
+      "comment": "PFS scalars — the dollars-per-RVU conversion factors that turn relative units into money. CY2026 ships two ($33.4009 non-APM, which the benchmark uses, and $33.5675 for qualifying APM participants)."
+    },
+    {
+      "schema": "public",
+      "table": "cms_rvu",
+      "columns": [
+        {
+          "name": "hcpcs_code",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "modifier",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "status_code",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "work_rvu",
+          "type": "numeric(9,2)",
+          "nullable": true
+        },
+        {
+          "name": "pe_rvu_nonfacility",
+          "type": "numeric(9,2)",
+          "nullable": true
+        },
+        {
+          "name": "pe_rvu_facility",
+          "type": "numeric(9,2)",
+          "nullable": true
+        },
+        {
+          "name": "mp_rvu",
+          "type": "numeric(9,2)",
+          "nullable": true
+        },
+        {
+          "name": "total_rvu_nonfacility",
+          "type": "numeric(9,2)",
+          "nullable": true
+        },
+        {
+          "name": "total_rvu_facility",
+          "type": "numeric(9,2)",
+          "nullable": true
+        },
+        {
+          "name": "global_period",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "source_release",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "effective_year",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "cms_rvu_pkey",
+        "columns": "{hcpcs_code,modifier,effective_year}"
+      },
+      "comment": "PFS Relative Value File: work/PE/MP RVUs per code × modifier. Deliberately carries NO descriptor column — that text is AMA-licensed to CMS, not to us."
+    },
+    {
+      "schema": "public",
+      "table": "cpt_codes",
+      "columns": [
+        {
+          "name": "code",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "display_name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "patient_friendly_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "category",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "active",
+          "type": "boolean",
+          "nullable": false
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "cpt_codes_pkey",
+        "columns": "{code}"
+      },
+      "comment": "OUR OWN plain-language names for the behavioral billing codes (20 codes) — never AMA descriptor text, which is licensed. The single source of display labels (lib/cpt-labels.generated.ts regenerates from it); the five live codes match RATE_CODES in lib/rate-table.ts."
+    },
+    {
+      "schema": "public",
+      "table": "dfs_insurers",
+      "columns": [
+        {
+          "name": "cpat_num",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "naic",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "org_type",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "domicile",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "group_code",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "group_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "fein",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "website",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "loaded_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "dfs_insurers_pkey",
+        "columns": "{cpat_num}"
+      },
+      "comment": "NYS DFS company directory, health org types + Life. One row per licensed legal entity; NAIC code + NAIC group + FEIN as filed with the regulator. Loaded by scripts/ingest-dfs-insurers.mjs."
+    },
+    {
+      "schema": "public",
+      "table": "directory_programs",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "agency",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "facility",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "program_name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "program_type",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "populations",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "address",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "city",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "county",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "zip",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "phone",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "source",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "source_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "raw",
+          "type": "jsonb",
+          "nullable": true
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "directory_programs_pkey",
+        "columns": "{id}"
+      },
+      "comment": "OMH state-licensed treatment programs — the clinics, not the clinicians; powers /programs and the portal resources."
+    },
+    {
+      "schema": "public",
+      "table": "directory_providers",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "npi",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "profession",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "license_no",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "taxonomy",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "address",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "city",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "county",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "zip",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "phone",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "source",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "source_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "raw",
+          "type": "jsonb",
+          "nullable": true
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "entity_type",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "primary_taxonomy",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "subspecialty",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "taxonomies",
+          "type": "text[]",
+          "nullable": true
+        },
+        {
+          "name": "credential",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "gender",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "license_state",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "enumeration_date",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "last_update_date",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "deactivated_at",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "deactivation_reason",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "reactivated_at",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "is_sole_proprietor",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "name": "parent_org",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "medicaid_id",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "slug",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "first_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "last_name",
+          "type": "text",
+          "nullable": true
+        }
+      ],
+      "primaryKey": {
+        "name": "directory_providers_pkey",
+        "columns": "{id}"
+      },
+      "comment": "NY behavioral-health provider book; one row per (source, source_id). Rows exceed distinct NPIs because one clinician arrives from several sources; person-level merge open (NYS-34)."
+    },
+    {
+      "schema": "public",
+      "table": "employers",
+      "columns": [
+        {
+          "name": "ein",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "market_type",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "state",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "self_funded",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "name": "plan_count",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "source",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "first_seen",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "name": "last_seen",
+          "type": "date",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "employers_pkey",
+        "columns": "{ein}"
+      },
+      "comment": "Plan sponsors from the Aetna ToC (EIN-keyed) — the employers behind the plans we hold rates for."
+    },
+    {
+      "schema": "public",
+      "table": "fhir_healthcare_services",
+      "columns": [
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "org_ref",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "location_refs",
+          "type": "text[]",
+          "nullable": true
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "categories",
+          "type": "text[]",
+          "nullable": true
+        },
+        {
+          "name": "service_types",
+          "type": "text[]",
+          "nullable": true
+        },
+        {
+          "name": "specialties",
+          "type": "text[]",
+          "nullable": true
+        },
+        {
+          "name": "delivery_methods",
+          "type": "text[]",
+          "nullable": true
+        },
+        {
+          "name": "telehealth",
+          "type": "boolean",
+          "nullable": false
+        },
+        {
+          "name": "languages",
+          "type": "text[]",
+          "nullable": true
+        },
+        {
+          "name": "last_updated",
+          "type": "timestamp with time zone",
+          "nullable": true
+        },
+        {
+          "name": "source",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "raw",
+          "type": "jsonb",
+          "nullable": true
+        },
+        {
+          "name": "ingested_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "fhir_healthcare_services_pkey",
+        "columns": "{id}"
+      },
+      "comment": "What a payer says is offered where — the payer's own service taxonomy, not ours."
+    },
+    {
+      "schema": "public",
+      "table": "fhir_insurance_plans",
+      "columns": [
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "plan_key",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "plan_type",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "owned_by_ref",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "coverage_area",
+          "type": "text[]",
+          "nullable": true
+        },
+        {
+          "name": "network_refs",
+          "type": "text[]",
+          "nullable": true
+        },
+        {
+          "name": "last_updated",
+          "type": "timestamp with time zone",
+          "nullable": true
+        },
+        {
+          "name": "source",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "raw",
+          "type": "jsonb",
+          "nullable": true
+        },
+        {
+          "name": "ingested_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "fhir_insurance_plans_pkey",
+        "columns": "{id}"
+      },
+      "comment": "The InsurancePlan/product objects payers publish alongside their network labels."
+    },
+    {
+      "schema": "public",
+      "table": "fhir_locations",
+      "columns": [
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "phone",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "address",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "city",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "state",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "zip",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "lat",
+          "type": "double precision",
+          "nullable": true
+        },
+        {
+          "name": "lng",
+          "type": "double precision",
+          "nullable": true
+        },
+        {
+          "name": "accessibility",
+          "type": "text[]",
+          "nullable": true
+        },
+        {
+          "name": "hours",
+          "type": "jsonb",
+          "nullable": true
+        },
+        {
+          "name": "last_updated",
+          "type": "timestamp with time zone",
+          "nullable": true
+        },
+        {
+          "name": "source",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "raw",
+          "type": "jsonb",
+          "nullable": true
+        },
+        {
+          "name": "ingested_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "fhir_locations_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Practice sites from payer FHIR directories (national, not NY-only) — the addresses behind a network listing."
+    },
+    {
+      "schema": "public",
+      "table": "fhir_org_affiliations",
+      "columns": [
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "primary_org_ref",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "primary_org_display",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "participating_org_ref",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "participating_display",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "network_refs",
+          "type": "text[]",
+          "nullable": true
+        },
+        {
+          "name": "network_names",
+          "type": "text[]",
+          "nullable": true
+        },
+        {
+          "name": "location_refs",
+          "type": "text[]",
+          "nullable": true
+        },
+        {
+          "name": "service_refs",
+          "type": "text[]",
+          "nullable": true
+        },
+        {
+          "name": "specialties",
+          "type": "text[]",
+          "nullable": true
+        },
+        {
+          "name": "last_updated",
+          "type": "timestamp with time zone",
+          "nullable": true
+        },
+        {
+          "name": "source",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "raw",
+          "type": "jsonb",
+          "nullable": true
+        },
+        {
+          "name": "ingested_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "fhir_org_affiliations_pkey",
+        "columns": "{id}"
+      },
+      "comment": "How a payer wires its orgs to its networks (org ↔ network/org relationships as published)."
+    },
+    {
+      "schema": "public",
+      "table": "fhir_organizations",
+      "columns": [
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "npi",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "org_type",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "is_network",
+          "type": "boolean",
+          "nullable": false
+        },
+        {
+          "name": "taxonomy",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "phone",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "address",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "city",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "state",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "zip",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "last_updated",
+          "type": "timestamp with time zone",
+          "nullable": true
+        },
+        {
+          "name": "source",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "raw",
+          "type": "jsonb",
+          "nullable": true
+        },
+        {
+          "name": "ingested_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "fhir_organizations_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Org entities from payer FHIR directories (groups, facilities), as the payer models them."
+    },
+    {
+      "schema": "public",
+      "table": "files",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "client_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "uploader_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "mime",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "size_bytes",
+          "type": "bigint",
+          "nullable": false
+        },
+        {
+          "name": "url",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "kind",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "files_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Client documents: portal uploads, rendered form PDFs, generated superbills. PHI."
+    },
+    {
+      "schema": "public",
+      "table": "form5500_filings",
+      "columns": [
+        {
+          "name": "ein",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "plan_number",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "plan_year",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "ack_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "plan_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "sponsor_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "sponsor_dba",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "sponsor_city",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "sponsor_state",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "sponsor_zip",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "business_code",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "participants",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "active_participants",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "welfare_codes",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "has_health_code",
+          "type": "boolean",
+          "nullable": false
+        },
+        {
+          "name": "funding_insurance",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "name": "funding_trust",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "name": "funding_gen_asset",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "name": "benefit_insurance",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "name": "benefit_trust",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "name": "benefit_gen_asset",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "name": "num_sch_a",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "collective_bargain",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "name": "final_filing",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "name": "date_received",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "form_year",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "loaded_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "form5500_filings_pkey",
+        "columns": "{ein,plan_number,plan_year}"
+      },
+      "comment": "DOL/EFAST2 Form 5500 health/welfare filings — the de-facto plan registry (the HPID never shipped). EIN-keyed, joins straight onto employers/plans/tin_registry (NYS-101)."
+    },
+    {
+      "schema": "public",
+      "table": "form5500_schedule_a",
+      "columns": [
+        {
+          "name": "ack_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "form_id",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "ein",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "plan_number",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "plan_year",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "carrier_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "carrier_ein",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "carrier_naic",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "contract_number",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "covered_lives",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "policy_from",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "policy_to",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "broker_comm_total",
+          "type": "numeric",
+          "nullable": true
+        },
+        {
+          "name": "broker_fees_total",
+          "type": "numeric",
+          "nullable": true
+        },
+        {
+          "name": "benefit_health",
+          "type": "boolean",
+          "nullable": false
+        },
+        {
+          "name": "benefit_dental",
+          "type": "boolean",
+          "nullable": false
+        },
+        {
+          "name": "benefit_vision",
+          "type": "boolean",
+          "nullable": false
+        },
+        {
+          "name": "benefit_drug",
+          "type": "boolean",
+          "nullable": false
+        },
+        {
+          "name": "benefit_life",
+          "type": "boolean",
+          "nullable": false
+        },
+        {
+          "name": "benefit_stop_loss",
+          "type": "boolean",
+          "nullable": false
+        },
+        {
+          "name": "benefit_hmo",
+          "type": "boolean",
+          "nullable": false
+        },
+        {
+          "name": "benefit_ppo",
+          "type": "boolean",
+          "nullable": false
+        },
+        {
+          "name": "benefit_indemnity",
+          "type": "boolean",
+          "nullable": false
+        },
+        {
+          "name": "benefit_other_text",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "premium_earned",
+          "type": "numeric",
+          "nullable": true
+        },
+        {
+          "name": "premium_received",
+          "type": "numeric",
+          "nullable": true
+        },
+        {
+          "name": "claims_paid",
+          "type": "numeric",
+          "nullable": true
+        },
+        {
+          "name": "form_year",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "loaded_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "form5500_schedule_a_pkey",
+        "columns": "{ack_id,form_id}"
+      },
+      "comment": "Schedule A insurance-contract rows under each 5500 filing — the named carrier + covered-lives behind a plan."
+    },
+    {
+      "schema": "public",
+      "table": "form5500_sf_filings",
+      "columns": [
+        {
+          "name": "ein",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "plan_number",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "plan_year",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "ack_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "plan_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "sponsor_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "sponsor_dba",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "sponsor_city",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "sponsor_state",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "sponsor_zip",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "business_code",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "participants",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "welfare_codes",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "pension_codes",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "has_health_code",
+          "type": "boolean",
+          "nullable": false
+        },
+        {
+          "name": "final_filing",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "name": "date_received",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "form_year",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "loaded_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "form5500_sf_filings_pkey",
+        "columns": "{ein,plan_number,plan_year}"
+      },
+      "comment": "DOL Form 5500-SF (short-form/small-employer) health filings, gated on SF_TYPE_WELFARE_BNFT_CODE ~ 4A. Same bare-EIN key as form5500_filings; separate table (no Schedule A). Populated by scripts/ingest-form5500-sf.mjs."
+    },
+    {
+      "schema": "public",
+      "table": "form_responses",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "form_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "client_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "answers",
+          "type": "jsonb",
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "submitted_at",
+          "type": "timestamp with time zone",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "form_responses_pkey",
+        "columns": "{id}"
+      },
+      "comment": "A form sent to a client and their answers keyed by block id."
+    },
+    {
+      "schema": "public",
+      "table": "forms",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "schema",
+          "type": "jsonb",
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "forms_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Intake/assessment form definitions; schema.blocks = [{id,type,label,options,required}]."
+    },
+    {
+      "schema": "public",
+      "table": "hcpcs_codes",
+      "columns": [
+        {
+          "name": "code",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "long_description",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "short_description",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "pricing_indicator",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "coverage_code",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "bets_code",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "type_of_service",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "added_date",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "action_effective_date",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "termination_date",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "action_code",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "source_release",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "effective_date",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "hcpcs_codes_pkey",
+        "columns": "{code}"
+      },
+      "comment": "CMS HCPCS Level II with OFFICIAL descriptors (public, unlike CPT). Where NY Medicaid behavioral codes live (H0004/H0015/H2019). Vocabulary only — we hold zero rates for these; the MRF scanner's code list is CPT-only."
+    },
+    {
+      "schema": "public",
+      "table": "insurance_policies",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "client_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "payer_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "member_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "group_id",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "kind",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "copay_cents",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "insurance_policies_pkey",
+        "columns": "{id}"
+      },
+      "comment": "A client's coverage with a payer (member/group ids, verification status, copay). PHI."
+    },
+    {
+      "schema": "public",
+      "table": "insurer_aliases",
+      "columns": [
+        {
+          "name": "source",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "label",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "insurer_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "role",
+          "type": "text",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "insurer_aliases_pkey",
+        "columns": "{source,label}"
+      },
+      "comment": "The label crosswalk: (vocabulary, exact label) → canonical insurer. Vocabularies: mrf (provider_rate_signals.payer), source (payer_sources.slug), billing (payers.name), naic (company code, also joins form5500_schedule_a.carrier_naic), naic-group (ownership fallback)."
+    },
+    {
+      "schema": "public",
+      "table": "insurer_companies",
+      "columns": [
+        {
+          "name": "naic",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "insurer_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "ein",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "license_type",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "group_code",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "group_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "domicile",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "source",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "loaded_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "insurer_companies_pkey",
+        "columns": "{naic}"
+      },
+      "comment": "NAIC company backbone (NYS-143): one row per licensed company, anchored to its canonical brand. naic ↔ ein ↔ group ↔ license_type from the DFS Rosetta Stone + form5500-only carriers."
+    },
+    {
+      "schema": "public",
+      "table": "insurers",
+      "columns": [
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "kind",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "parent_id",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "naic_group_code",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "insurers_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Canonical insurer entities (DFS-resolved, sql/043) — the fixed points every payer label maps onto."
+    },
+    {
+      "schema": "public",
+      "table": "invoice_items",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "invoice_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "qty",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "unit_cents",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "amount_cents",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "invoice_items_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Line items; meaningless without their invoice, so they cascade."
+    },
+    {
+      "schema": "public",
+      "table": "invoices",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "number",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "client_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "appointment_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "issued_on",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "due_on",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "subtotal_cents",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "tax_cents",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "total_cents",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "stripe_checkout_id",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "invoices_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Client invoices with human numbers (INV-2026-0001) and a draft→sent→paid/overdue/void lifecycle."
+    },
+    {
+      "schema": "public",
+      "table": "lead_reports",
+      "columns": [
+        {
+          "name": "report_date",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "body_md",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "lead_reports_pkey",
+        "columns": "{report_date}"
+      }
+    },
+    {
+      "schema": "public",
+      "table": "locations",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "address",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "kind",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "locations_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Places of service: physical offices and the telehealth pseudo-location."
+    },
+    {
+      "schema": "public",
+      "table": "messages",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "thread_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "sender_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "body",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "read_at",
+          "type": "timestamp with time zone",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "messages_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Individual secure messages within a thread; read_at marks recipient receipt. PHI."
+    },
+    {
+      "schema": "public",
+      "table": "network_aliases",
+      "columns": [
+        {
+          "name": "source",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "payer_label",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "network_label",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "network_id",
+          "type": "text",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "network_aliases_pkey",
+        "columns": "{source,payer_label,network_label}"
+      },
+      "comment": "The per-source label crosswalk: (fhir|mrf, exact payer label, exact network label) → canonical network. A mapping enters only when proven; unmapped labels stay separate downstream by design."
+    },
+    {
+      "schema": "public",
+      "table": "networks",
+      "columns": [
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "insurer_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "administrator_id",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "kind",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "networks_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Canonical networks + label crosswalk (sql/044, resolves 99.35% of rate rows) — the join point where FHIR and MRF vocabularies meet."
+    },
+    {
+      "schema": "public",
+      "table": "note_templates",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "template",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "body_md",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "is_builtin",
+          "type": "boolean",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "note_templates_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Markdown skeletons (SOAP/DAP/Progress/...) used to pre-fill new clinical notes."
+    },
+    {
+      "schema": "public",
+      "table": "notes",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "client_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "appointment_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "name": "author_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "template",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "body_md",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "signed_at",
+          "type": "timestamp with time zone",
+          "nullable": true
+        },
+        {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "notes_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Clinical documentation (soft-deleted, sign-and-lock lifecycle). PHI."
+    },
+    {
+      "schema": "public",
+      "table": "notifications",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "kind",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "body",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "href",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "read_at",
+          "type": "timestamp with time zone",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "notifications_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Per-user in-app notifications (v1 kind: sync_failure) — the rows behind the TopBar bell (NYS-100). No PHI: pipeline rows name jobs and tables only."
+    },
+    {
+      "schema": "public",
+      "table": "nppes_endpoints",
+      "columns": [
+        {
+          "name": "npi",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "endpoint_type",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "endpoint_type_description",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "endpoint",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "affiliation",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "endpoint_description",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "affiliation_lbn",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "use_code",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "use_description",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "content_type",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "content_description",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "aff_address1",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "aff_city",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "aff_state",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "aff_postal",
+          "type": "text",
+          "nullable": true
+        }
+      ],
+      "primaryKey": {
+        "name": "nppes_endpoints_pkey",
+        "columns": "{npi,endpoint}"
+      },
+      "comment": "NPPES Endpoint reference file: provider-published digital endpoints (FHIR/Direct/REST). Self-attested; presence is not proof an endpoint answers."
+    },
+    {
+      "schema": "public",
+      "table": "nppes_npi",
+      "columns": [
+        {
+          "name": "npi",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "entity_type",
+          "type": "smallint",
+          "nullable": true
+        },
+        {
+          "name": "org_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "last_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "first_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "credential",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "loc_addr1",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "loc_addr2",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "loc_city",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "loc_state",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "loc_zip",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "loc_phone",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "mail_phone",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "sole_proprietor",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "primary_taxonomy",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "enumeration_date",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "last_update",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "deactivation_date",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "reactivation_date",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "ingested_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "addr_key",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "zip5",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "loc_phone_key",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "mail_phone_key",
+          "type": "text",
+          "nullable": true
+        }
+      ],
+      "primaryKey": {
+        "name": "nppes_npi_pkey",
+        "columns": "{npi}"
+      },
+      "comment": "The raw national NPPES registry as loaded — every provider in the country, all specialties. directory_providers is the NY behavioral-health distillation of it."
+    },
+    {
+      "schema": "public",
+      "table": "nppes_organizations",
+      "columns": [
+        {
+          "name": "npi",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "other_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "ein",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "taxonomy",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "address",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "city",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "state",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "zip",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "phone",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "authorized_official",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "is_subpart",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "name": "parent_lbn",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "enumeration_date",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "last_update",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "deactivation_date",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "ingested_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "nppes_organizations_pkey",
+        "columns": "{npi}"
+      },
+      "comment": "NPI-2 (organization) identity records from the NPPES monthly dissemination file — NY practice locations plus every NPI that appears as an 'npi:' billing TIN. CMS suppresses EINs in the public file, so this names npi-TINs directly but cannot name ein-TINs on its own."
+    },
+    {
+      "schema": "public",
+      "table": "nppes_other_names",
+      "columns": [
+        {
+          "name": "npi",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "other_name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "type_code",
+          "type": "text",
+          "nullable": true
+        }
+      ],
+      "primaryKey": {
+        "name": "nppes_other_names_pkey",
+        "columns": "{npi,other_name}"
+      },
+      "comment": "The NPPES Other Name reference file — additional names for NPI-2s, overwhelmingly DBAs ('doing business as'). The display name a patient recognizes usually lives here, not in the opaque Legal Business Name (type_code 3 = DBA). Read by the org-name matcher and the Form 5500 name flywheel."
+    },
+    {
+      "schema": "public",
+      "table": "nppes_sync_log",
+      "columns": [
+        {
+          "name": "file_name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "kind",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "rows_applied",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "applied_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "nppes_sync_log_pkey",
+        "columns": "{file_name}"
+      },
+      "comment": "One row per NPPES file fully applied to nppes_npi. Written only on completion — a missing row means \"not applied\", so re-running is safe and skipping is visible."
+    },
+    {
+      "schema": "public",
+      "table": "nucc_taxonomy",
+      "columns": [
+        {
+          "name": "code",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "grouping",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "classification",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "specialization",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "definition",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "display_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "section",
+          "type": "text",
+          "nullable": true
+        }
+      ],
+      "primaryKey": {
+        "name": "nucc_taxonomy_pkey",
+        "columns": "{code}"
+      },
+      "comment": "The NUCC Health Care Provider Taxonomy code set (883 codes, v26.0) — the reference that makes a taxonomy code legible (grouping / classification / specialization). Reference/display only; scripts/lib/mh-taxonomy.mjs stays the behavioral-health policy filter."
+    },
+    {
+      "schema": "public",
+      "table": "org_affiliations",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "npi",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "payer_source_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "org_ref",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "org_display",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "first_seen",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "name": "last_seen",
+          "type": "date",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "org_affiliations_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Payer-attested provider↔org links pulled from the PractitionerRole.organization reference in Anthem/Humana Plan-Net resources (display = the real org name, e.g. 'Lifestance Psychology'). Extracted idempotently from provider_network_participation.raw_resource by scripts/orgs-sync.mjs; re-run after every FHIR harvest."
+    },
+    {
+      "schema": "public",
+      "table": "org_network_rates",
+      "columns": [
+        {
+          "name": "network_id",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "tin",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "billing_code",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "n_npis",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "n_rates",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "rate_single",
+          "type": "numeric",
+          "nullable": true
+        },
+        {
+          "name": "rate_min",
+          "type": "numeric",
+          "nullable": true
+        },
+        {
+          "name": "rate_max",
+          "type": "numeric",
+          "nullable": true
+        },
+        {
+          "name": "as_of",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "file_date",
+          "type": "date",
+          "nullable": true
+        }
+      ]
+    },
+    {
+      "schema": "public",
+      "table": "org_tin_rate_summary",
+      "columns": [
+        {
+          "name": "tin",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "payer",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "billing_code",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "npis",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "rate_points",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "p25",
+          "type": "double precision",
+          "nullable": true
+        },
+        {
+          "name": "median",
+          "type": "double precision",
+          "nullable": true
+        },
+        {
+          "name": "p75",
+          "type": "double precision",
+          "nullable": true
+        },
+        {
+          "name": "min_rate",
+          "type": "double precision",
+          "nullable": true
+        },
+        {
+          "name": "max_rate",
+          "type": "double precision",
+          "nullable": true
+        },
+        {
+          "name": "as_of",
+          "type": "date",
+          "nullable": true
+        }
+      ],
+      "comment": "Per-(TIN, payer, code) rate percentiles (matview) — what each org is paid at p25/median/p75."
+    },
+    {
+      "schema": "public",
+      "table": "org_tin_rosters",
+      "columns": [
+        {
+          "name": "tin",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "npi",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "payer_count",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "payers",
+          "type": "text[]",
+          "nullable": true
+        },
+        {
+          "name": "rate_rows",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "last_file_date",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "as_of",
+          "type": "date",
+          "nullable": true
+        }
+      ],
+      "comment": "Per-TIN clinician roster (matview): who bills under each org — the roster behind an org page."
+    },
+    {
+      "schema": "public",
+      "table": "organizations",
+      "columns": [
+        {
+          "name": "npi",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "legal_business_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "other_names",
+          "type": "text[]",
+          "nullable": true
+        },
+        {
+          "name": "street1",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "street2",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "city",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "state",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "zip",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "phone",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "primary_taxonomy",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "taxonomy_display",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "taxonomy_classification",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "authorized_official",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "enumeration_date",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "last_update",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "deactivation_date",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "deactivated",
+          "type": "boolean",
+          "nullable": false
+        },
+        {
+          "name": "ny_book",
+          "type": "boolean",
+          "nullable": false
+        },
+        {
+          "name": "platform_referenced",
+          "type": "boolean",
+          "nullable": false
+        },
+        {
+          "name": "is_billing_tin",
+          "type": "boolean",
+          "nullable": false
+        },
+        {
+          "name": "tin_registry_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "organizations_pkey",
+        "columns": "{npi}"
+      },
+      "comment": "NPI-2 org book (sql/034): every NY organization + every org our datasets reference nationwide (NY book + net-new national platforms like Headway). Derived in SQL from nppes_npi; no EIN (NPPES suppresses it). Some are also billing TINs — the first NPI-2 ↔ billing-TIN join."
+    },
+    {
+      "schema": "public",
+      "table": "password_tokens",
+      "columns": [
+        {
+          "name": "token",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "purpose",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "used_at",
+          "type": "timestamp with time zone",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "password_tokens_pkey",
+        "columns": "{token}"
+      },
+      "comment": "One-time set/reset-password links emailed to portal users; consumed on use."
+    },
+    {
+      "schema": "public",
+      "table": "payer_network_map",
+      "columns": [
+        {
+          "name": "payer_network_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "scope",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "network_id",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "rule",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "mapped_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "payer_network_map_pkey",
+        "columns": "{payer_network_id}"
+      },
+      "comment": "NYS-144: every raw FHIR network dispositioned into a scope bucket; canonical network_id where one exists. Rebuilt by re-running this migration (rules are the state)."
+    },
+    {
+      "schema": "public",
+      "table": "payer_networks",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "payer_source_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "network_name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "raw_network_id",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "payer_networks_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Per-insurer network/product labels from directories — the labels membership hangs off (anthem 356+ · cigna 226 · uhc 213 · humana 135 · mvp 18)."
+    },
+    {
+      "schema": "public",
+      "table": "payer_rate_totals",
+      "columns": [
+        {
+          "name": "payer",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "npis",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "rows",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "latest",
+          "type": "date",
+          "nullable": true
+        }
+      ],
+      "comment": "Per-payer rate totals (matview) — the small denominator table the admin/observatory reads instead of scanning the multi-million-row corpus."
+    },
+    {
+      "schema": "public",
+      "table": "payer_sources",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "slug",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "fhir_base_url",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "auth_type",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "plan_net_profile",
+          "type": "boolean",
+          "nullable": false
+        },
+        {
+          "name": "last_synced_at",
+          "type": "timestamp with time zone",
+          "nullable": true
+        },
+        {
+          "name": "active",
+          "type": "boolean",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "auth_strategy",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "pagination_strategy",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "supports_include",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "name": "supports_lastupdated",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "name": "bulk_export_url",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "ig_version",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "role_cardinality",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "last_probe_at",
+          "type": "timestamp with time zone",
+          "nullable": true
+        },
+        {
+          "name": "last_probe_result",
+          "type": "jsonb",
+          "nullable": true
+        },
+        {
+          "name": "max_last_updated",
+          "type": "timestamp with time zone",
+          "nullable": true
+        }
+      ],
+      "primaryKey": {
+        "name": "payer_sources_pkey",
+        "columns": "{id}"
+      },
+      "comment": "The insurers whose FHIR directories we harvest. 'Configured' is not the same as 'live'."
+    },
+    {
+      "schema": "public",
+      "table": "payer_unmatched_npis",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "npi",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "payer_source_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "network_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "raw_specialty_code",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "accepting_new_patients",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "first_seen_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "last_seen_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "raw_resource",
+          "type": "jsonb",
+          "nullable": true
+        }
+      ],
+      "primaryKey": {
+        "name": "payer_unmatched_npis_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Providers a payer names that our book has never heard of — the discovery pool (NYS-40; the big pool still lives in .harvest files)."
+    },
+    {
+      "schema": "public",
+      "table": "payers",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "payer_code",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "payers_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Insurance companies for BILLING (name + clearinghouse code) — distinct from payer_sources (the directory harvest side)."
+    },
+    {
+      "schema": "public",
+      "table": "payments",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "invoice_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "amount_cents",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "method",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "stripe_payment_intent",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "paid_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "payments_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Money received against an invoice (Stripe card, cash, insurance, other)."
+    },
+    {
+      "schema": "public",
+      "table": "plans",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "employer_ein",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "plan_name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "network_product",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "reporting_entity",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "self_funded",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "name": "file_schema",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "source_file",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "file_date",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "source",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "first_seen",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "name": "last_seen",
+          "type": "date",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "plans_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Employer plans; each points at a network product. The plan catalog (display cleanup NYS-44)."
+    },
+    {
+      "schema": "public",
+      "table": "provider_affiliation_attestations",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "npi",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "tin",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "attested_month",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "name": "note",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "provider_affiliation_attestations_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Insert-only log of provider-attested affiliation status per (npi, tin). Latest row wins per (npi, normalized tin). Written by lib/repos/rate-signals.ts attestAffiliation() only."
+    },
+    {
+      "schema": "public",
+      "table": "provider_applications",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "email",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "phone",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "license_type",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "state",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "npi",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "message",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "provider_applications_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Public \"Join as a provider\" submissions from the marketing front door."
+    },
+    {
+      "schema": "public",
+      "table": "provider_leads",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "provider_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "email",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "phone",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "payer",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "note",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "provider_leads_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Anonymous public appointment requests for directory providers; Liminal follows up and uses demand as a recruitment hook."
+    },
+    {
+      "schema": "public",
+      "table": "provider_merge_map",
+      "columns": [
+        {
+          "name": "merged_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "surviving_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "npi",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "rule",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "confidence",
+          "type": "numeric(3,2)",
+          "nullable": false
+        },
+        {
+          "name": "merged_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "provider_merge_map_pkey",
+        "columns": "{merged_id}"
+      }
+    },
+    {
+      "schema": "public",
+      "table": "provider_network_participation",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "npi",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "payer_source_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "network_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "name": "accepting_new_patients",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "location_ref",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "raw_specialty_code",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "source_last_updated",
+          "type": "timestamp with time zone",
+          "nullable": true
+        },
+        {
+          "name": "ingested_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "raw_resource",
+          "type": "jsonb",
+          "nullable": true
+        },
+        {
+          "name": "data_completeness",
+          "type": "text",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "provider_network_participation_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Payer-attested membership: one row per (npi × payer × network × location), carrying accepting-new-patients + as-of. THE membership evidence, FHIR flavor — what the insurance badge reads."
+    },
+    {
+      "schema": "public",
+      "table": "provider_participation_summary",
+      "columns": [
+        {
+          "name": "npi",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "any_accepting",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "name": "network_count",
+          "type": "bigint",
+          "nullable": true
+        },
+        {
+          "name": "payer_count",
+          "type": "bigint",
+          "nullable": true
+        },
+        {
+          "name": "latest_source_update",
+          "type": "timestamp with time zone",
+          "nullable": true
+        }
+      ],
+      "comment": "Per-NPI network aggregate (matview) feeding the directory Accepting/Network sort; refresh with the other matviews after every ingest."
+    },
+    {
+      "schema": "public",
+      "table": "provider_profiles",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "role_title",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "pronouns",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "years_experience",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "intro_md",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "approach_md",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "expect_md",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "identify_as",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "style_is",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "training",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "license_type",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "licensed_in",
+          "type": "text[]",
+          "nullable": false
+        },
+        {
+          "name": "insurance_accepted",
+          "type": "text[]",
+          "nullable": false
+        },
+        {
+          "name": "top_specialties",
+          "type": "text[]",
+          "nullable": false
+        },
+        {
+          "name": "more_specialties",
+          "type": "text[]",
+          "nullable": false
+        },
+        {
+          "name": "therapy_methods",
+          "type": "text[]",
+          "nullable": false
+        },
+        {
+          "name": "care_types",
+          "type": "text[]",
+          "nullable": false
+        },
+        {
+          "name": "ages_served",
+          "type": "text[]",
+          "nullable": false
+        },
+        {
+          "name": "languages",
+          "type": "text[]",
+          "nullable": false
+        },
+        {
+          "name": "location_label",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "nearby_areas",
+          "type": "text[]",
+          "nullable": false
+        },
+        {
+          "name": "illustration_key",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "provider_profiles_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Rich /providers/[slug] content for bookable Liminal practitioners, keyed 1:1 to users.id."
+    },
+    {
+      "schema": "public",
+      "table": "provider_qualifications",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "npi",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "qual_type",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "code",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "display",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "license_state",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "license_number",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "source",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "ingested_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "provider_qualifications_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Per-NPI licenses, degrees and taxonomies — the source of the profession + credential filters. Licensing, not what a provider treats."
+    },
+    {
+      "schema": "public",
+      "table": "provider_rate_signals",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "npi",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "tin",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "payer",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "plan_or_network",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "billing_code",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "negotiated_rate",
+          "type": "numeric(10,2)",
+          "nullable": false
+        },
+        {
+          "name": "billing_class",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "negotiated_type",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "place_of_service",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "source_file",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "file_date",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "name": "as_of",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "name": "ingested_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "provider_rate_signals_pkey",
+        "columns": "{id}"
+      },
+      "comment": "The rate corpus. One row per (npi × tin × payer × plan/network × CPT × rate × POS × file date). A rate proves a CONTRACT as of a date — never patient cost, never standalone membership."
+    },
+    {
+      "schema": "public",
+      "table": "provider_rate_summary",
+      "columns": [
+        {
+          "name": "npi",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "payer_count",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "best_90791",
+          "type": "numeric",
+          "nullable": true
+        },
+        {
+          "name": "best_90834",
+          "type": "numeric",
+          "nullable": true
+        },
+        {
+          "name": "best_90837",
+          "type": "numeric",
+          "nullable": true
+        },
+        {
+          "name": "best_90853",
+          "type": "numeric",
+          "nullable": true
+        },
+        {
+          "name": "best_99214",
+          "type": "numeric",
+          "nullable": true
+        },
+        {
+          "name": "as_of",
+          "type": "date",
+          "nullable": true
+        }
+      ],
+      "comment": "Per-NPI rate rollup (matview) — what each provider is paid, precomputed so /recruiting stays fast."
+    },
+    {
+      "schema": "public",
+      "table": "rate_bands_checked_payers",
+      "columns": [
+        {
+          "name": "payer",
+          "type": "text",
+          "nullable": true
+        }
+      ],
+      "comment": "The set of payers with enough rows to publish bands (matview) — gates which payers /rates Bands will show."
+    },
+    {
+      "schema": "public",
+      "table": "rate_bands_license_summary",
+      "columns": [
+        {
+          "name": "payer",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "billing_code",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "license",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "network",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "npis",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "p25",
+          "type": "double precision",
+          "nullable": true
+        },
+        {
+          "name": "median",
+          "type": "double precision",
+          "nullable": true
+        },
+        {
+          "name": "p75",
+          "type": "double precision",
+          "nullable": true
+        },
+        {
+          "name": "as_of",
+          "type": "date",
+          "nullable": true
+        }
+      ],
+      "comment": "Rate bands by license/profession (matview) — the p25/median/p75 distribution per profession that /rates Bands renders. Part of the sql/024 precompute that took /rates from 20-32s to <0.3s."
+    },
+    {
+      "schema": "public",
+      "table": "rate_bands_payer_summary",
+      "columns": [
+        {
+          "name": "payer",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "billing_code",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "npis",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "p25",
+          "type": "double precision",
+          "nullable": true
+        },
+        {
+          "name": "median",
+          "type": "double precision",
+          "nullable": true
+        },
+        {
+          "name": "p75",
+          "type": "double precision",
+          "nullable": true
+        },
+        {
+          "name": "as_of",
+          "type": "date",
+          "nullable": true
+        }
+      ],
+      "comment": "Rate bands by payer (matview) — per-payer percentile bands over the priced codes."
+    },
+    {
+      "schema": "public",
+      "table": "rate_table_child_mv",
+      "columns": [
+        {
+          "name": "tin",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "payer",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "npi",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "network",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "setting",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "display_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "credential",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "credential_norm",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "profession",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "city",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "county",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "c90791",
+          "type": "numeric(10,2)",
+          "nullable": true
+        },
+        {
+          "name": "c90834",
+          "type": "numeric(10,2)",
+          "nullable": true
+        },
+        {
+          "name": "c90837",
+          "type": "numeric(10,2)",
+          "nullable": true
+        },
+        {
+          "name": "c90853",
+          "type": "numeric(10,2)",
+          "nullable": true
+        },
+        {
+          "name": "c99214",
+          "type": "numeric(10,2)",
+          "nullable": true
+        },
+        {
+          "name": "n90791",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "n90834",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "n90837",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "n90853",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "n99214",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "as_of",
+          "type": "date",
+          "nullable": true
+        }
+      ],
+      "comment": "Per-network/setting detail rows under each rate_table_mv parent (facility vs office is a real price difference)."
+    },
+    {
+      "schema": "public",
+      "table": "rate_table_mv",
+      "columns": [
+        {
+          "name": "tin",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "payer",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "display_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "entity_kind",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "credential",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "credential_norm",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "profession",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "primary_taxonomy",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "county",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "npis",
+          "type": "text[]",
+          "nullable": true
+        },
+        {
+          "name": "n_clinicians",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "n_leaves",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "c90791",
+          "type": "numeric(10,2)",
+          "nullable": true
+        },
+        {
+          "name": "c90834",
+          "type": "numeric(10,2)",
+          "nullable": true
+        },
+        {
+          "name": "c90837",
+          "type": "numeric(10,2)",
+          "nullable": true
+        },
+        {
+          "name": "c90853",
+          "type": "numeric(10,2)",
+          "nullable": true
+        },
+        {
+          "name": "c99214",
+          "type": "numeric(10,2)",
+          "nullable": true
+        },
+        {
+          "name": "n90791",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "n90834",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "n90837",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "n90853",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "n99214",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "as_of",
+          "type": "date",
+          "nullable": true
+        }
+      ],
+      "comment": "The published rate table (matview): one row per (payer, TIN) with per-code rates + clinician counts — precomputed, which is why the public page loads instantly."
+    },
+    {
+      "schema": "public",
+      "table": "referrals",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "client_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "provider_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "name": "program_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "name": "reason",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "created_by",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "referrals_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Practitioner-initiated referrals of a client to a directory provider or program."
+    },
+    {
+      "schema": "public",
+      "table": "services",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "duration_min",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "price_cents",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "name": "color",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "telehealth",
+          "type": "boolean",
+          "nullable": false
+        },
+        {
+          "name": "active",
+          "type": "boolean",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "services_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Bookable service types (duration, price, calendar slot color)."
+    },
+    {
+      "schema": "public",
+      "table": "sessions",
+      "columns": [
+        {
+          "name": "token",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "sessions_pkey",
+        "columns": "{token}"
+      },
+      "comment": "Cookie session tokens (liminal_session); rows die with their user."
+    },
+    {
+      "schema": "public",
+      "table": "sync_runs",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "job",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "trigger",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "finished_at",
+          "type": "timestamp with time zone",
+          "nullable": true
+        },
+        {
+          "name": "duration_ms",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "steps",
+          "type": "jsonb",
+          "nullable": false
+        },
+        {
+          "name": "error",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "timeout_ms",
+          "type": "integer",
+          "nullable": true
+        }
+      ],
+      "primaryKey": {
+        "name": "sync_runs_pkey",
+        "columns": "{id}"
+      },
+      "comment": "The maintenance ledger: one row per run of the nightly matview cron ('daily') and the harvest runner ('harvest:<id>'). The /workspace sync-health card + run-history table read it."
+    },
+    {
+      "schema": "public",
+      "table": "threads",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "client_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "subject",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "last_message_at",
+          "type": "timestamp with time zone",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "threads_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Secure-message conversations between the practice and one client."
+    },
+    {
+      "schema": "public",
+      "table": "tin_registry",
+      "columns": [
+        {
+          "name": "tin_norm",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "business_name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "source",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "first_seen",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "name": "last_seen",
+          "type": "date",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "tin_registry_pkey",
+        "columns": "{tin_norm}"
+      },
+      "comment": "TIN → business-name registry: the naming layer behind every org display name. Without it every org reads as a 9-digit number (NYS-27 backfill has run)."
+    },
+    {
+      "schema": "public",
+      "table": "transcripts",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "appointment_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "segments",
+          "type": "jsonb",
+          "nullable": false
+        },
+        {
+          "name": "summary_md",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "transcripts_pkey",
+        "columns": "{id}"
+      },
+      "comment": "AI-scribe session transcripts: segments [{t0,t1,speaker,text}] + generated summary."
+    },
+    {
+      "schema": "public",
+      "table": "uhc_census_matches",
+      "columns": [
+        {
+          "name": "name_raw",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "ein",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "sponsor_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "method",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "matched_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "uhc_census_matches_pkey",
+        "columns": "{name_raw}"
+      },
+      "comment": "Name→EIN recovery vs form5500 sponsors. Exact-key methods only (measured: similarity matching unsafe on this corpus); ambiguous keys rejected."
+    },
+    {
+      "schema": "public",
+      "table": "uhc_employer_census",
+      "columns": [
+        {
+          "name": "name_raw",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "name_norm",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "loaded_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        }
+      ],
+      "primaryKey": {
+        "name": "uhc_employer_census_pkey",
+        "columns": "{name_raw}"
+      },
+      "comment": "UHC per-employer MRF book census (67k names, filename-derived, no EIN at source). NYS-137."
+    },
+    {
+      "schema": "public",
+      "table": "users",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "role",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "email",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "password_hash",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "avatar_hue",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "phone",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "timezone",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false
+        },
+        {
+          "name": "slug",
+          "type": "text",
+          "nullable": true
+        }
+      ],
+      "primaryKey": {
+        "name": "users_pkey",
+        "columns": "{id}"
+      },
+      "comment": "Login accounts: staff (admin/practitioner) and client portal users; soft-deleted via deleted_at."
+    }
+  ],
+  "relations": [
+    {
+      "name": "appointments_client_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "appointments",
+        "column": "client_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "clients",
+        "column": "id"
+      }
+    },
+    {
+      "name": "appointments_location_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "appointments",
+        "column": "location_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "locations",
+        "column": "id"
+      }
+    },
+    {
+      "name": "appointments_practitioner_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "appointments",
+        "column": "practitioner_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "users",
+        "column": "id"
+      }
+    },
+    {
+      "name": "appointments_service_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "appointments",
+        "column": "service_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "services",
+        "column": "id"
+      }
+    },
+    {
+      "name": "availability_practitioner_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "availability",
+        "column": "practitioner_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "users",
+        "column": "id"
+      }
+    },
+    {
+      "name": "clients_primary_practitioner_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "clients",
+        "column": "primary_practitioner_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "users",
+        "column": "id"
+      }
+    },
+    {
+      "name": "clients_user_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "clients",
+        "column": "user_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "users",
+        "column": "id"
+      }
+    },
+    {
+      "name": "files_client_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "files",
+        "column": "client_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "clients",
+        "column": "id"
+      }
+    },
+    {
+      "name": "files_uploader_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "files",
+        "column": "uploader_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "users",
+        "column": "id"
+      }
+    },
+    {
+      "name": "form_responses_client_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "form_responses",
+        "column": "client_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "clients",
+        "column": "id"
+      }
+    },
+    {
+      "name": "form_responses_form_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "form_responses",
+        "column": "form_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "forms",
+        "column": "id"
+      }
+    },
+    {
+      "name": "insurance_policies_client_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "insurance_policies",
+        "column": "client_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "clients",
+        "column": "id"
+      }
+    },
+    {
+      "name": "insurance_policies_payer_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "insurance_policies",
+        "column": "payer_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "payers",
+        "column": "id"
+      }
+    },
+    {
+      "name": "insurer_aliases_insurer_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "insurer_aliases",
+        "column": "insurer_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "insurers",
+        "column": "id"
+      }
+    },
+    {
+      "name": "insurer_companies_insurer_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "insurer_companies",
+        "column": "insurer_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "insurers",
+        "column": "id"
+      }
+    },
+    {
+      "name": "insurers_parent_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "insurers",
+        "column": "parent_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "insurers",
+        "column": "id"
+      }
+    },
+    {
+      "name": "invoice_items_invoice_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "invoice_items",
+        "column": "invoice_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "invoices",
+        "column": "id"
+      }
+    },
+    {
+      "name": "invoices_appointment_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "invoices",
+        "column": "appointment_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "appointments",
+        "column": "id"
+      }
+    },
+    {
+      "name": "invoices_client_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "invoices",
+        "column": "client_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "clients",
+        "column": "id"
+      }
+    },
+    {
+      "name": "messages_sender_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "messages",
+        "column": "sender_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "users",
+        "column": "id"
+      }
+    },
+    {
+      "name": "messages_thread_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "messages",
+        "column": "thread_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "threads",
+        "column": "id"
+      }
+    },
+    {
+      "name": "network_aliases_network_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "network_aliases",
+        "column": "network_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "networks",
+        "column": "id"
+      }
+    },
+    {
+      "name": "networks_administrator_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "networks",
+        "column": "administrator_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "insurers",
+        "column": "id"
+      }
+    },
+    {
+      "name": "networks_insurer_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "networks",
+        "column": "insurer_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "insurers",
+        "column": "id"
+      }
+    },
+    {
+      "name": "notes_appointment_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "notes",
+        "column": "appointment_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "appointments",
+        "column": "id"
+      }
+    },
+    {
+      "name": "notes_author_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "notes",
+        "column": "author_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "users",
+        "column": "id"
+      }
+    },
+    {
+      "name": "notes_client_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "notes",
+        "column": "client_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "clients",
+        "column": "id"
+      }
+    },
+    {
+      "name": "notifications_user_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "notifications",
+        "column": "user_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "users",
+        "column": "id"
+      }
+    },
+    {
+      "name": "org_affiliations_payer_source_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "org_affiliations",
+        "column": "payer_source_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "payer_sources",
+        "column": "id"
+      }
+    },
+    {
+      "name": "password_tokens_user_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "password_tokens",
+        "column": "user_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "users",
+        "column": "id"
+      }
+    },
+    {
+      "name": "payer_network_map_network_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "payer_network_map",
+        "column": "network_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "networks",
+        "column": "id"
+      }
+    },
+    {
+      "name": "payer_network_map_payer_network_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "payer_network_map",
+        "column": "payer_network_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "payer_networks",
+        "column": "id"
+      }
+    },
+    {
+      "name": "payer_networks_payer_source_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "payer_networks",
+        "column": "payer_source_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "payer_sources",
+        "column": "id"
+      }
+    },
+    {
+      "name": "payer_unmatched_npis_payer_source_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "payer_unmatched_npis",
+        "column": "payer_source_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "payer_sources",
+        "column": "id"
+      }
+    },
+    {
+      "name": "payments_invoice_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "payments",
+        "column": "invoice_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "invoices",
+        "column": "id"
+      }
+    },
+    {
+      "name": "plans_employer_ein_fkey",
+      "src": {
+        "schema": "public",
+        "table": "plans",
+        "column": "employer_ein"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "employers",
+        "column": "ein"
+      }
+    },
+    {
+      "name": "provider_leads_provider_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "provider_leads",
+        "column": "provider_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "directory_providers",
+        "column": "id"
+      }
+    },
+    {
+      "name": "provider_merge_map_merged_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "provider_merge_map",
+        "column": "merged_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "directory_providers",
+        "column": "id"
+      }
+    },
+    {
+      "name": "provider_merge_map_surviving_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "provider_merge_map",
+        "column": "surviving_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "directory_providers",
+        "column": "id"
+      }
+    },
+    {
+      "name": "provider_network_participation_network_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "provider_network_participation",
+        "column": "network_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "payer_networks",
+        "column": "id"
+      }
+    },
+    {
+      "name": "provider_network_participation_payer_source_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "provider_network_participation",
+        "column": "payer_source_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "payer_sources",
+        "column": "id"
+      }
+    },
+    {
+      "name": "provider_profiles_user_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "provider_profiles",
+        "column": "user_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "users",
+        "column": "id"
+      }
+    },
+    {
+      "name": "referrals_client_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "referrals",
+        "column": "client_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "clients",
+        "column": "id"
+      }
+    },
+    {
+      "name": "referrals_created_by_fkey",
+      "src": {
+        "schema": "public",
+        "table": "referrals",
+        "column": "created_by"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "users",
+        "column": "id"
+      }
+    },
+    {
+      "name": "referrals_program_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "referrals",
+        "column": "program_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "directory_programs",
+        "column": "id"
+      }
+    },
+    {
+      "name": "referrals_provider_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "referrals",
+        "column": "provider_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "directory_providers",
+        "column": "id"
+      }
+    },
+    {
+      "name": "sessions_user_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "sessions",
+        "column": "user_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "users",
+        "column": "id"
+      }
+    },
+    {
+      "name": "threads_client_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "threads",
+        "column": "client_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "clients",
+        "column": "id"
+      }
+    },
+    {
+      "name": "transcripts_appointment_id_fkey",
+      "src": {
+        "schema": "public",
+        "table": "transcripts",
+        "column": "appointment_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "appointments",
+        "column": "id"
+      }
+    },
+    {
+      "name": "uhc_census_matches_name_raw_fkey",
+      "src": {
+        "schema": "public",
+        "table": "uhc_census_matches",
+        "column": "name_raw"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "uhc_employer_census",
+        "column": "name_raw"
+      }
+    },
+    {
+      "name": "logical_audit_events_actor_id",
+      "src": {
+        "schema": "public",
+        "table": "audit_events",
+        "column": "actor_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "users",
+        "column": "id"
+      }
+    },
+    {
+      "name": "logical_cms_rvu_hcpcs_code",
+      "src": {
+        "schema": "public",
+        "table": "cms_rvu",
+        "column": "hcpcs_code"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "cpt_codes",
+        "column": "code"
+      }
+    },
+    {
+      "name": "logical_dfs_insurers_naic",
+      "src": {
+        "schema": "public",
+        "table": "dfs_insurers",
+        "column": "naic"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "insurer_companies",
+        "column": "naic"
+      }
+    },
+    {
+      "name": "logical_directory_providers_primary_taxonomy",
+      "src": {
+        "schema": "public",
+        "table": "directory_providers",
+        "column": "primary_taxonomy"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "nucc_taxonomy",
+        "column": "code"
+      }
+    },
+    {
+      "name": "logical_fhir_organizations_npi",
+      "src": {
+        "schema": "public",
+        "table": "fhir_organizations",
+        "column": "npi"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "directory_providers",
+        "column": "npi"
+      }
+    },
+    {
+      "name": "logical_form5500_filings_ein",
+      "src": {
+        "schema": "public",
+        "table": "form5500_filings",
+        "column": "ein"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "employers",
+        "column": "ein"
+      }
+    },
+    {
+      "name": "logical_form5500_schedule_a_ein",
+      "src": {
+        "schema": "public",
+        "table": "form5500_schedule_a",
+        "column": "ein"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "employers",
+        "column": "ein"
+      }
+    },
+    {
+      "name": "logical_form5500_sf_filings_ein",
+      "src": {
+        "schema": "public",
+        "table": "form5500_sf_filings",
+        "column": "ein"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "employers",
+        "column": "ein"
+      }
+    },
+    {
+      "name": "logical_insurer_companies_ein",
+      "src": {
+        "schema": "public",
+        "table": "insurer_companies",
+        "column": "ein"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "employers",
+        "column": "ein"
+      }
+    },
+    {
+      "name": "logical_nppes_endpoints_npi",
+      "src": {
+        "schema": "public",
+        "table": "nppes_endpoints",
+        "column": "npi"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "directory_providers",
+        "column": "npi"
+      }
+    },
+    {
+      "name": "logical_nppes_npi_npi",
+      "src": {
+        "schema": "public",
+        "table": "nppes_npi",
+        "column": "npi"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "directory_providers",
+        "column": "npi"
+      }
+    },
+    {
+      "name": "logical_nppes_npi_primary_taxonomy",
+      "src": {
+        "schema": "public",
+        "table": "nppes_npi",
+        "column": "primary_taxonomy"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "nucc_taxonomy",
+        "column": "code"
+      }
+    },
+    {
+      "name": "logical_nppes_organizations_npi",
+      "src": {
+        "schema": "public",
+        "table": "nppes_organizations",
+        "column": "npi"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "directory_providers",
+        "column": "npi"
+      }
+    },
+    {
+      "name": "logical_nppes_organizations_ein",
+      "src": {
+        "schema": "public",
+        "table": "nppes_organizations",
+        "column": "ein"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "employers",
+        "column": "ein"
+      }
+    },
+    {
+      "name": "logical_nppes_other_names_npi",
+      "src": {
+        "schema": "public",
+        "table": "nppes_other_names",
+        "column": "npi"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "directory_providers",
+        "column": "npi"
+      }
+    },
+    {
+      "name": "logical_org_affiliations_npi",
+      "src": {
+        "schema": "public",
+        "table": "org_affiliations",
+        "column": "npi"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "directory_providers",
+        "column": "npi"
+      }
+    },
+    {
+      "name": "logical_org_network_rates_tin",
+      "src": {
+        "schema": "public",
+        "table": "org_network_rates",
+        "column": "tin"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "tin_registry",
+        "column": "tin_norm"
+      }
+    },
+    {
+      "name": "logical_org_network_rates_billing_code",
+      "src": {
+        "schema": "public",
+        "table": "org_network_rates",
+        "column": "billing_code"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "cpt_codes",
+        "column": "code"
+      }
+    },
+    {
+      "name": "logical_org_network_rates_network_id",
+      "src": {
+        "schema": "public",
+        "table": "org_network_rates",
+        "column": "network_id"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "networks",
+        "column": "id"
+      }
+    },
+    {
+      "name": "logical_org_tin_rate_summary_tin",
+      "src": {
+        "schema": "public",
+        "table": "org_tin_rate_summary",
+        "column": "tin"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "tin_registry",
+        "column": "tin_norm"
+      }
+    },
+    {
+      "name": "logical_org_tin_rate_summary_billing_code",
+      "src": {
+        "schema": "public",
+        "table": "org_tin_rate_summary",
+        "column": "billing_code"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "cpt_codes",
+        "column": "code"
+      }
+    },
+    {
+      "name": "logical_org_tin_rosters_npi",
+      "src": {
+        "schema": "public",
+        "table": "org_tin_rosters",
+        "column": "npi"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "directory_providers",
+        "column": "npi"
+      }
+    },
+    {
+      "name": "logical_org_tin_rosters_tin",
+      "src": {
+        "schema": "public",
+        "table": "org_tin_rosters",
+        "column": "tin"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "tin_registry",
+        "column": "tin_norm"
+      }
+    },
+    {
+      "name": "logical_organizations_npi",
+      "src": {
+        "schema": "public",
+        "table": "organizations",
+        "column": "npi"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "directory_providers",
+        "column": "npi"
+      }
+    },
+    {
+      "name": "logical_organizations_primary_taxonomy",
+      "src": {
+        "schema": "public",
+        "table": "organizations",
+        "column": "primary_taxonomy"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "nucc_taxonomy",
+        "column": "code"
+      }
+    },
+    {
+      "name": "logical_payer_unmatched_npis_npi",
+      "src": {
+        "schema": "public",
+        "table": "payer_unmatched_npis",
+        "column": "npi"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "directory_providers",
+        "column": "npi"
+      }
+    },
+    {
+      "name": "logical_provider_affiliation_attestations_npi",
+      "src": {
+        "schema": "public",
+        "table": "provider_affiliation_attestations",
+        "column": "npi"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "directory_providers",
+        "column": "npi"
+      }
+    },
+    {
+      "name": "logical_provider_affiliation_attestations_tin",
+      "src": {
+        "schema": "public",
+        "table": "provider_affiliation_attestations",
+        "column": "tin"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "tin_registry",
+        "column": "tin_norm"
+      }
+    },
+    {
+      "name": "logical_provider_applications_npi",
+      "src": {
+        "schema": "public",
+        "table": "provider_applications",
+        "column": "npi"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "directory_providers",
+        "column": "npi"
+      }
+    },
+    {
+      "name": "logical_provider_merge_map_npi",
+      "src": {
+        "schema": "public",
+        "table": "provider_merge_map",
+        "column": "npi"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "directory_providers",
+        "column": "npi"
+      }
+    },
+    {
+      "name": "logical_provider_network_participation_npi",
+      "src": {
+        "schema": "public",
+        "table": "provider_network_participation",
+        "column": "npi"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "directory_providers",
+        "column": "npi"
+      }
+    },
+    {
+      "name": "logical_provider_participation_summary_npi",
+      "src": {
+        "schema": "public",
+        "table": "provider_participation_summary",
+        "column": "npi"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "directory_providers",
+        "column": "npi"
+      }
+    },
+    {
+      "name": "logical_provider_qualifications_npi",
+      "src": {
+        "schema": "public",
+        "table": "provider_qualifications",
+        "column": "npi"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "directory_providers",
+        "column": "npi"
+      }
+    },
+    {
+      "name": "logical_provider_rate_signals_npi",
+      "src": {
+        "schema": "public",
+        "table": "provider_rate_signals",
+        "column": "npi"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "directory_providers",
+        "column": "npi"
+      }
+    },
+    {
+      "name": "logical_provider_rate_signals_tin",
+      "src": {
+        "schema": "public",
+        "table": "provider_rate_signals",
+        "column": "tin"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "tin_registry",
+        "column": "tin_norm"
+      }
+    },
+    {
+      "name": "logical_provider_rate_signals_billing_code",
+      "src": {
+        "schema": "public",
+        "table": "provider_rate_signals",
+        "column": "billing_code"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "cpt_codes",
+        "column": "code"
+      }
+    },
+    {
+      "name": "logical_provider_rate_summary_npi",
+      "src": {
+        "schema": "public",
+        "table": "provider_rate_summary",
+        "column": "npi"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "directory_providers",
+        "column": "npi"
+      }
+    },
+    {
+      "name": "logical_rate_bands_license_summary_billing_code",
+      "src": {
+        "schema": "public",
+        "table": "rate_bands_license_summary",
+        "column": "billing_code"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "cpt_codes",
+        "column": "code"
+      }
+    },
+    {
+      "name": "logical_rate_bands_payer_summary_billing_code",
+      "src": {
+        "schema": "public",
+        "table": "rate_bands_payer_summary",
+        "column": "billing_code"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "cpt_codes",
+        "column": "code"
+      }
+    },
+    {
+      "name": "logical_rate_table_child_mv_npi",
+      "src": {
+        "schema": "public",
+        "table": "rate_table_child_mv",
+        "column": "npi"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "directory_providers",
+        "column": "npi"
+      }
+    },
+    {
+      "name": "logical_rate_table_child_mv_tin",
+      "src": {
+        "schema": "public",
+        "table": "rate_table_child_mv",
+        "column": "tin"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "tin_registry",
+        "column": "tin_norm"
+      }
+    },
+    {
+      "name": "logical_rate_table_mv_tin",
+      "src": {
+        "schema": "public",
+        "table": "rate_table_mv",
+        "column": "tin"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "tin_registry",
+        "column": "tin_norm"
+      }
+    },
+    {
+      "name": "logical_rate_table_mv_primary_taxonomy",
+      "src": {
+        "schema": "public",
+        "table": "rate_table_mv",
+        "column": "primary_taxonomy"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "nucc_taxonomy",
+        "column": "code"
+      }
+    },
+    {
+      "name": "logical_uhc_census_matches_ein",
+      "src": {
+        "schema": "public",
+        "table": "uhc_census_matches",
+        "column": "ein"
+      },
+      "ref": {
+        "schema": "public",
+        "table": "employers",
+        "column": "ein"
+      }
+    }
+  ]
+}
