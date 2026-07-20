@@ -1,18 +1,22 @@
 // The standards that make ten independent terminals read like one hand — the
 // content behind the /workspace Rules tabs. Three families: Design (how a
 // surface looks and reads), Agent (how the fleet works and hands off), Database
-// (how the data layer stays trustworthy). Add a rule here and it appears under
-// its tab; nothing in the component needs to change.
+// (how the data layer stays trustworthy).
+//
+// This file is the CARD layer: title + the one-paragraph lede a card shows. The
+// full rule — the why and the how — lives in `docs/rules/<id>.md`, which is what
+// a card click opens (and saves back to) in the DocSheet. Add a rule here AND
+// add its doc; the id is the filename.
 
 export type RuleTab = "design" | "agent" | "database";
 
 export interface Rule {
+  /** Also the doc filename: docs/rules/<id>.md */
   id: string;
   tab: RuleTab;
   title: string;
+  /** The card lede. The full rule is in the doc. */
   body: string;
-  /** Where the rule actually lives, when there's a surface to point at. */
-  link?: { href: string; label: string };
 }
 
 export const RULE_TABS: { key: RuleTab; label: string }[] = [
@@ -28,20 +32,18 @@ export const RULES: Rule[] = [
     tab: "design",
     title: "Reuse the kit",
     body: "44 primitives, ~30 feature components. Compose them; a genuinely new primitive is a deliberate, announced act — never an accident of local convenience.",
-    link: { href: "/design-system", label: "Design system" },
   },
   {
     id: "one-h1",
     tab: "design",
-    title: "One H1, in the TopBar",
-    body: "Every page's title lives in the shell strip; pages never render their own. The frame is the same in every room.",
+    title: "One H1, rendered by the shell",
+    body: "Every page's title is route-derived and rendered once by the app shell; pages never render their own. The frame is the same in every room.",
   },
   {
     id: "records-cross",
     tab: "design",
     title: "Records cross with one motion",
     body: "A value that lives in another table wears the dotted-teal underline that wipes to solid on hover — one meaning, on every surface.",
-    link: { href: "/design-system", label: "RelatedLink" },
   },
   {
     id: "no-hedging",
@@ -85,7 +87,6 @@ export const RULES: Rule[] = [
     tab: "agent",
     title: "One source per fact",
     body: "The table registry, the CPT labels, the coverage cohort — each has exactly one home, so no two surfaces can quietly disagree.",
-    link: { href: "/workspace/data-dictionary", label: "Data dictionary" },
   },
   {
     id: "linear-lead-only",
@@ -97,7 +98,7 @@ export const RULES: Rule[] = [
   {
     id: "refresh-keys",
     tab: "database",
-    title: "Plain-column unique keys for REFRESH CONCURRENTLY",
+    title: "Plain-column unique index",
     body: "A materialized view refreshed without blocking needs a unique index on plain columns — an expression index silently breaks the concurrent refresh.",
   },
   {

@@ -1,40 +1,36 @@
-"use client";
-
-import { useState } from "react";
-import { Card } from "@/components/ui/card";
-import { Tabs } from "@/components/ui/tabs";
-import { TextLink } from "@/components/ui/text-link";
-import { RULE_TABS, RULES, type RuleTab } from "@/lib/rules";
+import { readFile, stat } from "node:fs/promises";
+import { join } from "node:path";
+import { isoDateTime } from "@/lib/format";
+import { RULES } from "@/lib/rules";
+import { RulesGrid, type RuleCardData } from "./rules-grid";
 import { EcoSection } from "./section";
 
 // The standards that make ten independent terminals read like one hand, now a
-// real system: three tabs (Design · Agent · Database), each a grid of its rules
-// drawn from lib/rules.ts. Plumbing keeps the ecosystem alive; these keep it
+// real system: three tabs (Design · Agent · Database), each a grid of its rules.
+// The card text comes from lib/rules.ts; the rule ITSELF is docs/rules/<id>.md,
+// read here for the last-updated stamp and the clipboard, and opened (editable)
+// in the DocSheet on click. Plumbing keeps the ecosystem alive; these keep it
 // coherent — drop one and the surfaces drift, the facts fork, the fleet stops
 // reading as a single author.
 
-export function RulesPanel() {
-  const [tab, setTab] = useState<RuleTab>("design");
-  const shown = RULES.filter((r) => r.tab === tab);
+/** The rule's source document. Null where it isn't readable (e.g. deployed,
+ *  where docs/ isn't traced into the bundle) — the card degrades to plain. */
+async function ruleDoc(id: string): Promise<{ doc: string | null; updatedAt: string | null }> {
+  try {
+    const path = join(process.cwd(), "docs", "rules", `${id}.md`);
+    const [doc, info] = await Promise.all([readFile(path, "utf8"), stat(path)]);
+    return { doc, updatedAt: isoDateTime(info.mtime) };
+  } catch {
+    return { doc: null, updatedAt: null };
+  }
+}
 
+export async function RulesPanel() {
+  const sources = await Promise.all(RULES.map((r) => ruleDoc(r.id)));
+  const rules: RuleCardData[] = RULES.map((r, i) => ({ ...r, ...sources[i] }));
   return (
     <EcoSection title="Rules">
-      <div className="flex min-w-0 flex-col gap-4">
-        <Tabs items={RULE_TABS} active={tab} onChange={(k) => setTab(k as RuleTab)} slideActive />
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {shown.map((r) => (
-            <Card key={r.id} className="flex min-w-0 flex-col gap-1 p-5">
-              <h3 className="text-[15px] font-semibold text-text">{r.title}</h3>
-              <p className="text-sm leading-relaxed text-text-muted">{r.body}</p>
-              {r.link && (
-                <TextLink href={r.link.href} className="mt-1.5 text-[13px]">
-                  {r.link.label}
-                </TextLink>
-              )}
-            </Card>
-          ))}
-        </div>
-      </div>
+      <RulesGrid rules={rules} />
     </EcoSection>
   );
 }
