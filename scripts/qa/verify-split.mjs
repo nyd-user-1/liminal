@@ -133,19 +133,57 @@ if (charge.transfer) {
 }
 
 // ── the arithmetic ───────────────────────────────────────────────────────────
+//
+// MEASURED 2026-07-20, and NOT what you'd guess: for a destination charge with
+// `application_fee_amount`, the transfer moves the FULL gross to the connected
+// account, and the application fee is then deducted on the CONNECTED side. So
+// the therapist's real take is the connected balance transaction's `net`, not
+// the transfer amount:
+//
+//     transfer.amount              = 15000   (the whole 150.00, not 135.00)
+//     connected bt.amount          = 15000
+//     connected bt.fee             =  1500   ← our application fee lands here
+//     connected bt.net             = 13500   ← what the therapist actually keeps
+//
+// An earlier version of this script asserted `gross − fee === transfer.amount`
+// and would have failed a perfectly correct split forever. Assert the real model.
 if (charge.application_fee_amount != null && transfer) {
   const gross = charge.amount;
   const feeAmt = charge.application_fee_amount;
-  const net = transfer.amount;
   const pct = ((feeAmt / gross) * 100).toFixed(2);
+
+  // The therapist's own ledger entry for this charge.
+  const destId = typeof transfer.destination === "string" ? transfer.destination : transfer.destination?.id;
+  let bt = null;
+  try {
+    const bts = await stripe.balanceTransactions.list({ limit: 10 }, { stripeAccount: destId });
+    bt = bts.data.find((t) => t.type === "payment") ?? bts.data[0] ?? null;
+  } catch (err) {
+    problems.push(`Could not read the connected account's balance transactions: ${err.message}`);
+  }
+
   console.log(`\nSPLIT`);
   console.log(`  client paid        ${money(gross, charge.currency)}`);
   console.log(`  Liminal fee        ${money(feeAmt, charge.currency)}   (${pct}% of gross)`);
-  console.log(`  therapist receives ${money(net, transfer.currency)}   → ${transfer.destination}`);
-  if (gross - feeAmt !== net) {
-    problems.push(`Arithmetic does not close: ${gross} − ${feeAmt} = ${gross - feeAmt}, but the transfer moved ${net}.`);
+  console.log(`  transfer moved     ${money(transfer.amount, transfer.currency)}   → ${transfer.destination}`);
+  if (bt) {
+    console.log(`  therapist KEEPS    ${money(bt.net, bt.currency)}   (connected bt ${bt.id}: amount ${money(bt.amount, bt.currency)} − fee ${money(bt.fee, bt.currency)})`);
+  }
+
+  if (transfer.amount !== gross) {
+    problems.push(`Transfer moved ${transfer.amount}, expected the full gross ${gross} (fee is taken on the connected side, not withheld from the transfer).`);
   } else {
-    console.log(`  ✓ ${gross} − ${feeAmt} = ${net}`);
+    console.log(`  ✓ transfer = full gross ${gross}`);
+  }
+  if (bt) {
+    if (bt.fee !== feeAmt) {
+      problems.push(`Connected-side fee is ${bt.fee}, expected the application fee ${feeAmt}.`);
+    }
+    if (bt.net !== gross - feeAmt) {
+      problems.push(`Therapist net is ${bt.net}, expected ${gross - feeAmt} (${gross} − ${feeAmt}).`);
+    } else {
+      console.log(`  ✓ ${gross} − ${feeAmt} = ${bt.net} net to the therapist`);
+    }
   }
   if (pct !== "10.00") {
     problems.push(`Fee is ${pct}%, not the 10% the brief locked. Check the shared fee helper.`);
@@ -163,9 +201,24 @@ if (destAcct) {
   const due = acct.requirements?.currently_due ?? [];
   if (due.length) console.log(`  currently_due    ${due.join(", ")}`);
 
-  const bal = await stripe.balance.retrieve({ stripeAccount: acct.id });
+  // NOTE the signature: retrieve(params, options). Passing { stripeAccount } as
+  // the FIRST argument sends it as a query param and Stripe 400s
+  // ("Received unknown parameter: stripeAccount") — it belongs in options.
+  const bal = await stripe.balance.retrieve({}, { stripeAccount: acct.id });
   for (const b of bal.pending) console.log(`  pending balance  ${money(b.amount, b.currency)}`);
   for (const b of bal.available) console.log(`  available        ${money(b.amount, b.currency)}`);
+
+  // The connected account's OWN payment object (py_…). This is the id the
+  // Earnings payment_details flyover resolves against an AccountSession — the
+  // platform-side pi_/ch_ ids do not resolve there.
+  try {
+    const own = await stripe.charges.list({ limit: 3 }, { stripeAccount: acct.id });
+    for (const c of own.data) {
+      console.log(`  connected payment ${c.id}  amount=${money(c.amount, c.currency)}  application_fee_amount=${c.application_fee_amount ?? "—"}`);
+    }
+  } catch (err) {
+    console.log(`  (could not list the connected account's own payments: ${err.message})`);
+  }
 }
 
 // ── diff Stripe against what WE recorded ─────────────────────────────────────

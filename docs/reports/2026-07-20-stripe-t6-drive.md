@@ -544,3 +544,218 @@ on `acct_1TvBKiJvfwWFuhCf`. The moment `charges_enabled` flips, the rest —
 payment, the split, `verify-split.mjs`, the both-events assertion, the Resend
 ids, `login-link { url }`, and the final two screenshots — is fully automated
 and ready to run.
+
+---
+
+# PART 3 — THE LOOP IS PROVEN (end to end, on the real route)
+
+The founder completed onboarding at ~07:52. Everything below was then driven
+unattended. **A client paid Liminal, Liminal kept 10%, the therapist's connected
+account got the rest, and Stripe's own API confirms it.**
+
+## The ids (prominent — the earnings agent needs the `py_`)
+
+```
+PLATFORM side   PaymentIntent  pi_3TvC5uFTCTbH09lM0lMpLyII
+                Charge         ch_3TvC5uFTCTbH09lM0E4g9P2B
+                ApplicationFee fee_1TvC5yJvfwWFuhCfC7lXfk1J
+                Transfer       tr_3TvC5uFTCTbH09lM0WDv60If
+                Checkout sess  cs_test_a1vGDKcQiuFMmgVBjDSWMvkF2i
+
+CONNECTED side  Payment        py_1TvC5yJvfwWFuhCfDyGRZhFx      ← Earnings deep-link id
+                BalanceTxn     txn_1TvC5yJvfwWFuhCfQP5NE7nK
+                Account        acct_1TvBKiJvfwWFuhCf
+```
+
+`/earnings?view=transactions&payment=py_1TvC5yJvfwWFuhCfDyGRZhFx`
+
+## Onboarding completed (the human step)
+
+Watched `currently_due` drain in real time as the founder worked: 11 → 16
+(expanded when business_type was chosen) → 4 → 3 → 2 → **0**.
+
+```
+07:52:01  charges=true  payouts=true  details=true
+          capabilities {card_payments:"active", transfers:"active"}  due=0
+```
+
+`GET /api/connect/status` then synced our row: `chargesEnabled=true`,
+`payoutsEnabled=true`, `detailsSubmitted=true`, `businessType="individual"`,
+`requirementsDue` all-empty. The capabilities fix is vindicated — both
+capabilities went **active**, which is exactly what a pre-fix account could
+never have reached.
+
+## The payment (driven as Casey, card 4000 0000 0000 0077)
+
+Portal → Unpaid → INV-2026-9003 → **Pay $150.00** → redirect to
+`checkout.stripe.com`. Checkout rendered the amount `$150.00` and the generic
+line item **"Therapy session"** (PHI-safe — confirmed on Stripe's own page).
+Paid, then redirected back to
+`localhost:3010/portal/invoices?paid=1&session_id=cs_test_a1vGDK…`.
+
+> **Drive gotcha worth keeping:** Stripe Checkout renders the payment-method
+> list with **nothing selected** ("PAYMENT METHOD REQUIRED") and the card fields
+> do not exist until *Card* is chosen — a naive `fill('cardNumber')` silently
+> no-ops and the payment never submits. Also uncheck "Save my information",
+> which forces a phone number. Both are now handled in the driver.
+
+## Settlement — via the webhook, not the redirect
+
+```
+invoice INV-2026-9003 → paid
+payment  $150.00 card  pi_3TvC5uFTCTbH09lM0lMpLyII  paid_at 07:58:36.130Z
+split    pi_3TvC5u… → acct_1TvBKiJvfwWFuhCf  amount 15000  fee 1500  transfer_id NULL
+```
+
+## THE BOTH-EVENTS ASSERTION — PASS
+
+```
+PASS  checkout.session.completed (platform scope): 1 matching, 1 recorded green
+        evt_1TvC5vFTCTbH09lMpGtdobQN  acct=NULL (platform)  processed_at=07:58:37.326Z  error=NULL
+PASS  account.updated (connected scope): 7 matching, 7 recorded green
+        evt_1TvBgWJvfwWFuhCfHfSt73sB  acct=acct_1TvBKiJvfwWFuhCf  processed_at=07:32:21.292Z  error=NULL
+
+unprocessed-or-errored events: 0
+BOTH PROOF EVENTS PRESENT AND GREEN — the loop is proven.
+```
+
+## The split, from Stripe's own API (`verify-split.mjs`)
+
+```
+Charge ch_3TvC5u…   amount 150.00 USD   app fee 15.00 USD   destination acct_1TvBKiJvfwWFuhCf
+ApplicationFee fee_1TvC5y…   amount 15.00 USD   refunded false
+Transfer tr_3TvC5u…          amount 150.00 USD  → acct_1TvBKiJvfwWFuhCf
+
+SPLIT
+  client paid        150.00 USD
+  Liminal fee         15.00 USD   (10.00% of gross)
+  transfer moved     150.00 USD   → acct_1TvBKiJvfwWFuhCf
+  therapist KEEPS    135.00 USD   (connected bt txn_1TvC5y…: amount 150.00 − fee 15.00)
+  ✓ transfer = full gross 15000
+  ✓ 15000 − 1500 = 13500 net to the therapist
+
+Connected account acct_1TvBKiJvfwWFuhCf
+  charges_enabled true   payouts_enabled true   details_submitted true
+  pending 0.00 USD   available 135.00 USD
+  connected payment py_1TvC5y…  amount 150.00 USD  application_fee_amount 1500
+```
+
+**The `0077` card behaved exactly as the amendment promised** — funds landed in
+**available $135.00** with **pending $0.00**, so the payout side verified with no
+waiting. That validates drive-doc amendment #1 on real money movement.
+
+### Correction to the expected model (and two real bugs fixed in `verify-split.mjs`)
+
+The drive doc predicted `charge − fee = transfer` (150 − 15 = 135). **That is
+wrong**, and measurement proved it: for a destination charge with
+`application_fee_amount`, the transfer moves the **full gross ($150)** and the
+fee is deducted on the **connected side**. The therapist's real take is the
+connected balance transaction's `net`:
+
+```
+transfer.amount        = 15000   (the whole 150.00 — NOT 135.00)
+connected bt.amount    = 15000
+connected bt.fee       =  1500   ← our application fee lands here
+connected bt.net       = 13500   ← what the therapist actually keeps
+```
+
+The economics are exactly right ($135 to the therapist, 10% to Liminal); only
+the script's model was wrong. Two bugs fixed in `scripts/qa/verify-split.mjs`
+(my seam):
+
+1. It asserted `gross − fee === transfer.amount`, which would have **failed a
+   perfectly correct split forever**. Now asserts the measured model and reports
+   the therapist's true net from the connected balance transaction.
+2. `stripe.balance.retrieve({ stripeAccount })` passed the account as a *query
+   param* → `400 "Received unknown parameter: stripeAccount"`, which crashed the
+   script before it could print the ledger diff. Correct signature is
+   `retrieve({}, { stripeAccount })`. It also now prints the connected `py_…` id.
+
+## DEFECT — `stripe_payment_splits.transfer_id` is never populated
+
+The one problem `verify-split.mjs` reports:
+
+```
+OUR RECORD vs STRIPE
+  ✓ amount_cents           ours=15000  stripe=15000
+  ✓ application_fee_cents  ours=1500   stripe=1500
+  ✓ destination_account_id ours=acct_1TvBKiJvfwWFuhCf  stripe=acct_1TvBKiJvfwWFuhCf
+  ✗ transfer_id            ours=—      stripe=tr_3TvC5uFTCTbH09lM0WDv60If
+```
+
+**Cause:** `handleCheckoutCompleted` reads `charge.transfer` at
+`checkout.session.completed` time, but for a destination charge the transfer
+does not exist yet at that instant — `transfer.created` arrives afterwards as
+its own event (visible in the ledger, immediately after
+`checkout.session.completed`). So the column is written NULL and **never
+reconciled**, permanently.
+
+Severity: MEDIUM. Money moved correctly and every other field agrees; the gap is
+in our audit record, which is precisely the thing `stripe_payment_splits` exists
+to be. Reconciling a payout to a Stripe transfer later means joining by
+PaymentIntent instead of the column built for it.
+
+**Fix (route owner's seam — not mine, untouched):** handle `transfer.created`
+(or `charge.updated`) and backfill `transfer_id` by `payment_intent_id`. The
+event is already being delivered and recorded green; the handler just falls
+through to `default`.
+
+## T5 emails — both sent, with ids, and both BOUNCED
+
+Pulled from the Resend API (our `sendEmail` discards the response, so the ids are
+not in our logs — the PART 1 flag stands):
+
+```
+e45bdde7-447a-4c34-b0ac-b9540eca75d8  → brendan@liminal.demo
+    "You've been paid $135.00 — INV-2026-9003"     created 07:58:37.399Z  last_event: bounced
+8f223edf-8665-4b2e-910c-8fe5158ccf4a  → casey@liminal.demo
+    "Receipt — $150.00 paid on INV-2026-9003"      created 07:58:37.239Z  last_event: bounced
+```
+
+Both fired from the webhook within ~1s of settlement, from
+`Liminal Psychiatry <billing@nysgpt.com>`. **The subject lines prove the split
+math independently**: the therapist is told **$135.00** (net) and the client
+**$150.00** (gross), with the client receipt correctly omitting the fee per the
+lead's ruling.
+
+**But `last_event: bounced` on both** — `@liminal.demo` is not a real domain, so
+nothing was delivered. Exactly the risk flagged in PART 1. For a demo
+environment this is expected and harmless; it is recorded so nobody later reads
+"emails sent" as "emails received". Real delivery is unverified and cannot be
+verified against demo addresses.
+
+## `POST /api/connect/login-link` — PASS
+
+```
+HTTP 200   { url: … }   host connect.stripe.com
+```
+
+Returns a valid single-use Express Dashboard URL now that onboarding is
+complete. **URL deliberately not printed** (single-use, short-lived). Its
+pre-onboarding 500 (PART 2) was correct behavior, not a bug.
+
+## Screenshots
+
+- `scratchpad/shot-getpaid-active.png` — provider Get-paid **active**: "Accepting
+  payments" + "Payouts on" badges, the `acct_…` id, and the "Stripe dashboard"
+  button.
+- `scratchpad/shot-invoice-paid.png` — Casey's portal, INV-2026-9003 with the
+  green **Paid** badge, `Total $150.00 / Paid −$150.00 / Balance due $0.00`,
+  "Payments received — Card · Jul 20, 2026 · $150.00", and **no Pay button**.
+  Tabs now read **Unpaid 0 / Paid 4**; the Overview shows Outstanding balance
+  $0.00 and the payment in history.
+- `scratchpad/shot-checkout.png` — Stripe Checkout showing "Therapy session
+  $150.00" (PHI-safe line item on Stripe's own page).
+- Earlier states: `shot-getpaid-empty.png` (none), `shot-getpaid-onboarding.png`
+  (onboarding), `shot-invoice-payable.png` (payable "before").
+
+All four provider card states — none → onboarding → active — plus payable → paid
+on the client side are captured.
+
+## NYS-173 — confirmed a second time, on the REAL charge
+
+The throwaway experiment's answer holds on the production path: the connected
+account's own `py_1TvC5y…` carries `amount=150.00` **and**
+`application_fee_amount=1500`, and its balance transaction decomposes
+`150.00 / 15.00 / 135.00`. **The Earnings Transactions view has real data**, with
+no `on_behalf_of`.
