@@ -359,9 +359,9 @@ anything live — prefer `stripe login` / `STRIPE_API_KEY` in the environment.
 
 An initial check reported a `whsec` MISMATCH between the forwarder log and
 `.env.local`. That was a stale artifact: `stripe-listen.log` is the *old*
-pre-rebuild forwarder (`whsec_a2805172…`, process dead). The live forwarder
+pre-rebuild forwarder (`whsec_…[redacted]`, process dead). The live forwarder
 (pid 34143, both `--forward-to` and `--forward-connect-to`) logs to
-`stripe-listen2.log` and its `whsec_0322fa681d…` **matches** `.env.local`.
+`stripe-listen2.log` and its `whsec_…[redacted]` **matches** `.env.local`.
 Anyone re-checking this should read `stripe-listen2.log`.
 
 ### State at halt
