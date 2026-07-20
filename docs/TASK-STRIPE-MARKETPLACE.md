@@ -81,7 +81,10 @@ you'd make direct" is a sales weapon no competitor can print.
       + Express surfaces.
 - Live-mode gates (NOT tonight, listed so nobody is surprised): platform
   profile, business verification, Site Links for embedded components,
-  responsibilities acknowledgment.
+  responsibilities acknowledgment, **and set the three Stripe env vars in
+  Vercel** (verified 2026-07-20: `vercel env ls` shows zero Stripe vars have
+  ever been deployed — which also closed the historical-PHI-exposure question;
+  the founder's Dashboard UI attempt that night didn't save).
 
 ## Build tasks (tranche 1)
 
