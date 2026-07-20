@@ -54,6 +54,14 @@ stripe.accounts.list({limit:1})  → succeeds, returns []   (NOTE: list works ev
 enable the platform, on `acct_1T1DhaFZHX4S0kX2`. This is the only thing blocking
 the whole loop; keys, CLI, and `stripe listen` are all confirmed present.
 
+> **Environment switched after PART 1 was written.** Everything above was
+> measured against platform account `acct_1T1DhaFZHX4S0kX2`. The keys were
+> re-saved ~03:08 and the environment of record became
+> **`acct_1T1DhqFTCTbH09lM`** (NYSgpt sandbox) — a *different* Stripe
+> environment, where Connect was then enabled. PART 1's findings stand as
+> measured; the account id simply belongs to the prior environment. All of
+> PART 2 runs against `acct_1T1DhqFTCTbH09lM`.
+
 ### Verified GREEN — everything our code owns short of a connected account
 
 All read-only or degrade-path; no live-DB mutation. Evidence is the actual
@@ -200,3 +208,180 @@ $150.00 / fee $15.00 / net $135.00 → `acct_…`) → **assert both events reco
 `POST /api/connect/login-link` → `{ url }` → screenshots (active Get-paid card,
 paid invoice) → cleanup as above. The `pi_…`/`ch_…` ids go to the
 earnings-surface agent for its demo deep-link.
+
+---
+
+## PART 2 — Connect enabled; account created; drive halted by a capabilities defect + captcha-gated onboarding
+
+Connect was enabled on `acct_1T1DhqFTCTbH09lM` and the drive resumed at ~03:09
+local. Steps 1 and 2 of the drive ran; the loop stops short of `charges_enabled`.
+
+### Step 1 — account creation: PASSED, controller triple verified
+
+`POST /api/connect/account` (practitioner cookie) → **200**, `created: true`.
+
+```
+stripe_connect_accounts row:
+  id                 42062cf9-ee92-43d2-b428-cf068012ae07
+  user_id            00000000-0000-4000-8000-000000001001   (Brendan)
+  stripe_account_id  acct_1TvBKiJvfwWFuhCf
+  charges_enabled=false  payouts_enabled=false  details_submitted=false
+```
+
+Retrieved from Stripe — the founder-locked controller triple landed **exactly**:
+
+```
+controller.stripe_dashboard.type = express
+controller.fees.payer            = application
+controller.losses.payments       = application
+controller.requirement_collection = stripe      (Stripe collects — the default, as intended)
+controller.type                   = application
+business_profile.mcc              = 8099
+business_profile.product_description = "Outpatient behavioral health sessions billed through Liminal."
+metadata = { liminalUserId: … }                 (internal id only — no PHI)
+```
+
+**Idempotency confirmed:** a second `POST /api/connect/account` returned
+`created: false` with the same `acct_…` — no duplicate account minted. (A
+duplicate is not cosmetic: it splits payout history and needs Stripe support to
+unwind.)
+
+### DEFECT — T2, HIGH: no capabilities requested, so destination charges can never work
+
+`POST /api/connect/account` calls `stripe.accounts.create` **without a
+`capabilities` parameter**, so the connected account holds none. A destination
+charge REQUIRES the destination account to hold the **`transfers`** capability.
+Ours will never acquire it, and its onboarding only ever collects bank + ToS —
+so even a fully completed manual onboarding leaves the money loop dead.
+
+Measured against a throwaway account with the identical controller triple but
+`capabilities` requested (created and **deleted immediately**, `acct_1TvBf1FIWRJcO7JG`):
+
+```
+OURS (no capabilities param)
+  capabilities  {}
+  currently_due [external_account, tos_acceptance.date, tos_acceptance.ip]
+
+THROWAWAY (capabilities requested)
+  capabilities  { card_payments: "inactive", transfers: "inactive" }
+  currently_due [business_type, external_account, representative.dob.day/month/year,
+                 representative.email, representative.first_name, representative.last_name,
+                 settings.payments.statement_descriptor, tos_acceptance.date, tos_acceptance.ip]
+```
+
+Current state of our account: `charges_enabled=false`, `payouts_enabled=false`,
+`details_submitted=false`, `capabilities {}`, `disabled_reason
+"requirements.past_due"`.
+
+**Fix (worker A's seam — I have not touched app/lib code):** add
+`capabilities: { transfers: { requested: true }, card_payments: { requested: true } }`
+to the `accounts.create` call.
+
+**Ordering matters:** this must be fixed *before* anyone hand-completes
+onboarding, or the manual pass collects the wrong requirement set and has to be
+redone.
+
+### BLOCKER — Stripe onboarding is captcha/anti-automation protected; it needs a human
+
+Onboarding cannot be completed headlessly, on either surface. This is Stripe
+protecting its own flow by design, not a defect in our code:
+
+- **Hosted Account Link** (`connect.stripe.com/setup/e/acct_…`): the first step
+  offers "Use test phone number", which fills correctly
+  (`phone_number = +10000000000`), but an **invisible hCaptcha challenge iframe
+  intercepts pointer events** on the Submit control (an `<a role="button">`):
+  `<iframe title="hCaptcha challenge" …> from <div>…</div> subtree intercepts
+  pointer events`. After retries the page degrades to "Having trouble signing
+  up? Contact Support".
+- **Embedded `ConnectAccountOnboarding`** in our own app: renders correctly (3
+  Stripe iframes, `embeddedComponent=stripe-connect-account-onboarding`, themed
+  to our brand), but the "Add information" entry click does not advance — no new
+  frame, no state change.
+
+**I did not attempt to solve or bypass the captcha, and will not** —
+circumventing anti-automation is out of bounds. **A human must complete
+onboarding once** (~2 min in a real browser). Everything downstream of
+`charges_enabled` is fully automatable and will be driven end to end.
+
+### Webhook pipeline — PROVEN HEALTHY (real signed event, end to end)
+
+A genuine Stripe-signed `account.updated` arrived through the forwarder and was
+recorded green:
+
+```
+id           evt_1TvBZ8FTCTbH09lMIXZ7DW2w
+type         account.updated
+stripe_account_id  NULL          ← PLATFORM scope (this event is about the platform acct)
+received_at  2026-07-20T07:24:42.584Z
+processed_at 2026-07-20T07:24:42.774Z
+error        NULL
+```
+
+So signature verification against the current `whsec`, the `claimStripeEvent`
+idempotency path, the handler, and `completeStripeEvent` all work. `handleAccountUpdated`
+correctly no-op'd for an account it has no row for (documented behavior).
+
+This is **not** the connected-scope event the both-events assertion needs — that
+one carries `stripe_account_id = acct_1TvBKiJvfwWFuhCf` and fires when a human
+completes onboarding. **Both-events assertion remains UNPROVEN.**
+
+### PART 1's code-read-only caveat — now CLOSED with live evidence
+
+With an account in place, the previously-shadowed guard is reachable:
+
+```
+POST /api/connect/account-link  (http origin)  → 503
+  "Hosted onboarding needs an HTTPS return URL. Set CONNECT_RETURN_BASE_URL to a tunnel or the deployed domain."
+POST /api/connect/login-link    (pre-onboarding) → 500 "Could not create a dashboard link."
+```
+
+The `login-link` 500 is **expected** and matches the route's own documented
+comment: Stripe rejects login links for accounts that haven't finished
+onboarding; the UI only shows that button in the active state. It will be
+re-tested for `{ url }` after onboarding.
+
+### Screenshot added
+
+- `scratchpad/shot-getpaid-onboarding.png` — provider Get-paid in the
+  **onboarding** state: "Finish setting up payments" card, the "Open on Stripe
+  instead" fallback, and the embedded Stripe component rendering "Add
+  information to start accepting money". Two `429` console errors were observed
+  from Stripe resource loads (rate limiting; benign, noted not diagnosed).
+
+### Additional flag — secret hygiene
+
+The `stripe listen` forwarder (pid 34143) is invoked with `--api-key sk_test_…`
+on the command line, so the secret key is visible in `ps` output to any local
+process. Test-mode key, so low severity, but the pattern shouldn't carry to
+anything live — prefer `stripe login` / `STRIPE_API_KEY` in the environment.
+
+### Infra note — a whsec false alarm worth recording
+
+An initial check reported a `whsec` MISMATCH between the forwarder log and
+`.env.local`. That was a stale artifact: `stripe-listen.log` is the *old*
+pre-rebuild forwarder (`whsec_a2805172…`, process dead). The live forwarder
+(pid 34143, both `--forward-to` and `--forward-connect-to`) logs to
+`stripe-listen2.log` and its `whsec_0322fa681d…` **matches** `.env.local`.
+Anyone re-checking this should read `stripe-listen2.log`.
+
+### State at halt
+
+```
+stripe_events: 1 (the platform-scope account.updated above)
+stripe_payment_splits: 0
+stripe_connect_accounts: 1 (acct_1TvBKiJvfwWFuhCf — KEEP per the drift guardrail)
+INV-2026-9003: status=sent  $150.00  payments=0     (untouched, still payable)
+```
+
+Nothing needs restoring yet: no payment was attempted, and the Pay button was
+never clicked (clicking it would fall through to the pre-marketplace mock path
+and destroy the payable state the drive needs).
+
+### Still UNPROVEN — the entire money loop
+
+`charges_enabled` · the connected-scope `account.updated` · the destination
+charge · the $150/$15/$135 split · `verify-split.mjs` · the both-events
+assertion · the two Resend emails · `login-link { url }` · the active-card and
+paid-invoice screenshots · and the NYS-173 question (whether the connected
+account sees the fee split or only the net). All are gated on: fix the
+capabilities defect → a human completes onboarding once → I drive the rest.
