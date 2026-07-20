@@ -6,6 +6,11 @@ This was a primitive change, not a set of per-table edits: the capability lives 
 `DataTable`/`Table`, and each table opts in by passing data. Existing consumers that
 don't opt in render exactly as before — verified on /rates and /directory.
 
+**Before-state** is durable in git: the /workspace baseline (the deleted Sync-health
+card, the 8-row region, the pre-v2 tables) lives at **740770d** and its parents — the
+tree is shared with live agents, so this report points there rather than checking it out.
+After-state screenshots are in `docs/reports/assets/2026-07-20-table-standard-v2/`.
+
 ## What shipped
 
 ### Primitive (`components/ui/data-table.tsx`, `components/ui/table.tsx`)
@@ -26,8 +31,11 @@ Additive, opt-in, backward-compatible props on the **stacked** variant:
   it also tightens every existing stacked table (e.g. /rates, whose toolbar carries a
   40px search input). `Table` gained `"use client"` (it now uses hooks; every direct
   importer was already a client component, so no server-render breakage).
-- CSV export helper: `lib/csv.ts` (`toCsv`/`downloadCsv`) — a pure client util, not a
-  UI primitive; the `onExport` hook already existed on `DataTable`.
+- **New shared utility — `lib/csv.ts`** (`toCsv` / `downloadCsv`): a 22-line pure,
+  dependency-free client helper the `onExport` hook calls (the hook already existed on
+  `DataTable`). Named here per the house rule that new shared code gets called out. It is
+  NOT a UI primitive — no component, no render — so it doesn't touch the primitives-first
+  law; it's the export serializer every v2 table shares.
 
 **Why this counts as in-charter primitive work, not a new primitive:** no new component
 was created. The title block, footer, and search-right are composed from existing
@@ -70,6 +78,22 @@ also pauses while a search query is active (not just on hover / reduced-motion).
   over ~10k rows, parallel page+count, `min-w-0` overflow) is the default and the
   definition of done; a table missing it is a defect.
 
+## Screenshots (after-state, `docs/reports/assets/2026-07-20-table-standard-v2/`)
+Each Operations shot is element-scoped to the table card, so the title block (top) and the
+source+freshness footer (bottom) are both in frame.
+
+- `01-harvest-runs.png` — the deleted Sync-health card's content, now the title block:
+  green dot + "Harvest runs" + Healthy pill + "Jul 20, 2026 · 1:23 AM · cron · 428s · 15
+  steps"; search + kebab right; sortable headers; footer `sync_runs · harvest:* jobs` ·
+  newest run time.
+- `02-history-logs.png` — ledger with run-count status pill, footer `sync_runs ledger · newest 30`.
+- `03-agent-reports.png` — `N recent` pill, open-report/copy row kebab, footer `docs/reports/*.md`.
+- `04-work-queue.png` — `N in progress` pill, pin + copy/open-in-Linear row actions, footer `Linear NYS board · snapshot`.
+- `05-anthem-june.png` — loaded state: `476,114 rows` pill, every column sortable, footer `provider_rate_signals · June Empire 39F0` · `200 of 476,114 loaded`.
+- `06-design-system-v2.png` — the live "Table · v2 (operational)" catalog spec.
+- `07-propagation-rates.png` — /rates scrolled: sticky header sits correctly below the toolbar (no v2 props forced on it).
+- `08-propagation-directory.png` — /directory index layout intact (select column, sortable headers, Filter·Columns·Export·Refresh).
+
 ## Verification (headless, real login `brendan@liminal.demo`)
 - Rendered /workspace and clicked through all five Operations tabs — screenshots in the
   session scratchpad (`ws-harvest`, `ws-history`, `ws-reports`, `ws-queue`, `ws-anthem`,
@@ -98,12 +122,15 @@ The founder asked to confirm it isn't dragging the page. It isn't:
   page 0, server pagination, debounced NPI search. The page rows themselves are fast.
 
 ## Flags / next tranche
-1. **/rates duplicate-key warning (out of seam, likely pre-existing).** /rates emits 3
+1. **/rates duplicate-key warning (out of seam, not from this change).** /rates emits 3
    React "two children with the same key" warnings (the dev "3 Issues" badge). It is NOT
    from this change — my workspace tables use the same primitive and warn zero times, and
    my diffs don't touch key generation; it's duplicate `rowKey`s in a rates table. Per the
-   seam rule I did **not** touch `components/rates/*`. Owner: the rates session — the fix
-   is a more unique `rowKey` on the affected rates DataTable.
+   seam rule I did **not** touch `components/rates/*`. **Caveat:** the rates files are dirty
+   in the shared tree right now (`components/rates/{bands-panel,rates-shell,spread-panel}.tsx`
+   modified by another session), so the offending `rowKey` may live in EITHER committed or
+   uncommitted code — the rates-session owner will sort which. The fix is a more unique
+   `rowKey` on the affected rates DataTable.
 2. **Anthem-June count (data-layer, out of my seam).** Shaving the 1.15s first-load means
    a cheaper total for the June slice — a partial index on `source_file`, a cached/snapshot
    count, or returning rows-first then backfilling the count in a second request. All live
