@@ -37,6 +37,7 @@ const WORKSPACE_NAV: SidebarNavSection[] = [
       { label: "Prescriptions", href: "/prescriptions", icon: "pill-bottle" },
       { label: "Orders", href: "/orders", icon: "send" },
       { label: "Billing", href: "/billing", icon: "dollar" },
+      { label: "Earnings", href: "/earnings", icon: "credit-card" },
       { label: "Catalog", href: "/catalog", icon: "grid" },
       { label: "Library", href: "/library", icon: "clipboard" },
     ],

@@ -20,6 +20,7 @@ const ROUTE_TITLES: Array<[prefix: string, icon: IconName, title: string]> = [
   ["/catalog", "grid", "Catalog"],
   ["/directory", "globe", "Directory"],
   ["/billing", "dollar", "Billing"],
+  ["/earnings", "credit-card", "Earnings"],
   ["/rates", "activity", "Rates"],
   ["/codes", "dollar", "Billing codes"],
   // Soft launch: direct-URL only, no sidebar entry. Sits after /rates but the
