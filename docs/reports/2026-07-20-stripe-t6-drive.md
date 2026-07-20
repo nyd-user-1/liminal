@@ -820,3 +820,51 @@ recorded green, with zero unprocessed and zero errored events across the drive.
   I verified its start and end states, not the middle.
 - `on_behalf_of` behavior end-to-end — rejected in the probe for lack of an
   active `card_payments` capability; reported as a constraint, not a measurement.
+
+---
+
+## NYS-174 — the post-submit transition on the Get-paid card
+
+**Asked for, and I must be straight about it: I did NOT observe the moment.** The
+founder completed onboarding in their own browser; my instrumentation was
+API-side polling, not a view of their screen. So I have no measurement of what
+the card rendered immediately after "Agree and submit". What follows is a
+code-read hypothesis plus the one relevant timing fact I do have.
+
+**Structural finding (read from `app/(app)/settings/payments/payments-client.tsx`):
+the card has no polling.** `refresh()` — the only thing that re-reads status — is
+called from exactly four places: mount, the manual **Refresh** button, the error
+banner's "Try again", and `ConnectAccountOnboarding`'s `onExit`. There is no
+`setInterval`, no webhook-driven push to the client.
+
+So after submit, the card updates only if BOTH hold:
+
+1. Stripe's embedded component actually fires `onExit`, and
+2. at that instant Stripe has already flipped `charges_enabled`.
+
+Condition 2 is a genuine race: capabilities activate **asynchronously** after
+submission. If `onExit` fires promptly, `refresh()` can legitimately read
+`chargesEnabled=false` with `detailsSubmitted=true` — and `connectStage()` maps
+exactly that to **`"pending"`**, i.e. the "Verification in progress" card. Nothing
+then re-checks. The surface would sit on "Verification in progress" until the
+user clicks Refresh, which is very likely what the founder experienced (it would
+present as "stuck", not as a spinner — there is no spinner in that state).
+
+**The timing fact I do have, which partly cuts against the severity:** my 5-second
+API polling showed `details_submitted` and `charges_enabled` flipping inside the
+*same* 5s sample:
+
+```
+07:51:39  charges=false payouts=false details=false due=2
+07:52:01  charges=true  payouts=true  details=true  due=0
+```
+
+So the async gap was under ~5s here, and I have no evidence of a prolonged
+pending state. The race is real but may be narrow — it would widen for any
+account Stripe actually queues for review.
+
+**Suggested fix (UI seam, not mine — not touched):** poll `GET /api/connect/status`
+on a short interval while `stage !== "active"` and stop once active, so the card
+self-corrects instead of depending on a single `onExit` landing after an
+asynchronous capability flip. Cheap, and it removes the dependency on Stripe's
+callback firing at all.
