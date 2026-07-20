@@ -47,6 +47,7 @@ export default async function PortalRecordsPage() {
           sizeBytes: f.sizeBytes,
           createdAt: f.createdAt,
           uploaderName: names[f.uploaderId] ?? "Your care team",
+          isDemo: f.provenance === "demo_seed",
         }))}
       />
     </>

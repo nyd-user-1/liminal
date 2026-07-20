@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { MenuItem } from "@/components/ui/dropdown-menu";
@@ -39,6 +40,9 @@ interface FileItem {
   sizeBytes: number;
   createdAt: string;
   uploaderName: string;
+  /** Seeded demo rows are real files with real bytes, but they weren't put
+   *  here by the practice — the row says so rather than passing as clinical. */
+  isDemo: boolean;
 }
 
 function formatSize(bytes: number): string {
@@ -123,6 +127,7 @@ type RecordRow = {
   typeLabel: string;
   hue: TagHue;
   sharedBy: string;
+  isDemo: boolean;
   /** Set for a clinical note — opens the view-only modal. */
   note: NoteItem | null;
   /** Set for a document — downloads through the proxy. */
@@ -151,6 +156,7 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
         typeLabel: "Clinical note",
         hue: "pink" as TagHue,
         sharedBy: n.authorName,
+        isDemo: false,
         note: n,
         fileId: null,
       })),
@@ -170,6 +176,7 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
           typeLabel: t.label,
           hue: t.hue,
           sharedBy: f.uploaderName,
+          isDemo: f.isDemo,
           note: null,
           fileId: f.id,
         };
@@ -218,8 +225,11 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
       fixed: true,
       cellClassName: "max-w-[24rem] truncate",
       render: (r) => (
-        <span className="font-medium text-text" title={r.title}>
-          {r.title}
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate font-medium text-text" title={r.title}>
+            {r.title}
+          </span>
+          {r.isDemo && <Badge variant="neutral">Demo data</Badge>}
         </span>
       ),
       sortValue: (r) => r.title.toLowerCase(),
@@ -298,7 +308,12 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
                 title={r.title}
                 description={r.description}
                 date={r.dateLabel}
-                tags={<Tag hue={r.hue}>{r.typeLabel}</Tag>}
+                tags={
+                  <>
+                    <Tag hue={r.hue}>{r.typeLabel}</Tag>
+                    {r.isDemo && <Badge variant="neutral">Demo data</Badge>}
+                  </>
+                }
                 onOpen={() => open(r)}
               />
             )),

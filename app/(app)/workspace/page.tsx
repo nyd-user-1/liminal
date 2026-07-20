@@ -114,7 +114,7 @@ export default async function WorkspacePage() {
 
             {inventory && (
               <EcoSection
-                title="Platform data"
+                title="Data"
                 aside={
                   <TextLink href="/workspace/data-dictionary" className="text-sm">
                     Data dictionary

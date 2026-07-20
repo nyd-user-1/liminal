@@ -38,7 +38,7 @@ export async function Fleet() {
   const docs = await Promise.all(FLEET.map((a) => agentDoc(a.name)));
   const agents: FleetAgent[] = FLEET.map((a, i) => ({ ...a, doc: docs[i] }));
   return (
-    <EcoSection icon="users-round" title="The agent fleet">
+    <EcoSection icon="users-round" title="Agents">
       <FleetGrid agents={agents} />
     </EcoSection>
   );

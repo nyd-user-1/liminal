@@ -374,13 +374,27 @@ export function ClientRecord({
       },
       {
         key: "files",
-        title: "Files",
-        size: "md",
+        title: "Documents",
+        // Carries a DataTable now, so it takes the full-width default the other
+        // table cards use — six columns do not fit in a half-width card.
+        size: "lg",
         category: "Records",
         icon: "file-text",
         blurb: "Uploads, form PDFs and superbills",
         count: (r) => r.files.length,
-        render: (r) => <FilesTab clientId={r.client.id} files={r.files} bare />,
+        render: (r) => (
+          <FilesTab
+            clientId={r.client.id}
+            files={r.files}
+            // The bundle already names everyone who can have uploaded: the
+            // practice's practitioners, plus the client's own portal login.
+            uploaderNames={{
+              ...Object.fromEntries(r.practitioners.map((p) => [p.id, p.name])),
+              ...(r.client.userId ? { [r.client.userId]: `${r.client.firstName} ${r.client.lastName}` } : {}),
+            }}
+            bare
+          />
+        ),
       },
       // Everything below is off the default board and lives in the library.
       {

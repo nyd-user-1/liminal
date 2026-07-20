@@ -148,6 +148,7 @@ export default async function PortalHomePage() {
                   sizeBytes: f.sizeBytes,
                   createdAt: f.createdAt,
                   uploaderName: noteAuthors[f.uploaderId] ?? "Your care team",
+                  isDemo: f.provenance === "demo_seed",
                 }))}
               />
             ),
@@ -186,7 +187,7 @@ export default async function PortalHomePage() {
             key: "files",
             label: "Files",
             count: files.length,
-            content: <FilesTab clientId={client.id} files={files} readOnly />,
+            content: <FilesTab clientId={client.id} files={files} uploaderNames={noteAuthors} readOnly />,
           },
         ]}
       />
