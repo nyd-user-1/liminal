@@ -80,7 +80,7 @@ function toAccount(r: AccountRow): ConnectAccount {
 
 interface MockConnectStore {
   accounts: Map<string, ConnectAccount>; // keyed by stripeAccountId
-  events: Map<string, { id: string; type: string; processedAt: string | null }>;
+  events: Map<string, { id: string; type: string; processedAt: string | null; error: string | null }>;
   splits: Map<string, PaymentSplit>; // keyed by paymentIntentId
 }
 let _mock: MockConnectStore | null = null;
@@ -250,22 +250,27 @@ export async function claimStripeEvent(evt: {
     return rows.length > 0;
   }
   if (mock().events.has(evt.id)) return false;
-  mock().events.set(evt.id, { id: evt.id, type: evt.type, processedAt: null });
+  mock().events.set(evt.id, { id: evt.id, type: evt.type, processedAt: null, error: null });
   return true;
 }
 
 /** Mark a claimed event finished (or record why it failed). */
 export async function completeStripeEvent(id: string, error?: string): Promise<void> {
   if (hasDb) {
-    await sql`
-      UPDATE stripe_events
-      SET processed_at = now(), error = ${error ?? null}
-      WHERE id = ${id}
-    `;
+    // On failure, processed_at STAYS NULL — that is the worklist contract
+    // (sql/061: `WHERE processed_at IS NULL` finds every unfinished event,
+    // whether the handler threw or the process died). error says why.
+    if (error) {
+      await sql`UPDATE stripe_events SET error = ${error} WHERE id = ${id}`;
+    } else {
+      await sql`UPDATE stripe_events SET processed_at = now(), error = NULL WHERE id = ${id}`;
+    }
     return;
   }
   const e = mock().events.get(id);
-  if (e) e.processedAt = new Date().toISOString();
+  if (!e) return;
+  if (error) e.error = error;
+  else e.processedAt = new Date().toISOString();
 }
 
 // ── payment splits ───────────────────────────────────────────────────────────

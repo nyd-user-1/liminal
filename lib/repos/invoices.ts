@@ -212,7 +212,9 @@ async function nextInvoiceNumber(): Promise<string> {
   let max = 0;
   if (hasDb) {
     const rows = (await sql`
-      SELECT COALESCE(MAX(SUBSTRING(number FROM 10)::int), 0) AS max FROM invoices WHERE number LIKE 'INV-2026-%'
+      -- Regex, not LIKE: one row like 'INV-2026-TEST' would make the ::int
+      -- cast throw and break invoice creation app-wide (qa finding, 2026-07-20).
+      SELECT COALESCE(MAX(SUBSTRING(number FROM 10)::int), 0) AS max FROM invoices WHERE number ~ '^INV-2026-[0-9]+$'
     `) as Array<{ max: number }>;
     max = rows[0]?.max ?? 0;
   } else {
