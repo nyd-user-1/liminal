@@ -4,7 +4,7 @@ Owner: storage/audit/data seam. UI (`ehr-surfaces`) built against the contracts
 committed first. All work is local; **nothing pushed**.
 
 Commits: `7cd65db` (contracts), `881431c` (implementation), `b7b28a4` (seed),
-`4cc7144` (contract additions for the UI seam).
+`4cc7144` (contract additions for the UI seam), `97c6083` (delete guard).
 Migration: `sql/062_ehr_documents_amendments.sql`, applied to the live DB.
 
 ---
@@ -172,6 +172,43 @@ The request that produced the verification above wrote its own audit row:
 15:04:44  …001001  note.list  {"count": 3, "status": null}
 ```
 
+## 4c. Post-review: delete guard + cleanup (`97c6083`)
+
+**Defect in my own work, caught by `ehr-surfaces`.** While deleting its test
+notes it found that `DELETE /api/notes/:id` succeeded on a *signed* note. So
+the note you could not edit, you could still erase — `updateNote` refused
+non-drafts and `deleteNote` had no such check. A delete is the most complete
+silent edit there is, and the incoherence pointed the wrong way: toward
+destroying the record.
+
+Signed notes now 409 on DELETE exactly as on PATCH. Drafts stay freely
+deletable. Blocking this strands nobody, because the escape hatch for a note
+signed onto the wrong chart already exists and is the clinically correct one:
+an amendment saying it was filed in error.
+
+```
+DELETE /api/notes/…008003 (signed) → 409 "This note is signed and cannot be
+                                          deleted. File an amendment instead."
+DELETE /api/notes/<fresh draft>    → 200 {"ok": true}
+```
+
+**`probe-upload.txt` purged** — `ehr-surfaces` could not do it (no delete route
+exists), so I did. Blob object deleted from the private store (`list` confirms
+1 → 0 for that key), then the row. Casey's chart is now: 4 `demo_seed`
+documents all with real bytes, one signed note with 2 amendments, two real
+drafts. My own delete-guard test note was hard-deleted after use.
+
+**Open gap, NOT built — document retraction (needs a ruling).** There is no
+delete or retract path for a document at all: `app/api/files/route.ts` is
+GET + POST and there is no `/api/files/[id]`. A document uploaded to the wrong
+chart cannot be removed, and a wrong-chart upload is a PHI exposure with a
+real clinical frequency. I did not build it — it is a new feature and a
+behaviour ruling, not a defect fix. My recommendation is that it should take
+the same shape as notes rather than a plain DELETE: **retract with a required
+reason, soft-delete, audited, bytes deleted from the blob store but the row
+retained** so the retraction itself is part of the record. Notes and documents
+should get one ruling together.
+
 ## 5. Good Faith Estimate — SCOPE ONLY, NOT BUILT (NYS-176)
 
 Required content under 45 CFR 149.610, mapped to our schema:
@@ -256,7 +293,11 @@ Founder rules before anyone builds this.
 4. **No signed-URL issuance** — see §1. Deliberate, stronger than asked, but not
    the mechanism the brief specified.
 
-5. **No MIME allowlist on upload.** Any file type is accepted into the PHI
+5. **No delete/retract path for documents at all** — see §4c. Flagged by
+   `ehr-surfaces`, not built, needs a founder ruling alongside the same
+   question for notes.
+
+6. **No MIME allowlist on upload.** Any file type is accepted into the PHI
    store. Downloads are always `Content-Disposition: attachment` + `nosniff`, so
    this is not an XSS vector, but storing arbitrary executables in a PHI store
    is worth a ruling. Out of scope today; not built.
