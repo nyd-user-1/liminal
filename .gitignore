@@ -24,3 +24,6 @@ dev.log
 # The impeccable skill itself — used occasionally, 2.2M/96 files, too heavy for
 # the repo. Kept on local disk (still fully functional), just untracked.
 .claude/skills/impeccable/
+
+# Agent scratch dirs — may transiently hold pulled env values; never commit
+.*-tmp/
