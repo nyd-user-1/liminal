@@ -458,3 +458,89 @@ Both throwaway accounts created for this experiment were deleted
 Remaining connected accounts on the sandbox: `acct_1TvBKiJvfwWFuhCf` (our drive
 account — KEEP) and **`acct_1TvAliFTCTVBltm7`, which is not mine** — flagged to
 the lead rather than deleted, since it isn't this drive's to remove.
+
+---
+
+## PART 2b — capabilities fix applied to the live account; webhook robustness proven
+
+### The drive account was repaired in place — no recreation needed
+
+The capabilities defect was fixed in the route (`96a5f7f`, adds
+`transfers` + `card_payments`), and the capabilities were **also applied to the
+existing account** `acct_1TvBKiJvfwWFuhCf` (visible as two `capability.updated`
+events on the connected scope). It now reports:
+
+```
+capabilities   { card_payments: "inactive", transfers: "inactive" }   ← requested, pending requirements
+currently_due  [business_type, external_account,
+                representative.dob.day/month/year, representative.email,
+                representative.first_name, representative.last_name,
+                settings.payments.statement_descriptor,
+                tos_acceptance.date, tos_acceptance.ip]
+```
+
+That is exactly the fuller requirement set the A/B predicted, so **a human
+onboarding this account now WILL be productive** — no delete-and-recreate is
+required, and the drift guardrail (keep the row + the account) stays intact.
+
+### Webhook robustness — 47 real signed events, zero failures
+
+The NYS-173 experiment incidentally produced a substantial webhook load test.
+Across **47 real Stripe-signed events spanning ~15 types** — including many the
+handler does not explicitly handle (`capability.updated`, `person.created`,
+`person.updated`, `transfer.created`, `application_fee.created`,
+`account.application.authorized`/`deauthorized`, `account.external_account.created`,
+`payment_intent.*`, `charge.*`) — the ledger recorded:
+
+```
+unprocessed: 0        errored: 0
+```
+
+Every event was signature-verified, claimed, handled (explicitly or via the
+`default: break` fall-through), and completed. Unhandled types are recorded
+without side effects exactly as designed, and nothing was left half-done. This
+is meaningful evidence for the worklist semantics fix (`1919a3f`): under real
+volume, `processed_at` is set and `error` stays NULL on success.
+
+**Connected-scope delivery is proven for the real account too** — the ledger
+holds an `account.updated` carrying `stripe_account_id = acct_1TvBKiJvfwWFuhCf`,
+processed green. The both-events assertion still needs the *post-onboarding*
+`account.updated` (the one that flips `charges_enabled` true), but the connected
+scope itself is no longer in doubt.
+
+### Event-ledger cleanup (experiment noise removed)
+
+The experiment's events referenced now-deleted throwaway accounts and deleted
+test charges, and would have made the final two-event assertion unreadable.
+Removed, with counts:
+
+```
+stripe_events BEFORE: 47
+  deleted, belonged to deleted throwaway accounts:      29
+  deleted, platform-scope charges from the experiment:  14
+stripe_events AFTER:  4
+stripe_payment_splits: 0   (unchanged — no marketplace charge has settled)
+```
+
+Remaining rows are the real drive's own lifecycle records only:
+
+```
+account.updated     platform                processed  error=none
+account.updated     acct_1TvBKiJvfwWFuhCf   processed  error=none
+capability.updated  acct_1TvBKiJvfwWFuhCf   processed  error=none
+capability.updated  acct_1TvBKiJvfwWFuhCf   processed  error=none
+```
+
+Deleting these was safe despite the ledger's redelivery caution: every deleted
+row referenced a Stripe object that no longer exists, so a redelivery could only
+no-op. `INV-2026-9003` remains `sent` / $150.00 / 0 payments — untouched and
+still payable.
+
+### Remaining blocker — one human step
+
+Everything is now staged for the loop. The **only** thing outstanding is the
+captcha-gated onboarding, which needs a human for ~2 minutes in a real browser
+on `acct_1TvBKiJvfwWFuhCf`. The moment `charges_enabled` flips, the rest —
+payment, the split, `verify-split.mjs`, the both-events assertion, the Resend
+ids, `login-link { url }`, and the final two screenshots — is fully automated
+and ready to run.
