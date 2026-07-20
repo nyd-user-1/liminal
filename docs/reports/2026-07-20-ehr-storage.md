@@ -3,7 +3,8 @@
 Owner: storage/audit/data seam. UI (`ehr-surfaces`) built against the contracts
 committed first. All work is local; **nothing pushed**.
 
-Commits: `7cd65db` (contracts), `881431c` (implementation), `b7b28a4` (seed).
+Commits: `7cd65db` (contracts), `881431c` (implementation), `b7b28a4` (seed),
+`4cc7144` (contract additions for the UI seam).
 Migration: `sql/062_ehr_documents_amendments.sql`, applied to the live DB.
 
 ---
@@ -141,6 +142,35 @@ because they were. Backdating them to the original June seed dates would make
 the demo timeline prettier and would put a false fact inside a record — the
 precise thing this task exists to stop. If founder wants timeline coherence,
 that is a call to make explicitly.
+
+## 4b. Contract additions for the UI seam (`4cc7144`)
+
+`ehr-surfaces` was blocked rendering the notes timeline: `components/notes/
+client-notes.tsx` is a client component, so it can only see what
+`GET /api/notes` returns, and could not tell a plain signed note from an
+amended one without a fetch per row.
+
+- `GET /api/notes` now returns `amendmentCounts: Record<noteId, number>`.
+  Counted in SQL (`amendmentCountsFor`) rather than derived from
+  `listAmendmentsFor`, so a timeline does not pull every amendment body across
+  the wire to take a length. **Notes with no amendments are absent from the
+  map, not zero** — consumers need `?? 0`.
+- `uploaderNames(ids)` on the files repo for the Documents "who uploaded"
+  column. Not audited: a name lookup is not a record read.
+
+Verified live: `{"…008003": 2}` for Casey's one signed note, the two drafts
+correctly absent.
+
+**Premise correction.** `ehr-surfaces` flagged that `GET /api/notes` never
+calls `logEvent` and asked whether the unaudited list was deliberate. The
+observation about the route is correct; the conclusion is not. Read auditing
+lives in the repo, so `listNotes()` emits `note.list` no matter which caller
+invokes it — the route needs no logging call and adding one would double-log.
+The request that produced the verification above wrote its own audit row:
+
+```
+15:04:44  …001001  note.list  {"count": 3, "status": null}
+```
 
 ## 5. Good Faith Estimate — SCOPE ONLY, NOT BUILT (NYS-176)
 
