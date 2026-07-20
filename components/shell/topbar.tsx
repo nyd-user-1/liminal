@@ -107,7 +107,7 @@ function ContextSwitcher({ section }: { section: string }) {
         aria-expanded={open}
         aria-label={`Leuk, ${section} — switch section`}
         className={`flex h-9 items-center gap-1.5 rounded-field pl-3 pr-2 text-[14px] transition-colors ${
-          open ? "bg-black/[0.04] text-primary" : "text-text hover:bg-black/[0.04] hover:text-primary"
+          open ? "bg-black/[0.04] text-primary" : "bg-black/[0.04] text-text hover:text-primary"
         }`}
       >
         <span className="font-semibold">Leuk</span>
@@ -167,7 +167,7 @@ function SearchTrigger() {
       type="button"
       onClick={open}
       aria-label="Search"
-      className="group flex h-9 items-center gap-2 rounded-field px-2.5 text-text-muted transition-colors hover:bg-black/[0.04] hover:text-primary md:w-64"
+      className="group flex h-9 items-center gap-2 rounded-field bg-black/[0.04] px-2.5 text-text-muted transition-colors hover:text-primary md:w-64"
     >
       <Icon name="search" size={18} className="shrink-0" />
       <span className="hidden text-[14px] md:inline">Search…</span>

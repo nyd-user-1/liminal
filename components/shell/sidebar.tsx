@@ -105,7 +105,7 @@ export function Sidebar({
         } ${
           active
             ? "bg-surface text-text shadow-sm"
-            : "text-text-body hover:bg-page-edge/60 hover:text-text"
+            : "text-text-body hover:bg-surface hover:text-text hover:shadow-sm"
         }`}
       >
         <Icon
