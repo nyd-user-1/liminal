@@ -107,7 +107,7 @@ function ContextSwitcher({ section }: { section: string }) {
         aria-expanded={open}
         aria-label={`Leuk, ${section} — switch section`}
         className={`flex h-9 items-center gap-1.5 rounded-field pl-3 pr-2 text-[14px] transition-colors ${
-          open ? "bg-black/[0.04] text-primary" : "bg-black/[0.04] text-text hover:text-primary"
+          open ? "bg-black/[0.04] text-primary" : "bg-black/[0.04] text-text-body hover:text-primary"
         }`}
       >
         <span className="font-semibold">Leuk</span>

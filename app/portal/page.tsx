@@ -1,5 +1,5 @@
 import { EmptyState } from "@/components/ui/empty-state";
-import { ClientHeader } from "@/app/(app)/clients/[id]/client-header";
+import { PageHeader } from "@/components/ui/page-header";
 import { ClientTabs } from "@/app/(app)/clients/[id]/client-tabs";
 import { FilesTab } from "@/app/(app)/clients/[id]/files-tab";
 import { InsuranceTab } from "@/app/(app)/clients/[id]/insurance-tab";
@@ -21,9 +21,15 @@ import { InvoicesList } from "./invoices/invoices-list";
 import { RecordsList } from "./records/records-list";
 
 // Portal Home — the patient's own record, in the same shell the practice sees
-// on /clients/[id]: ClientHeader + ClientTabs, same tabs, same layout. The
-// point is that there is no second, lesser version of the record for the
-// person it's about.
+// on /clients/[id]: same tabs, same layout. The point is that there is no
+// second, lesser version of the record for the person it's about.
+//
+// The header is the NAME and nothing else — no avatar, no status badge, no
+// DOB/email/phone meta line. Those exist on the practitioner's copy because
+// staff are identifying which of many people this is; the patient already
+// knows. Their name is the page title (the client-record H1 exception, so the
+// shell's ContentHeader stands down — see route-title.ownsPageTitle) and the
+// tabs sit directly beneath it.
 //
 // What differs is CONTENT, not chrome. Every provider tab is a write surface,
 // so each one here is either the same component in `readOnly` mode or the
@@ -105,7 +111,7 @@ export default async function PortalHomePage() {
 
   return (
     <>
-      <ClientHeader client={client} readOnly />
+      <PageHeader title={`${client.firstName} ${client.lastName}`} className="mb-6" />
       <ClientTabs
         tabs={[
           {

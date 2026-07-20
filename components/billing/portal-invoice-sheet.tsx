@@ -154,7 +154,12 @@ export function PortalInvoiceSheet({
       open={!!invoice}
       onClose={onClose}
       title={invoice?.number ?? ""}
-      icon="file-text"
+      // The header is the LETTERHEAD, not a label: it carries the practice's
+      // mark, the way the top of a paper invoice does. The document identifies
+      // itself in the body below (the number sits where this mark used to), so
+      // the two aren't saying the same thing twice. `title` still names the
+      // dialog for screen readers.
+      titleNode={<Logo size="sm" />}
       mobileSheet
       footer={
         payable ? (
@@ -192,10 +197,11 @@ export function PortalInvoiceSheet({
           </div>
         ) : (
           <div className="space-y-5">
-            {/* Letterhead */}
+            {/* Document identity — the number leads, the practice names itself
+                under it. The brand mark moved up to the sheet header. */}
             <div className="flex items-start justify-between gap-4">
-              <div>
-                <Logo size="sm" />
+              <div className="min-w-0">
+                <p className="truncate text-[22px] font-semibold tracking-[-0.01em] text-text">{invoice.number}</p>
                 <p className="mt-1 text-[13px] text-text-muted">Leuk Psychiatry · hello@liminal.demo</p>
               </div>
               {s && <Badge variant={s.variant}>{s.label}</Badge>}

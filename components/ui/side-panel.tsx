@@ -58,6 +58,7 @@ export function SidePanel({
   open,
   onClose,
   title,
+  titleNode,
   icon,
   kicker,
   headerActions,
@@ -71,6 +72,13 @@ export function SidePanel({
   open: boolean;
   onClose: () => void;
   title: string;
+  /**
+   * Renders in place of the title text — for a header that carries a MARK
+   * rather than a name (the invoice sheet shows the practice's letterhead).
+   * `title` is still required and still names the dialog for screen readers,
+   * so swapping the visible title never costs the panel its accessible name.
+   */
+  titleNode?: ReactNode;
   icon?: IconName;
   /** Mono uppercase category line above the title ("PRESCRIPTION", "CLIENT"). */
   kicker?: string;
@@ -150,7 +158,9 @@ export function SidePanel({
             {kicker && (
               <p className={`font-mono text-[11px] uppercase tracking-[0.14em] ${KICKER[variant]}`}>{kicker}</p>
             )}
-            <h2 className={`truncate text-[22px] font-semibold tracking-[-0.01em] ${TITLE[variant]}`}>{title}</h2>
+            {titleNode ?? (
+              <h2 className={`truncate text-[22px] font-semibold tracking-[-0.01em] ${TITLE[variant]}`}>{title}</h2>
+            )}
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-1">
             {headerActions}

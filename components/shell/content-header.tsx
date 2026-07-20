@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { PageHeader } from "@/components/ui/page-header";
-import { routeTitle } from "@/components/shell/route-title";
+import { ownsPageTitle, routeTitle } from "@/components/shell/route-title";
 import { TOPBAR_ACTIONS_ID } from "@/components/shell/topbar-slot";
 
 // The page H1, at the top of the content surface (white inset panel). Route-
@@ -16,6 +16,9 @@ import { TOPBAR_ACTIONS_ID } from "@/components/shell/topbar-slot";
 // route → (icon, title) mapping keeps a single home if a surface wants it back.
 export function ContentHeader({ title, className = "" }: { title?: string; className?: string }) {
   const pathname = usePathname();
+  // A record that names itself owns its H1 — rendering one here too would put a
+  // route label above the person's name and give the page two.
+  if (ownsPageTitle(pathname)) return null;
   const derived = routeTitle(pathname);
   return (
     <PageHeader

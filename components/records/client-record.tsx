@@ -11,6 +11,7 @@ import { Tag } from "@/components/ui/tag";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { IdentityCard } from "@/components/records/identity-card";
+import { RECORD_RAIL_W } from "@/components/records/record-layout";
 import { ClientStatusBadge, formatDob, tagHue } from "@/app/(app)/clients/ui";
 import { ContactMenu } from "@/app/(app)/clients/[id]/contact-menu";
 import { InsuranceTab } from "@/app/(app)/clients/[id]/insurance-tab";
@@ -600,7 +601,7 @@ export function ClientRecord({
     <div className="relative flex h-full min-h-0 flex-col gap-4 lg:flex-row">
       {/* The rail: narrow, full height of the column, and it does not move.
           The board beside it scrolls under the tab line and away. */}
-      <aside className="shrink-0 lg:h-full lg:w-80">
+      <aside className={`shrink-0 lg:h-full ${RECORD_RAIL_W}`}>
         <IdentityCard
           name={name}
           subtitle={client.id}

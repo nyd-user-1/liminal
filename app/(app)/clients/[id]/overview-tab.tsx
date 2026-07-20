@@ -4,6 +4,7 @@ import { SettingsCard } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icons";
 import { Tag } from "@/components/ui/tag";
 import { TextLink } from "@/components/ui/text-link";
+import { RECORD_RAIL_W } from "@/components/records/record-layout";
 import { formatCents, formatDate, formatTime } from "@/lib/format";
 import type { Appointment, Client, Invoice, Referral, ReferralStatus } from "@/lib/types";
 import { ApptStatusBadge, FieldDisplay, InvoiceStatusBadge, formatDob, tagHue } from "../ui";
@@ -16,9 +17,11 @@ const REFERRAL_BADGE: Record<ReferralStatus, "neutral" | "info" | "success" | "d
   declined: "danger",
 };
 
-// Overview tab — 1:2 grid, matching the list-left/content-right convention
-// used elsewhere (Billing, Directory, Inbox): contact FieldDisplay card
-// (left) beside upcoming appointments + billing summary + referrals (right).
+// Overview tab — identity rail left, content right, the same shape the
+// practitioner's record uses: the Contact card takes the record rail's width
+// (RECORD_RAIL_W, shared with client-record.tsx) and the right column splits
+// that card's height between Upcoming appointments and Billing summary, so the
+// two columns end level. Referrals spans the full width beneath them.
 // Server component; appointment and invoice data come from the sibling
 // repos via page.tsx.
 //
@@ -36,6 +39,7 @@ function Section({
   title,
   action,
   className = "",
+  fill = false,
   children,
 }: {
   bare?: boolean;
@@ -43,12 +47,28 @@ function Section({
   title: string;
   action?: ReactNode;
   className?: string;
+  /**
+   * This card is sized by its host, not its content (the Overview grid gives
+   * the right column a half-share of the Contact card's height). The heading
+   * stays pinned and the body scrolls, so a card that is handed less room than
+   * its content wants shortens instead of pushing the column past its neighbour.
+   */
+  fill?: boolean;
   children: ReactNode;
 }) {
   if (bare) return <>{children}</>;
   return (
-    <SettingsCard icon={icon} title={title} action={action} className={className}>
-      {children}
+    <SettingsCard
+      icon={icon}
+      title={title}
+      action={action}
+      className={`${fill ? "flex flex-col overflow-hidden" : ""} ${className}`}
+    >
+      {fill ? (
+        <div className="-mr-2 min-h-0 flex-1 overflow-y-auto pr-2">{children}</div>
+      ) : (
+        children
+      )}
     </SettingsCard>
   );
 }
@@ -69,7 +89,7 @@ export function ContactSection({
       bare={bare}
       icon="person-circle"
       title="Contact"
-      className="self-start"
+      className="h-full"
       action={readOnly ? undefined : <ContactMenu clientId={client.id} email={client.email} phone={client.phone} />}
     >
       <div className="flex flex-col gap-4">
@@ -99,7 +119,17 @@ export function ContactSection({
   );
 }
 
-export function UpcomingAppointments({ appointments, bare = false }: { appointments: Appointment[]; bare?: boolean }) {
+export function UpcomingAppointments({
+  appointments,
+  bare = false,
+  className,
+  fill,
+}: {
+  appointments: Appointment[];
+  bare?: boolean;
+  className?: string;
+  fill?: boolean;
+}) {
   const now = Date.now();
   const upcoming = appointments
     .filter((a) => new Date(a.startsAt).getTime() >= now && a.status !== "cancelled" && a.status !== "no_show")
@@ -108,7 +138,7 @@ export function UpcomingAppointments({ appointments, bare = false }: { appointme
   const pastCount = appointments.filter((a) => new Date(a.startsAt).getTime() < now).length;
 
   return (
-    <Section bare={bare} icon="calendar" title="Upcoming appointments">
+    <Section bare={bare} icon="calendar" title="Upcoming appointments" className={className} fill={fill}>
       {upcoming.length === 0 ? (
         <p className="text-[15px] text-text-muted">No upcoming appointments.</p>
       ) : (
@@ -145,11 +175,15 @@ export function BillingSummary({
   invoices,
   bare = false,
   action,
+  className,
+  fill,
 }: {
   invoices: Invoice[];
   bare?: boolean;
   /** Overrides "View billing" — the board's Billing card is a card, not a tab. */
   action?: ReactNode;
+  className?: string;
+  fill?: boolean;
 }) {
   const outstanding = invoices
     .filter((i) => i.status === "sent" || i.status === "overdue")
@@ -165,6 +199,8 @@ export function BillingSummary({
       icon="dollar"
       title="Billing summary"
       action={action ?? <TextLink href="?tab=billing">View billing</TextLink>}
+      className={className}
+      fill={fill}
     >
       <div className="mb-4 grid grid-cols-2 gap-4">
         <div className="rounded-field bg-canvas px-4 py-3">
@@ -240,13 +276,24 @@ export function OverviewTab({
   readOnly?: boolean;
 }) {
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
-      <ContactSection client={client} practitionerName={practitionerName} readOnly={readOnly} />
-      <div className="flex flex-col gap-6 lg:col-span-2">
-        <UpcomingAppointments appointments={appointments} />
-        <BillingSummary invoices={invoices} />
-        <ReferralsSection referrals={referrals} />
+    <div className="flex flex-col gap-6">
+      {/* Contact is the identity rail — same width as the practitioner record's
+          (RECORD_RAIL_W, imported rather than respelled) and, being the taller
+          column, it sets the row height. The right column takes that height and
+          splits it between two cards, so the two columns end flush instead of
+          one trailing past the other. `min-h-0` is what lets the halves be
+          halves: without it each card floors at its content height and the
+          bottoms go ragged again. */}
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-stretch">
+        <div className={`shrink-0 ${RECORD_RAIL_W}`}>
+          <ContactSection client={client} practitionerName={practitionerName} readOnly={readOnly} />
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col gap-6">
+          <UpcomingAppointments appointments={appointments} className="min-h-0 lg:flex-1" fill />
+          <BillingSummary invoices={invoices} className="min-h-0 lg:flex-1" fill />
+        </div>
       </div>
+      <ReferralsSection referrals={referrals} />
     </div>
   );
 }

@@ -27,7 +27,7 @@ export function SettingsCard({
 }) {
   return (
     <Card className={className}>
-      <div className="mb-4 flex items-center gap-2.5">
+      <div className="mb-4 flex shrink-0 items-center gap-2.5">
         {icon && <Icon name={icon} className={danger ? "text-danger" : "text-text-body"} />}
         <h2 className={`text-[19px] font-semibold ${danger ? "text-danger" : "text-text"}`}>{title}</h2>
         {action && <div className="ml-auto">{action}</div>}

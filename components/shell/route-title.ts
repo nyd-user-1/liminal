@@ -47,6 +47,13 @@ const ROUTE_TITLES: Array<[prefix: string, icon: IconName, title: string]> = [
   ["/portal/profile", "person-circle", "Profile"],
 ];
 
+// Routes whose PAGE supplies the H1 because the record names itself — the
+// client-record exception in CLAUDE.md. The shell's ContentHeader stands down
+// for these, so "Home" never stacks above the name it is describing.
+export function ownsPageTitle(pathname: string): boolean {
+  return pathname === "/portal";
+}
+
 // /portal is the patient's own record and carries its own entity header (the
 // name as H1, the client-record exception), so the strip names the destination
 // rather than greeting — the greeting moved to /portal/dashboard.
