@@ -1,3 +1,4 @@
+import { auditRead } from "@/lib/audit";
 import { hasDb, sql } from "@/lib/db";
 import { isoDateTime } from "@/lib/format";
 import { mockId, mockStore } from "@/lib/mock";
@@ -73,7 +74,9 @@ function toTemplate(r: TemplateRow): NoteTemplate {
 
 // ── notes ─────────────────────────────────────────────────────────────────────
 
+/** Clinical notes (PHI) — audited. */
 export async function listNotes(f?: { clientId?: string; status?: NoteStatus }): Promise<Note[]> {
+  let notes: Note[];
   if (hasDb) {
     const rows = (await sql`
       SELECT * FROM notes
@@ -82,19 +85,37 @@ export async function listNotes(f?: { clientId?: string; status?: NoteStatus }):
         AND (${f?.status ?? null}::text IS NULL OR status = ${f?.status ?? null})
       ORDER BY created_at DESC
     `) as NoteRow[];
-    return rows.map(toNote);
+    notes = rows.map(toNote);
+  } else {
+    notes = [...mockStore().notes.values()]
+      .filter(
+        (n) =>
+          !n.deletedAt &&
+          (!f?.clientId || n.clientId === f.clientId) &&
+          (!f?.status || n.status === f.status),
+      )
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
-  return [...mockStore().notes.values()]
-    .filter(
-      (n) =>
-        !n.deletedAt &&
-        (!f?.clientId || n.clientId === f.clientId) &&
-        (!f?.status || n.status === f.status),
-    )
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  await auditRead("note.list", "client", f?.clientId ?? null, {
+    count: notes.length,
+    status: f?.status ?? null,
+  });
+  return notes;
 }
 
+/** One clinical note (PHI) — audited. */
 export async function getNote(id: string): Promise<Note | null> {
+  const note = await readNote(id);
+  if (note) await auditRead("note.view", "note", note.id, { clientId: note.clientId });
+  return note;
+}
+
+/**
+ * Unaudited read for internal use — the write paths below need the current row
+ * to decide whether a write is legal, and a permission check is not a PHI read.
+ * Every caller that serves a note to a person goes through getNote().
+ */
+async function readNote(id: string): Promise<Note | null> {
   if (hasDb) {
     const rows = (await sql`SELECT * FROM notes WHERE id = ${id} AND deleted_at IS NULL`) as NoteRow[];
     return rows[0] ? toNote(rows[0]) : null;
@@ -157,7 +178,7 @@ export function isEditable(note: Note): boolean {
 }
 
 export async function updateNote(id: string, patch: { title?: string; bodyMd?: string }): Promise<Note | null> {
-  const existing = await getNote(id);
+  const existing = await readNote(id);
   if (!existing) return null;
   if (!isEditable(existing)) throw new NoteLockedError(id);
   const title = patch.title ?? existing.title;
@@ -176,7 +197,7 @@ export async function updateNote(id: string, patch: { title?: string; bodyMd?: s
 
 /** draft → signed (stamps signed_at); signed → locked on second confirm. */
 export async function signNote(id: string): Promise<Note | null> {
-  const existing = await getNote(id);
+  const existing = await readNote(id);
   if (!existing || existing.status === "locked") return existing;
   const status: NoteStatus = existing.status === "draft" ? "signed" : "locked";
   const signedAt = existing.signedAt ?? new Date().toISOString();
@@ -215,27 +236,86 @@ export interface AddAmendmentInput {
   bodyMd: string;
 }
 
+type AmendmentRow = {
+  id: string;
+  note_id: string;
+  author_id: string;
+  body_md: string;
+  created_at: string | Date;
+};
+
+function toAmendment(r: AmendmentRow): NoteAmendment {
+  return {
+    id: r.id,
+    noteId: r.note_id,
+    authorId: r.author_id,
+    bodyMd: r.body_md,
+    createdAt: isoDateTime(r.created_at),
+  };
+}
+
 /**
  * Append a correction to a note. Amendments are never edited or deleted — the
  * chain is the audit history. Returns null if the parent note does not exist.
  */
-export async function addAmendment(_input: AddAmendmentInput): Promise<NoteAmendment | null> {
-  throw new Error("addAmendment: not implemented yet (sql/062)");
+export async function addAmendment(input: AddAmendmentInput): Promise<NoteAmendment | null> {
+  const parent = await readNote(input.noteId);
+  if (!parent) return null;
+  const body = input.bodyMd.trim();
+  if (!body) throw new Error("An amendment needs a body.");
+  if (hasDb) {
+    const rows = (await sql`
+      INSERT INTO note_amendments (note_id, author_id, body_md)
+      VALUES (${input.noteId}, ${input.authorId}, ${body})
+      RETURNING *
+    `) as AmendmentRow[];
+    return toAmendment(rows[0]);
+  }
+  const a: NoteAmendment = {
+    id: mockId(),
+    noteId: input.noteId,
+    authorId: input.authorId,
+    bodyMd: body,
+    createdAt: new Date().toISOString(),
+  };
+  mockStore().noteAmendments.set(a.id, a);
+  return a;
 }
 
 /** Amendments for one note, oldest first (chronological correction chain). */
-export async function listAmendments(_noteId: string): Promise<NoteAmendment[]> {
-  throw new Error("listAmendments: not implemented yet (sql/062)");
+export async function listAmendments(noteId: string): Promise<NoteAmendment[]> {
+  if (hasDb) {
+    const rows = (await sql`
+      SELECT * FROM note_amendments WHERE note_id = ${noteId} ORDER BY created_at
+    `) as AmendmentRow[];
+    return rows.map(toAmendment);
+  }
+  return [...mockStore().noteAmendments.values()]
+    .filter((a) => a.noteId === noteId)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
 /** Amendments for many notes, keyed by note id — list views without N+1. */
-export async function listAmendmentsFor(_noteIds: string[]): Promise<Record<string, NoteAmendment[]>> {
-  throw new Error("listAmendmentsFor: not implemented yet (sql/062)");
+export async function listAmendmentsFor(noteIds: string[]): Promise<Record<string, NoteAmendment[]>> {
+  const unique = [...new Set(noteIds)];
+  const out: Record<string, NoteAmendment[]> = {};
+  if (unique.length === 0) return out;
+  const all = hasDb
+    ? ((await sql`
+        SELECT * FROM note_amendments WHERE note_id = ANY(${unique}) ORDER BY created_at
+      `) as AmendmentRow[]).map(toAmendment)
+    : [...mockStore().noteAmendments.values()]
+        .filter((a) => unique.includes(a.noteId))
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  for (const a of all) (out[a.noteId] ??= []).push(a);
+  return out;
 }
 
 /** A note plus its correction chain — the full clinical record for one note. */
-export async function getNoteWithAmendments(_id: string): Promise<NoteWithAmendments | null> {
-  throw new Error("getNoteWithAmendments: not implemented yet (sql/062)");
+export async function getNoteWithAmendments(id: string): Promise<NoteWithAmendments | null> {
+  const note = await getNote(id);
+  if (!note) return null;
+  return { ...note, amendments: await listAmendments(id) };
 }
 
 // ── templates ─────────────────────────────────────────────────────────────────

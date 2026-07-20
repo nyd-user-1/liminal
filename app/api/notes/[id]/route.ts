@@ -1,7 +1,17 @@
 import { NextResponse } from "next/server";
 import { logEvent } from "@/lib/audit";
 import { AuthError, requireRole } from "@/lib/auth";
-import { authorNames, clientNames, deleteNote, getNote, getTranscript, updateNote } from "@/lib/repos/notes";
+import {
+  authorNames,
+  clientNames,
+  deleteNote,
+  getNote,
+  getNoteWithAmendments,
+  getTranscript,
+  isEditable,
+  NoteLockedError,
+  updateNote,
+} from "@/lib/repos/notes";
 
 export const dynamic = "force-dynamic";
 
@@ -17,17 +27,18 @@ export async function GET(_req: Request, { params }: Ctx) {
   try {
     const user = await requireRole("practitioner");
     const { id } = await params;
-    const note = await getNote(id);
+    const note = await getNoteWithAmendments(id);
     if (!note) return NextResponse.json({ error: "Note not found." }, { status: 404 });
     const [authors, clients, transcript] = await Promise.all([
-      authorNames([note.authorId]),
+      authorNames([note.authorId, ...note.amendments.map((a) => a.authorId)]),
       clientNames([note.clientId]),
       note.appointmentId ? getTranscript(note.appointmentId) : Promise.resolve(null),
     ]);
-    await logEvent({ actorId: user.id, action: "note.view", entity: "note", entityId: note.id });
+    // getNoteWithAmendments() audits the read inside the repo — no log here.
     return NextResponse.json({
       note,
       author: authors[note.authorId] ?? "Practitioner",
+      authors, // amendment authors, by id
       client: clients[note.clientId] ?? "Client",
       transcript,
     });
@@ -43,8 +54,11 @@ export async function PATCH(req: Request, { params }: Ctx) {
     const { id } = await params;
     const existing = await getNote(id);
     if (!existing) return NextResponse.json({ error: "Note not found." }, { status: 404 });
-    if (existing.status === "locked") {
-      return NextResponse.json({ error: "This note is signed and locked." }, { status: 409 });
+    if (!isEditable(existing)) {
+      return NextResponse.json(
+        { error: "This note is signed. Corrections must be filed as an amendment." },
+        { status: 409 },
+      );
     }
     let body: { title?: unknown; bodyMd?: unknown };
     try {
@@ -52,10 +66,17 @@ export async function PATCH(req: Request, { params }: Ctx) {
     } catch {
       return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
     }
-    const note = await updateNote(id, {
-      title: typeof body.title === "string" ? body.title : undefined,
-      bodyMd: typeof body.bodyMd === "string" ? body.bodyMd : undefined,
-    });
+    let note;
+    try {
+      note = await updateNote(id, {
+        title: typeof body.title === "string" ? body.title : undefined,
+        bodyMd: typeof body.bodyMd === "string" ? body.bodyMd : undefined,
+      });
+    } catch (e) {
+      // Lost the race against a concurrent sign — the repo is the authority.
+      if (e instanceof NoteLockedError) return NextResponse.json({ error: e.message }, { status: 409 });
+      throw e;
+    }
     await logEvent({ actorId: user.id, action: "note.update", entity: "note", entityId: id });
     return NextResponse.json({ note });
   } catch (e) {

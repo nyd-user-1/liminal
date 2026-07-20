@@ -1,3 +1,4 @@
+import { auditRead } from "@/lib/audit";
 import { hasDb, sql } from "@/lib/db";
 import { isoDateTime } from "@/lib/format";
 import { mockId, mockStore } from "@/lib/mock";
@@ -39,24 +40,34 @@ function toFile(r: FileRow): FileRecord {
   };
 }
 
+/** Document metadata read (PHI) — audited. */
 export async function getFile(id: string): Promise<FileRecord | null> {
+  let file: FileRecord | null;
   if (hasDb) {
     const rows = (await sql`SELECT * FROM files WHERE id = ${id}`) as FileRow[];
-    return rows[0] ? toFile(rows[0]) : null;
+    file = rows[0] ? toFile(rows[0]) : null;
+  } else {
+    file = mockStore().files.get(id) ?? null;
   }
-  return mockStore().files.get(id) ?? null;
+  if (file) await auditRead("file.view", "file", file.id, { clientId: file.clientId });
+  return file;
 }
 
+/** A client's documents (PHI) — audited. */
 export async function listFiles(clientId: string): Promise<FileRecord[]> {
+  let files: FileRecord[];
   if (hasDb) {
     const rows = (await sql`
       SELECT * FROM files WHERE client_id = ${clientId} ORDER BY created_at DESC
     `) as FileRow[];
-    return rows.map(toFile);
+    files = rows.map(toFile);
+  } else {
+    files = [...mockStore().files.values()]
+      .filter((f) => f.clientId === clientId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
-  return [...mockStore().files.values()]
-    .filter((f) => f.clientId === clientId)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  await auditRead("file.list", "client", clientId, { count: files.length });
+  return files;
 }
 
 export interface SaveFileMeta {
@@ -79,9 +90,10 @@ export async function saveFile(meta: SaveFileMeta): Promise<FileRecord> {
   const kind: FileKind = meta.kind ?? "upload";
   if (hasDb) {
     const rows = (await sql`
-      INSERT INTO files (client_id, uploader_id, name, mime, size_bytes, url, kind)
+      INSERT INTO files (client_id, uploader_id, name, mime, size_bytes, url, kind, storage, provenance)
       VALUES (${meta.clientId}, ${meta.uploaderId}, ${meta.name}, ${meta.mime},
-              ${meta.sizeBytes}, ${meta.url}, ${kind})
+              ${meta.sizeBytes}, ${meta.url}, ${kind},
+              ${meta.storage ?? "blob"}, ${meta.provenance ?? "user_upload"})
       RETURNING *
     `) as FileRow[];
     return toFile(rows[0]);

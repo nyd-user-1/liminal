@@ -13,6 +13,31 @@ export interface AuditInput {
   meta?: Record<string, unknown> | null;
 }
 
+/**
+ * Audit a PHI READ from inside a repo, resolving the actor from the session
+ * cookie. Reads are the half people forget, so the logging lives next to the
+ * query rather than in each of the dozen callers that could omit it.
+ *
+ * Outside a request (seed scripts, cron) there is no cookie and `cookies()`
+ * throws — that is not an error, so it is swallowed like every other audit
+ * failure. Never pass PHI in `meta`: ids and enums only.
+ */
+export async function auditRead(
+  action: string,
+  entity: string,
+  entityId?: string | null,
+  meta?: Record<string, unknown> | null,
+): Promise<void> {
+  try {
+    const { getUser } = await import("@/lib/auth");
+    const user = await getUser();
+    if (!user) return; // no session → no PHI was served to a person
+    await logEvent({ actorId: user.id, action, entity, entityId, meta });
+  } catch {
+    // never throw from audit logging
+  }
+}
+
 export async function logEvent(evt: AuditInput): Promise<void> {
   try {
     if (hasDb) {

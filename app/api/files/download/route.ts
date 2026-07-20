@@ -37,12 +37,30 @@ export async function GET(req: NextRequest) {
     let body: BodyInit;
     let contentType = file.mime || "application/octet-stream";
 
-    if (file.url.startsWith("/uploads/")) {
-      // Local-dev disk fallback (bytes under ./uploads).
-      const bytes = await readFile(path.join(process.cwd(), "uploads", path.basename(file.url)));
-      body = bytes;
+    if (file.storage === "local") {
+      // Legacy/dev rows: bytes under ./uploads, which does not exist on
+      // serverless. Say so plainly rather than 404-ing as if the row were bogus.
+      try {
+        body = await readFile(path.join(process.cwd(), "uploads", path.basename(file.url)));
+      } catch {
+        await logEvent({
+          actorId: user.id,
+          action: "file.download.missing",
+          entity: "file",
+          entityId: file.id,
+          meta: { clientId: file.clientId, storage: file.storage },
+        });
+        return NextResponse.json(
+          { error: "This document predates durable storage and has no bytes on file." },
+          { status: 410 },
+        );
+      }
     } else {
-      // Private Blob — file.url holds the blob pathname.
+      // Private Blob — file.url holds the blob pathname. Bytes are streamed
+      // through this handler rather than redirecting to a signed URL: a signed
+      // URL is a bearer token that can be copied out of the browser and
+      // replayed unauthenticated until it expires. Proxying keeps every byte
+      // fetch behind requireUser() and inside the audit trail.
       const result = await blobGetPrivate(file.url);
       if (result === null || result.statusCode !== 200) {
         return new NextResponse("Not found", { status: 404 });

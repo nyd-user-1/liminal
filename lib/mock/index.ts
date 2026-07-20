@@ -15,6 +15,7 @@ import type {
   Location,
   Message,
   Note,
+  NoteAmendment,
   NoteTemplate,
   PasswordToken,
   Payer,
@@ -51,6 +52,7 @@ export interface MockStore {
   availability: Map<string, Availability>;
   appointments: Map<string, Appointment>;
   notes: Map<string, Note>;
+  noteAmendments: Map<string, NoteAmendment>;
   noteTemplates: Map<string, NoteTemplate>;
   transcripts: Map<string, Transcript>;
   forms: Map<string, Form>;
@@ -89,6 +91,7 @@ function createStore(): MockStore {
     availability: new Map(),
     appointments: new Map(),
     notes: new Map(),
+    noteAmendments: new Map(),
     noteTemplates: new Map(),
     transcripts: new Map(),
     forms: new Map(),

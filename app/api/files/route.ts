@@ -1,5 +1,3 @@
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
 import { NextResponse, type NextRequest } from "next/server";
 import { blobPut } from "@/lib/blob";
 import { AuthError, requireRole } from "@/lib/auth";
@@ -7,15 +5,32 @@ import { logEvent } from "@/lib/audit";
 import { listFiles, saveFile } from "@/lib/repos/files";
 import type { FileKind } from "@/lib/types";
 
-// Client file uploads. Multipart POST (fields: file, clientId, kind?) →
-// bytes go to Vercel Blob when BLOB_READ_WRITE_TOKEN is set (survives on
-// serverless), else fall back to ./uploads for local dev + a files row.
+// Client documents (PHI). Multipart POST (fields: file, clientId, kind?) →
+// bytes to the PRIVATE Vercel Blob store under an opaque key + a files row.
+// Never the public store: that one is for marketing assets and hands out a
+// plain CDN URL. Bytes come back only via GET /api/files/download.
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 const KINDS: FileKind[] = ["upload", "form_pdf", "superbill"];
+
+// Extension for the stored key, from the browser-reported MIME type. Keeps the
+// key opaque while letting a human eyeball a blob listing. Unknown → none.
+const EXT_BY_MIME: Record<string, string> = {
+  "application/pdf": ".pdf",
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+  "image/heic": ".heic",
+  "image/webp": ".webp",
+  "text/plain": ".txt",
+  "text/csv": ".csv",
+};
+
+function extensionFor(mime: string): string {
+  return EXT_BY_MIME[mime] ?? "";
+}
 
 function authResponse(e: unknown): NextResponse | null {
   return e instanceof AuthError ? NextResponse.json({ error: e.message }, { status: e.status }) : null;
@@ -62,40 +77,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "That file is too large (10 MB max)." }, { status: 400 });
     }
 
-    // Sanitize the name to a safe charset (no traversal); a random suffix on
-    // the stored path keeps names from colliding and URLs from being guessable.
-    const safeName = (file.name || "upload").replace(/[^a-zA-Z0-9._-]/g, "_");
+    // Refuse rather than write bytes that will not survive. The disk fallback
+    // this route used to take is read-only/ephemeral on serverless, so it
+    // produced file rows pointing at nothing — a record that is not a record.
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      return NextResponse.json(
+        { error: "Document storage is not configured. Set BLOB_READ_WRITE_TOKEN." },
+        { status: 503 },
+      );
+    }
+
     const bytes = Buffer.from(await file.arrayBuffer());
 
-    let url: string;
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
-      // Vercel Blob (private store) — persists on serverless. These are client
-      // files (PHI), so the store requires a token to read; we persist the
-      // blob *pathname* and serve bytes back only through the authenticated
-      // proxy at GET /api/files/download. addRandomSuffix avoids collisions.
-      const blob = await blobPut(`clients/${clientId}/${safeName}`, bytes, {
-        access: "private",
-        addRandomSuffix: true,
-        contentType: file.type || "application/octet-stream",
-      });
-      url = blob.pathname;
-    } else {
-      // Local-dev fallback: bytes under ./uploads with a random prefix.
-      const storedName = `${crypto.randomUUID().slice(0, 8)}-${safeName}`;
-      const dir = path.join(process.cwd(), "uploads");
-      await mkdir(dir, { recursive: true });
-      await writeFile(path.join(dir, storedName), bytes);
-      url = `/uploads/${storedName}`;
-    }
+    // The stored key is OPAQUE on purpose: a filename is the client's data and
+    // can name a condition ("hiv-results.pdf"). Blob pathnames end up in
+    // storage listings and logs, so nothing we mint may carry PHI. The display
+    // name lives only in the files row. Extension comes from the browser's
+    // MIME type, never from the supplied name.
+    const key = `clients/${clientId}/${crypto.randomUUID()}${extensionFor(file.type)}`;
+    const blob = await blobPut(key, bytes, {
+      access: "private",
+      contentType: file.type || "application/octet-stream",
+    });
 
     const record = await saveFile({
       clientId,
       uploaderId: user.id,
-      name: file.name || safeName,
+      name: file.name || "upload", // client-supplied, stored verbatim
       mime: file.type || "application/octet-stream",
       sizeBytes: file.size,
-      url,
+      url: blob.pathname, // a pathname, not a fetchable URL
       kind,
+      storage: "blob",
+      provenance: "user_upload",
     });
     await logEvent({
       actorId: user.id,
