@@ -63,8 +63,18 @@ export function GetPaidSettings({ publishableKey }: { publishableKey: string }) 
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [view, setView] = useState<View>("balance");
+  // Stripe renders the notification banner as an iframe even with nothing to
+  // say, which leaves a dead gap in the card. Keep it mounted (it's the source
+  // of the count) but collapsed until it has something.
+  const [notices, setNotices] = useState(0);
 
   const refresh = useCallback(async () => {
+    // Without a publishable key nothing downstream can render, so don't bother
+    // the API for a status we can't act on.
+    if (!publishableKey) {
+      setLoading(false);
+      return;
+    }
     setError("");
     try {
       setAccount(await fetchConnectStatus());
@@ -73,7 +83,7 @@ export function GetPaidSettings({ publishableKey }: { publishableKey: string }) 
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [publishableKey]);
 
   useEffect(() => {
     void refresh();
@@ -240,8 +250,11 @@ export function GetPaidSettings({ publishableKey }: { publishableKey: string }) 
                   )}
                   <span className="text-sm text-text-muted">{account.stripeAccountId}</span>
                 </div>
-                <div className="mt-4">
-                  <ConnectNotificationBanner onLoadError={() => undefined} />
+                <div className={notices > 0 ? "mt-4" : "hidden"}>
+                  <ConnectNotificationBanner
+                    onLoadError={() => undefined}
+                    onNotificationsChange={({ total }) => setNotices(total)}
+                  />
                 </div>
               </SettingsCard>
 
