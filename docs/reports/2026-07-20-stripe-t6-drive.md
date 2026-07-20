@@ -385,3 +385,76 @@ assertion · the two Resend emails · `login-link { url }` · the active-card an
 paid-invoice screenshots · and the NYS-173 question (whether the connected
 account sees the fee split or only the net). All are gated on: fix the
 capabilities defect → a human completes onboarding once → I drive the rest.
+
+---
+
+## NYS-173 ANSWERED — the connected account DOES see the fee split (no `on_behalf_of` needed)
+
+The lead's high-value question: on a destination charge, does the connected
+account see the gross + application fee, or only the net? If only the net, the
+Earnings Transactions view has nothing to render.
+
+**Answer: the connected account sees the FULL split — gross, fee, and net — on a
+plain destination charge with NO `on_behalf_of`.** The Earnings Transactions view
+has real data to render; `on_behalf_of` is not required for it.
+
+### Method (isolated — no product code, no DB writes)
+
+A throwaway connected account was created, completed via API, charged, read from
+its own perspective, and **deleted**. It could not use our locked controller
+shape: Stripe refuses `requirement_collection=application` alongside an express
+dashboard — *"When controlling requirement collection, the Connect application
+must also control losses, fees, and specify a dashboard type of `none`."* So the
+throwaway used `stripe_dashboard.type=none`. Charge mechanics (destination
+charge / application fee / transfer) are identical, which is all this question
+turns on. Card used: `pm_card_visa` (4242-class), so balances land pending.
+
+### Observed — $150.00 charge, $15.00 application fee (10%)
+
+```
+PLATFORM view
+  charge ch_3TvBm3FTCTbH09lM1NUNFP8u   amount=150.00 USD  app_fee=15.00 USD
+  transfer_data.destination = acct_… (the throwaway)
+
+CONNECTED ACCOUNT view  (Stripe-Account: acct_…)
+  charges.list → 1
+     py_1TvBm6FbX2CmbctPNx5hjK9Y   amount=150.00 USD   application_fee_amount=1500
+  balance_transactions → 1
+     payment   amount=150.00 USD   fee=15.00 USD   net=135.00 USD   src=py_1TvBm6…
+  balance → pending $135.00   available $0.00
+```
+
+The connected account holds its own `py_…` payment object carrying the **gross
+$150.00** and the **`application_fee_amount` 1500**, and its balance transaction
+decomposes it as **amount 150.00 / fee 15.00 / net 135.00**. Nothing is hidden
+from the therapist's side.
+
+### Second finding — `on_behalf_of` carries a real cost
+
+The `on_behalf_of` variant was **rejected**:
+
+```
+StripeInvalidRequestError: Your account cannot currently make charges.
+  (connected acct capabilities: card_payments "inactive", transfers "active")
+```
+
+`on_behalf_of` makes the CONNECTED account the merchant of record, so it requires
+an **active `card_payments`** capability — a materially heavier onboarding bar
+than `transfers` alone (the throwaway reached `transfers: active` easily but
+`card_payments` stayed inactive behind a `settings.payments.statement_descriptor`
+requirement that did not clear even once set). Since the plain destination charge
+already exposes the full split, **`on_behalf_of` buys nothing here and costs
+onboarding completeness** — recommend the own-data Transactions approach.
+
+> Caveat, stated plainly: this is Stripe-side evidence from a throwaway account,
+> not a charge driven through our `/api/checkout/session` route. It answers the
+> data-model question (which is what the fork turns on); it does NOT substitute
+> for the real end-to-end drive, which remains blocked on the human onboarding.
+
+### Housekeeping
+
+Both throwaway accounts created for this experiment were deleted
+(`acct_1TvBf1FIWRJcO7JG`, `acct_1TvBjN2ZvyOBBWDX`, `acct_1TvBlNFbX2CmbctP`).
+Remaining connected accounts on the sandbox: `acct_1TvBKiJvfwWFuhCf` (our drive
+account — KEEP) and **`acct_1TvAliFTCTVBltm7`, which is not mine** — flagged to
+the lead rather than deleted, since it isn't this drive's to remove.
