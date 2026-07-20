@@ -1,26 +1,35 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Badge } from "@/components/ui/badge";
+import { useEffect, useMemo, useState } from "react";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Field } from "@/components/ui/field";
+import { SearchInput } from "@/components/ui/search-input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { SidePanel } from "@/components/ui/side-panel";
 import { StatCard } from "@/components/ui/stat-card";
-import { LoadMoreRow, SortableHead, Table, Td, Tr, useLazyBatch, useSort } from "@/components/ui/table";
-import { RATE_CPTS } from "@/components/rates/cpt";
+import { Badge } from "@/components/ui/badge";
+import { TextLink } from "@/components/ui/text-link";
+import { RATE_CPTS, cptLabel } from "@/components/rates/cpt";
 import { InsurerCell } from "@/components/rates/insurer-mark";
 import { TableSkeleton } from "@/components/rates/table-skeleton";
-import type { SpreadResult } from "@/lib/repos/rate-signals";
+import type { PayerMedianRow, PayerSpread, SpreadResult } from "@/lib/repos/rate-signals";
 
-// Screen: the spread check — one form: what the platform remits per code +
-// session volume (per week or per month), one submit. The user's numbers go
-// UP to the server; payer medians and the arithmetic stay in the repo, so the
-// only figures that come back are labeled spread strings and the rounded
-// annual number.
+// Screen: the spread check, REDUCTIVE (NYS-91 → NYS-99). The resting state is a
+// full listing — every NY-book payer's median per behavioral-five code (GET
+// /api/rates/spread, precomputed bands) — and input REDUCES/annotates it: the
+// user's remit (a SidePanel form, off the resting surface) switches on the
+// per-session spread + annualized columns. The table never changes shape under
+// the reader; columns arrive, rows stay.
+//
+// The medians ARE this tool's resting content by the lead's ruling on NYS-99:
+// a spread is remit-vs-median, so the median half is the honest default
+// listing. Figures arrive pre-wrapped from the repo ("$172.25 in-network") —
+// no bare number ever crosses to this client, and none is unwrapped here.
 
+type Baseline = { codes: string[]; rows: PayerMedianRow[] };
 type RowInput = { remit: string; sessions: string };
 
 const CADENCE = [
@@ -28,44 +37,62 @@ const CADENCE = [
   { value: "month", label: "Per month" },
 ];
 
-const RESULT_HEAD = ["Insurer", "Per-session spread vs the median", "Annualized"];
-type SortCol = "payer" | "spread";
+const SKELETON_HEAD = ["Insurer", ...RATE_CPTS.map((c) => c.code)];
+
+/** Sort keys parsed from the wrapped display strings — never rendered. */
+function medianSortValue(figure?: string): number {
+  const m = figure?.match(/\$([\d,]+(?:\.\d+)?)/);
+  return m ? Number(m[1].replace(/,/g, "")) : -1;
+}
+function annualSortValue(display?: string): number {
+  const m = display?.match(/([+−-])\$([\d,]+)/);
+  if (!m) return Number.MIN_SAFE_INTEGER;
+  const v = Number(m[2].replace(/,/g, ""));
+  return m[1] === "+" ? v : -v;
+}
 
 export function SpreadPanel() {
-  const [rows, setRows] = useState<Record<string, RowInput>>(
+  const [base, setBase] = useState<Baseline | null>(null);
+  const [baseError, setBaseError] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [form, setForm] = useState<Record<string, RowInput>>(
     Object.fromEntries(RATE_CPTS.map((c) => [c.code, { remit: "", sessions: "" }])),
   );
   const [cadence, setCadence] = useState("week");
   const [result, setResult] = useState<SpreadResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [sort, toggleSort] = useSort<SortCol>({ col: "payer", dir: "asc" });
+  const [checking, setChecking] = useState(false);
+  const [checkError, setCheckError] = useState<string | null>(null);
+
+  // The resting listing — loads once, unconditionally. Same aggregate bands the
+  // negotiation card reads (sql/024-backed), so this is a cheap matview read.
+  useEffect(() => {
+    let stale = false;
+    fetch("/api/rates/spread")
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Couldn't load payer medians.");
+        if (!stale) setBase(data);
+      })
+      .catch((e) => {
+        if (!stale) setBaseError(e instanceof Error ? e.message : "Couldn't load payer medians.");
+      });
+    return () => {
+      stale = true;
+    };
+  }, []);
 
   const set = (code: string, patch: Partial<RowInput>) =>
-    setRows((prev) => ({ ...prev, [code]: { ...prev[code], ...patch } }));
+    setForm((prev) => ({ ...prev, [code]: { ...prev[code], ...patch } }));
 
-  const entries = Object.entries(rows)
-    .map(([billingCode, r]) => ({
-      billingCode,
-      remit: Number(r.remit),
-      sessions: Number(r.sessions),
-      cadence,
-    }))
+  const entries = Object.entries(form)
+    .map(([billingCode, r]) => ({ billingCode, remit: Number(r.remit), sessions: Number(r.sessions), cadence }))
     .filter((e) => e.remit > 0 && e.sessions > 0);
 
-  const sortedPayers = useMemo(() => {
-    if (!result) return [];
-    const dir = sort.dir === "asc" ? 1 : -1;
-    return [...result.payers].sort((a, b) => {
-      const primary = sort.col === "spread" ? (a.positive === b.positive ? 0 : a.positive ? 1 : -1) : a.payer.localeCompare(b.payer);
-      return primary * dir || a.payer.localeCompare(b.payer);
-    });
-  }, [result, sort]);
-  const { visible, hasMore, sentinelRef } = useLazyBatch(sortedPayers);
-
   const check = async () => {
-    setLoading(true);
-    setError(null);
+    setChecking(true);
+    setCheckError(null);
     try {
       const res = await fetch("/api/rates/spread", {
         method: "POST",
@@ -75,26 +102,205 @@ export function SpreadPanel() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Couldn't compute the spread.");
       setResult(data.result);
+      setPanelOpen(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't compute the spread.");
+      setCheckError(e instanceof Error ? e.message : "Couldn't compute the spread.");
     } finally {
-      setLoading(false);
+      setChecking(false);
     }
   };
 
-  // Landscape composition: the form is the left panel, the results are the
-  // right panel — two cards making one rectangle, no dead half-page. Before
-  // the first check the right panel carries the explainer, so the shape holds
-  // from the first paint.
+  const clear = () => {
+    setResult(null);
+    setForm(Object.fromEntries(RATE_CPTS.map((c) => [c.code, { remit: "", sessions: "" }])));
+  };
+
+  const spreadBy = useMemo(
+    () => new Map<string, PayerSpread>((result?.payers ?? []).map((p) => [p.payer, p])),
+    [result],
+  );
+
+  const rows = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const all = base?.rows ?? [];
+    return needle ? all.filter((r) => r.payer.toLowerCase().includes(needle)) : all;
+  }, [base, q]);
+
+  const codes = base?.codes ?? RATE_CPTS.map((c) => c.code);
+
+  // The in-network qualifier lives in the column header, once — the same
+  // figure/basis split Bands ("Median In-Ntwk") and Services ("Rate In-Ntwk")
+  // settled on. The cell relocates the repo's constant qualifier into the
+  // header; the figure itself stays exactly as the repo priced it.
+  const medianColumns = codes.map(
+    (code): DataTableColumn<PayerMedianRow> => ({
+      key: code,
+      label: `${code} In-Ntwk`,
+      headTitle: `${cptLabel(code)} — the payer's median published in-network rate`,
+      align: "right",
+      sortValue: (r) => medianSortValue(r.medians[code]?.figure),
+      render: (r) => {
+        const m = r.medians[code];
+        return m ? (
+          <span className="whitespace-nowrap" title={`as-of ${m.asOf}`}>
+            {m.figure.replace(" in-network", "")}
+          </span>
+        ) : (
+          <span className="text-text-muted">—</span>
+        );
+      },
+    }),
+  );
+
+  const columns: DataTableColumn<PayerMedianRow>[] = [
+    {
+      key: "insurer",
+      label: "Insurer",
+      fixed: true,
+      sortValue: (r) => r.payer,
+      render: (r) => <InsurerCell payer={r.payer} />,
+    },
+    // The answer columns land right beside the insurer the moment they exist —
+    // the payoff must be visible without a horizontal scroll; the medians turn
+    // into supporting context to their right.
+    ...(result
+      ? [
+          {
+            key: "spread",
+            label: "Per-session spread vs the median",
+            cellClassName: "align-top",
+            render: (r: PayerMedianRow) => {
+              const p = spreadBy.get(r.payer);
+              if (!p) return <span className="text-text-muted">—</span>;
+              return (
+                <ul className="space-y-0.5">
+                  {p.perCode.map((c) => (
+                    <li
+                      key={c.billingCode}
+                      className={`whitespace-nowrap text-[13px] ${c.covered ? "" : "text-text-muted"}`}
+                    >
+                      {/* The column header carries "vs the median" once; the
+                          constant per-line suffix would repeat it five times. */}
+                      {c.display.replace(" vs this payer's median", "")}
+                    </li>
+                  ))}
+                </ul>
+              );
+            },
+          },
+          {
+            key: "annual",
+            label: "Annualized",
+            align: "right" as const,
+            cellClassName: "align-top whitespace-nowrap",
+            sortValue: (r: PayerMedianRow) => annualSortValue(spreadBy.get(r.payer)?.annualDisplay),
+            render: (r: PayerMedianRow) => {
+              const p = spreadBy.get(r.payer);
+              if (!p) return <span className="text-text-muted">—</span>;
+              const [main, coverage] = p.annualDisplay.replace(" at your volume", "").split(" · ");
+              return (
+                <span title={p.annualDisplay}>
+                  <span className={`font-semibold ${p.positive ? "text-success" : "text-text-body"}`}>{main}</span>
+                  {coverage && <span className="block text-[12px] font-normal text-text-muted">{coverage}</span>}
+                </span>
+              );
+            },
+          },
+        ]
+      : []),
+    ...medianColumns,
+  ];
+
+  if (baseError) return <Banner variant="danger">{baseError}</Banner>;
+  if (!base) return <TableSkeleton head={SKELETON_HEAD} />;
+
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
-      <Card>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-[17px] font-semibold text-text">What your platform remits</h2>
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      {/* The payoff moment — only once a check has run, and only when there is
+          a winner to name. The listing below stays put. */}
+      {result && result.headline && (
+        <div className="grid shrink-0 gap-4 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)]">
+          <StatCard
+            label="The spread, annualized"
+            value={result.headline.display}
+            corner={<Badge variant="info">{result.headline.payer}</Badge>}
+          />
+          <p className="self-center text-[15px] leading-relaxed text-text-body">{result.headline.detail}</p>
+        </div>
+      )}
+
+      <DataTable
+        columns={columns}
+        rows={rows}
+        rowKey={(r) => r.payer}
+        fillHeight
+        stacked
+        className="min-h-0 flex-1"
+        toolbarLeft={
+          <SearchInput
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search by insurer"
+            className="w-full sm:w-[447px]"
+          />
+        }
+        toolbarExtra={
+          <>
+            {result && <TextLink onClick={clear}>Clear</TextLink>}
+            <Button size="sm" leftIcon="dollar" onClick={() => setPanelOpen(true)}>
+              {result ? "Edit your remit" : "Enter your remit"}
+            </Button>
+          </>
+        }
+        tableFooter={
+          <p className="text-[13px] text-text-muted">
+            {result
+              ? result.assumptions
+              : "Each figure is the payer's median published in-network rate across the NY book, on deduped payer-published rows — hover a figure for its as-of date. Enter what your platform remits to price your spread against every book at once."}
+          </p>
+        }
+        footnote={
+          rows.length === 0 ? (
+            <div className="rounded-card border border-border bg-surface shadow-card">
+              <EmptyState
+                icon="dollar"
+                title={base.rows.length === 0 ? "No payer medians yet" : "No insurers match"}
+                subtext={
+                  base.rows.length === 0
+                    ? "Medians compute from deduped payer-published rows, NY-book entities only."
+                    : "Clear the search to see every NY-book payer."
+                }
+              />
+            </div>
+          ) : undefined
+        }
+      />
+
+      <SidePanel
+        open={panelOpen}
+        onClose={() => setPanelOpen(false)}
+        kicker="SPREAD CHECK"
+        title="What your platform remits"
+        icon="dollar"
+        footer={
+          <>
+            <p className="mr-auto text-[13px] text-text-muted">Fill in the codes you bill — leave the rest blank.</p>
+            <Button onClick={check} loading={checking} disabled={entries.length === 0}>
+              Check the spread
+            </Button>
+          </>
+        }
+      >
+        {checkError && (
+          <Banner variant="danger" className="mb-4">
+            {checkError}
+          </Banner>
+        )}
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <p className="text-[15px] text-text-body">Session volume</p>
           <SegmentedControl segments={CADENCE} value={cadence} onChange={setCadence} />
         </div>
-
-        <div className="space-y-2.5">
+        <div className="space-y-3">
           {RATE_CPTS.map((c) => (
             <div key={c.code} className="grid items-end gap-2.5 sm:grid-cols-[minmax(0,1.1fr)_1fr_1fr]">
               <p className="pb-2.5 text-[15px] font-medium text-text max-sm:pb-0">
@@ -105,7 +311,7 @@ export function SpreadPanel() {
                 prefix="$"
                 inputMode="decimal"
                 placeholder="0.00"
-                value={rows[c.code].remit}
+                value={form[c.code].remit}
                 onChange={(e) => set(c.code, { remit: e.target.value })}
                 className="min-w-0"
               />
@@ -114,95 +320,18 @@ export function SpreadPanel() {
                 suffix={cadence === "month" ? "/mo" : "/wk"}
                 inputMode="numeric"
                 placeholder="0"
-                value={rows[c.code].sessions}
+                value={form[c.code].sessions}
                 onChange={(e) => set(c.code, { sessions: e.target.value })}
                 className="min-w-0"
               />
             </div>
           ))}
         </div>
-
-        <div className="mt-4 flex items-center justify-between gap-3 border-t border-border pt-4">
-          <Button onClick={check} loading={loading} disabled={entries.length === 0}>
-            Check the spread
-          </Button>
-          <p className="text-[13px] text-text-muted">Fill in the codes you bill — leave the rest blank.</p>
-        </div>
-      </Card>
-
-      <div className="flex min-w-0 flex-col gap-4">
-        {error && <Banner variant="danger">{error}</Banner>}
-
-        {loading && <TableSkeleton head={RESULT_HEAD} rows={5} />}
-
-        {!loading && !result && !error && (
-          <Card className="flex min-h-[280px] items-center justify-center">
-            <EmptyState
-              icon="dollar"
-              title="The spread, payer by payer"
-              subtext="Your numbers go up, the medians stay server-side — what comes back is each NY-book payer's per-session spread against what your platform pays you, annualized."
-            />
-          </Card>
-        )}
-
-        {!loading &&
-          result &&
-          (result.payers.length === 0 ? (
-            <Card className="flex min-h-[280px] items-center justify-center">
-              <EmptyState
-                icon="dollar"
-                title="No published bands for these codes"
-                subtext="Spread needs at least one NY-book payer with a band on a code you entered."
-              />
-            </Card>
-          ) : (
-            <>
-              {result.headline && (
-                <div className="grid gap-4 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)]">
-                  <StatCard
-                    label="The spread, annualized"
-                    value={result.headline.display}
-                    corner={<Badge variant="info">{result.headline.payer}</Badge>}
-                  />
-                  <p className="self-center text-[15px] leading-relaxed text-text-body">{result.headline.detail}</p>
-                </div>
-              )}
-
-              <Table
-                head={[
-                  <SortableHead key="payer" label="Insurer" col="payer" sort={sort} onSort={toggleSort} />,
-                  "Per-session spread vs the median",
-                  <SortableHead key="spread" label="Annualized" col="spread" sort={sort} onSort={toggleSort} />,
-                ]}
-              >
-                {visible.map((p) => (
-                  <Tr key={p.payer}>
-                    <Td className="align-top">
-                      <InsurerCell payer={p.payer} />
-                    </Td>
-                    <Td>
-                      <ul className="space-y-0.5">
-                        {p.perCode.map((c) => (
-                          <li key={c.billingCode} className={c.covered ? "" : "text-text-muted"}>
-                            {c.display}
-                          </li>
-                        ))}
-                      </ul>
-                    </Td>
-                    <Td
-                      className={`whitespace-nowrap align-top font-semibold ${p.positive ? "text-success" : "text-text-body"}`}
-                    >
-                      {p.annualDisplay}
-                    </Td>
-                  </Tr>
-                ))}
-                {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={3} />}
-              </Table>
-
-              <p className="text-[13px] leading-relaxed text-text-muted">{result.assumptions}</p>
-            </>
-          ))}
-      </div>
+        <p className="mt-4 text-[13px] leading-relaxed text-text-muted">
+          Your numbers go up, the medians stay server-side — what comes back is each NY-book payer&rsquo;s
+          per-session spread against what your platform pays you, annualized.
+        </p>
+      </SidePanel>
     </div>
   );
 }

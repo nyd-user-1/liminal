@@ -39,7 +39,7 @@ const BLURBS: Record<string, string> = {
   panels: "Panels are the payer × network contracts a clinician is listed under, and what each one pays.",
   roster: "Who is still publishing you, and what that listing was worth.",
   "apply-next": "Where to apply next, ranked by what the book already pays people like you.",
-  spread: "What the platform's cut costs you, priced against the rates it negotiates.",
+  spread: "Every NY-book payer's median per service — add what your platform remits and it becomes your annualized spread.",
 };
 
 export function RatesShell({ userEmail }: { userEmail?: string }) {
@@ -68,7 +68,6 @@ export function RatesShell({ userEmail }: { userEmail?: string }) {
         >
           Print rate card
         </Button>
-        <IconButton icon="bell" label="Notifications" onClick={() => toast("No new notifications.", "info")} />
       </TopBarActions>
 
       <Tabs className="mt-4 shrink-0" items={TABS} active={tab} onChange={setTab} slideActive />
@@ -109,7 +108,7 @@ export function RatesShell({ userEmail }: { userEmail?: string }) {
       <div className="min-h-0 flex-1 overflow-y-auto" hidden={tab !== "apply-next"}>
         <ApplyNextPanel activeNpi={activeNpi} onActiveNpi={setActiveNpi} onGoToNegotiation={() => setTab("bands")} />
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto" hidden={tab !== "spread"}>
+      <div className="min-h-0 flex-1 flex flex-col" hidden={tab !== "spread"}>
         <SpreadPanel />
       </div>
     </div>

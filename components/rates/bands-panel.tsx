@@ -132,28 +132,10 @@ export function BandsPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
-      {/* Search leads, the Rates/Bands switch beside it — the facets stay inside
-          the chrome, below (this panel drives the Table primitive directly
-          rather than DataTable, so it hand-rolls the same anatomy). */}
-      <div className="flex shrink-0 flex-wrap items-center gap-2.5">
-        <SearchInput
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search by insurer"
-          className="w-full sm:w-[447px]"
-        />
-      </div>
-
       {error && <Banner className="shrink-0" variant="danger">{error}</Banner>}
 
       {loading ? (
         <TableSkeleton head={HEAD} />
-      ) : shown.length === 0 ? (
-        <EmptyState
-          icon="clipboard"
-          title={bands.length === 0 ? "No published bands yet" : "No bands match these filters"}
-          subtext="Bands are computed on deduped payer-published rows, NY-book entities only."
-        />
       ) : (
         <Table
           className="min-h-0 flex-1"
@@ -161,6 +143,16 @@ export function BandsPanel({
           tintedHeader
           toolbar={
             <>
+              {/* Search + facets together INSIDE the chrome — the stacked
+                  standard the other /rates tables settled on (NYS-98/99). The
+                  toolbar stays rendered even at zero matches, so a filter that
+                  strands the table can always be cleared from where it was set. */}
+              <SearchInput
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search by insurer"
+                className="w-full sm:w-[320px]"
+              />
               <ChipMenu
                 label="Code"
                 options={codeOptions}
@@ -201,6 +193,17 @@ export function BandsPanel({
             <SortableHead key="asOf" label="As-of" col="asOf" sort={sort} onSort={toggleSort} />,
           ]}
         >
+          {shown.length === 0 && (
+            <Tr>
+              <Td colSpan={HEAD.length}>
+                <EmptyState
+                  icon="clipboard"
+                  title={bands.length === 0 ? "No published bands yet" : "No bands match these filters"}
+                  subtext="Bands are computed on deduped payer-published rows, NY-book entities only."
+                />
+              </Td>
+            </Tr>
+          )}
           {visible.map((b) => (
             <Tr key={`${b.payer}|${b.network}|${b.billingCode}|${b.license}`}>
               <Td className="whitespace-nowrap">{cptLabel(b.billingCode)}</Td>
