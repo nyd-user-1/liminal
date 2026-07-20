@@ -27,6 +27,10 @@ function file(
     sizeBytes,
     url: `/uploads/${name}`,
     kind,
+    // Mock-mode fixtures: no bytes exist behind these paths, so they are
+    // labelled demo data and never claim durable blob storage.
+    storage: "local",
+    provenance: "demo_seed",
     createdAt,
   };
 }

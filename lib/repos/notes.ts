@@ -3,7 +3,16 @@ import { isoDateTime } from "@/lib/format";
 import { mockId, mockStore } from "@/lib/mock";
 import "@/lib/mock/notes";
 import "@/lib/mock/clients"; // client fixtures — name joins work in mock mode regardless of sibling import order
-import type { Note, NoteStatus, NoteTemplate, NoteTemplateKind, Transcript, TranscriptSegment } from "@/lib/types";
+import type {
+  Note,
+  NoteAmendment,
+  NoteStatus,
+  NoteTemplate,
+  NoteTemplateKind,
+  NoteWithAmendments,
+  Transcript,
+  TranscriptSegment,
+} from "@/lib/types";
 
 // Clinical documentation repo — notes, note templates, transcripts.
 // hasDb → Postgres; otherwise the in-memory mock store (fixtures above).
@@ -132,10 +141,25 @@ export async function createNote(input: CreateNoteInput): Promise<Note> {
   return note;
 }
 
+/** Thrown when a write targets a note that has been signed. Callers → HTTP 409. */
+export class NoteLockedError extends Error {
+  readonly status = 409;
+  constructor(readonly noteId: string) {
+    super("This note is signed. Corrections must be filed as an amendment.");
+    this.name = "NoteLockedError";
+  }
+}
+
+/** Signed notes are immutable — a signature is a legal attestation. Only
+ *  drafts are editable; everything after signing is an appended amendment. */
+export function isEditable(note: Note): boolean {
+  return note.status === "draft";
+}
+
 export async function updateNote(id: string, patch: { title?: string; bodyMd?: string }): Promise<Note | null> {
   const existing = await getNote(id);
   if (!existing) return null;
-  if (existing.status === "locked") return existing; // locked notes are immutable
+  if (!isEditable(existing)) throw new NoteLockedError(id);
   const title = patch.title ?? existing.title;
   const bodyMd = patch.bodyMd ?? existing.bodyMd;
   if (hasDb) {
@@ -181,6 +205,37 @@ export async function deleteNote(id: string): Promise<boolean> {
   if (!n || n.deletedAt) return false;
   mockStore().notes.set(id, { ...n, deletedAt: new Date().toISOString() });
   return true;
+}
+
+// ── amendments (append-only corrections to signed notes) ─────────────────────
+
+export interface AddAmendmentInput {
+  noteId: string;
+  authorId: string;
+  bodyMd: string;
+}
+
+/**
+ * Append a correction to a note. Amendments are never edited or deleted — the
+ * chain is the audit history. Returns null if the parent note does not exist.
+ */
+export async function addAmendment(_input: AddAmendmentInput): Promise<NoteAmendment | null> {
+  throw new Error("addAmendment: not implemented yet (sql/062)");
+}
+
+/** Amendments for one note, oldest first (chronological correction chain). */
+export async function listAmendments(_noteId: string): Promise<NoteAmendment[]> {
+  throw new Error("listAmendments: not implemented yet (sql/062)");
+}
+
+/** Amendments for many notes, keyed by note id — list views without N+1. */
+export async function listAmendmentsFor(_noteIds: string[]): Promise<Record<string, NoteAmendment[]>> {
+  throw new Error("listAmendmentsFor: not implemented yet (sql/062)");
+}
+
+/** A note plus its correction chain — the full clinical record for one note. */
+export async function getNoteWithAmendments(_id: string): Promise<NoteWithAmendments | null> {
+  throw new Error("getNoteWithAmendments: not implemented yet (sql/062)");
 }
 
 // ── templates ─────────────────────────────────────────────────────────────────

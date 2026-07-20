@@ -277,16 +277,42 @@ export interface Message {
 
 export type FileKind = "upload" | "form_pdf" | "superbill";
 
+/** Where the bytes actually live. `blob` = private Vercel Blob store (the only
+ *  durable option on serverless); `local` = ./uploads, dev-only and ephemeral. */
+export type FileStorage = "blob" | "local";
+
+/** How the row came to exist. `demo_seed` rows are real objects with real bytes
+ *  but seeded, not clinician-supplied — surfaces must label them as demo data. */
+export type FileProvenance = "user_upload" | "generated" | "demo_seed";
+
 export interface FileRecord {
   id: string;
   clientId: string;
   uploaderId: string;
-  name: string;
+  name: string; // client-supplied filename, stored as given (may be PHI)
   mime: string;
   sizeBytes: number;
+  /** Private blob pathname, or /uploads/<name> in dev. NEVER a fetchable URL —
+   *  bytes are only served through GET /api/files/download?id=. */
   url: string;
   kind: FileKind;
+  storage: FileStorage;
+  provenance: FileProvenance;
   createdAt: string;
+}
+
+/** Append-only correction to a signed note. Notes are never edited after
+ *  signing; the amendment chain IS the edit history. */
+export interface NoteAmendment {
+  id: string;
+  noteId: string;
+  authorId: string;
+  bodyMd: string;
+  createdAt: string;
+}
+
+export interface NoteWithAmendments extends Note {
+  amendments: NoteAmendment[];
 }
 
 export interface AuditEvent {
