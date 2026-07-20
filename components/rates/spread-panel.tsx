@@ -12,7 +12,7 @@ import { SidePanel } from "@/components/ui/side-panel";
 import { StatCard } from "@/components/ui/stat-card";
 import { Badge } from "@/components/ui/badge";
 import { TextLink } from "@/components/ui/text-link";
-import { RATE_CPTS, cptLabel } from "@/components/rates/cpt";
+import { ALL_CPTS, RATE_CPTS, cptLabel, isLeadCode } from "@/components/rates/cpt";
 import { InsurerCell } from "@/components/rates/insurer-mark";
 import { TableSkeleton } from "@/components/rates/table-skeleton";
 import type { PayerMedianRow, PayerSpread, SpreadResult } from "@/lib/repos/rate-signals";
@@ -32,12 +32,18 @@ import type { PayerMedianRow, PayerSpread, SpreadResult } from "@/lib/repos/rate
 type Baseline = { codes: string[]; rows: PayerMedianRow[] };
 type RowInput = { remit: string; sessions: string };
 
+/** Mirrors MAX_ENTRIES in app/api/rates/spread/route.ts — the server truncates
+ *  past this, so the form says so rather than silently dropping entries. */
+const MAX_SPREAD_ENTRIES = 20;
+
 const CADENCE = [
   { value: "week", label: "Per week" },
   { value: "month", label: "Per month" },
 ];
 
 const SKELETON_HEAD = ["Insurer", ...RATE_CPTS.map((c) => c.code)];
+
+const EMPTY_FORM = () => Object.fromEntries(ALL_CPTS.map((c) => [c.code, { remit: "", sessions: "" }]));
 
 /** Sort keys parsed from the wrapped display strings — never rendered. */
 function medianSortValue(figure?: string): number {
@@ -58,7 +64,7 @@ export function SpreadPanel() {
 
   const [panelOpen, setPanelOpen] = useState(false);
   const [form, setForm] = useState<Record<string, RowInput>>(
-    Object.fromEntries(RATE_CPTS.map((c) => [c.code, { remit: "", sessions: "" }])),
+    EMPTY_FORM,
   );
   const [cadence, setCadence] = useState("week");
   const [result, setResult] = useState<SpreadResult | null>(null);
@@ -112,8 +118,15 @@ export function SpreadPanel() {
 
   const clear = () => {
     setResult(null);
-    setForm(Object.fromEntries(RATE_CPTS.map((c) => [c.code, { remit: "", sessions: "" }])));
+    setForm(EMPTY_FORM());
   };
+
+  // Lead codes first: the five most people actually bill shouldn't sit below
+  // fifteen add-ons they don't.
+  const FORM_CPTS = useMemo(
+    () => [...ALL_CPTS].sort((a, b) => Number(isLeadCode(b.code)) - Number(isLeadCode(a.code))),
+    [],
+  );
 
   const spreadBy = useMemo(
     () => new Map<string, PayerSpread>((result?.payers ?? []).map((p) => [p.payer, p])),
@@ -126,7 +139,7 @@ export function SpreadPanel() {
     return needle ? all.filter((r) => r.payer.toLowerCase().includes(needle)) : all;
   }, [base, q]);
 
-  const codes = base?.codes ?? RATE_CPTS.map((c) => c.code);
+  const codes = base?.codes ?? ALL_CPTS.map((c) => c.code);
 
   // The in-network qualifier lives in the column header, once — the same
   // figure/basis split Bands ("Median In-Ntwk") and Services ("Rate In-Ntwk")
@@ -138,6 +151,11 @@ export function SpreadPanel() {
       label: `${code} In-Ntwk`,
       headTitle: `${cptLabel(code)} — the payer's median published in-network rate`,
       align: "right",
+      // All twenty codes are columns (NYS-50). Twenty currency columns at once
+      // is a wall, so the fifteen beyond the workhorse five start collapsed
+      // into the Columns picker — listed there by name, one click from view.
+      // Hidden-by-default is not absent; no-column-at-all was.
+      defaultHidden: !isLeadCode(code),
       sortValue: (r) => medianSortValue(r.medians[code]?.figure),
       render: (r) => {
         const m = r.medians[code];
@@ -233,6 +251,7 @@ export function SpreadPanel() {
         columns={columns}
         rows={rows}
         rowKey={(r) => r.payer}
+        storageKey="rates.spread.columns"
         fillHeight
         stacked
         className="min-h-0 flex-1"
@@ -256,7 +275,7 @@ export function SpreadPanel() {
           <p className="text-[13px] text-text-muted">
             {result
               ? result.assumptions
-              : "Each figure is the payer's median published in-network rate across the NY book, on deduped payer-published rows — hover a figure for its as-of date. Enter what your platform remits to price your spread against every book at once."}
+              : `Each figure is the payer's median published in-network rate across the NY book, on deduped payer-published rows — hover a figure for its as-of date. All ${codes.length} priced codes are here; Columns adds the ones beyond the five shown. Enter what your platform remits to price your spread against every book at once.`}
           </p>
         }
         footnote={
@@ -284,7 +303,9 @@ export function SpreadPanel() {
         icon="dollar"
         footer={
           <>
-            <p className="mr-auto text-[13px] text-text-muted">Fill in the codes you bill — leave the rest blank.</p>
+            <p className="mr-auto text-[13px] text-text-muted">
+            Fill in the codes you bill — leave the rest blank. Up to {MAX_SPREAD_ENTRIES} are priced at once.
+          </p>
             <Button onClick={check} loading={checking} disabled={entries.length === 0}>
               Check the spread
             </Button>
@@ -301,7 +322,7 @@ export function SpreadPanel() {
           <SegmentedControl segments={CADENCE} value={cadence} onChange={setCadence} />
         </div>
         <div className="space-y-3">
-          {RATE_CPTS.map((c) => (
+          {FORM_CPTS.map((c) => (
             <div key={c.code} className="grid items-end gap-2.5 sm:grid-cols-[minmax(0,1.1fr)_1fr_1fr]">
               <p className="pb-2.5 text-[15px] font-medium text-text max-sm:pb-0">
                 {c.code} <span className="font-normal text-text-muted">· {c.label}</span>

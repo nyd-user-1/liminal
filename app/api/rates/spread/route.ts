@@ -11,7 +11,9 @@ function authResponse(e: unknown): NextResponse | null {
   return e instanceof AuthError ? NextResponse.json({ error: e.message }, { status: e.status }) : null;
 }
 
-const MAX_ENTRIES = 8;
+// One per priced code — the remit form offers all twenty (NYS-50), and a cap
+// below that would drop entries the user filled in without telling them.
+const MAX_ENTRIES = 20;
 
 /**
  * GET /api/rates/spread — the baseline: every NY-book payer's median per code,

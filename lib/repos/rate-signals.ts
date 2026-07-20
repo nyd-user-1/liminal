@@ -1,3 +1,4 @@
+import { CPT_LABELS } from "@/lib/cpt-labels.generated";
 import { hasDb, sql } from "@/lib/db";
 import { isoDateOnly, isoDateTime } from "@/lib/format";
 import {
@@ -627,6 +628,13 @@ export async function getStanding(npi: string): Promise<NpiStanding> {
 // The behavioral CPTs carried by provider_rate_signals (mirrors
 // components/rates/cpt.ts — this module can't import a "use client" file).
 const BEHAVIORAL_FIVE = ["90791", "90834", "90837", "90853", "99214"];
+
+/** All twenty priced codes, off the generated cpt_codes map — the single source
+ *  (components/rates/cpt.ts reads the same file). BEHAVIORAL_FIVE survives only
+ *  where five is the deliberate answer: getApplyNext's fallback and
+ *  listNegotiableBooks rank a clinician against the workhorse book, not against
+ *  every add-on code they may never bill. */
+const ALL_PRICED_CODES: string[] = Object.keys(CPT_LABELS).sort();
 
 // Distinct NY-book payers we index — stable within a process, so cache it.
 let checkedBooksCache: string[] | null = null;
@@ -1422,7 +1430,12 @@ export interface PayerMedianRow {
  * (sql/024-backed), never the fact table.
  */
 export async function listPayerMedians(): Promise<{ codes: string[]; rows: PayerMedianRow[] }> {
-  const codes = BEHAVIORAL_FIVE;
+  // Every priced code, not the behavioral five (NYS-50). The client decides
+  // which of the twenty medians are columns by default; the repo's job is to
+  // return all of them, so nothing we hold is unreachable from the table.
+  // Cost measured 2026-07-20 on rate_bands_payer_summary: 65 -> 184 rows,
+  // both under 2 ms — this is a rollup read, not a fact-table scan.
+  const codes = ALL_PRICED_CODES;
   const bands = await bandNumbers(codes, DEFAULT_MIN_CLINICIANS, false);
   const byPayer = new Map<string, PayerMedianRow>();
   for (const b of bands) {

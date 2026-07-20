@@ -1,3 +1,4 @@
+import { CPT_LABELS } from "@/lib/cpt-labels.generated";
 import { hasDb, sql } from "@/lib/db";
 import { isoDateOnly } from "@/lib/format";
 
@@ -8,10 +9,16 @@ import { isoDateOnly } from "@/lib/format";
 // and answers a different question (bands = aggregate cohorts); this reads the
 // leaves. The slight overlap is accepted — the grains are genuinely different.
 //
-// SOURCE: rate_table_child_mv (sql/032) only — never provider_rate_signals, the
-// 9.3M-row fact table. The matview is PIVOTED (c90791…c99214 as columns), so
-// "one row per service" is an unpivot, done in SQL via a LATERAL VALUES so the
-// LIMIT/OFFSET counts SERVICES, not cells.
+// SOURCE: rate_service_rows_mv (sql/063) — never provider_rate_signals, the
+// 13.7M-row fact table. That matview IS the one-row-per-service grain, so the
+// CROSS JOIN LATERAL (VALUES …) unpivot this query used to carry is gone.
+//
+// WHY IT MOVED OFF sql/032 (NYS-50). rate_table_child_mv is PIVOTED and pivots
+// exactly five codes (c90791…c99214), so fifteen of the twenty codes we price
+// could not be reached from here at all — no filter or picker could surface
+// what the matview had no column for. sql/063 is the long-grain twin over all
+// twenty; 032 stays as-is for its four other consumers (/published-rates,
+// analytics, metrics, the admin inventory).
 //
 // WHAT THIS DOES NOT HAVE, and why (all measured — see NYS-93):
 //   • No employer "plan". `plans` is Aetna-only; this matview excludes Aetna by
@@ -22,13 +29,16 @@ import { isoDateOnly } from "@/lib/format";
 //     (sql/024); a leaf row has no p25/p75. `nRates > 1` is the honest signal:
 //     the payer published several rates for this exact cell (NYS-64).
 //
-// COVERAGE: the matview holds TINs with <=100 leaves for that payer — ~48% of
-// all children (the big platform TINs, Headway largest) are excluded and live
-// on /orgs. Callers must not claim completeness.
+// COVERAGE: the matview holds billing IDs with <=400 leaves for that payer —
+// the platform-scale TINs are excluded and live on /orgs. Callers must not
+// claim completeness. (sql/063 documents why the cap is 400 and not 032's 100:
+// re-applying 100 to the twenty-code leaf set would have evicted 9,616 rows
+// that /rates lists today.)
 
-/** The five codes the matview pivots. Order is the display order. */
-export const RATE_ROW_CODES = ["90791", "90834", "90837", "90853", "99214"] as const;
-export type RateRowCode = (typeof RATE_ROW_CODES)[number];
+/** Every code we price, straight off the generated cpt_codes map — never a
+ *  second hardcoded list. Ascending code order IS the display order. */
+export const RATE_ROW_CODES: readonly string[] = Object.keys(CPT_LABELS).sort();
+export type RateRowCode = string;
 
 export interface RateRow {
   npi: string;
@@ -83,36 +93,25 @@ export async function listRateRows(
   if (!hasDb) return { rows: [], total: 0 };
   const limit = Math.min(f.limit ?? 50, 500);
   const offset = Math.max(f.offset ?? 0, 0);
-  const q = f.q?.trim() ? `%${f.q.trim()}%` : null;
+  // Lowered here because search_text is stored lowered — that lets the trigram
+  // index serve a plain LIKE instead of an ILIKE.
+  const q = f.q?.trim() ? `%${f.q.trim().toLowerCase()}%` : null;
   const payer = f.payer ?? null;
   const code = f.code ?? null;
   const network = f.network ?? null;
 
   const pagePromise = sql`
-    WITH unpivoted AS (
-      SELECT m.npi, m.display_name, m.credential, m.profession, m.city,
-             m.payer, m.network, m.setting, m.tin, m.as_of,
-             v.billing_code, v.rate, v.n_rates
-      FROM rate_table_child_mv m
-      CROSS JOIN LATERAL (VALUES
-        ('90791', m.c90791, m.n90791),
-        ('90834', m.c90834, m.n90834),
-        ('90837', m.c90837, m.n90837),
-        ('90853', m.c90853, m.n90853),
-        ('99214', m.c99214, m.n99214)
-      ) AS v(billing_code, rate, n_rates)
-      -- A cell the payer never priced is not a service row. n_rates > 0 keeps
-      -- the multi-rate cells (rate IS NULL, n_rates > 1), which ARE facts.
-      WHERE v.n_rates > 0
-    )
-    SELECT u.*
-    FROM unpivoted u
+    SELECT u.npi, u.display_name, u.credential, u.profession, u.city,
+           u.payer, u.network, u.setting, u.tin, u.as_of,
+           u.billing_code, u.rate, u.n_rates
+    FROM rate_service_rows_mv u
     WHERE (${payer}::text IS NULL OR u.payer = ${payer})
       AND (${code}::text IS NULL OR u.billing_code = ${code})
       AND (${network}::text IS NULL OR u.network = ${network})
-      AND (${q}::text IS NULL OR (
-            u.display_name ILIKE ${q} OR u.payer ILIKE ${q} OR u.network ILIKE ${q}
-            OR u.tin ILIKE ${q} OR u.npi ILIKE ${q}))
+      -- One pre-lowered haystack (sql/063 search_text) covering clinician name,
+      -- insurer, network, billing ID and NPI. The five-column OR this replaced
+      -- could not use a trigram index and seq-scanned the whole matview.
+      AND (${q}::text IS NULL OR u.search_text LIKE ${q})
     ORDER BY u.payer, u.network, u.billing_code, u.rate DESC NULLS LAST, u.npi
     LIMIT ${limit} OFFSET ${offset}
   ` as unknown as Promise<Array<Record<string, unknown>>>;
@@ -121,18 +120,8 @@ export async function listRateRows(
   const countPromise =
     offset === 0
       ? (sql`
-          WITH unpivoted AS (
-            SELECT m.payer, m.network, m.tin, m.npi, m.display_name,
-                   v.billing_code, v.n_rates
-            FROM rate_table_child_mv m
-            CROSS JOIN LATERAL (VALUES
-              ('90791', m.n90791), ('90834', m.n90834), ('90837', m.n90837),
-              ('90853', m.n90853), ('99214', m.n99214)
-            ) AS v(billing_code, n_rates)
-            WHERE v.n_rates > 0
-          )
           SELECT count(*)::int AS total
-          FROM unpivoted u
+          FROM rate_service_rows_mv u
           WHERE (${payer}::text IS NULL OR u.payer = ${payer})
             AND (${code}::text IS NULL OR u.billing_code = ${code})
             AND (${network}::text IS NULL OR u.network = ${network})
@@ -168,8 +157,25 @@ export async function listRateRows(
 /** The facet values actually present, so a filter never offers an empty result. */
 export async function rateRowFacets(): Promise<{ payers: string[]; networks: string[] }> {
   if (!hasDb) return { payers: [], networks: [] };
+  // A skip-scan, not a DISTINCT. There are 37 (payer, network) pairs in 1.09M
+  // rows, and `SELECT DISTINCT` reads every one of them to find those 37 —
+  // measured 149 ms (Parallel Seq Scan + HashAggregate), which made this the
+  // slowest leg of the Services first paint even though it returns 37 rows.
+  // Postgres has no loose index scan, so this walks idx_rsr_order's (payer,
+  // network) prefix one pair at a time: 37 index probes instead of a full scan.
   const rows = (await sql`
-    SELECT DISTINCT payer, network FROM rate_table_child_mv ORDER BY payer, network
+    WITH RECURSIVE pairs AS (
+      (SELECT payer, network FROM rate_service_rows_mv ORDER BY payer, network LIMIT 1)
+      UNION ALL
+      SELECT n.payer, n.network
+      FROM pairs p
+      CROSS JOIN LATERAL (
+        SELECT payer, network FROM rate_service_rows_mv
+        WHERE (payer, network) > (p.payer, p.network)
+        ORDER BY payer, network LIMIT 1
+      ) n
+    )
+    SELECT payer, network FROM pairs ORDER BY payer, network
   `) as Array<{ payer: string; network: string }>;
   return {
     payers: [...new Set(rows.map((r) => r.payer))],

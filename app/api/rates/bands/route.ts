@@ -10,7 +10,9 @@ function authResponse(e: unknown): NextResponse | null {
   return e instanceof AuthError ? NextResponse.json({ error: e.message }, { status: e.status }) : null;
 }
 
-const MAX_CODES = 8;
+// All twenty priced codes — the Bands chip offers every one (NYS-50), so a cap
+// below 20 would silently truncate the fetch to the first 8 it happened to see.
+const MAX_CODES = 20;
 
 /** GET /api/rates/bands?codes=90837,90834 — per-payer p25/median/p75, NY book. */
 export async function GET(req: NextRequest) {

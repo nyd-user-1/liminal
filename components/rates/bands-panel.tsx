@@ -7,7 +7,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { SearchInput } from "@/components/ui/search-input";
 import { LoadMoreRow, SortableHead, Table, Td, Tr, useLazyBatch, useSort } from "@/components/ui/table";
 import { ChipMenu } from "@/components/rates/chip-menu";
-import { RATE_CPTS, cptLabel } from "@/components/rates/cpt";
+import { ALL_CPTS, cptLabel } from "@/components/rates/cpt";
 import { InsurerCell, InsurerMark } from "@/components/rates/insurer-mark";
 import { TableSkeleton } from "@/components/rates/table-skeleton";
 import type { RateBand } from "@/lib/repos/rate-signals";
@@ -17,7 +17,7 @@ import type { RateBand } from "@/lib/repos/rate-signals";
 // directory profession join — real cohorts per tier, not a heuristic.
 // Toolbar = the Clients/Directory pattern: search + "+ Code" / "+ Insurer" /
 // "+ License" filter chips — all three are pure client-side filters over one
-// unconditional fetch of every RATE_CPTS code, unchecked by default, table
+// unconditional fetch of every priced code, unchecked by default, table
 // sorted Insurer A-Z out of the box. Nothing gates the initial view.
 
 const LICENSE_OPTIONS = [
@@ -60,13 +60,15 @@ export function BandsPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin]);
 
-  // Always pulls every RATE_CPTS code (a small fixed list) — the "Code" chip
-  // is a filter over this, not a fetch trigger, so it never gates the table.
+  // Always pulls every priced code — all twenty, not the five the chip used to
+  // offer (NYS-50). The "Code" chip is a filter over this, not a fetch trigger,
+  // so it never gates the table. Cost measured 2026-07-20: the sql/024 band
+  // matview answers 20 codes in 1.4 ms vs 0.6 ms for 5 (468 -> 1,314 rows).
   useEffect(() => {
     let stale = false;
     setLoading(true);
     setError(null);
-    fetch(`/api/rates/bands?codes=${RATE_CPTS.map((c) => c.code).join(",")}`)
+    fetch(`/api/rates/bands?codes=${ALL_CPTS.map((c) => c.code).join(",")}`)
       .then(async (res) => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "Couldn't load bands.");
@@ -128,7 +130,7 @@ export function BandsPanel({
     resetKey: `${codes.join(",")}|${q}|${insurer}|${license}`,
   });
 
-  const codeOptions = RATE_CPTS.map((c) => ({ value: c.code, label: `${c.code} · ${c.label}` }));
+  const codeOptions = ALL_CPTS.map((c) => ({ value: c.code, label: `${c.code} · ${c.label}` }));
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">

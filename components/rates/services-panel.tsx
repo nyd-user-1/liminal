@@ -7,7 +7,7 @@ import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FilterMenu } from "@/components/ui/filter-menu";
 import { SearchInput } from "@/components/ui/search-input";
-import { cptLabel } from "@/components/rates/cpt";
+import { ALL_CPTS, cptLabel } from "@/components/rates/cpt";
 import { InsurerCell } from "@/components/rates/insurer-mark";
 import { TextLink } from "@/components/ui/text-link";
 import { TableSkeleton } from "@/components/rates/table-skeleton";
@@ -40,7 +40,9 @@ import type { RateRow } from "@/lib/repos/rate-rows";
 // bands aggregated this away.
 
 const PAGE = 500;
-const CODES = ["90791", "90834", "90837", "90853", "99214"] as const;
+// Every priced code, not the five the old pivot could reach (NYS-50). This is a
+// FILTER list, so twenty costs nothing in width — it costs one hardcoded array.
+const CODES = ALL_CPTS.map((c) => c.code);
 
 type Result = { rows: RateRow[]; total: number; facets: { payers: string[]; networks: string[] } };
 

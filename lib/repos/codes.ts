@@ -6,11 +6,12 @@ import { RATE_ROW_CODES } from "@/lib/repos/rate-rows";
 // The billing codes we carry — /codes reads this. Labels are LIVE off cpt_codes
 // (our own wording, 20 rows, one cheap query, memoized), volume is the dated
 // snapshot from lib/code-volumes.ts (a live per-code group-by is ~60s). No PHI:
-// codes are facts, counts are aggregates. `shownInRates` marks the five codes
-// the /rates panels currently surface, distinct from the fifteen priced but not
-// yet shown (the NYS-50 gap, made visible).
-
-// A Set<string> so `.has(code)` takes a plain string, not the code union.
+// codes are facts, counts are aggregates.
+//
+// `shownInRates` is DERIVED from what the Services read actually offers, never
+// asserted here — that is what keeps the page's honesty label honest. It read
+// 5-of-20 while sql/032's five-code pivot gated the tab; sql/063 made it 20.
+// If a future change narrows the surface again, this column says so on its own.
 const SHOWN_IN_RATES: Set<string> = new Set(RATE_ROW_CODES);
 
 export interface CodeRow {
