@@ -868,3 +868,43 @@ on a short interval while `stage !== "active"` and stop once active, so the card
 self-corrects instead of depending on a single `onExit` landing after an
 asynchronous capability flip. Cheap, and it removes the dependency on Stripe's
 callback firing at all.
+
+---
+
+## Cross-surface fee labelling — our email says "Platform fee", Stripe's component says "Processing fees"
+
+Raised by the earnings agent from its screenshots and worth recording here,
+because the two surfaces a therapist sees now disagree about what our $15 is.
+
+**Chrome we control — the payout email — is correct** (`lib/email/stripe-notifications.ts`):
+
+```
+subject  "You've been paid $135.00 — INV-2026-9003"
+         Client paid    $150.00
+         Platform fee   −$15.00
+         Your payout    $135.00     (bold)
+```
+
+"Platform fee" is the honest label: it names the money as Liminal's, not as a
+cost of moving the card. The client receipt correctly shows only
+`Invoice` + `Amount paid $150.00` with no fee line, per the lead's ruling.
+
+**Chrome we do NOT control — Stripe's embedded `payment_details` — calls the
+same $15 "Processing fees"**, and that string is Stripe's own copy inside the
+iframe, not reachable via the appearance API. So on the Earnings page a therapist
+sees Liminal's revenue presented as if it were card-processing cost.
+
+Both numbers are right; only the naming conflicts. Two observations for the
+pricing/copy fork rather than a defect to fix:
+
+- The inconsistency is *between* surfaces — a therapist reading the email learns
+  we take a platform fee, then sees the same amount described on the Earnings
+  page as a processing cost. Whichever framing is chosen, they should match.
+
+- The email is the surface where the distinction can actually be drawn, so it is
+  the right place to carry the honest wording — which it already does. If the
+  Earnings page needs to correct the record, it can only do so in *our* copy
+  around the Stripe component, not inside it.
+
+No change made — labelling is a founder pricing/copy decision (fork 1), and the
+email currently reads honestly.
