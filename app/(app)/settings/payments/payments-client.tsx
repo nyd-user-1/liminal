@@ -155,6 +155,7 @@ export function PaymentsSettings({ publishableKey }: { publishableKey: string })
       {stage === "none" && (
         <SettingsCard icon="credit-card" title="Get paid">
           <EmptyState
+            className="py-8"
             icon="dollar"
             title="Set up payments"
             subtext="Clients pay Liminal for their sessions and Liminal pays you, minus a platform fee. Stripe collects your identity and bank details — it takes about five minutes."
