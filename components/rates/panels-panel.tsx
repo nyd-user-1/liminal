@@ -571,7 +571,12 @@ function DefaultPanels({ rows, q, toolbarLeft }: { rows: DefaultRow[]; q: string
     <DataTable
       columns={DEFAULT_COLS}
       rows={filtered}
-      rowKey={(r) => `${r.npi}|${r.payer}|${r.network}|${r.setting}|${r.billingCode}`}
+      // The grain is (payer, tin, npi, network, setting, code) — sql/063. The
+      // TIN is not decoration: one clinician bills the same insurer under
+      // several groups, so without it two real rows collide on one key (NYS-170,
+      // measured: 3 collisions in the first 100 rows, all Cigna). Same lesson
+      // rateRowKey() carries for the published-rates tree.
+      rowKey={(r) => `${r.npi}|${r.payer}|${r.tin}|${r.network}|${r.setting}|${r.billingCode}`}
       storageKey="rates.panels.default.columns"
       lazy
       fillHeight
