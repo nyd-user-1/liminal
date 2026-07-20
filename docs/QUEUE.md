@@ -7,8 +7,12 @@ STANDARD v2, founder scope expansion) both Done; lead review
 (/rates dup rowKeys) · NYS-171 (Anthem-June count perf) · NYS-172 (marketplace
 polish batch) · NYS-173 (DECISION fork 7: on_behalf_of vs own-data
 Transactions — blocked on T6 evidence). **ONLY OPEN ITEM: T6 e2e drive,
-founder-gated on sandbox Connect signup** (Dashboard → Connect → enable on
-acct_1T1DhaFZHX4S0kX2); agent stripe-t6-drive parked ready, earnings-surface
+founder-gated on sandbox Connect signup** — CLEARED 2026-07-20 ~03:10 on
+**acct_1T1DhqFTCTbH09lM (NYSgpt sandbox)**; the earlier acct_1T1DhaFZHX4S0kX2
+in these notes was a DIFFERENT environment, ignore it. Keys re-saved 03:08 →
+the first-captured whsec went stale (forwarder had authed to the old
+account); forwarder + dev server rebuilt against the current key before the
+drive. Agent stripe-t6-drive parked ready, earnings-surface
 parked for the 2 demo screenshots (resume with charge id). Env: sandbox keys
 live in .env.local (QUOTED values), two-scope stripe-listen detached, whsec
 captured. NEW HOUSE RULE all kickoffs: `git diff --cached --name-only` before
