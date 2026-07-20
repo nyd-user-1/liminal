@@ -11,6 +11,9 @@
     "@anthropic-ai/sdk": "^0.111.0",
     "@neondatabase/serverless": "^1.1.0",
     "@photonhealth/elements": "^0.23.10",
+    "@stripe/connect-js": "^3.4.6",
+    "@stripe/react-connect-js": "^3.4.4",
+    "@stripe/stripe-js": "^9.10.0",
     "@vercel/blob": "^2.5.0",
     "bcryptjs": "^3.0.2",
     "next": "16.2.9",
@@ -30,7 +33,7 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "resend": "^6.12.4",
-    "stripe": "^22.2.0"
+    "stripe": "^22.3.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
