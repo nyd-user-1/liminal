@@ -56,7 +56,7 @@ function requirementLabel(key: string): string {
 
 type View = "balance" | "payouts" | "account";
 
-export function GetPaidSettings({ publishableKey }: { publishableKey: string }) {
+export function PaymentsSettings({ publishableKey }: { publishableKey: string }) {
   const toast = useToast();
   const [account, setAccount] = useState<ConnectAccountStatus | null>(null);
   const [loading, setLoading] = useState(true);
