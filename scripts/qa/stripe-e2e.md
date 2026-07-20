@@ -10,14 +10,25 @@ blockers clear. **Test mode only. The DATABASE_URL is live.**
 
 ---
 
-## Status — all 4 blockers CLEARED 2026-07-20 (T6 drive run)
+## Status — 3 of 4 blockers cleared; Connect signup still MISSING (T6 run 2026-07-20)
 
-> **Update (T6 execution, 2026-07-20):** All four blockers below are resolved.
-> `.env.local` now holds `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`,
-> and `STRIPE_WEBHOOK_SECRET` (NYSgpt sandbox, test mode; values are quoted —
-> strip quotes when consuming from shell). The Stripe CLI is installed and
-> `stripe listen` is running detached on both scopes. Connect is enabled on the
-> sandbox. The block below is the historical record from the prep session.
+> **Update (T6 execution, 2026-07-20):** Three of the four prep blockers are
+> resolved: `.env.local` holds `STRIPE_SECRET_KEY`,
+> `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, and `STRIPE_WEBHOOK_SECRET` (NYSgpt
+> sandbox, test mode; quoted — strip quotes in shell); the Stripe CLI is
+> installed (`1.43.8`) and `stripe listen` is running detached on both scopes.
+>
+> **The Connect platform is NOT signed up on the sandbox** — measured, not
+> assumed. `stripe.accounts.create(...)` returns `400 invalid_request_error:
+> "You can only create new accounts if you've signed up for Connect"` for the
+> controller triple AND for bare `type:express`/`type:standard` alike, so it is
+> platform-level, not a config problem. Our `POST /api/connect/account` degrades
+> cleanly to a 500 with a friendly message. Platform account
+> `acct_1T1DhaFZHX4S0kX2` is otherwise healthy (US, `charges_enabled=true`).
+> **Founder action, ~1 min:** Stripe Dashboard → test mode → Connect → sign up /
+> enable the platform. This is the ONLY thing blocking the whole T6 loop.
+>
+> The block below is the historical record from the prep session.
 
 ### Status at time of writing — 4 blockers, all founder-side
 
