@@ -38,6 +38,45 @@ function row(label: string, value: string, opts?: { strong?: boolean; top?: bool
   </tr>`;
 }
 
+// Stripe dispute reasons arrive as raw enum codes and several are e-commerce
+// vocabulary that reads as nonsense against a therapy session ("product not
+// received"). Map to plain English; fall back to de-snaking anything new.
+const DISPUTE_REASON: Record<string, string> = {
+  bank_cannot_process: "The bank could not process the payment",
+  check_returned: "Check returned",
+  credit_not_processed: "Client says a refund was never issued",
+  customer_initiated: "Client disputed the charge",
+  debit_not_authorized: "Client says the charge was not authorized",
+  duplicate: "Client says they were charged twice",
+  fraudulent: "Client says the charge was fraudulent",
+  general: "Disputed — no reason given",
+  incorrect_account_details: "Incorrect account details",
+  insufficient_funds: "Insufficient funds",
+  product_not_received: "Client says the session did not happen",
+  product_unacceptable: "Client disputed the quality of the session",
+  subscription_canceled: "Client says a recurring charge was canceled",
+  unrecognized: "Client did not recognize the charge",
+};
+
+function disputeReason(code: string): string {
+  return DISPUTE_REASON[code] ?? code.replace(/_/g, " ");
+}
+
+/**
+ * Stripe deadlines are instants; rendering one through the server's local zone
+ * shifts a midnight-UTC due date to the previous day (see the "no TZ day shift"
+ * note on isoDateOnly). Format in UTC so the date we print is the date Stripe
+ * shows in its own dashboard.
+ */
+function utcDateLong(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 const table = (rows: string) =>
   `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0 0;border-collapse:collapse;">${rows}</table>`;
 
@@ -125,9 +164,7 @@ export async function sendDisputeAlert(opts: {
 }): Promise<boolean> {
   const to = opts.to ?? process.env.LIMINAL_OPS_EMAIL;
   if (!to) return false;
-  const deadline = opts.dueBy
-    ? new Date(opts.dueBy).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
-    : null;
+  const deadline = opts.dueBy ? utcDateLong(opts.dueBy) : null;
   return sendEmail({
     to,
     subject: `Dispute opened — ${formatCents(opts.amountCents)}${opts.invoiceNumber ? ` on ${opts.invoiceNumber}` : ""}`,
@@ -139,7 +176,7 @@ export async function sendDisputeAlert(opts: {
         }.</p>` +
         table(
           row("Amount", formatCents(opts.amountCents)) +
-            row("Reason", esc(opts.reason)) +
+            row("Reason", esc(disputeReason(opts.reason))) +
             (opts.invoiceNumber ? row("Invoice", esc(opts.invoiceNumber)) : "") +
             row("Dispute", esc(opts.disputeId)),
         ) +
@@ -176,7 +213,7 @@ export async function sendOnboardingNudge(opts: {
       bodyHtml:
         `<p style="margin:0;">Your payment account is started but not finished, so we can't send you money yet. Stripe still needs:</p>` +
         list +
-        `<p style="margin:18px 0 0;">It takes about two minutes, and you can do it without leaving Liminal.</p>`,
+        `<p style="margin:18px 0 0;">It takes about two minutes, and you can do it without leaving your dashboard.</p>`,
       cta: { label: "Finish setup", href: `${appBaseUrl()}/settings/payments` },
     }),
   });
