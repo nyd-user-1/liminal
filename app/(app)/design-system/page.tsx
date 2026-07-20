@@ -734,7 +734,8 @@ THE INDEX PAGE STANDARD (every object list wears this — do not re-invent it):
 • The list itself is an OBJECT TABLE (components/tables/*): self-contained — its own columns, toolbar, filters, detail panel and data wiring, plus a scope prop and an onRowOpen callback — so the same table serves its own route AND an embedded rail (see /clients).
 • No page-level horizontal scroll: the Table owns the scroll, so give every flex ancestor min-w-0 (the recurring overflow bug is in the ancestor chain, never the table).
 • No dead rows: every row does something on click — a detail panel, a drill-down, or a record page. Kebab-only is the fallback when nothing exists to open.
-• TWO TABLE LAYOUTS, and only two. index (default) = search LEFT in the toolbar, actions right, all above the chrome — for object lists. stacked (DataTable stacked=, or Table toolbar= + tintedHeader=) = the search spans the table column ABOVE the chrome, the facets/columns/export cluster sits INSIDE the chrome under it, and the header is a GREY band — for dense analytical tables where the search is the primary control and the facets belong with the data (see /rates Services + Panels). Same slots either way: a page changes layout, not wiring. The band is GREY, never teal — teal means focus/active here, and a permanent teal header spends that signal on chrome.
+• TWO TABLE LAYOUTS, and only two. index (default) = search LEFT in the toolbar, actions right, all above the chrome — for object lists. stacked (DataTable stacked=, or Table toolbar= + tintedHeader=) = the whole toolbar lives INSIDE the table card as its header. Analytical variant: search + the facets/columns/export cluster share that header (see /rates Services + Panels). Operational variant (TABLE STANDARD v2, see /workspace Operations): the header carries a TITLE BLOCK far-left — a status dot + the table's name + a status pill — and the search moves RIGHT beside the utilities kebab; a source + freshness footer stamps the bottom. Same slots either way: a page changes layout, not wiring. The column band is white/grey, never teal — teal means focus/active here, and a permanent teal header spends that signal on chrome.
+• TABLE STANDARD v2 — the definition of done for every NEW table. It NAMES ITSELF and states its own health (DataTable title / status / titleMeta — no separate status card floating above it), search on the RIGHT immediately before the kebab, a select column left + a per-row action column right (pin/favourite, copy id/row, open-in-source, CSV export in the kebab), sortable TYPE-AWARE headers on EVERY column, ≥10 rows visible then scroll, and an honest source + freshness footer (DataTable source / updatedAt — the matview/table/API it reads, and when the data last moved; no pipeline vocabulary). Under the hood it ships the LIGHTNING STACK by default: server-side pagination, lazy loading, debounced indexed search (trigram where text), snapshot/matview backing for anything over ~10k rows, parallel page+count queries, min-w-0 overflow discipline. Fast and standardized IS the bar — a table missing any of this is a defect, not a preference.
 • RELATED RECORDS: when a value on a row IS a record in another table, wrap it in RelatedLink (components/ui/text-link.tsx) — a faint dotted teal underline, teal on hover. It means one thing only: "this value lives in another table; click to go there", as distinct from the row's own identity link (solid teal, wipe on hover) and the row's own drill-down. It stops propagation, because the row click means "open this row" and this means "open the OTHER record". Use it sparingly — if every value on a row is dotted, none of them read as a crossing.
 
 INTERACTION / HOVER SYSTEM:
@@ -1494,6 +1495,60 @@ export default function DesignSystemPage() {
                   Grey band, never teal — teal means focus/active in this kit, so a permanent teal header would
                   spend that signal on chrome. Use <span className="font-mono">stacked</span> for dense analytical
                   tables (/rates); keep the default <span className="font-mono">index</span> layout for object lists.
+                </p>
+              </div>
+            </Spec>
+            <Spec
+              name="Table · v2 (operational)"
+              desc="TABLE STANDARD v2: the table names itself + states its own health in a title block far-left, search moves RIGHT before the kebab, and an honest source + freshness footer stamps the bottom. DataTable exposes it via title / status / titleMeta / source / updatedAt. Every NEW table ships this with the lightning stack by default (docs/reports/2026-07-20-table-standard-v2.md)."
+              wide
+            >
+              <div className="w-full space-y-3">
+                <Table
+                  className="w-full"
+                  head={["Job", "Status", ""]}
+                  toolbar={
+                    <>
+                      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <DotBadge variant="success" />
+                          <span className="text-[15px] font-semibold text-text">Harvest runs</span>
+                          <Badge variant="success">Healthy</Badge>
+                        </div>
+                        <span className="text-[13px] text-text-muted">Jul 20, 2026 · 1:23 AM · cron · 428s · 15 steps</span>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <SearchInput placeholder="Search harvests" className="w-56" readOnly />
+                        <KebabMenu label="Table options" icon="dots-horizontal">
+                          <MenuItem icon="download" label="Export CSV" onClick={() => {}} />
+                        </KebabMenu>
+                      </div>
+                    </>
+                  }
+                  footer={
+                    <div className="flex items-center justify-between gap-4 text-[13px] text-text-muted">
+                      <span>sync_runs · harvest:* jobs</span>
+                      <span className="tabular-nums">Jul 20, 2026 · 1:14 AM</span>
+                    </div>
+                  }
+                >
+                  <Tr>
+                    <Td>harvest:mrf-oscar-obh</Td>
+                    <Td><Badge variant="success">OK</Badge></Td>
+                    <Td className="text-right"><KebabMenu><MenuItem icon="copy" label="Copy run ID" onClick={() => {}} /></KebabMenu></Td>
+                  </Tr>
+                  <Tr>
+                    <Td>harvest:mrf-empire-39F0</Td>
+                    <Td><Badge variant="danger">Error</Badge></Td>
+                    <Td className="text-right"><KebabMenu><MenuItem icon="copy" label="Copy run ID" onClick={() => {}} /></KebabMenu></Td>
+                  </Tr>
+                </Table>
+                <p className="text-[13px] text-text-body">
+                  Title + status far LEFT, search + kebab RIGHT, source (left) + freshness (right) in the footer. The
+                  standalone status card is gone — the table carries its own health. Under the hood every new table
+                  ships the lightning stack: server pagination, debounced indexed search, snapshot/matview backing
+                  over ~10k rows, parallel page+count, <span className="font-mono">min-w-0</span> overflow. Fast and
+                  standardized is the definition of done.
                 </p>
               </div>
             </Spec>

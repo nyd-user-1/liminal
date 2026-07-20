@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Badge, DotBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ColumnPicker } from "@/components/ui/column-picker";
@@ -19,6 +20,17 @@ import { Toolbar } from "@/components/ui/toolbar";
 // definitions carry their own render/sort — this stays a thin composition of
 // existing primitives, not a new one; see individual column render fns for
 // row-specific cells (badges, links, logos, whatever the page needs).
+//
+// TABLE STANDARD v2 (2026-07-20) layers a standardized header + footer onto the
+// stacked variant: `title`/`status`/`titleMeta` render a self-describing title
+// block far-left (the table names itself and states its own health — no separate
+// status card above it), the search moves RIGHT beside the utilities kebab, and
+// `source`/`updatedAt` render an honest data-source + freshness footer. All
+// opt-in and additive: a stacked table without these props renders exactly as
+// before. Every NEW table ships with the full lightning stack (server-side
+// pagination, debounced indexed search, snapshot/matview backing over ~10k rows,
+// parallel page+count, min-w-0 overflow discipline) — see the /design-system
+// table section; a table missing it is a defect, not a preference.
 
 export interface DataTableColumn<T> {
   key: string;
@@ -93,6 +105,11 @@ export function DataTable<T>({
   onRefresh,
   stacked = false,
   collapseActions = false,
+  title,
+  status,
+  titleMeta,
+  source,
+  updatedAt,
 }: {
   columns: DataTableColumn<T>[];
   rows: T[];
@@ -188,6 +205,31 @@ export function DataTable<T>({
    * and `toolbarLeft` are untouched; only the utility cluster folds up.
    */
   collapseActions?: boolean;
+  /**
+   * TABLE STANDARD v2 (docs/TASK-TABLE-STANDARD.md). The title block pinned
+   * FAR-LEFT of the stacked header: a status dot + this title + the `status`
+   * pill, opposite the search (which moves to the right, immediately before the
+   * kebab). Title + status on the left is the standard for every table — the
+   * table names itself and states its own health without a separate card above
+   * it. Only affects the `stacked` variant.
+   */
+  title?: ReactNode;
+  /** The status pill beside `title` (and the dot's colour). Green/red is the
+   *  point: one glance says whether this surface is healthy. */
+  status?: { variant: "neutral" | "success" | "warning" | "danger" | "info" | "blue"; label: string };
+  /** A short muted sub-line under the title (optional). Long run/freshness meta
+   *  belongs in the footer's `updatedAt`, not here. */
+  titleMeta?: ReactNode;
+  /**
+   * TABLE STANDARD v2 footer, LEFT: the honest data source — the matview, table
+   * or API this reads. No pipeline vocabulary; the shortest true noun. Rendered
+   * in the sticky in-card footer opposite `updatedAt`. Superseded by an explicit
+   * `tableFooter` if one is passed.
+   */
+  source?: ReactNode;
+  /** TABLE STANDARD v2 footer, RIGHT: data freshness — the matview refresh time,
+   *  the query time, or a row count. When it moves, the reader knows the data did. */
+  updatedAt?: ReactNode;
 }) {
   const [visible, toggle] = useColumnVisibility(storageKey, columns);
   const shown = columns.filter((c) => c.fixed || !storageKey || visible.has(c.key));
@@ -324,6 +366,37 @@ export function DataTable<T>({
   }, [lazy, scrollToKey, targetIndex, sort.col, sort.dir]);
 
   const hasToolbar = !!(toolbarExtra || toolbarLeft || storageKey || filter || onExport || onRefresh);
+  // A stacked table also gets a header when it names itself (TABLE STANDARD v2),
+  // even with no search/filters — the title block alone is reason to render one.
+  const hasHeader = hasToolbar || title != null;
+
+  // TABLE STANDARD v2 title block — status dot + name + status pill on ONE line,
+  // an optional muted sub-line beneath. Pinned far-left of the stacked header,
+  // opposite the search. This is where the old standalone health card's content
+  // now lives: the table states its own health instead of a bar above it.
+  const titleBlock =
+    title != null ? (
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          {status && <DotBadge variant={status.variant} />}
+          <span className="truncate text-[15px] font-semibold text-text">{title}</span>
+          {status && <Badge variant={status.variant}>{status.label}</Badge>}
+        </div>
+        {titleMeta && <span className="truncate text-[13px] text-text-muted">{titleMeta}</span>}
+      </div>
+    ) : null;
+
+  // TABLE STANDARD v2 footer — honest source (left) + freshness (right). An
+  // explicit `tableFooter` still wins for a table that needs a bespoke summary.
+  const effectiveFooter =
+    tableFooter ??
+    (source != null || updatedAt != null ? (
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[13px] text-text-muted">
+        <span className="min-w-0 truncate">{source}</span>
+        <span className="shrink-0 tabular-nums">{updatedAt}</span>
+      </div>
+    ) : undefined);
+
   // Opening the column picker from the kebab: reuse the anchored ColumnPicker
   // (the one the header right-click uses), positioned under the kebab button.
   const kebabRef = useRef<HTMLSpanElement>(null);
@@ -407,18 +480,32 @@ export function DataTable<T>({
       <Table
         head={head}
         stickyHeader={fillHeight}
-        footer={tableFooter}
+        footer={effectiveFooter}
         toolbar={
-          // Stacked: the toolbar IS the card's header section — search + filter
-          // flex-grow on the left, the utilities kebab pinned right. The column
-          // header band stays white with teal text (Table's default), not tinted.
-          stacked && hasToolbar ? (
+          // Stacked: the toolbar IS the card's header section.
+          //   v2 (title set) — the title block + status pin far LEFT; search,
+          //     filters and the utilities kebab all sit RIGHT, search immediately
+          //     before the kebab. The table names itself and owns its own health.
+          //   legacy (no title) — search + filter left, utilities right, exactly
+          //     as before, so /rates and /directory are untouched.
+          // The column-header band stays white with teal text (Table's default).
+          stacked && hasHeader ? (
             <>
-              <div className="flex flex-1 flex-wrap items-center gap-2.5">
-                {toolbarLeft}
-                {filter}
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2.5">
+                {titleBlock ?? (
+                  <>
+                    {toolbarLeft}
+                    {filter}
+                  </>
+                )}
               </div>
               <div className="flex shrink-0 items-center gap-2">
+                {titleBlock && (
+                  <>
+                    {toolbarLeft}
+                    {filter}
+                  </>
+                )}
                 {toolbarExtra}
                 {utilities}
               </div>

@@ -3,8 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { Banner } from "@/components/ui/banner";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { MenuItem } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
+import { KebabMenu } from "@/components/ui/kebab-menu";
 import { SearchInput } from "@/components/ui/search-input";
+import { downloadCsv } from "@/lib/csv";
 import type { RawSignalRow } from "@/lib/repos/rate-signals";
 
 // The "Anthem-June" tab (TASK-WORKSPACE-V4 T2) — the June Empire 39F0 load
@@ -23,38 +26,57 @@ type Result = { rows: RawSignalRow[]; total: number };
 
 const truncCell = "max-w-[220px] truncate";
 
+// Every column is sortable (TABLE STANDARD v2). This is a SERVER-paginated
+// inspector, so a header sort orders the rows loaded so far (the current
+// window), not the full 476k — the honest behaviour for a raw drill-down where
+// the NPI filter is the real narrowing tool. negotiated_rate + file_date sort
+// numeric/chronological; the rest sort as text.
 const columns: DataTableColumn<RawSignalRow>[] = [
-  { key: "npi", label: "npi", fixed: true, render: (r) => <span className="font-mono text-[13px] text-text">{r.npi}</span> },
-  { key: "payer", label: "payer", cellClassName: "max-w-[180px] truncate", render: (r) => <span className="text-text-body" title={r.payer}>{r.payer}</span> },
+  { key: "npi", label: "npi", fixed: true, sortValue: (r) => r.npi, render: (r) => <span className="font-mono text-[13px] text-text">{r.npi}</span> },
+  { key: "payer", label: "payer", cellClassName: "max-w-[180px] truncate", sortValue: (r) => r.payer, render: (r) => <span className="text-text-body" title={r.payer}>{r.payer}</span> },
   {
     key: "plan_or_network",
     label: "plan_or_network",
     cellClassName: truncCell,
+    sortValue: (r) => r.planOrNetwork,
     render: (r) => <span className="text-text-body" title={r.planOrNetwork}>{r.planOrNetwork || "—"}</span>,
   },
-  { key: "billing_code", label: "billing_code", render: (r) => <span className="font-mono text-[13px] text-text-body">{r.billingCode}</span> },
+  { key: "billing_code", label: "billing_code", sortValue: (r) => r.billingCode, render: (r) => <span className="font-mono text-[13px] text-text-body">{r.billingCode}</span> },
   {
     key: "negotiated_rate",
     label: "negotiated_rate",
     align: "right",
+    sortValue: (r) => parseFloat(r.negotiatedRate) || 0,
     render: (r) => <span className="font-medium text-text">{r.negotiatedRate}</span>,
   },
-  { key: "negotiated_type", label: "negotiated_type", render: (r) => <span className="text-text-muted">{r.negotiatedType || "—"}</span> },
-  { key: "billing_class", label: "billing_class", render: (r) => <span className="text-text-muted">{r.billingClass || "—"}</span> },
+  { key: "negotiated_type", label: "negotiated_type", sortValue: (r) => r.negotiatedType, render: (r) => <span className="text-text-muted">{r.negotiatedType || "—"}</span> },
+  { key: "billing_class", label: "billing_class", sortValue: (r) => r.billingClass, render: (r) => <span className="text-text-muted">{r.billingClass || "—"}</span> },
   {
     key: "place_of_service",
     label: "place_of_service",
     cellClassName: "max-w-[160px] truncate",
+    sortValue: (r) => r.placeOfService,
     render: (r) => <span className="font-mono text-[12px] text-text-muted" title={r.placeOfService}>{r.placeOfService || "—"}</span>,
   },
-  { key: "tin", label: "tin", render: (r) => <span className="font-mono text-[12px] text-text-body">{r.tin}</span> },
+  { key: "tin", label: "tin", sortValue: (r) => r.tin, render: (r) => <span className="font-mono text-[12px] text-text-body">{r.tin}</span> },
   {
     key: "source_file",
     label: "source_file",
     cellClassName: "max-w-[200px] truncate",
+    sortValue: (r) => r.sourceFile,
     render: (r) => <span className="font-mono text-[12px] text-text-muted" title={r.sourceFile}>{r.sourceFile}</span>,
   },
-  { key: "file_date", label: "file_date", render: (r) => <span className="tabular-nums text-text-muted">{r.fileDate}</span> },
+  { key: "file_date", label: "file_date", sortValue: (r) => r.fileDate, render: (r) => <span className="tabular-nums text-text-muted">{r.fileDate}</span> },
+];
+
+const copy = (text: string) => void navigator.clipboard?.writeText(text);
+const CSV_HEADERS = [
+  "npi", "payer", "plan_or_network", "billing_code", "negotiated_rate",
+  "negotiated_type", "billing_class", "place_of_service", "tin", "source_file", "file_date",
+];
+const csvRow = (r: RawSignalRow): Array<string | number> => [
+  r.npi, r.payer, r.planOrNetwork, r.billingCode, r.negotiatedRate,
+  r.negotiatedType, r.billingClass, r.placeOfService, r.tin, r.sourceFile, r.fileDate,
 ];
 
 export function AnthemJune() {
@@ -124,7 +146,33 @@ export function AnthemJune() {
       fillHeight
       stacked
       collapseActions
+      title="Anthem-June"
+      status={
+        data
+          ? { variant: "info", label: `${data.total.toLocaleString("en-US")} rows` }
+          : { variant: "neutral", label: "Loading" }
+      }
+      source="provider_rate_signals · June Empire 39F0"
+      updatedAt={
+        data ? (
+          <>
+            <span className="tabular-nums">{loaded.length.toLocaleString("en-US")}</span> of{" "}
+            <span className="tabular-nums">{data.total.toLocaleString("en-US")}</span> loaded
+            {busy && <span className="ml-2">Loading more…</span>}
+            {syncing && <span className="ml-2">Searching…</span>}
+          </>
+        ) : (
+          "Loading rows…"
+        )
+      }
       onEndReached={loadMore}
+      onExport={() => downloadCsv("anthem-june", CSV_HEADERS, loaded.map(csvRow))}
+      rowActions={(r) => (
+        <KebabMenu label="Row actions">
+          <MenuItem icon="copy" label="Copy NPI" onClick={() => copy(r.npi)} />
+          <MenuItem icon="clipboard" label="Copy row" onClick={() => copy(csvRow(r).join("\t"))} />
+        </KebabMenu>
+      )}
       toolbarLeft={
         <SearchInput
           value={npi}
@@ -133,20 +181,6 @@ export function AnthemJune() {
           inputMode="numeric"
           className="w-full sm:w-64"
         />
-      }
-      tableFooter={
-        <p className="text-[13px] text-text-muted">
-          {data ? (
-            <>
-              <span className="tabular-nums">{loaded.length.toLocaleString("en-US")}</span> of{" "}
-              <span className="tabular-nums">{data.total.toLocaleString("en-US")}</span> rows
-              {busy && <span className="ml-2">Loading more…</span>}
-              {syncing && <span className="ml-2">Searching…</span>}
-            </>
-          ) : (
-            "Loading the June Empire 39F0 rows…"
-          )}
-        </p>
       }
       footnote={
         data && loaded.length === 0 && !syncing ? (

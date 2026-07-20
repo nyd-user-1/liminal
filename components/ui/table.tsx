@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode, type TdHTMLAttributes } from "react";
 import { Icon } from "@/components/ui/icons";
 
@@ -39,16 +41,42 @@ export function Table({
   onHeaderContextMenu?: (e: MouseEvent<HTMLTableCellElement>) => void;
   children: ReactNode;
 }) {
+  // When a toolbar shares the chrome, the header sticks directly BELOW it. The
+  // toolbar's height is not fixed — a TABLE STANDARD v2 title block, a 40px
+  // search input, or a bare row of filter chips each give it a different height —
+  // so measure it and pin the header at exactly that offset instead of guessing
+  // a constant (the old top-[57px] left a hairline gap or overlap the moment the
+  // toolbar wasn't one text-line tall).
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const [toolbarH, setToolbarH] = useState(57);
+  useEffect(() => {
+    if (!stickyHeader || !toolbar) return;
+    const el = toolbarRef.current;
+    if (!el) return;
+    const measure = () => setToolbarH(el.offsetHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [stickyHeader, toolbar]);
+
   return (
     <div className={`no-scrollbar overflow-auto rounded-card border border-border bg-surface shadow-card ${className}`}>
       {toolbar && (
-        <div className={`flex flex-wrap items-center gap-3 px-4 py-3 ${stickyHeader ? "sticky top-0 z-20" : ""} border-b border-border bg-surface`}>
+        <div
+          ref={toolbarRef}
+          className={`flex flex-wrap items-center gap-3 px-4 py-3 ${stickyHeader ? "sticky top-0 z-20" : ""} border-b border-border bg-surface`}
+        >
           {toolbar}
         </div>
       )}
       <table className="w-full border-collapse text-left">
-        {/* When a toolbar shares the chrome, the header sticks BELOW it. */}
-        <thead className={stickyHeader ? `sticky z-10 ${toolbar ? "top-[57px]" : "top-0"}` : ""}>
+        {/* When a toolbar shares the chrome, the header sticks BELOW it — at the
+            measured toolbar height, not a hardcoded offset. */}
+        <thead
+          className={stickyHeader ? "sticky z-10" : ""}
+          style={stickyHeader ? { top: toolbar ? toolbarH : 0 } : undefined}
+        >
           <tr>
             {head.map((h, i) => (
               // inset shadow, not border-b: sticky headers drop collapsed borders while scrolled

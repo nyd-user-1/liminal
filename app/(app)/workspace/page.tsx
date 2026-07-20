@@ -18,7 +18,6 @@ import { RulesPanel } from "./rules-panel";
 import { RunsPanel } from "./runs-panel";
 import { EcoSection } from "./section";
 import { SummaryCard } from "./summary-card";
-import { SyncHealthCard } from "./sync-health";
 
 // /workspace — the practice front door, and (for the founder) the ecosystem's
 // front door beneath it. Two audiences, one page:
@@ -27,7 +26,7 @@ import { SyncHealthCard } from "./sync-health";
 //   Layer 2  admin only: the self-sustaining, self-healing data ecosystem —
 //              · the summary       an on-demand AI briefing, in the Summary card
 //              · coverage & growth  the corpus compounding nightly + the pins
-//              · operations         sync-health + the harvest/history/report/queue tabs
+//              · operations         the harvest/history/report/queue/anthem tables (each self-stamping its health)
 //              · overnight          the lead's night report, editable in a sheet
 //              · the workforce      the ten-agent fleet
 //              · rules              the standards that make ten agents read as one
@@ -90,8 +89,7 @@ export default async function WorkspacePage() {
           <CoverageGrowth data={coverage} />
           {health && (
             <EcoSection title="Operations">
-              <SyncHealthCard health={health} />
-              <RunsPanel harvests={health.harvests} runs={runs ?? []} reports={reports} />
+              <RunsPanel health={health} runs={runs ?? []} reports={reports} />
             </EcoSection>
           )}
         </div>
