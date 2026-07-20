@@ -5276,1222 +5276,1034 @@
     {
       "name": "appointments_client_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "appointments",
+        "table": "public.appointments",
         "column": "client_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "clients",
+        "table": "public.clients",
         "column": "id"
       }
     },
     {
       "name": "appointments_location_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "appointments",
+        "table": "public.appointments",
         "column": "location_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "locations",
+        "table": "public.locations",
         "column": "id"
       }
     },
     {
       "name": "appointments_practitioner_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "appointments",
+        "table": "public.appointments",
         "column": "practitioner_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "users",
+        "table": "public.users",
         "column": "id"
       }
     },
     {
       "name": "appointments_service_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "appointments",
+        "table": "public.appointments",
         "column": "service_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "services",
+        "table": "public.services",
         "column": "id"
       }
     },
     {
       "name": "availability_practitioner_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "availability",
+        "table": "public.availability",
         "column": "practitioner_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "users",
+        "table": "public.users",
         "column": "id"
       }
     },
     {
       "name": "clients_primary_practitioner_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "clients",
+        "table": "public.clients",
         "column": "primary_practitioner_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "users",
+        "table": "public.users",
         "column": "id"
       }
     },
     {
       "name": "clients_user_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "clients",
+        "table": "public.clients",
         "column": "user_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "users",
+        "table": "public.users",
         "column": "id"
       }
     },
     {
       "name": "files_client_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "files",
+        "table": "public.files",
         "column": "client_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "clients",
+        "table": "public.clients",
         "column": "id"
       }
     },
     {
       "name": "files_uploader_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "files",
+        "table": "public.files",
         "column": "uploader_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "users",
+        "table": "public.users",
         "column": "id"
       }
     },
     {
       "name": "form_responses_client_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "form_responses",
+        "table": "public.form_responses",
         "column": "client_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "clients",
+        "table": "public.clients",
         "column": "id"
       }
     },
     {
       "name": "form_responses_form_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "form_responses",
+        "table": "public.form_responses",
         "column": "form_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "forms",
+        "table": "public.forms",
         "column": "id"
       }
     },
     {
       "name": "insurance_policies_client_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "insurance_policies",
+        "table": "public.insurance_policies",
         "column": "client_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "clients",
+        "table": "public.clients",
         "column": "id"
       }
     },
     {
       "name": "insurance_policies_payer_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "insurance_policies",
+        "table": "public.insurance_policies",
         "column": "payer_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "payers",
+        "table": "public.payers",
         "column": "id"
       }
     },
     {
       "name": "insurer_aliases_insurer_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "insurer_aliases",
+        "table": "public.insurer_aliases",
         "column": "insurer_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "insurers",
+        "table": "public.insurers",
         "column": "id"
       }
     },
     {
       "name": "insurer_companies_insurer_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "insurer_companies",
+        "table": "public.insurer_companies",
         "column": "insurer_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "insurers",
+        "table": "public.insurers",
         "column": "id"
       }
     },
     {
       "name": "insurers_parent_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "insurers",
+        "table": "public.insurers",
         "column": "parent_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "insurers",
+        "table": "public.insurers",
         "column": "id"
       }
     },
     {
       "name": "invoice_items_invoice_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "invoice_items",
+        "table": "public.invoice_items",
         "column": "invoice_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "invoices",
+        "table": "public.invoices",
         "column": "id"
       }
     },
     {
       "name": "invoices_appointment_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "invoices",
+        "table": "public.invoices",
         "column": "appointment_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "appointments",
+        "table": "public.appointments",
         "column": "id"
       }
     },
     {
       "name": "invoices_client_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "invoices",
+        "table": "public.invoices",
         "column": "client_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "clients",
+        "table": "public.clients",
         "column": "id"
       }
     },
     {
       "name": "messages_sender_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "messages",
+        "table": "public.messages",
         "column": "sender_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "users",
+        "table": "public.users",
         "column": "id"
       }
     },
     {
       "name": "messages_thread_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "messages",
+        "table": "public.messages",
         "column": "thread_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "threads",
+        "table": "public.threads",
         "column": "id"
       }
     },
     {
       "name": "network_aliases_network_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "network_aliases",
+        "table": "public.network_aliases",
         "column": "network_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "networks",
+        "table": "public.networks",
         "column": "id"
       }
     },
     {
       "name": "networks_administrator_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "networks",
+        "table": "public.networks",
         "column": "administrator_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "insurers",
+        "table": "public.insurers",
         "column": "id"
       }
     },
     {
       "name": "networks_insurer_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "networks",
+        "table": "public.networks",
         "column": "insurer_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "insurers",
+        "table": "public.insurers",
         "column": "id"
       }
     },
     {
       "name": "notes_appointment_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "notes",
+        "table": "public.notes",
         "column": "appointment_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "appointments",
+        "table": "public.appointments",
         "column": "id"
       }
     },
     {
       "name": "notes_author_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "notes",
+        "table": "public.notes",
         "column": "author_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "users",
+        "table": "public.users",
         "column": "id"
       }
     },
     {
       "name": "notes_client_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "notes",
+        "table": "public.notes",
         "column": "client_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "clients",
+        "table": "public.clients",
         "column": "id"
       }
     },
     {
       "name": "notifications_user_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "notifications",
+        "table": "public.notifications",
         "column": "user_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "users",
+        "table": "public.users",
         "column": "id"
       }
     },
     {
       "name": "org_affiliations_payer_source_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "org_affiliations",
+        "table": "public.org_affiliations",
         "column": "payer_source_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "payer_sources",
+        "table": "public.payer_sources",
         "column": "id"
       }
     },
     {
       "name": "password_tokens_user_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "password_tokens",
+        "table": "public.password_tokens",
         "column": "user_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "users",
+        "table": "public.users",
         "column": "id"
       }
     },
     {
       "name": "payer_network_map_network_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "payer_network_map",
+        "table": "public.payer_network_map",
         "column": "network_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "networks",
+        "table": "public.networks",
         "column": "id"
       }
     },
     {
       "name": "payer_network_map_payer_network_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "payer_network_map",
+        "table": "public.payer_network_map",
         "column": "payer_network_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "payer_networks",
+        "table": "public.payer_networks",
         "column": "id"
       }
     },
     {
       "name": "payer_networks_payer_source_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "payer_networks",
+        "table": "public.payer_networks",
         "column": "payer_source_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "payer_sources",
+        "table": "public.payer_sources",
         "column": "id"
       }
     },
     {
       "name": "payer_unmatched_npis_payer_source_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "payer_unmatched_npis",
+        "table": "public.payer_unmatched_npis",
         "column": "payer_source_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "payer_sources",
+        "table": "public.payer_sources",
         "column": "id"
       }
     },
     {
       "name": "payments_invoice_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "payments",
+        "table": "public.payments",
         "column": "invoice_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "invoices",
+        "table": "public.invoices",
         "column": "id"
       }
     },
     {
       "name": "plans_employer_ein_fkey",
       "src": {
-        "schema": "public",
-        "table": "plans",
+        "table": "public.plans",
         "column": "employer_ein"
       },
       "ref": {
-        "schema": "public",
-        "table": "employers",
+        "table": "public.employers",
         "column": "ein"
       }
     },
     {
       "name": "provider_leads_provider_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "provider_leads",
+        "table": "public.provider_leads",
         "column": "provider_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "directory_providers",
+        "table": "public.directory_providers",
         "column": "id"
       }
     },
     {
       "name": "provider_merge_map_merged_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "provider_merge_map",
+        "table": "public.provider_merge_map",
         "column": "merged_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "directory_providers",
+        "table": "public.directory_providers",
         "column": "id"
       }
     },
     {
       "name": "provider_merge_map_surviving_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "provider_merge_map",
+        "table": "public.provider_merge_map",
         "column": "surviving_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "directory_providers",
+        "table": "public.directory_providers",
         "column": "id"
       }
     },
     {
       "name": "provider_network_participation_network_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "provider_network_participation",
+        "table": "public.provider_network_participation",
         "column": "network_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "payer_networks",
+        "table": "public.payer_networks",
         "column": "id"
       }
     },
     {
       "name": "provider_network_participation_payer_source_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "provider_network_participation",
+        "table": "public.provider_network_participation",
         "column": "payer_source_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "payer_sources",
+        "table": "public.payer_sources",
         "column": "id"
       }
     },
     {
       "name": "provider_profiles_user_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "provider_profiles",
+        "table": "public.provider_profiles",
         "column": "user_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "users",
+        "table": "public.users",
         "column": "id"
       }
     },
     {
       "name": "referrals_client_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "referrals",
+        "table": "public.referrals",
         "column": "client_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "clients",
+        "table": "public.clients",
         "column": "id"
       }
     },
     {
       "name": "referrals_created_by_fkey",
       "src": {
-        "schema": "public",
-        "table": "referrals",
+        "table": "public.referrals",
         "column": "created_by"
       },
       "ref": {
-        "schema": "public",
-        "table": "users",
+        "table": "public.users",
         "column": "id"
       }
     },
     {
       "name": "referrals_program_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "referrals",
+        "table": "public.referrals",
         "column": "program_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "directory_programs",
+        "table": "public.directory_programs",
         "column": "id"
       }
     },
     {
       "name": "referrals_provider_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "referrals",
+        "table": "public.referrals",
         "column": "provider_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "directory_providers",
+        "table": "public.directory_providers",
         "column": "id"
       }
     },
     {
       "name": "sessions_user_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "sessions",
+        "table": "public.sessions",
         "column": "user_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "users",
+        "table": "public.users",
         "column": "id"
       }
     },
     {
       "name": "threads_client_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "threads",
+        "table": "public.threads",
         "column": "client_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "clients",
+        "table": "public.clients",
         "column": "id"
       }
     },
     {
       "name": "transcripts_appointment_id_fkey",
       "src": {
-        "schema": "public",
-        "table": "transcripts",
+        "table": "public.transcripts",
         "column": "appointment_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "appointments",
+        "table": "public.appointments",
         "column": "id"
       }
     },
     {
       "name": "uhc_census_matches_name_raw_fkey",
       "src": {
-        "schema": "public",
-        "table": "uhc_census_matches",
+        "table": "public.uhc_census_matches",
         "column": "name_raw"
       },
       "ref": {
-        "schema": "public",
-        "table": "uhc_employer_census",
+        "table": "public.uhc_employer_census",
         "column": "name_raw"
       }
     },
     {
       "name": "logical_audit_events_actor_id",
       "src": {
-        "schema": "public",
-        "table": "audit_events",
+        "table": "public.audit_events",
         "column": "actor_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "users",
+        "table": "public.users",
         "column": "id"
       }
     },
     {
       "name": "logical_cms_rvu_hcpcs_code",
       "src": {
-        "schema": "public",
-        "table": "cms_rvu",
+        "table": "public.cms_rvu",
         "column": "hcpcs_code"
       },
       "ref": {
-        "schema": "public",
-        "table": "cpt_codes",
+        "table": "public.cpt_codes",
         "column": "code"
       }
     },
     {
       "name": "logical_dfs_insurers_naic",
       "src": {
-        "schema": "public",
-        "table": "dfs_insurers",
+        "table": "public.dfs_insurers",
         "column": "naic"
       },
       "ref": {
-        "schema": "public",
-        "table": "insurer_companies",
+        "table": "public.insurer_companies",
         "column": "naic"
       }
     },
     {
       "name": "logical_directory_providers_primary_taxonomy",
       "src": {
-        "schema": "public",
-        "table": "directory_providers",
+        "table": "public.directory_providers",
         "column": "primary_taxonomy"
       },
       "ref": {
-        "schema": "public",
-        "table": "nucc_taxonomy",
+        "table": "public.nucc_taxonomy",
         "column": "code"
       }
     },
     {
       "name": "logical_fhir_organizations_npi",
       "src": {
-        "schema": "public",
-        "table": "fhir_organizations",
+        "table": "public.fhir_organizations",
         "column": "npi"
       },
       "ref": {
-        "schema": "public",
-        "table": "directory_providers",
+        "table": "public.directory_providers",
         "column": "npi"
       }
     },
     {
       "name": "logical_form5500_filings_ein",
       "src": {
-        "schema": "public",
-        "table": "form5500_filings",
+        "table": "public.form5500_filings",
         "column": "ein"
       },
       "ref": {
-        "schema": "public",
-        "table": "employers",
+        "table": "public.employers",
         "column": "ein"
       }
     },
     {
       "name": "logical_form5500_schedule_a_ein",
       "src": {
-        "schema": "public",
-        "table": "form5500_schedule_a",
+        "table": "public.form5500_schedule_a",
         "column": "ein"
       },
       "ref": {
-        "schema": "public",
-        "table": "employers",
+        "table": "public.employers",
         "column": "ein"
       }
     },
     {
       "name": "logical_form5500_sf_filings_ein",
       "src": {
-        "schema": "public",
-        "table": "form5500_sf_filings",
+        "table": "public.form5500_sf_filings",
         "column": "ein"
       },
       "ref": {
-        "schema": "public",
-        "table": "employers",
+        "table": "public.employers",
         "column": "ein"
       }
     },
     {
       "name": "logical_insurer_companies_ein",
       "src": {
-        "schema": "public",
-        "table": "insurer_companies",
+        "table": "public.insurer_companies",
         "column": "ein"
       },
       "ref": {
-        "schema": "public",
-        "table": "employers",
+        "table": "public.employers",
         "column": "ein"
       }
     },
     {
       "name": "logical_nppes_endpoints_npi",
       "src": {
-        "schema": "public",
-        "table": "nppes_endpoints",
+        "table": "public.nppes_endpoints",
         "column": "npi"
       },
       "ref": {
-        "schema": "public",
-        "table": "directory_providers",
+        "table": "public.directory_providers",
         "column": "npi"
       }
     },
     {
       "name": "logical_nppes_npi_npi",
       "src": {
-        "schema": "public",
-        "table": "nppes_npi",
+        "table": "public.nppes_npi",
         "column": "npi"
       },
       "ref": {
-        "schema": "public",
-        "table": "directory_providers",
+        "table": "public.directory_providers",
         "column": "npi"
       }
     },
     {
       "name": "logical_nppes_npi_primary_taxonomy",
       "src": {
-        "schema": "public",
-        "table": "nppes_npi",
+        "table": "public.nppes_npi",
         "column": "primary_taxonomy"
       },
       "ref": {
-        "schema": "public",
-        "table": "nucc_taxonomy",
+        "table": "public.nucc_taxonomy",
         "column": "code"
       }
     },
     {
       "name": "logical_nppes_organizations_npi",
       "src": {
-        "schema": "public",
-        "table": "nppes_organizations",
+        "table": "public.nppes_organizations",
         "column": "npi"
       },
       "ref": {
-        "schema": "public",
-        "table": "directory_providers",
+        "table": "public.directory_providers",
         "column": "npi"
       }
     },
     {
       "name": "logical_nppes_organizations_ein",
       "src": {
-        "schema": "public",
-        "table": "nppes_organizations",
+        "table": "public.nppes_organizations",
         "column": "ein"
       },
       "ref": {
-        "schema": "public",
-        "table": "employers",
+        "table": "public.employers",
         "column": "ein"
       }
     },
     {
       "name": "logical_nppes_other_names_npi",
       "src": {
-        "schema": "public",
-        "table": "nppes_other_names",
+        "table": "public.nppes_other_names",
         "column": "npi"
       },
       "ref": {
-        "schema": "public",
-        "table": "directory_providers",
+        "table": "public.directory_providers",
         "column": "npi"
       }
     },
     {
       "name": "logical_org_affiliations_npi",
       "src": {
-        "schema": "public",
-        "table": "org_affiliations",
+        "table": "public.org_affiliations",
         "column": "npi"
       },
       "ref": {
-        "schema": "public",
-        "table": "directory_providers",
+        "table": "public.directory_providers",
         "column": "npi"
       }
     },
     {
       "name": "logical_org_network_rates_tin",
       "src": {
-        "schema": "public",
-        "table": "org_network_rates",
+        "table": "public.org_network_rates",
         "column": "tin"
       },
       "ref": {
-        "schema": "public",
-        "table": "tin_registry",
+        "table": "public.tin_registry",
         "column": "tin_norm"
       }
     },
     {
       "name": "logical_org_network_rates_billing_code",
       "src": {
-        "schema": "public",
-        "table": "org_network_rates",
+        "table": "public.org_network_rates",
         "column": "billing_code"
       },
       "ref": {
-        "schema": "public",
-        "table": "cpt_codes",
+        "table": "public.cpt_codes",
         "column": "code"
       }
     },
     {
       "name": "logical_org_network_rates_network_id",
       "src": {
-        "schema": "public",
-        "table": "org_network_rates",
+        "table": "public.org_network_rates",
         "column": "network_id"
       },
       "ref": {
-        "schema": "public",
-        "table": "networks",
+        "table": "public.networks",
         "column": "id"
       }
     },
     {
       "name": "logical_org_tin_rate_summary_tin",
       "src": {
-        "schema": "public",
-        "table": "org_tin_rate_summary",
+        "table": "public.org_tin_rate_summary",
         "column": "tin"
       },
       "ref": {
-        "schema": "public",
-        "table": "tin_registry",
+        "table": "public.tin_registry",
         "column": "tin_norm"
       }
     },
     {
       "name": "logical_org_tin_rate_summary_billing_code",
       "src": {
-        "schema": "public",
-        "table": "org_tin_rate_summary",
+        "table": "public.org_tin_rate_summary",
         "column": "billing_code"
       },
       "ref": {
-        "schema": "public",
-        "table": "cpt_codes",
+        "table": "public.cpt_codes",
         "column": "code"
       }
     },
     {
       "name": "logical_org_tin_rosters_npi",
       "src": {
-        "schema": "public",
-        "table": "org_tin_rosters",
+        "table": "public.org_tin_rosters",
         "column": "npi"
       },
       "ref": {
-        "schema": "public",
-        "table": "directory_providers",
+        "table": "public.directory_providers",
         "column": "npi"
       }
     },
     {
       "name": "logical_org_tin_rosters_tin",
       "src": {
-        "schema": "public",
-        "table": "org_tin_rosters",
+        "table": "public.org_tin_rosters",
         "column": "tin"
       },
       "ref": {
-        "schema": "public",
-        "table": "tin_registry",
+        "table": "public.tin_registry",
         "column": "tin_norm"
       }
     },
     {
       "name": "logical_organizations_npi",
       "src": {
-        "schema": "public",
-        "table": "organizations",
+        "table": "public.organizations",
         "column": "npi"
       },
       "ref": {
-        "schema": "public",
-        "table": "directory_providers",
+        "table": "public.directory_providers",
         "column": "npi"
       }
     },
     {
       "name": "logical_organizations_primary_taxonomy",
       "src": {
-        "schema": "public",
-        "table": "organizations",
+        "table": "public.organizations",
         "column": "primary_taxonomy"
       },
       "ref": {
-        "schema": "public",
-        "table": "nucc_taxonomy",
+        "table": "public.nucc_taxonomy",
         "column": "code"
       }
     },
     {
       "name": "logical_payer_unmatched_npis_npi",
       "src": {
-        "schema": "public",
-        "table": "payer_unmatched_npis",
+        "table": "public.payer_unmatched_npis",
         "column": "npi"
       },
       "ref": {
-        "schema": "public",
-        "table": "directory_providers",
+        "table": "public.directory_providers",
         "column": "npi"
       }
     },
     {
       "name": "logical_provider_affiliation_attestations_npi",
       "src": {
-        "schema": "public",
-        "table": "provider_affiliation_attestations",
+        "table": "public.provider_affiliation_attestations",
         "column": "npi"
       },
       "ref": {
-        "schema": "public",
-        "table": "directory_providers",
+        "table": "public.directory_providers",
         "column": "npi"
       }
     },
     {
       "name": "logical_provider_affiliation_attestations_tin",
       "src": {
-        "schema": "public",
-        "table": "provider_affiliation_attestations",
+        "table": "public.provider_affiliation_attestations",
         "column": "tin"
       },
       "ref": {
-        "schema": "public",
-        "table": "tin_registry",
+        "table": "public.tin_registry",
         "column": "tin_norm"
       }
     },
     {
       "name": "logical_provider_applications_npi",
       "src": {
-        "schema": "public",
-        "table": "provider_applications",
+        "table": "public.provider_applications",
         "column": "npi"
       },
       "ref": {
-        "schema": "public",
-        "table": "directory_providers",
+        "table": "public.directory_providers",
         "column": "npi"
       }
     },
     {
       "name": "logical_provider_merge_map_npi",
       "src": {
-        "schema": "public",
-        "table": "provider_merge_map",
+        "table": "public.provider_merge_map",
         "column": "npi"
       },
       "ref": {
-        "schema": "public",
-        "table": "directory_providers",
+        "table": "public.directory_providers",
         "column": "npi"
       }
     },
     {
       "name": "logical_provider_network_participation_npi",
       "src": {
-        "schema": "public",
-        "table": "provider_network_participation",
+        "table": "public.provider_network_participation",
         "column": "npi"
       },
       "ref": {
-        "schema": "public",
-        "table": "directory_providers",
+        "table": "public.directory_providers",
         "column": "npi"
       }
     },
     {
       "name": "logical_provider_participation_summary_npi",
       "src": {
-        "schema": "public",
-        "table": "provider_participation_summary",
+        "table": "public.provider_participation_summary",
         "column": "npi"
       },
       "ref": {
-        "schema": "public",
-        "table": "directory_providers",
+        "table": "public.directory_providers",
         "column": "npi"
       }
     },
     {
       "name": "logical_provider_qualifications_npi",
       "src": {
-        "schema": "public",
-        "table": "provider_qualifications",
+        "table": "public.provider_qualifications",
         "column": "npi"
       },
       "ref": {
-        "schema": "public",
-        "table": "directory_providers",
+        "table": "public.directory_providers",
         "column": "npi"
       }
     },
     {
       "name": "logical_provider_rate_signals_npi",
       "src": {
-        "schema": "public",
-        "table": "provider_rate_signals",
+        "table": "public.provider_rate_signals",
         "column": "npi"
       },
       "ref": {
-        "schema": "public",
-        "table": "directory_providers",
+        "table": "public.directory_providers",
         "column": "npi"
       }
     },
     {
       "name": "logical_provider_rate_signals_tin",
       "src": {
-        "schema": "public",
-        "table": "provider_rate_signals",
+        "table": "public.provider_rate_signals",
         "column": "tin"
       },
       "ref": {
-        "schema": "public",
-        "table": "tin_registry",
+        "table": "public.tin_registry",
         "column": "tin_norm"
       }
     },
     {
       "name": "logical_provider_rate_signals_billing_code",
       "src": {
-        "schema": "public",
-        "table": "provider_rate_signals",
+        "table": "public.provider_rate_signals",
         "column": "billing_code"
       },
       "ref": {
-        "schema": "public",
-        "table": "cpt_codes",
+        "table": "public.cpt_codes",
         "column": "code"
       }
     },
     {
       "name": "logical_provider_rate_summary_npi",
       "src": {
-        "schema": "public",
-        "table": "provider_rate_summary",
+        "table": "public.provider_rate_summary",
         "column": "npi"
       },
       "ref": {
-        "schema": "public",
-        "table": "directory_providers",
+        "table": "public.directory_providers",
         "column": "npi"
       }
     },
     {
       "name": "logical_rate_bands_license_summary_billing_code",
       "src": {
-        "schema": "public",
-        "table": "rate_bands_license_summary",
+        "table": "public.rate_bands_license_summary",
         "column": "billing_code"
       },
       "ref": {
-        "schema": "public",
-        "table": "cpt_codes",
+        "table": "public.cpt_codes",
         "column": "code"
       }
     },
     {
       "name": "logical_rate_bands_payer_summary_billing_code",
       "src": {
-        "schema": "public",
-        "table": "rate_bands_payer_summary",
+        "table": "public.rate_bands_payer_summary",
         "column": "billing_code"
       },
       "ref": {
-        "schema": "public",
-        "table": "cpt_codes",
+        "table": "public.cpt_codes",
         "column": "code"
       }
     },
     {
       "name": "logical_rate_table_child_mv_npi",
       "src": {
-        "schema": "public",
-        "table": "rate_table_child_mv",
+        "table": "public.rate_table_child_mv",
         "column": "npi"
       },
       "ref": {
-        "schema": "public",
-        "table": "directory_providers",
+        "table": "public.directory_providers",
         "column": "npi"
       }
     },
     {
       "name": "logical_rate_table_child_mv_tin",
       "src": {
-        "schema": "public",
-        "table": "rate_table_child_mv",
+        "table": "public.rate_table_child_mv",
         "column": "tin"
       },
       "ref": {
-        "schema": "public",
-        "table": "tin_registry",
+        "table": "public.tin_registry",
         "column": "tin_norm"
       }
     },
     {
       "name": "logical_rate_table_mv_tin",
       "src": {
-        "schema": "public",
-        "table": "rate_table_mv",
+        "table": "public.rate_table_mv",
         "column": "tin"
       },
       "ref": {
-        "schema": "public",
-        "table": "tin_registry",
+        "table": "public.tin_registry",
         "column": "tin_norm"
       }
     },
     {
       "name": "logical_rate_table_mv_primary_taxonomy",
       "src": {
-        "schema": "public",
-        "table": "rate_table_mv",
+        "table": "public.rate_table_mv",
         "column": "primary_taxonomy"
       },
       "ref": {
-        "schema": "public",
-        "table": "nucc_taxonomy",
+        "table": "public.nucc_taxonomy",
         "column": "code"
       }
     },
     {
       "name": "logical_uhc_census_matches_ein",
       "src": {
-        "schema": "public",
-        "table": "uhc_census_matches",
+        "table": "public.uhc_census_matches",
         "column": "ein"
       },
       "ref": {
-        "schema": "public",
-        "table": "employers",
+        "table": "public.employers",
         "column": "ein"
       }
     }
