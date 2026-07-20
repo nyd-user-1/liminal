@@ -100,6 +100,18 @@ before every commit, or commit with explicit pathspecs.**
 - Connect enabled on the sandbox; 0 connected accounts (clean slate).
 - INV-2026-9003 still seeded for the T6 drive.
 
+## Addendum (~02:10): D's report recovered
+
+D's report existed in-terminal only; founder pasted it, persisted at
+`docs/reports/2026-07-20-stripe-t6-prep.md` with reconciliation. Net-new:
+**finding 4 — `nextInvoiceNumber()` footgun** (lib/repos/invoices.ts:215,
+`SUBSTRING(number FROM 10)::int` over `LIKE 'INV-2026-%'`: one non-numeric
+suffix breaks invoice creation app-wide; verified live; mock path safe).
+→ tranche-2 fix pass. D's other two flags were resolved by A's 004d537
+before the report surfaced (parallel-work timeline, both noted as
+independent convergence). All four of D's blockers since cleared. 4/4
+reports now in; tranche fully closed.
+
 ## Tranche 2 proposal (AWAITING FOUNDER GO — nothing dispatched)
 
 1. **T6 end-to-end drive** (qa-agent): scripts/qa/stripe-e2e.md with the two
