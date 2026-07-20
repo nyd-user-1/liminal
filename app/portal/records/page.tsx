@@ -23,7 +23,12 @@ export default async function PortalRecordsPage() {
     listNotes({ clientId: client.id, status: "signed" }),
     listFiles(client.id),
   ]);
-  const names = await authorNames([...new Set(notes.map((n) => n.authorId))]);
+  // One lookup covers both sides of the list — note authors and file uploaders
+  // are both users, and the list shows a real person in "Shared by" either way.
+  const names = await authorNames([
+    ...notes.map((n) => n.authorId),
+    ...files.map((f) => f.uploaderId),
+  ]);
   await logEvent({ actorId: user.id, action: "portal.records.view", entity: "client", entityId: client.id });
 
   return (
@@ -41,6 +46,7 @@ export default async function PortalRecordsPage() {
           name: f.name,
           sizeBytes: f.sizeBytes,
           createdAt: f.createdAt,
+          uploaderName: names[f.uploaderId] ?? "Your care team",
         }))}
       />
     </>

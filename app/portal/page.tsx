@@ -73,7 +73,9 @@ export default async function PortalHomePage() {
   // stay hidden until the practice sends them.
   const sent = invoiceSummaries.filter((i) => i.status !== "draft");
   const details = (await Promise.all(sent.map((s) => getInvoice(s.id)))).filter((d) => d !== null);
-  const noteAuthors = await authorNames([...new Set(notes.map((n) => n.authorId))]);
+  // Note authors and file uploaders are both users — one lookup names both, so
+  // the Records list can show a real person in "Shared by".
+  const noteAuthors = await authorNames([...notes.map((n) => n.authorId), ...files.map((f) => f.uploaderId)]);
 
   // Photon is optional and must never take the record down — the Rx tab
   // degrades on its own, the way the provider page already treats it.
@@ -140,7 +142,13 @@ export default async function PortalHomePage() {
                   signedAt: n.signedAt,
                   authorName: noteAuthors[n.authorId] ?? "Practitioner",
                 }))}
-                files={files.map((f) => ({ id: f.id, name: f.name, sizeBytes: f.sizeBytes, createdAt: f.createdAt }))}
+                files={files.map((f) => ({
+                  id: f.id,
+                  name: f.name,
+                  sizeBytes: f.sizeBytes,
+                  createdAt: f.createdAt,
+                  uploaderName: noteAuthors[f.uploaderId] ?? "Your care team",
+                }))}
               />
             ),
           },

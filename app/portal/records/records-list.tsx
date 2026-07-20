@@ -1,25 +1,29 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { MenuItem } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
+import { KebabMenu } from "@/components/ui/kebab-menu";
 import { LibraryCard } from "@/components/ui/library-card";
 import { Modal } from "@/components/ui/modal";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
-import { SortableHead, Table, Td, Tr, useSort } from "@/components/ui/table";
 import { Tabs } from "@/components/ui/tabs";
 import { Tag, type TagHue } from "@/components/ui/tag";
 import { Toolbar } from "@/components/ui/toolbar";
-import { useToast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/format";
 
 // Portal Records — content tabs (All / Clinical notes / Documents) over a
-// records list, with a Table view (default) and the original Card grid kept
-// behind a view toggle so we can unify them later. A row opens the record:
-// real notes → a view-only Modal, real files → download. Both views are
-// padded with "Sample" rows for the record types we know will land over time,
-// so the page reads at its eventual density today.
+// records list, with a Table view (default, TABLE STANDARD v2) and a Card grid
+// behind a view toggle. A row opens the record: notes → a view-only Modal,
+// documents → a download through the authenticated proxy.
+//
+// EVERY ROW IS A REAL OBJECT. This list used to pad itself with "Sample" rows
+// for record types we expect to capture later; those are gone. What the client
+// has is what shows, and when they have nothing the empty state says so — the
+// honesty lives in the label, never in a fabricated row.
 
 interface NoteItem {
   id: string;
@@ -34,6 +38,7 @@ interface FileItem {
   name: string;
   sizeBytes: number;
   createdAt: string;
+  uploaderName: string;
 }
 
 function formatSize(bytes: number): string {
@@ -41,11 +46,21 @@ function formatSize(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1000))} KB`;
 }
 
-// Parse an ISO/display date to epoch ms for sorting; unknown ("—") → null,
-// which we always sort to the bottom regardless of direction.
-function toMs(d: string): number | null {
+function toMs(d: string | null): number | null {
+  if (!d) return null;
   const t = Date.parse(d);
   return Number.isNaN(t) ? null : t;
+}
+
+// Bytes come from the authenticated proxy, never a blob URL — an anchor rather
+// than a location change so a multi-row selection can download in one gesture.
+function downloadFile(id: string) {
+  const a = document.createElement("a");
+  a.href = `/api/files/download?id=${encodeURIComponent(id)}`;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 // ── markdown renderer for the note-view Modal (## headings, - lists, **bold**) ──
@@ -90,7 +105,7 @@ function Markdown({ md }: { md: string }) {
   return <div className="space-y-2.5">{blocks}</div>;
 }
 
-// Extension → a short type tag (label + hue) for document cards.
+// Extension → a short type tag (label + hue) for document rows.
 function fileTag(name: string): { label: string; hue: TagHue } {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
   if (ext === "pdf") return { label: "PDF", hue: "blue" };
@@ -99,148 +114,164 @@ function fileTag(name: string): { label: string; hue: TagHue } {
   return { label: "File", hue: "grey" };
 }
 
-// Record types we know are coming but don't capture yet — shown as "Sample"
-// cards so the page reads at its eventual density and we can design backward.
-const SAMPLE_NOTES: Array<{ title: string; date: string }> = [
-  { title: "Intake assessment", date: "Jun 2, 2026" },
-  { title: "Treatment plan", date: "Jun 2, 2026" },
-  { title: "Progress note — 6/16", date: "Jun 16, 2026" },
-  { title: "Medication review", date: "Jun 30, 2026" },
-  { title: "Safety plan", date: "Jun 16, 2026" },
-  { title: "Discharge summary", date: "—" },
-];
-
-const SAMPLE_DOCS: Array<{ title: string; meta: string }> = [
-  { title: "Consent to treat.pdf", meta: "Signed intake packet" },
-  { title: "Release of information.pdf", meta: "Care coordination" },
-  { title: "Good Faith Estimate.pdf", meta: "Cost estimate" },
-  { title: "Superbill — June 2026.pdf", meta: "For your insurer" },
-  { title: "PHQ-9 results.pdf", meta: "Assessment score" },
-  { title: "insurance-card-back.jpg", meta: "On file" },
-];
-
-type RecordCard = {
+type RecordRow = {
   id: string;
   title: string;
   description: string;
-  date: ReactNode;
+  dateLabel: string;
   dateMs: number | null;
-  tag: ReactNode;
   typeLabel: string;
-  createdBy: string;
-  sample: boolean;
-  onOpen: () => void;
+  hue: TagHue;
+  sharedBy: string;
+  /** Set for a clinical note — opens the view-only modal. */
+  note: NoteItem | null;
+  /** Set for a document — downloads through the proxy. */
+  fileId: string | null;
 };
-
-type SortCol = "name" | "date" | "type" | "createdBy";
 
 const cardGrid = (children: ReactNode) => (
   <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">{children}</div>
 );
 
 export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileItem[] }) {
-  const toast = useToast();
   const [tab, setTab] = useState("all");
   const [view, setView] = useState<"table" | "cards">("table");
   const [search, setSearch] = useState("");
-  const [sort, toggleSort] = useSort<SortCol>({ col: "date", dir: "desc" });
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [openNote, setOpenNote] = useState<NoteItem | null>(null);
 
-  const comingSoon = () => toast("This record isn't available yet.", "info");
-
-  const noteCards: RecordCard[] = useMemo(
-    () => [
-      ...notes.map((n) => ({
+  const noteRows: RecordRow[] = useMemo(
+    () =>
+      notes.map((n) => ({
         id: n.id,
         title: n.title,
         description: `Signed by ${n.authorName}`,
-        date: n.signedAt ? formatDate(n.signedAt) : "—",
-        dateMs: n.signedAt ? toMs(n.signedAt) : null,
-        tag: <Tag hue="pink">Clinical note</Tag>,
+        dateLabel: n.signedAt ? formatDate(n.signedAt) : "—",
+        dateMs: toMs(n.signedAt),
         typeLabel: "Clinical note",
-        createdBy: n.authorName,
-        sample: false,
-        onOpen: () => setOpenNote(n),
+        hue: "pink" as TagHue,
+        sharedBy: n.authorName,
+        note: n,
+        fileId: null,
       })),
-      ...SAMPLE_NOTES.map((s) => ({
-        id: `sample-note-${s.title}`,
-        title: s.title,
-        description: "Appears here once your practitioner signs it.",
-        date: s.date,
-        dateMs: toMs(s.date),
-        tag: <Tag hue="pink">Clinical note</Tag>,
-        typeLabel: "Clinical note",
-        createdBy: "—",
-        sample: true,
-        onOpen: comingSoon,
-      })),
-    ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [notes],
   );
 
-  const docCards: RecordCard[] = useMemo(
-    () => [
-      ...files.map((f) => {
+  const docRows: RecordRow[] = useMemo(
+    () =>
+      files.map((f) => {
         const t = fileTag(f.name);
         return {
           id: f.id,
           title: f.name,
           description: formatSize(f.sizeBytes),
-          date: formatDate(f.createdAt),
+          dateLabel: formatDate(f.createdAt),
           dateMs: toMs(f.createdAt),
-          tag: <Tag hue={t.hue}>{t.label}</Tag>,
           typeLabel: t.label,
-          createdBy: "Care team",
-          sample: false,
-          onOpen: () => {
-            window.location.href = `/api/files/download?id=${f.id}`;
-          },
+          hue: t.hue,
+          sharedBy: f.uploaderName,
+          note: null,
+          fileId: f.id,
         };
       }),
-      ...SAMPLE_DOCS.map((s) => {
-        const t = fileTag(s.title);
-        return {
-          id: `sample-doc-${s.title}`,
-          title: s.title,
-          description: s.meta,
-          date: "—",
-          dateMs: null,
-          tag: <Tag hue={t.hue}>{t.label}</Tag>,
-          typeLabel: t.label,
-          createdBy: "Care team",
-          sample: true,
-          onOpen: comingSoon,
-        };
-      }),
-    ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [files],
   );
 
   const q = search.trim().toLowerCase();
-  const matches = (c: RecordCard) => !q || c.title.toLowerCase().includes(q);
+  const matches = (r: RecordRow) => !q || r.title.toLowerCase().includes(q);
 
-  const card = (c: RecordCard) => (
-    <LibraryCard
-      key={c.id}
-      title={c.title}
-      description={c.description}
-      date={c.date}
-      tags={
-        <>
-          {c.tag}
-          {c.sample && <Badge variant="neutral">Sample</Badge>}
-        </>
-      }
-      onOpen={c.onOpen}
-    />
-  );
+  const open = (r: RecordRow) => {
+    if (r.note) setOpenNote(r.note);
+    else if (r.fileId) downloadFile(r.fileId);
+  };
 
   const SECTIONS = [
-    { key: "notes", title: "Clinical notes", emptyIcon: "note" as const, emptyTitle: "No signed notes yet", items: noteCards },
-    { key: "documents", title: "Documents", emptyIcon: "file-text" as const, emptyTitle: "No documents yet", items: docCards },
+    { key: "notes", title: "Clinical notes", emptyIcon: "note" as const, emptyTitle: "No signed notes yet", items: noteRows },
+    { key: "documents", title: "Documents", emptyIcon: "file-text" as const, emptyTitle: "No documents yet", items: docRows },
   ];
+
+  const rows = (tab === "notes" ? noteRows : tab === "documents" ? docRows : [...noteRows, ...docRows]).filter(matches);
+
+  // Newest first by default; a record with no date sinks to the bottom.
+  const sorted = [...rows].sort((a, b) => {
+    if (a.dateMs == null || b.dateMs == null) {
+      if (a.dateMs == null && b.dateMs == null) return a.title.localeCompare(b.title);
+      return a.dateMs == null ? 1 : -1;
+    }
+    return b.dateMs - a.dateMs || a.title.localeCompare(b.title);
+  });
+
+  const total = noteRows.length + docRows.length;
+  const latestMs = [...noteRows, ...docRows].reduce<number | null>(
+    (max, r) => (r.dateMs != null && (max == null || r.dateMs > max) ? r.dateMs : max),
+    null,
+  );
+
+  // Bulk download acts on the documents in the selection; notes open one at a
+  // time, so the button counts only what it can actually deliver.
+  const selectedFileIds = sorted.filter((r) => selected.has(r.id) && r.fileId).map((r) => r.fileId!);
+
+  const columns: DataTableColumn<RecordRow>[] = [
+    {
+      key: "name",
+      label: "Name",
+      fixed: true,
+      cellClassName: "max-w-[24rem] truncate",
+      render: (r) => (
+        <span className="font-medium text-text" title={r.title}>
+          {r.title}
+        </span>
+      ),
+      sortValue: (r) => r.title.toLowerCase(),
+    },
+    {
+      key: "date",
+      label: "Date",
+      render: (r) => <span className="text-text-muted">{r.dateLabel}</span>,
+      sortValue: (r) => r.dateMs ?? 0,
+    },
+    {
+      key: "type",
+      label: "Type",
+      render: (r) => <Tag hue={r.hue}>{r.typeLabel}</Tag>,
+      sortValue: (r) => r.typeLabel.toLowerCase(),
+    },
+    {
+      key: "sharedBy",
+      label: "Shared by",
+      render: (r) => <span className="text-text-muted">{r.sharedBy}</span>,
+      sortValue: (r) => r.sharedBy.toLowerCase(),
+    },
+    {
+      key: "size",
+      label: "Size",
+      align: "right",
+      defaultHidden: true,
+      render: (r) => <span className="text-text-muted">{r.fileId ? r.description : "—"}</span>,
+      sortValue: (r) => r.description,
+    },
+  ];
+
+  const controls = (
+    <>
+      <SearchInput
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search records…"
+        className="w-56"
+      />
+      <Select
+        aria-label="Records view"
+        className="w-28"
+        options={[
+          { value: "table", label: "Table" },
+          { value: "cards", label: "Cards" },
+        ]}
+        value={view}
+        onValueChange={(v) => setView(v as "table" | "cards")}
+      />
+    </>
+  );
 
   // On "All" each section shows a header (title + count) and up to six cards
   // with a "View more"; on a section tab the header is dropped and all show.
@@ -260,7 +291,18 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
             <EmptyState icon={s.emptyIcon} title={q ? "No matches" : s.emptyTitle} />
           </div>
         ) : (
-          cardGrid(shown.map(card))
+          cardGrid(
+            shown.map((r) => (
+              <LibraryCard
+                key={r.id}
+                title={r.title}
+                description={r.description}
+                date={r.dateLabel}
+                tags={<Tag hue={r.hue}>{r.typeLabel}</Tag>}
+                onOpen={() => open(r)}
+              />
+            )),
+          )
         )}
         {!full && items.length > 6 && (
           <div className="mt-4">
@@ -279,33 +321,8 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
 
   const active = SECTIONS.find((s) => s.key === tab);
 
-  // Flat row list for the Table view — every record for the active tab (All =
-  // notes + documents), filtered by the search box, then sorted by the header.
-  const tableItems = (
-    tab === "notes" ? noteCards : tab === "documents" ? docCards : [...noteCards, ...docCards]
-  ).filter(matches);
-
-  const sorted = [...tableItems].sort((a, b) => {
-    const dir = sort.dir === "asc" ? 1 : -1;
-    if (sort.col === "date") {
-      // Missing dates ("—") always sink to the bottom, regardless of direction.
-      if (a.dateMs == null || b.dateMs == null) {
-        if (a.dateMs == null && b.dateMs == null) return a.title.localeCompare(b.title);
-        return a.dateMs == null ? 1 : -1;
-      }
-      return (a.dateMs - b.dateMs) * dir || a.title.localeCompare(b.title);
-    }
-    const cmp =
-      sort.col === "name"
-        ? a.title.localeCompare(b.title)
-        : sort.col === "type"
-          ? a.typeLabel.localeCompare(b.typeLabel) || a.title.localeCompare(b.title)
-          : a.createdBy.localeCompare(b.createdBy) || a.title.localeCompare(b.title);
-    return cmp * dir;
-  });
-
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-w-0 flex-col">
       <Tabs
         className="mb-4 shrink-0"
         active={tab}
@@ -313,67 +330,68 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
         items={[{ key: "all", label: "All" }, ...SECTIONS.map((s) => ({ key: s.key, label: s.title }))]}
       />
 
-      <Toolbar className="mb-4 shrink-0 flex-wrap">
-        <SearchInput
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search records…"
-          className="max-w-md flex-1"
-        />
-        <Select
-          aria-label="Records view"
-          className="w-28"
-          options={[
-            { value: "table", label: "Table" },
-            { value: "cards", label: "Cards" },
-          ]}
-          value={view}
-          onValueChange={(v) => setView(v as "table" | "cards")}
-        />
-      </Toolbar>
-
       {view === "table" ? (
-        // Height-bounded so the card ends above the viewport (with the shell's
-        // bottom padding as margin) and the rows scroll under the sticky header.
-        <div className="flex min-h-0 flex-1 flex-col">
-          {sorted.length === 0 ? (
+        // Height-bounded so the card ends above the viewport and the rows scroll
+        // under the sticky header. min-w-0 all the way down: the page never
+        // scrolls sideways, the table owns its own overflow.
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {total === 0 ? (
             <div className="rounded-card border border-border bg-surface shadow-card">
-              <EmptyState icon="file-text" title={q ? "No matches" : "No records yet"} />
+              <EmptyState
+                icon="file-text"
+                title="No records yet"
+                subtext="Signed notes and documents your care team shares with you appear here."
+              />
             </div>
           ) : (
-            <Table
-              stickyHeader
+            <DataTable
+              stacked
+              fillHeight
               className="min-h-0 flex-1"
-              head={[
-                <SortableHead key="name" label="Name" col="name" sort={sort} onSort={toggleSort} />,
-                <SortableHead key="date" label="Date" col="date" sort={sort} onSort={toggleSort} />,
-                <SortableHead key="type" label="Type" col="type" sort={sort} onSort={toggleSort} />,
-                <SortableHead key="createdBy" label="Created by" col="createdBy" sort={sort} onSort={toggleSort} />,
-              ]}
-            >
-              {sorted.map((c) => (
-                <Tr key={c.id} onClick={c.onOpen}>
-                  <Td className="font-medium text-text">
-                    <span className="flex items-center gap-2">
-                      {c.title}
-                      {c.sample && <Badge variant="neutral">Sample</Badge>}
-                    </span>
-                  </Td>
-                  <Td className="whitespace-nowrap text-text-muted">{c.date}</Td>
-                  <Td>{c.tag}</Td>
-                  <Td className="whitespace-nowrap text-text-muted">{c.createdBy}</Td>
-                </Tr>
-              ))}
-            </Table>
+              storageKey="portal-records-columns"
+              title="Records"
+              status={{ variant: "success", label: `${total} shared with you` }}
+              columns={columns}
+              rows={sorted}
+              rowKey={(r) => r.id}
+              defaultSort={{ col: "date", dir: "desc" }}
+              onRowClick={open}
+              selected={selected}
+              onSelectedChange={setSelected}
+              toolbarExtra={controls}
+              toolbarLeft={
+                selectedFileIds.length > 0 ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    leftIcon="download"
+                    onClick={() => selectedFileIds.forEach(downloadFile)}
+                  >
+                    Download {selectedFileIds.length}
+                  </Button>
+                ) : undefined
+              }
+              rowActions={(r) => (
+                <KebabMenu>
+                  {r.note && <MenuItem icon="eye" label="View note" onClick={() => setOpenNote(r.note!)} />}
+                  {r.fileId && <MenuItem icon="download" label="Download" onClick={() => downloadFile(r.fileId!)} />}
+                </KebabMenu>
+              )}
+              source="Signed notes and documents shared by your care team"
+              updatedAt={latestMs != null ? `Latest ${formatDate(new Date(latestMs).toISOString())}` : undefined}
+            />
           )}
         </div>
       ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {tab === "all" ? (
-            <div className="space-y-12">{SECTIONS.map((s) => renderSection(s, false))}</div>
-          ) : active ? (
-            renderSection(active, true)
-          ) : null}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <Toolbar className="mb-4 shrink-0 flex-wrap justify-end">{controls}</Toolbar>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {tab === "all" ? (
+              <div className="space-y-12">{SECTIONS.map((s) => renderSection(s, false))}</div>
+            ) : active ? (
+              renderSection(active, true)
+            ) : null}
+          </div>
         </div>
       )}
 
