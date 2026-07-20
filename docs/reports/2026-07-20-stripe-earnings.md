@@ -7,17 +7,21 @@ ui-agent (EARNINGS seam), 2026-07-20. Brief: `docs/TASK-STRIPE-MARKETPLACE.md`
 ## Outcome
 
 New practitioner-only route **`/earnings`** — the money view over the Stripe
-connected account. Built, type-checked, and verified headless in its gated /
-empty state and its practitioner-only gate. The two demo screenshots the founder
-asked for (Overview + the Transactions fee-split) are **pending the T6 drive**,
-which is hard-blocked on a founder Dashboard action (Connect not yet signed up on
-the sandbox) — see "Pending" below.
+connected account. Built, type-checked, and verified headless in **every** state:
+the gated/empty state, the practitioner-only gate, and — since the T6 drive
+landed — the live money views against a real settled charge.
 
-## Commit
+**The founder's shot exists and the fee split rendered:** Transactions shows the
+$150.00 charge with Amount $150.00 / Processing fees −$15.00 / **Net $135.00**,
+and Overview shows the therapist's balance holding the $135.00. Details and
+screenshots under "The demo" below.
+
+## Commits
 
 | | |
 |---|---|
 | `e33b29a` | The Earnings page — Overview / Transactions / Payouts, gated on `charges_enabled`; route-title + sidebar nav |
+| `b772df8` | Fix — render `payment_details` bare; it brings its own modal chrome (caught by the live capture) |
 
 ## What shipped
 
@@ -109,14 +113,15 @@ to those two secondary lists is a trivial follow-up if wanted.
 
 ## Verification (evidence, not exit codes)
 
-- `tsc --noEmit` — clean at the commit.
+- `tsc --noEmit` — clean at every commit.
 
 - **Gated / empty state — VERIFIED headless.** Real cookie login as
   `brendan@liminal.demo` against the running dev server. `/earnings` → HTTP 200;
   TopBar H1 "Earnings"; sidebar shows Earnings active in the Practice section
   between Billing and Catalog; the "Set up payments first" EmptyState + CTA
-  render; **zero console errors, zero page errors**. The current connected
-  account is not yet `active`, which is exactly why this state shows.
+  render; **zero console errors, zero page errors**. Captured *before* the T6
+  drive, while the account still had `charges_enabled` false — which is precisely
+  why the gate showed, and why this screenshot is the honest record of that state.
   Screenshot: `docs/reports/assets/2026-07-20-stripe-earnings/earnings-gated.png`.
 
 - **Practitioner-only gate — VERIFIED headless.** Login as `casey@liminal.demo`
@@ -126,29 +131,53 @@ to those two secondary lists is a trivial follow-up if wanted.
 - **Unauthenticated gate — VERIFIED.** `GET /earnings` with no session → 307 to
   `/sign-in`.
 
-## Pending the T6 drive (what remains, and what it needs)
+## The demo — driven against the live sandbox (T6 complete)
 
-The **active money views** (balances, the payments list, payouts) and the
-**Transactions fee-split flyover** cannot be driven tonight: they require an
-**active connected account** (`charges_enabled` true) **and one paid charge** —
-both produced by the T6 e2e drive, which is hard-blocked at step 1 on a founder
-Dashboard action (Connect isn't signed up on the sandbox). No charge id exists
-yet. These states are type-checked and contract-matched but **not visually
-verified**.
+The T6 drive landed, so the active money views are now **visually verified**
+against a real settled charge. Driven headless as `brendan@liminal.demo` against
+connected account `acct_1TvBKiJvfwWFuhCf` (`charges_enabled` + `payouts_enabled`
+true, `card_payments`/`transfers` ACTIVE), payment `py_1TvC5yJvfwWFuhCfDyGRZhFx`.
 
-When the drive completes, the two founder screenshots are a ~5-minute follow-up
-(the lead will resume me with the charge context):
+### Did the fee split render? YES — exactly as NYS-173's evidence predicted.
 
-- **Overview** — `/earnings`, balances rendered.
+`ConnectPaymentDetails`, on the **connected account's own session**, renders the
+full split with no `on_behalf_of` required:
 
-- **Transactions fee-split** — `/earnings?view=transactions&payment=<charge_id>`,
-  the `payment_details` flyover open showing the **$150.00 charge with its $15.00
-  application-fee split**.
+| | |
+|---|---|
+| Amount | **$150.00** |
+| Processing fees | **−$15.00** |
+| Net | **$135.00** |
+| Status | Succeeded (Jul 20, 3:58 AM) |
 
-The demo driver is already written and staged in the scratchpad
-(`earnings-demo.mjs`, takes the charge id as its one argument); the deep-link
-route (`?view=…&payment=…`) is built and type-checked, so nothing new needs
-building — only the sandbox needs to come alive.
+`docs/reports/assets/2026-07-20-stripe-earnings/earnings-transactions-split.png`
+— Transactions, the payments list showing the Jul 20 / $150.00 USD row, with
+payment_details open over it showing the $150 → −$15 → $135 breakdown and the
+payment timeline. **This is the founder's shot.**
+
+`docs/reports/assets/2026-07-20-stripe-earnings/earnings-overview.png` —
+Overview: **Total balance $135.00**, next upcoming payout (estimated) $135.00
+expected to arrive July 21. The therapist's balance holds the net, which is the
+split proven a second way, from the balance side.
+
+No surprises against the prediction — the numbers match the Stripe-side evidence
+on all three figures. Flag 3 below is therefore **resolved**: the Transactions
+view needed no rework, and `on_behalf_of` (which would have required an active
+per-therapist `card_payments` capability — a heavier onboarding bar) is not
+needed.
+
+### One defect the capture exposed, found and fixed
+
+The first capture showed **two stacked overlays**: my kit `SidePanel` flyover on
+the right with an empty body, and Stripe's own centered dialog carrying the
+actual content. `ConnectPaymentDetails` is **self-presenting** — it renders its
+own modal chrome, which is why `onClose` is a required prop on that component and
+on no other in the set. Wrapping it in a SidePanel was my error.
+
+Fixed in `b772df8`: the component is now rendered bare and Stripe owns the
+overlay; `?payment=` still opens it and `onClose` still clears the param. The
+committed screenshot is the corrected single-overlay render. The kit lost nothing
+here — this was a composition mistake, not a missing primitive.
 
 ## Flags for the lead
 
@@ -161,23 +190,35 @@ building — only the sandbox needs to come alive.
 2. **Earnings not in the ⌘K palette or the TopBar section-switcher.** Left out on
    purpose to stay within the two authorized edits. Trivial to add; your call.
 
-3. **Whether the connected-account payments list actually shows a destination
-   charge is a data/Stripe-config question, not a UI one.** For a plain
-   destination charge (no `on_behalf_of`), the connected account may see a
-   Transfer rather than a Payment, in which case `ConnectPayments` /
-   `ConnectPaymentDetails` on the connected-account session could come back empty.
-   The account-session enables `payments` + `payment_details` for exactly this
-   view (commit d80fc70) and the brief asserts the split renders — the T6 drive is
-   the thing that confirms it. If the drive shows the split does NOT render on the
-   connected account, that's a charge-creation concern for the API seam; my
-   surface will render whatever the session exposes, and I'll report honestly what
-   appears.
+3. **RESOLVED — the connected account does see the destination charge, split and
+   all.** I raised this as an open risk (that a plain destination charge might
+   surface to the connected account as a Transfer rather than a Payment, leaving
+   `ConnectPayments` / `ConnectPaymentDetails` empty). The drive's Stripe-side
+   evidence and my own render both say no: the payments list shows the charge and
+   payment_details shows $150.00 / −$15.00 / $135.00. No `on_behalf_of`, no
+   per-therapist `card_payments` capability needed. Nothing to change.
 
-4. **Shared runtime untouched, as instructed.** `connect-embed.tsx` and
+4. **Stripe labels our application fee "Processing fees" to the therapist.** In
+   the connected account's payment_details view the $15.00 line reads *Processing
+   fees*, not "platform fee" — Stripe's own copy, inside the iframe, not
+   something the appearance API can rename. So the therapist sees Liminal's
+   revenue conflated with card-processing cost. That is a **pricing-and-copy
+   decision, not a UI bug** (it feeds open fork #1): if we want the therapist to
+   understand what Liminal charges versus what Stripe charges, it has to be said
+   in OUR chrome around the component, since we cannot relabel theirs. Worth a
+   founder ruling before this is shown to real therapists.
+
+5. **Three `429`s (rate limiting) during the capture, non-blocking.** Every view
+   rendered correctly; the 429s appear when several Connect components mount in
+   quick succession. Not investigated — flagging as an observation, not a
+   diagnosis. If it recurs under normal use it is worth a look at how many
+   AccountSessions a page load mints.
+
+6. **Shared runtime untouched, as instructed.** `connect-embed.tsx` and
    `connect-api.ts` needed no change for this page — the existing contract and
    theming covered it. Nothing to flag there.
 
 ## Not pushed
 
-One local commit (`e33b29a`) plus this report. Push is deploy; the founder gates
-it.
+Two local commits (`e33b29a`, `b772df8`) plus this report and its three
+screenshots. Push is deploy; the founder gates it.
