@@ -1,5 +1,29 @@
 # Lead queue — warm assignments + pending Linear intents
 
+**2026-07-20 AFTERNOON (fable lead): 4 more tranches SHIPPED.**
+NYS-50 **CLOSED** (/rates surfaces all 20 codes AND got ~3× faster — the real
+gap was `rate_table_child_mv` being *pivoted* to 5 code columns, so 15 codes
+had no column to select; sql/063 long-grain twin; 145→54ms first paint) ·
+NYS-170 **CLOSED** (dup rowKey = `panels-panel.tsx` omitting `tin`, 3
+collisions→0; the lead's spread-panel diagnosis was WRONG and measured false)
+· UI batch #3 (record Overview geometry, portal chrome stripped, invoice
+letterhead, breadcrumb token, **client-scoped portal search on its own
+endpoint** — id from session only, no tamper surface) · document-privacy
+audit + trust affordance.
+
+**NYS-181 — FOUNDER ACTION, one env change:** Production/Preview/Development
+`BLOB_READ_WRITE_TOKEN` points at a THIRD (public) store. Uploads fail CLOSED
+(500, no leak, zero `clients/` objects there). `lib/blob.ts` selects by TOKEN
+and ignores `BLOB_STORE_ID`, so Production's correct-looking `BLOB_STORE_ID`
+is vestigial. Repoint at `store_AiBVM9YwEidc0qgp`, then re-run audit items
+1–3 against a deployment. **The shipped document-privacy copy is true of
+LOCAL ONLY until then.**
+
+**PERMANENT DATA HAZARD:** `file.view` rows written before `af5b0e3` are
+phantoms (denied requests logged as views); `audit_events` is append-only so
+they cannot be corrected. Anything querying `file.view` will over-count
+access — count `file.download` instead.
+
 **2026-07-20 DAY SESSION (fable lead): EHR records + UI batch #2 SHIPPED.**
 NYS-179 (client record is a real EHR: private-blob documents, note signing +
 append-only amendments, read auditing in the repos, honest seed — sql/062) and
