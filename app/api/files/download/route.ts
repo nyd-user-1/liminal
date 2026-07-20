@@ -2,9 +2,9 @@ import { readFile } from "fs/promises";
 import path from "path";
 import { NextResponse, type NextRequest } from "next/server";
 import { AuthError, requireUser } from "@/lib/auth";
-import { logEvent } from "@/lib/audit";
+import { auditRead, logEvent } from "@/lib/audit";
 import { blobGetPrivate } from "@/lib/blob";
-import { getFile } from "@/lib/repos/files";
+import { getFileForAuthCheck } from "@/lib/repos/files";
 import { clientForUser } from "@/lib/repos/threads";
 
 // Authenticated download proxy for client files (PHI). The blob store is
@@ -21,7 +21,11 @@ export async function GET(req: NextRequest) {
     const id = req.nextUrl.searchParams.get("id");
     if (!id) return NextResponse.json({ error: "id is required." }, { status: 400 });
 
-    const file = await getFile(id);
+    // Fetch WITHOUT auditing, authorize, and only then record what actually
+    // happened. Auditing the lookup itself would log a refused request as a
+    // view — a denial recorded as an access is worse than no record at all,
+    // because an investigation would see a view that never occurred.
+    const file = await getFileForAuthCheck(id);
     if (!file) return new NextResponse("Not found", { status: 404 });
 
     // Authorize: staff see any file; a client may only fetch their own.
@@ -29,9 +33,19 @@ export async function GET(req: NextRequest) {
     if (!isStaff) {
       const client = await clientForUser(user.id);
       if (!client || client.id !== file.clientId) {
+        await logEvent({
+          actorId: user.id,
+          action: "file.access_denied",
+          entity: "file",
+          entityId: file.id,
+          meta: { clientId: file.clientId },
+        });
         return new NextResponse("Not found", { status: 404 });
       }
     }
+
+    // Authorized — this is the access, and it is the one that gets recorded.
+    await auditRead("file.view", "file", file.id, { clientId: file.clientId });
 
     const disposition = `attachment; filename="${file.name.replace(/["\\]/g, "_")}"`;
     let body: BodyInit;

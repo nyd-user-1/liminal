@@ -42,15 +42,35 @@ function toFile(r: FileRow): FileRecord {
 
 /** Document metadata read (PHI) — audited. */
 export async function getFile(id: string): Promise<FileRecord | null> {
-  let file: FileRecord | null;
-  if (hasDb) {
-    const rows = (await sql`SELECT * FROM files WHERE id = ${id}`) as FileRow[];
-    file = rows[0] ? toFile(rows[0]) : null;
-  } else {
-    file = mockStore().files.get(id) ?? null;
-  }
+  const file = await fetchFileRow(id);
   if (file) await auditRead("file.view", "file", file.id, { clientId: file.clientId });
   return file;
+}
+
+/**
+ * The row WITHOUT emitting an access audit.
+ *
+ * Only for callers that must authorize BEFORE the access is recorded — a
+ * download handler has to read `client_id` to decide whether the requester may
+ * have the file at all, and auditing that lookup as a view records an access
+ * that was in fact refused. A denied request logged as `file.view` corrupts the
+ * trail in the direction that matters: a later investigation sees a view that
+ * never happened.
+ *
+ * A caller using this **must** record the real outcome itself — the access when
+ * it is allowed, the denial when it is not. Do not reach for this to skip
+ * auditing; `getFile` is the default for a reason.
+ */
+export async function getFileForAuthCheck(id: string): Promise<FileRecord | null> {
+  return fetchFileRow(id);
+}
+
+async function fetchFileRow(id: string): Promise<FileRecord | null> {
+  if (hasDb) {
+    const rows = (await sql`SELECT * FROM files WHERE id = ${id}`) as FileRow[];
+    return rows[0] ? toFile(rows[0]) : null;
+  }
+  return mockStore().files.get(id) ?? null;
 }
 
 /** A client's documents (PHI) — audited. */
