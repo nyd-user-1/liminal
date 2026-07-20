@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { PortalInvoiceSheet, PORTAL_STATUS, type PortalInvoice } from "@/components/billing/portal-invoice-sheet";
+import { useRouter } from "next/navigation";
+import {
+  PortalInvoiceSheet,
+  PAYING_INVOICE_KEY,
+  PORTAL_STATUS,
+  type PortalInvoice,
+} from "@/components/billing/portal-invoice-sheet";
 import { Badge } from "@/components/ui/badge";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
@@ -21,6 +27,13 @@ import { formatCents, formatDate } from "@/lib/format";
 
 const dateOnly = (d: string) => formatDate(`${d}T00:00:00`);
 const isSettled = (s: PortalInvoice["status"]) => s === "paid" || s === "void";
+
+// Returning from Stripe means the card was taken, NOT that the invoice is
+// settled — a destination charge is marked paid by the webhook, which can land
+// after the browser does. So we poll our own data rather than trusting ?paid=1.
+// ~20s of patience, then a truthful "still processing" instead of a fake tick.
+const CONFIRM_INTERVAL_MS = 2000;
+const CONFIRM_MAX_TRIES = 10;
 const METHOD_LABEL: Record<string, string> = { card: "Card", cash: "Cash", insurance: "Insurance", other: "Other" };
 
 export function InvoicesList({
@@ -32,18 +45,56 @@ export function InvoicesList({
   stripeLive: boolean;
   clientEmail: string | null;
 }) {
+  const router = useRouter();
   const toast = useToast();
   const [openId, setOpenId] = useState<string | null>(null);
   const [tab, setTab] = useState<"overview" | "unpaid" | "paid">("overview");
+  // null = not confirming. Otherwise the invoice we're waiting on ("" when the
+  // breadcrumb was lost and we can only wait generically).
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [tries, setTries] = useState(0);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("paid") === "1") toast("Payment received — thank you!", "success");
     if (params.get("canceled") === "1") toast("Checkout canceled — no payment was taken.", "warning");
+    if (params.get("paid") === "1") {
+      let pending = "";
+      try {
+        pending = sessionStorage.getItem(PAYING_INVOICE_KEY) ?? "";
+        sessionStorage.removeItem(PAYING_INVOICE_KEY);
+      } catch {
+        // storage unavailable — fall through to the generic wait
+      }
+      setConfirmingId(pending);
+      // Drop the query so a refresh doesn't restart the confirm dance.
+      window.history.replaceState({}, "", window.location.pathname);
+    }
     const wanted = params.get("invoice");
     if (wanted && invoices.some((i) => i.id === wanted)) setOpenId(wanted);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Poll until the webhook lands (or we run out of patience).
+  useEffect(() => {
+    if (confirmingId === null) return;
+
+    const target = confirmingId ? invoices.find((i) => i.id === confirmingId) : null;
+    if (target && isSettled(target.status)) {
+      setConfirmingId(null);
+      toast("Payment received — thank you!", "success");
+      return;
+    }
+    if (tries >= CONFIRM_MAX_TRIES) {
+      setConfirmingId(null);
+      toast("Payment submitted. This invoice will update as soon as it clears.", "info");
+      return;
+    }
+    const t = setTimeout(() => {
+      setTries((n) => n + 1);
+      router.refresh();
+    }, CONFIRM_INTERVAL_MS);
+    return () => clearTimeout(t);
+  }, [confirmingId, tries, invoices, router, toast]);
 
   const outstanding = invoices.reduce(
     (sum, i) => sum + (i.status === "sent" || i.status === "overdue" ? i.balanceCents : 0),
@@ -115,6 +166,12 @@ export function InvoicesList({
         active={tab}
         onChange={(k) => setTab(k as "overview" | "unpaid" | "paid")}
       />
+
+      {confirmingId !== null && (
+        <Banner variant="info" className="mb-4 shrink-0">
+          Confirming your payment with the bank — this usually takes a few seconds.
+        </Banner>
+      )}
 
       {tab === "overview" ? (
         <div className="no-scrollbar min-h-0 flex-1 space-y-6 overflow-y-auto">

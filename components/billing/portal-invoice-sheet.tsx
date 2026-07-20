@@ -15,8 +15,18 @@ import type { InvoiceStatus } from "@/lib/types";
 // Portal invoice sheet — the client's whole billing flow in one surface
 // (bottom sheet on phones, right panel on desktop): the invoice document,
 // a Pay footer, and an in-place success state once the payment lands.
-// Mock mode (no Stripe key) settles right here; a live key swaps the same
-// button for a Stripe Checkout redirect that returns via /api/stripe/confirm.
+//
+// Pay tries the MARKETPLACE path first (/api/checkout/session — a destination
+// charge that pays the therapist and takes our application fee). That route
+// answers 409 when the therapist has no active connected account and 503 when
+// the environment has no Stripe key; both fall back to the pre-marketplace
+// /portal/invoices/[id]/pay, which settles in mock mode and does a
+// platform-only checkout when a key is present. So the portal keeps working
+// through every stage of Connect onboarding, and upgrades itself the moment a
+// therapist goes live — no flag to flip.
+
+/** Survives the Stripe redirect so the return leg knows which invoice to watch. */
+export const PAYING_INVOICE_KEY = "liminal:paying-invoice";
 
 export interface PortalInvoice {
   id: string;
@@ -80,17 +90,52 @@ export function PortalInvoiceSheet({
     invoice.balanceCents > 0 &&
     (invoice.status === "sent" || invoice.status === "overdue");
 
+  /** Hand off to Stripe, leaving a breadcrumb the return leg can pick up. */
+  const handoff = (invoiceId: string, url: string) => {
+    try {
+      sessionStorage.setItem(PAYING_INVOICE_KEY, invoiceId);
+    } catch {
+      // Private-mode / storage-disabled: the return leg degrades to a generic
+      // "we're confirming" message instead of watching this invoice. Not worth
+      // failing a payment over.
+    }
+    window.location.assign(url);
+  };
+
   const pay = async () => {
     if (!invoice) return;
     setPaying(true);
     try {
+      // 1. Marketplace: destination charge, therapist paid, fee taken.
+      const mk = await fetch("/api/checkout/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invoiceId: invoice.id }),
+      });
+      if (mk.ok) {
+        const data = await mk.json().catch(() => null);
+        if (data?.url) {
+          handoff(invoice.id, data.url);
+          return;
+        }
+      } else if (mk.status !== 409 && mk.status !== 503) {
+        // 409 = therapist not payout-ready, 503 = no Stripe key. Anything else
+        // (no balance, not your invoice) is a real error the fallback would
+        // only repeat, so surface it instead of retrying.
+        const data = await mk.json().catch(() => null);
+        throw new Error(data?.error ?? "Could not start the payment.");
+      }
+
+      // 2. Pre-marketplace fallback: mock settle, or platform-only checkout.
       const res = await fetch(`/portal/invoices/${invoice.id}/pay`, { method: "POST" });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? "Could not start the payment.");
       if (data?.url) {
-        window.location.assign(data.url); // live Stripe Checkout — returns via /api/stripe/confirm
+        handoff(invoice.id, data.url); // returns via /api/stripe/confirm
         return;
       }
+      // Mock mode only: this route recorded the payment synchronously, so
+      // claiming success here is honest. The live paths never reach this line.
       setPaidAmount(invoice.balanceCents);
       router.refresh();
     } catch (err) {
