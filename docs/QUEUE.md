@@ -1,5 +1,32 @@
 # Lead queue — warm assignments + pending Linear intents
 
+**2026-07-20 DAY SESSION (fable lead): EHR records + UI batch #2 SHIPPED.**
+NYS-179 (client record is a real EHR: private-blob documents, note signing +
+append-only amendments, read auditing in the repos, honest seed — sql/062) and
+NYS-180 (Rules become documents in the reused DocSheet, section labels, global
+H1 icon removed) both Done. Reports: `2026-07-20-ehr-storage.md` ·
+`2026-07-20-ehr-surfaces.md` · `2026-07-20-workspace-rules-headers.md`.
+
+**FOUNDER DECISIONS OPEN (nothing proceeds without a ruling):**
+NYS-175 fee labelling (Stripe's component calls our platform fee "Processing
+fees"; our email correctly says "Platform fee" — GUARDRAIL: never fix the
+email down to Stripe's wording) · NYS-176 GFE (4 schema gaps; 3 are wiring —
+we already hold NPPES NPIs + hcpcs_codes) · NYS-177 CLAUDE.md H1 rule is
+factually stale · NYS-178 document retraction (a file on the wrong chart
+cannot be removed = PHI exposure) · MIME allowlist on the PHI store ·
+/dashboard "Platform data" label · pricing model.
+
+**Engineering backlog:** NYS-170 (/rates dup rowKeys — cause found: key omits
+CPT/place-of-service) · NYS-171 (Anthem count 1.15s) · NYS-172 (marketplace
+polish: Resend id capture, lib/email consolidation, ⌘K entries, banner
+spinner) · NYS-174 (onboarding UI, 6 items incl. missing status poll).
+
+**PROCESS — shared-index sweeps happened TWICE on 2026-07-20.** Staging
+discipline is NOT sufficient: another agent running `git commit` without a
+pathspec commits YOUR staged files. Every kickoff must require
+`git commit -m "…" -- <paths>`.
+
+
 **2026-07-20 OVERNIGHT (fable lead): Stripe tranche 1 SHIPPED + tranche 2
 nearly done.** Full record: NYS-168 (Stripe tranche 1) + NYS-169 (TABLE
 STANDARD v2, founder scope expansion) both Done; lead review
