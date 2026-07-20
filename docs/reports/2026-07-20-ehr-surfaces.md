@@ -126,13 +126,54 @@ GET  /api/notes/:id                 200  amendments = 2, authors resolved
 Rendered state: note sheet shows `Signed` + `Amended · 2`, editor
 `contenteditable=true` count **0**, Save absent, Amend + Sign & lock present.
 
+**Per-amendment attribution** (added after `ehr-storage` pointed out my first
+pass only ever exercised amendments I filed myself — both mine, so identical
+authors proved nothing). The seeded note `…008003` carries two amendments from
+two different clinicians. Both surfaces render the AMENDMENT's author, not the
+parent note's:
+
+```
+note author                        Brendan Stanton
+  amendment 1  authorId …001001 →  Brendan Stanton
+  amendment 2  authorId …001002 →  Priya Raman
+
+provider sheet   "Amendment 2 · Priya Raman · 07/20/2026 10:59 AM"
+portal modal     "Amendment 2 · Priya Raman · Jul 20, 2026"
+```
+
 **Table overflow:** `document.scrollWidth - clientWidth` = **0px** on both the
 client record and the portal Records page. `min-w-0` carried down the flex
 ancestor chain on both.
 
+**Test data I created, and its removal.** Two `ZZ TEST amendment probe` notes
+and one `probe-upload.txt` (55 B).
+
+| | before cleanup | after cleanup |
+|---|---|---|
+| `ZZ TEST` notes on the record | 2 | **0** |
+| `probe-upload.txt` rows | 1 | **0** |
+| files on Casey's record | 3 (2 seed + 1 probe) | **2, both `demo_seed`** |
+
+Notes deleted via `DELETE /api/notes/:id`; the file row + blob purged by
+`ehr-storage` (no delete route exists — see FLAGS 2). Re-verified by rendering
+both surfaces afterwards: `probe-upload.txt` occurrences = **0**. No test rows
+of mine remain in the live DB.
+
 Screenshots: `docs/reports/assets/2026-07-20-ehr-surfaces/`
 `01-provider-documents` · `02-notes-timeline` · `03-note-sheet-amendments` ·
-`04-portal-records` · `05-portal-note-amendments`.
+`04-portal-records` · `05-portal-note-amendments` ·
+`06-attribution-provider` · `07-attribution-portal`.
+
+## Correction to something I raised
+
+I flagged to `ehr-storage` that `GET /api/notes` contains no `logEvent` call and
+might therefore be an unaudited PHI read. **The premise was wrong.** Read
+auditing lives in the repos, so `listNotes()` emits `note.list` regardless of
+caller — including from my portal server components, which is why the audit
+table shows a `note.list` row actored to Casey that I never wrote a line of
+logging for. Same for `listFiles` (`file.list`) and `getFile` (`file.view`).
+Recorded so nobody re-raises it: **do not add logging to these server
+components — it would double-log.**
 
 **Not verified:** dark mode (these surfaces are not theme-aware), mobile widths,
 a genuinely oversize (>10 MB) upload against the live route, and concurrent
@@ -154,11 +195,11 @@ and changing that signature touches every consumer (see FLAGS).
 2. **No delete path for a document — and a test row I could not clean up.**
    `app/api/files/route.ts` is GET + POST only; there is no `/api/files/[id]`.
    For an EHR this is a real hole: a document uploaded to the wrong chart cannot
-   be removed, which is PHI exposure. The gap stands; only my test row is
-   resolved. **Cleanup done:** the two `ZZ TEST` notes I created deleted via the
-   API, and `ehr-storage` purged the `probe-upload.txt` row + blob I handed them
-   (`d4d1247e-58f8-461a-807e-2496a0aaf358`). Re-verified: it no longer renders on
-   either surface. No test rows of mine remain in the live DB.
+   be removed, which is PHI exposure. **The gap stands** — now with the lead as
+   NYS-178. Only my own test row is resolved (counts in Verification above).
+   `ehr-storage` scoped the fix as retract-with-reason + soft-delete + audit,
+   bytes purged but the row retained so the retraction is itself part of the
+   record; notes and documents want one ruling together.
 
 3. **`DELETE /api/notes/:id` succeeded on a SIGNED note.** ~~Signing was just
    made immutable for edits, but the note still soft-deletes.~~ **RESOLVED** by
