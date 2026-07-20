@@ -6,11 +6,36 @@ Commits:
 
 - `d38ae89` feat(workspace): Rules become documents — uniform grid, dates, DocSheet on click
 
-- `8d75fab` refactor(workspace): section labels to the shortest honest noun
+- `8d75fab` refactor(workspace): section labels to the shortest honest noun — **contains five files that are not mine, see "Commit contamination" below**
 
 - `9d8bc28` fix(shell): the page H1 stands alone — no leading icon
 
 Screenshots: `docs/reports/assets/2026-07-20-workspace-rules-headers/`
+
+> **Commit contamination — `8d75fab`.** That commit's message describes two
+> one-line label changes. It actually contains seven files: my two, plus five
+> belonging to `ehr-surfaces` (`app/(app)/clients/[id]/files-tab.tsx` at +305
+> lines, `app/portal/page.tsx`, `app/portal/records/page.tsx`,
+> `app/portal/records/records-list.tsx`, `components/records/client-record.tsx`).
+> Nothing is broken and history was not rewritten, but anyone reading that commit
+> message will be misled about its contents — the `files-tab.tsx` work in
+> particular has no record of its own.
+>
+> **Cause.** I staged my two files and ran `git diff --cached --name-only` in one
+> shell call; it showed exactly my two files. I then ran `git commit` in a *later*
+> shell call. Between the two calls `ehr-surfaces` staged their work into the
+> index, which is shared across every agent in this tree. My verification was
+> accurate when I ran it and stale by the time I committed.
+>
+> **Fix, adopted from here on.** Commit with an explicit pathspec every time, so
+> only my paths can land regardless of what else is staged:
+> `git commit -m "…" -- path/one path/two`. Checking
+> `git diff --cached --name-only` first is still worth doing, but the pathspec is
+> the thing that actually prevents this — a check and a commit are two moments,
+> and a shared index can change between them.
+>
+> The other three commits in this batch (`d38ae89`, `9d8bc28`, `3ccd147`) were
+> verified after the fact and contain only my files.
 
 ---
 
@@ -173,13 +198,17 @@ to "Data". My read: it should, for the same reason — but /dashboard is a diffe
 page with a different neighbourhood of headings, so it is worth one look rather
 than a blind sweep.
 
-**2. I created a file inside `ehr-storage`'s seam.** `app/api/rules/[id]/route.ts`
+**2. My commit `8d75fab` swept five of `ehr-surfaces`'s files.** Full account and
+root cause at the top of this report. Second occurrence of this failure in the
+tree tonight; the pathspec-on-commit rule is now standing practice for me.
+
+**3. I created a file inside `ehr-storage`'s seam.** `app/api/rules/[id]/route.ts`
 is new and sits under `app/api/**`, which the brief assigned to them. There was no
 way to give the DocSheet a document without an endpoint. It is a brand-new path
 they have no reason to touch, it collided with nothing, and their working tree was
 untouched — but it is their seam and you should know.
 
-**3. The "One H1" rule was factually stale, and so is CLAUDE.md.** The rule card
+**4. The "One H1" rule was factually stale, and so is CLAUDE.md.** The rule card
 read "One H1, in the TopBar". The H1 moved out of the TopBar into `ContentHeader`
 some time ago — `topbar.tsx` is a utility bar now and says so in its own comment.
 I reworded the rule to "One H1, rendered by the shell", which is true under both
@@ -187,16 +216,16 @@ arrangements. **`CLAUDE.md` still carries the old wording** ("it lives in the To
 strip") and I did not edit it — it is a founder-owned canonical rule and the brief
 did not scope it. It should be corrected.
 
-**4. `routeTitle().icon` is now dead data.** Kept deliberately, per the brief. If
+**5. `routeTitle().icon` is now dead data.** Kept deliberately, per the brief. If
 nothing claims it in a few tranches it is a small cleanup.
 
-**5. Pre-existing console errors on /workspace, not mine.** React duplicate-key
+**6. Pre-existing console errors on /workspace, not mine.** React duplicate-key
 warnings from the rates panel, e.g.
 `1780625681|Cigna Health & Life|Cigna chc-of-new-york-njpcp|…|90791`. The row key
 is not unique across CPT/place-of-service splits. `components/rates/*` belongs to
 another session; flagging rather than touching.
 
-**6. A second H1 on `/design-system`.** The catalog renders a live `PageHeader`
+**7. A second H1 on `/design-system`.** The catalog renders a live `PageHeader`
 demo (page.tsx:1809) which still shows an icon, because the primitive still
 supports one. Pre-existing, deliberate as a demo, and not a route header — but it
 does mean the catalog page technically carries two H1s.
