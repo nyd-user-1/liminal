@@ -154,16 +154,16 @@ and changing that signature touches every consumer (see FLAGS).
 2. **No delete path for a document — and a test row I could not clean up.**
    `app/api/files/route.ts` is GET + POST only; there is no `/api/files/[id]`.
    For an EHR this is a real hole: a document uploaded to the wrong chart cannot
-   be removed, which is PHI exposure. It also means I could not clean up my own
-   verification upload. Handed to `ehr-storage` with exact ids:
-   file `d4d1247e-58f8-461a-807e-2496a0aaf358` (`probe-upload.txt`, client
-   `…002001`) and its blob pathname. The two `ZZ TEST` notes I created were
-   deleted successfully.
+   be removed, which is PHI exposure. The gap stands; only my test row is
+   resolved. **Cleanup done:** the two `ZZ TEST` notes I created deleted via the
+   API, and `ehr-storage` purged the `probe-upload.txt` row + blob I handed them
+   (`d4d1247e-58f8-461a-807e-2496a0aaf358`). Re-verified: it no longer renders on
+   either surface. No test rows of mine remain in the live DB.
 
-3. **`DELETE /api/notes/:id` succeeded on a SIGNED note.** Signing was just made
-   immutable for edits, but the note still soft-deletes. That looks inconsistent
-   with "the amendment chain IS the edit history". Raised to `ehr-storage`;
-   their seam.
+3. **`DELETE /api/notes/:id` succeeded on a SIGNED note.** ~~Signing was just
+   made immutable for edits, but the note still soft-deletes.~~ **RESOLVED** by
+   `ehr-storage` in `97c6083` ("a signed note cannot be deleted either") after I
+   raised it. My surfaces already hid Delete once signed, so the two now agree.
 
 4. **Locked notes were invisible to clients — fixed in my seam.** Both portal
    surfaces called `listNotes({ status: "signed" })`, and that filter takes ONE
