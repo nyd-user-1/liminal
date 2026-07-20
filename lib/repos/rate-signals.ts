@@ -1444,3 +1444,129 @@ export async function listPayerMedians(): Promise<{ codes: string[]; rows: Payer
   });
   return { codes, rows };
 }
+
+// ── raw-rows inspector (TASK-WORKSPACE-V4 T2) ──────────────────────────────
+// The founder's /workspace window into ONE harvested load, row by row, straight
+// off the fact table — "what did we actually download and keep."
+//
+// DELIBERATELY OUTSIDE the display-rule wrapper at the top of this file. Those
+// rules stop a CONSUMER surface from fetching a bare payer number and mislabeling
+// it as patient cost. This is the opposite kind of screen: an admin-only raw
+// inspector on /workspace whose every column is named for its literal DB column
+// (`negotiated_rate`, not "price"), so there is nothing to mislabel. It returns
+// the stored value verbatim — the DB is the copy of record for this load.
+//
+// Server-paginated on the /rates Services pattern (rate-rows.ts, NYS-114): the
+// page and the count are two queries fired in parallel; the count runs only on
+// the first page (offset 0) and scroll pages reuse the total the client holds,
+// so the ~2 s seq scan over source_file is paid once per open, not per scroll.
+
+/** June Empire 39F0 load — 476,114 rows, file_date 2026-06-01. The source CSV
+ *  was deleted after a verified-complete load; the DB is the copy of record.
+ *  The mid-string wildcard means only the `2026-06` prefix is index-eligible. */
+const ANTHEM_JUNE_SOURCE_LIKE = "2026-06%39F0%";
+
+/** One provider_rate_signals row, every field verbatim (never wrapped). */
+export interface RawSignalRow {
+  npi: string;
+  payer: string;
+  planOrNetwork: string;
+  billingCode: string;
+  /** The literal stored value ("0.95", "146.00") — this is a raw inspector. */
+  negotiatedRate: string;
+  negotiatedType: string;
+  billingClass: string;
+  /** Pipe-joined CMS place-of-service codes, exactly as the scanner emitted. */
+  placeOfService: string;
+  tin: string;
+  sourceFile: string;
+  fileDate: string;
+}
+
+const RAW_JUNE_FIXTURE: RawSignalRow[] = [
+  {
+    npi: "1003002726",
+    payer: "Empire BlueCross BlueShield",
+    planOrNetwork: "PAR INDEMNITY NETWORK",
+    billingCode: "99214",
+    negotiatedRate: "0.95",
+    negotiatedType: "fee schedule",
+    billingClass: "professional",
+    placeOfService: "23|41|21|26|52|42|24|22|56|31|51|53|61|19|34",
+    tin: "npi:1255345245",
+    sourceFile: "2026-06_254_39F0_in-network-rates_1_of_5.json.gz",
+    fileDate: "2026-06-01",
+  },
+  {
+    npi: "1003019811",
+    payer: "Empire BlueCross BlueShield",
+    planOrNetwork: "HMO POS PROVIDERS;EPO;PAR INDEMNITY NETWORK",
+    billingCode: "90837",
+    negotiatedRate: "132.44",
+    negotiatedType: "fee schedule",
+    billingClass: "professional",
+    placeOfService: "11|02|10",
+    tin: "ein:135562308",
+    sourceFile: "2026-06_254_39F0_in-network-rates_2_of_5.json.gz",
+    fileDate: "2026-06-01",
+  },
+];
+
+/**
+ * One page of the Anthem-June (Empire 39F0) raw rows plus the full match count.
+ * `npi` accepts a digit prefix (LIKE 'prefix%'); ordering is deterministic for
+ * OFFSET paging. Count only on the first page — scroll pages carry total: 0 and
+ * the client reuses the total it already holds.
+ */
+export async function listAnthemJuneRows(
+  opts: { limit?: number; offset?: number; npi?: string } = {},
+): Promise<{ rows: RawSignalRow[]; total: number }> {
+  const limit = Math.min(Math.max(opts.limit ?? 50, 1), 500);
+  const offset = Math.max(opts.offset ?? 0, 0);
+  const npiRaw = opts.npi?.trim() ?? "";
+  const npiLike = /^\d{1,10}$/.test(npiRaw) ? `${npiRaw}%` : null;
+
+  if (!hasDb) {
+    const filtered = npiLike ? RAW_JUNE_FIXTURE.filter((r) => r.npi.startsWith(npiRaw)) : RAW_JUNE_FIXTURE;
+    return { rows: filtered.slice(offset, offset + limit), total: filtered.length };
+  }
+
+  const pagePromise = sql`
+    SELECT npi, payer, plan_or_network, billing_code, negotiated_rate, negotiated_type,
+           billing_class, place_of_service, tin, source_file, file_date
+    FROM provider_rate_signals
+    WHERE source_file LIKE ${ANTHEM_JUNE_SOURCE_LIKE}
+      AND (${npiLike}::text IS NULL OR npi LIKE ${npiLike})
+    ORDER BY npi, billing_code, plan_or_network, negotiated_rate, place_of_service, tin
+    LIMIT ${limit} OFFSET ${offset}
+  ` as unknown as Promise<Array<Record<string, unknown>>>;
+
+  const countPromise =
+    offset === 0
+      ? (sql`
+          SELECT count(*)::int AS total
+          FROM provider_rate_signals
+          WHERE source_file LIKE ${ANTHEM_JUNE_SOURCE_LIKE}
+            AND (${npiLike}::text IS NULL OR npi LIKE ${npiLike})
+        ` as unknown as Promise<Array<{ total: number }>>)
+      : Promise.resolve([{ total: 0 }] as Array<{ total: number }>);
+
+  const [rows, countRows] = await Promise.all([pagePromise, countPromise]);
+
+  return {
+    total: countRows[0]?.total ?? 0,
+    rows: rows.map((r) => ({
+      npi: r.npi as string,
+      payer: (r.payer as string) ?? "",
+      planOrNetwork: (r.plan_or_network as string) ?? "",
+      billingCode: (r.billing_code as string) ?? "",
+      negotiatedRate: String(r.negotiated_rate ?? ""),
+      negotiatedType: (r.negotiated_type as string) ?? "",
+      billingClass: (r.billing_class as string) ?? "",
+      placeOfService: (r.place_of_service as string) ?? "",
+      tin: (r.tin as string) ?? "",
+      sourceFile: (r.source_file as string) ?? "",
+      fileDate: isoDateOnly(r.file_date as string) ?? "",
+    })),
+  };
+}
