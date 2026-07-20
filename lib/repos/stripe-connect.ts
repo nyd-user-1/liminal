@@ -205,6 +205,27 @@ export async function syncConnectAccount(
   return acct;
 }
 
+/**
+ * Who to notify about a connected account. The webhook knows only acct_…, and
+ * "you've been paid" / "a dispute was opened" have to reach a person. Name and
+ * email only — never widen this into a general user read.
+ */
+export async function connectAccountContact(
+  stripeAccountId: string,
+): Promise<{ userId: string; name: string; email: string } | null> {
+  if (hasDb) {
+    const rows = (await sql`
+      SELECT u.id, u.name, u.email
+      FROM stripe_connect_accounts a
+      JOIN users u ON u.id = a.user_id
+      WHERE a.stripe_account_id = ${stripeAccountId} AND u.deleted_at IS NULL
+      LIMIT 1
+    `) as Array<{ id: string; name: string; email: string }>;
+    return rows[0] ? { userId: rows[0].id, name: rows[0].name, email: rows[0].email } : null;
+  }
+  return null; // mock mode has no user graph wired to Connect
+}
+
 // ── events (idempotency ledger) ──────────────────────────────────────────────
 
 /**

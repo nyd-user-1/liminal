@@ -3,7 +3,7 @@ import { logEvent } from "@/lib/audit";
 import { AuthError, requireRole } from "@/lib/auth";
 import { hasDb } from "@/lib/db";
 import { getInvoice, updateInvoice } from "@/lib/repos/invoices";
-import { getStripe } from "@/lib/stripe";
+import { GENERIC_LINE_ITEM_NAME, getStripe } from "@/lib/stripe";
 
 /**
  * Collect an invoice online. Two paths, chosen by whether a Stripe key is
@@ -70,10 +70,12 @@ export async function POST(req: NextRequest) {
           price_data: {
             currency: "usd",
             unit_amount: invoice.balanceCents,
-            product_data: {
-              name: `${invoice.number} — Leuk Psychiatry`,
-              description: invoice.items.map((it) => it.description).join(" · ").slice(0, 500) || undefined,
-            },
+            // PHI GUARDRAIL: this used to send every invoice line description
+            // to Stripe, which is where service names ("EMDR session",
+            // "Psychiatric diagnostic evaluation") live. Stripe signs no BAA,
+            // so a Checkout line item may not carry clinical content. Invoice
+            // number identifies the bill; our own records say what it was for.
+            product_data: { name: `${invoice.number} — ${GENERIC_LINE_ITEM_NAME}` },
           },
         },
       ],
