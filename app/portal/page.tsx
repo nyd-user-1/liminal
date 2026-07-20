@@ -12,7 +12,7 @@ import { listPractitioners } from "@/lib/repos/clients";
 import { listReferrals } from "@/lib/repos/directory";
 import { listFiles } from "@/lib/repos/files";
 import { getInvoice, listInvoices } from "@/lib/repos/invoices";
-import { authorNames, listNotes } from "@/lib/repos/notes";
+import { authorNames, listAmendmentsFor, listNotes } from "@/lib/repos/notes";
 import { listPayers, listPolicies } from "@/lib/repos/policies";
 import { hasStripe } from "@/lib/stripe";
 import { requirePortalClient } from "./data";
@@ -66,8 +66,12 @@ export default async function PortalHomePage() {
     listAppointments({ clientId: client.id }),
     listInvoices({ clientId: client.id }),
     listReferrals({ clientId: client.id }),
-    listNotes({ clientId: client.id, status: "signed" }),
+    // Every finalised note, not just "signed" — the status filter takes one
+    // value, so asking for "signed" hid every note the clinician had LOCKED.
+    listNotes({ clientId: client.id }),
   ]);
+  const sharedNotes = notes.filter((n) => n.status !== "draft");
+  const amendmentsByNote = await listAmendmentsFor(sharedNotes.map((n) => n.id));
 
   // Invoices: same shape the standalone portal Invoices page builds — drafts
   // stay hidden until the practice sends them.
@@ -75,7 +79,11 @@ export default async function PortalHomePage() {
   const details = (await Promise.all(sent.map((s) => getInvoice(s.id)))).filter((d) => d !== null);
   // Note authors and file uploaders are both users — one lookup names both, so
   // the Records list can show a real person in "Shared by".
-  const noteAuthors = await authorNames([...notes.map((n) => n.authorId), ...files.map((f) => f.uploaderId)]);
+  const noteAuthors = await authorNames([
+    ...sharedNotes.map((n) => n.authorId),
+    ...Object.values(amendmentsByNote).flatMap((list) => list.map((a) => a.authorId)),
+    ...files.map((f) => f.uploaderId),
+  ]);
 
   // Photon is optional and must never take the record down — the Rx tab
   // degrades on its own, the way the provider page already treats it.
@@ -135,12 +143,18 @@ export default async function PortalHomePage() {
             label: "Records",
             content: (
               <RecordsList
-                notes={notes.map((n) => ({
+                notes={sharedNotes.map((n) => ({
                   id: n.id,
                   title: n.title,
                   bodyMd: n.bodyMd,
                   signedAt: n.signedAt,
                   authorName: noteAuthors[n.authorId] ?? "Practitioner",
+                  amendments: (amendmentsByNote[n.id] ?? []).map((a) => ({
+                    id: a.id,
+                    bodyMd: a.bodyMd,
+                    createdAt: a.createdAt,
+                    authorName: noteAuthors[a.authorId] ?? "Practitioner",
+                  })),
                 }))}
                 files={files.map((f) => ({
                   id: f.id,

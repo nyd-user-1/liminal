@@ -50,6 +50,10 @@ export function ClientNotes({ clientId, bare = false }: { clientId: string; bare
   const toast = useToast();
   const [notes, setNotes] = useState<Note[] | null>(null);
   const [authors, setAuthors] = useState<Record<string, string>>({});
+  // Amendment count per note id. The list endpoint resolves these in one query
+  // (listAmendmentsFor) rather than a fetch per row; until it sends them the
+  // map is empty and rows simply carry no amendment badge.
+  const [amendmentCounts, setAmendmentCounts] = useState<Record<string, number>>({});
   const [openId, setOpenId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -60,6 +64,7 @@ export function ClientNotes({ clientId, bare = false }: { clientId: string; bare
       if (!res.ok) throw new Error(json.error ?? "Failed to load notes");
       setNotes(json.notes);
       setAuthors(json.authors ?? {});
+      setAmendmentCounts(json.amendmentCounts ?? {});
     } catch (e) {
       toast(e instanceof Error ? e.message : "Failed to load notes", "danger");
       setNotes([]);
@@ -187,10 +192,21 @@ export function ClientNotes({ clientId, bare = false }: { clientId: string; bare
                       {n.status === "locked" ? "Locked" : "Signed"}
                     </Badge>
                   )}
+                  {(amendmentCounts[n.id] ?? 0) > 0 && (
+                    <Badge variant="info">
+                      Amended{amendmentCounts[n.id] > 1 ? ` · ${amendmentCounts[n.id]}` : ""}
+                    </Badge>
+                  )}
                   <KebabMenu>
                     <MenuItem icon="eye" label="View" onClick={() => setOpenId(n.id)} />
-                    {n.status !== "locked" && <MenuItem icon="edit" label="Edit" onClick={() => setOpenId(n.id)} />}
-                    {n.status !== "locked" && (
+                    {/* Only a draft is editable or deletable. A signed note is
+                        corrected by amendment — offering Edit here would open a
+                        sheet that cannot save (the repo answers PATCH with 409). */}
+                    {n.status === "draft" && <MenuItem icon="edit" label="Edit" onClick={() => setOpenId(n.id)} />}
+                    {n.status !== "draft" && (
+                      <MenuItem icon="edit" label="Amend" onClick={() => setOpenId(n.id)} />
+                    )}
+                    {n.status === "draft" && (
                       <MenuItem icon="trash" label="Delete" danger onClick={() => remove(n.id)} />
                     )}
                   </KebabMenu>

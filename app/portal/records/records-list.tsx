@@ -26,12 +26,21 @@ import { formatDate } from "@/lib/format";
 // has is what shows, and when they have nothing the empty state says so — the
 // honesty lives in the label, never in a fabricated row.
 
+interface AmendmentItem {
+  id: string;
+  bodyMd: string;
+  createdAt: string;
+  authorName: string;
+}
+
 interface NoteItem {
   id: string;
   title: string;
   bodyMd: string;
   signedAt: string | null;
   authorName: string;
+  /** Append-only corrections filed after signing, oldest first. */
+  amendments: AmendmentItem[];
 }
 
 interface FileItem {
@@ -128,6 +137,7 @@ type RecordRow = {
   hue: TagHue;
   sharedBy: string;
   isDemo: boolean;
+  amended: boolean;
   /** Set for a clinical note — opens the view-only modal. */
   note: NoteItem | null;
   /** Set for a document — downloads through the proxy. */
@@ -157,6 +167,7 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
         hue: "pink" as TagHue,
         sharedBy: n.authorName,
         isDemo: false,
+        amended: n.amendments.length > 0,
         note: n,
         fileId: null,
       })),
@@ -177,6 +188,7 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
           hue: t.hue,
           sharedBy: f.uploaderName,
           isDemo: f.isDemo,
+          amended: false,
           note: null,
           fileId: f.id,
         };
@@ -230,6 +242,7 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
             {r.title}
           </span>
           {r.isDemo && <Badge variant="neutral">Demo data</Badge>}
+          {r.amended && <Badge variant="info">Amended</Badge>}
         </span>
       ),
       sortValue: (r) => r.title.toLowerCase(),
@@ -412,10 +425,40 @@ export function RecordsList({ notes, files }: { notes: NoteItem[]; files: FileIt
 
       {openNote && (
         <Modal open onClose={() => setOpenNote(null)} title={openNote.title} icon="note" width="max-w-2xl">
-          <p className="mb-4 text-sm text-text-muted">
-            Signed {openNote.signedAt ? formatDate(openNote.signedAt) : "—"} by {openNote.authorName} · view only
+          <p className="mb-4 flex flex-wrap items-center gap-2 text-sm text-text-muted">
+            <span>
+              Signed {openNote.signedAt ? formatDate(openNote.signedAt) : "—"} by {openNote.authorName} · view only
+            </span>
+            {openNote.amendments.length > 0 && <Badge variant="info">Amended</Badge>}
           </p>
           <Markdown md={openNote.bodyMd} />
+
+          {/* Corrections append below the signed note; the text above is
+              exactly what was signed and never changes. */}
+          {openNote.amendments.length > 0 && (
+            <section className="mt-6 border-t border-border pt-5">
+              <h3 className="mb-3 text-[15px] font-semibold text-text">
+                Amendments{" "}
+                <span className="text-[13px] font-normal text-text-muted">
+                  {openNote.amendments.length} correction{openNote.amendments.length === 1 ? "" : "s"} since signing
+                </span>
+              </h3>
+              <ol className="space-y-3">
+                {openNote.amendments.map((a, i) => (
+                  <li key={a.id} className="rounded-card border border-border bg-canvas px-4 py-3">
+                    <p className="mb-1.5 flex flex-wrap items-center gap-x-2 text-[13px] text-text-muted">
+                      <span className="font-semibold text-text">Amendment {i + 1}</span>
+                      <span>·</span>
+                      <span>{a.authorName}</span>
+                      <span>·</span>
+                      <span>{formatDate(a.createdAt)}</span>
+                    </p>
+                    <p className="whitespace-pre-wrap text-[15px] text-text-body">{a.bodyMd}</p>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
         </Modal>
       )}
     </div>

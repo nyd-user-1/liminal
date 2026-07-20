@@ -1,11 +1,16 @@
 import { EmptyState } from "@/components/ui/empty-state";
 import { logEvent } from "@/lib/audit";
 import { listFiles } from "@/lib/repos/files";
-import { authorNames, listNotes } from "@/lib/repos/notes";
+import { authorNames, listAmendmentsFor, listNotes } from "@/lib/repos/notes";
 import { requirePortalClient } from "../data";
 import { RecordsList } from "./records-list";
 
-// Portal Records — signed clinical notes (view-only Modal) + shared files.
+// Portal Records — finalised clinical notes (view-only Modal) + shared files.
+//
+// "Finalised" is signed OR locked. listNotes' status filter takes one value, so
+// asking it for "signed" quietly dropped every note a clinician had locked —
+// the most final records in the chart were the ones the client couldn't see.
+// We ask for the client's notes and drop drafts here instead.
 
 export const dynamic = "force-dynamic";
 
@@ -19,14 +24,17 @@ export default async function PortalRecordsPage() {
     );
   }
 
-  const [notes, files] = await Promise.all([
-    listNotes({ clientId: client.id, status: "signed" }),
-    listFiles(client.id),
-  ]);
-  // One lookup covers both sides of the list — note authors and file uploaders
-  // are both users, and the list shows a real person in "Shared by" either way.
+  const [allNotes, files] = await Promise.all([listNotes({ clientId: client.id }), listFiles(client.id)]);
+  const notes = allNotes.filter((n) => n.status !== "draft");
+
+  // Amendments in one query for the whole list, not one per note.
+  const amendmentsByNote = await listAmendmentsFor(notes.map((n) => n.id));
+
+  // One lookup covers every name on the page — note authors, amendment authors
+  // and file uploaders are all users.
   const names = await authorNames([
     ...notes.map((n) => n.authorId),
+    ...Object.values(amendmentsByNote).flatMap((list) => list.map((a) => a.authorId)),
     ...files.map((f) => f.uploaderId),
   ]);
   await logEvent({ actorId: user.id, action: "portal.records.view", entity: "client", entityId: client.id });
@@ -40,6 +48,12 @@ export default async function PortalRecordsPage() {
           bodyMd: n.bodyMd,
           signedAt: n.signedAt,
           authorName: names[n.authorId] ?? "Practitioner",
+          amendments: (amendmentsByNote[n.id] ?? []).map((a) => ({
+            id: a.id,
+            bodyMd: a.bodyMd,
+            createdAt: a.createdAt,
+            authorName: names[a.authorId] ?? "Practitioner",
+          })),
         }))}
         files={files.map((f) => ({
           id: f.id,

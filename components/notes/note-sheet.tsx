@@ -19,8 +19,9 @@ import { Skeleton, Spinner } from "@/components/ui/spinner";
 import { Tabs } from "@/components/ui/tabs";
 import { TextLink } from "@/components/ui/text-link";
 import { useToast } from "@/components/ui/toast";
+import { Textarea } from "@/components/ui/textarea";
 import { formatDateTime, formatDateTimeNumeric } from "@/lib/format";
-import type { Note, Transcript } from "@/lib/types";
+import type { NoteWithAmendments, Transcript } from "@/lib/types";
 
 // Catalog `BottomSheet` — a Gmail-compose-style floating document window:
 // dark title strip (minimize · expand/restore · × close), client-name header
@@ -59,8 +60,10 @@ const MinimizeIcon = () => (
 );
 
 interface SheetData {
-  note: Note;
+  note: NoteWithAmendments;
   author: string;
+  /** Names for the note author and every amendment author, by user id. */
+  authors: Record<string, string>;
   client: string;
   transcript: Transcript | null;
 }
@@ -105,6 +108,9 @@ export function NoteSheet({
   const [saving, setSaving] = useState(false);
   const [signOpen, setSignOpen] = useState(false);
   const [signing, setSigning] = useState(false);
+  const [amendOpen, setAmendOpen] = useState(false);
+  const [amendBody, setAmendBody] = useState("");
+  const [amending, setAmending] = useState(false);
   const [minimized, setMinimized] = useState(false);
   // Compact (Gmail default-compose size) unless expanded to the big ~1200px view.
   const [big, setBig] = useState(defaultBig);
@@ -134,9 +140,15 @@ export function NoteSheet({
 
   const note = data?.note ?? null;
   const locked = note?.status === "locked";
+  // Signing freezes the text. The repo enforces this (PATCH on a signed note
+  // returns 409) — the UI used to let you type into a signed note and only
+  // discover that on save, so "editable" here means DRAFT, nothing else.
+  // Corrections after signing go through the amendment chain below.
+  const editable = note?.status === "draft";
+  const amendments = data?.note.amendments ?? [];
 
   const save = useCallback(async (): Promise<boolean> => {
-    if (!note || locked) return true;
+    if (!note || !editable) return true;
     setSaving(true);
     try {
       const res = await fetch(`/api/notes/${note.id}`, {
@@ -156,7 +168,33 @@ export function NoteSheet({
     } finally {
       setSaving(false);
     }
-  }, [note, locked, title, bodyMd, onChanged, toast]);
+  }, [note, editable, title, bodyMd, onChanged, toast]);
+
+  /** File an append-only correction against a signed note. */
+  async function fileAmendment() {
+    if (!note || !amendBody.trim()) return;
+    setAmending(true);
+    try {
+      const res = await fetch(`/api/notes/${note.id}/amendments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bodyMd: amendBody.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Could not file the amendment");
+      setData((d) =>
+        d ? { ...d, note: { ...d.note, amendments: [...d.note.amendments, json.amendment] } } : d,
+      );
+      setAmendBody("");
+      setAmendOpen(false);
+      onChanged?.();
+      toast("Amendment filed", "success");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Could not file the amendment", "danger");
+    } finally {
+      setAmending(false);
+    }
+  }
 
   async function confirmSign() {
     if (!note) return;
@@ -254,16 +292,27 @@ export function NoteSheet({
     );
   }
 
-  const statusBadge =
-    note &&
-    (note.status === "draft" ? (
-      <Badge variant="warning">Draft</Badge>
-    ) : (
-      <Badge variant="success" className="gap-1">
-        {note.status === "locked" && <Icon name="lock" size={12} />}
-        {note.status === "locked" ? "Locked" : "Signed"}
-      </Badge>
-    ));
+  // Three states a reader must never confuse: a draft (still being written), a
+  // signed note (frozen), and a signed note that has been corrected since. The
+  // amendment count rides beside the status so "amended" is legible at a glance
+  // rather than something you discover by scrolling.
+  const statusBadge = note && (
+    <span className="flex items-center gap-1.5">
+      {note.status === "draft" ? (
+        <Badge variant="warning">Draft</Badge>
+      ) : (
+        <Badge variant="success" className="gap-1">
+          {locked && <Icon name="lock" size={12} />}
+          {locked ? "Locked" : "Signed"}
+        </Badge>
+      )}
+      {amendments.length > 0 && (
+        <Badge variant="info">
+          Amended{amendments.length > 1 ? ` · ${amendments.length}` : ""}
+        </Badge>
+      )}
+    </span>
+  );
 
   // Floating document window. Compact = Gmail-compose size, no scrim — the
   // page stays interactive around it. Big (~1200px) sits on the same scrim as
@@ -342,17 +391,33 @@ export function NoteSheet({
               </div>
               <div className="flex items-center gap-2">
                 {statusBadge}
-                <span className="hidden text-[13px] text-text-muted sm:block">
-                  {saving ? "Saving…" : dirty ? "Unsaved changes" : "Saved changes"}
-                </span>
-                {!locked && (
+                {editable && (
+                  <span className="hidden text-[13px] text-text-muted sm:block">
+                    {saving ? "Saving…" : dirty ? "Unsaved changes" : "Saved changes"}
+                  </span>
+                )}
+                {editable && (
                   <>
                     <Button variant="secondary" size="sm" onClick={save} disabled={saving || !dirty}>
                       Save
                     </Button>
                     <Button size="sm" onClick={() => setSignOpen(true)} disabled={saving}>
-                      {note.status === "draft" ? "Sign" : "Sign & lock"}
+                      Sign
                     </Button>
+                  </>
+                )}
+                {/* Signed but not yet locked: the only remaining edit is the
+                    lock. Either way a signed note can take an amendment. */}
+                {!editable && (
+                  <>
+                    <Button variant="secondary" size="sm" onClick={() => setAmendOpen(true)}>
+                      Amend
+                    </Button>
+                    {!locked && (
+                      <Button size="sm" onClick={() => setSignOpen(true)} disabled={saving}>
+                        Sign &amp; lock
+                      </Button>
+                    )}
                   </>
                 )}
               </div>
@@ -430,20 +495,51 @@ export function NoteSheet({
                           }}
                         />
                         <MenuItem icon="download" label="Download / print PDF" onClick={download} />
-                        {!locked && <MenuItem icon="trash" label="Delete note" danger onClick={remove} />}
+                        {/* A signed note is part of the record — it can be
+                            corrected by amendment, never deleted. */}
+                        {editable && <MenuItem icon="trash" label="Delete note" danger onClick={remove} />}
                       </KebabMenu>
                     </div>
                     <NotesEditor
-                      key={`${note.id}:${locked}`}
+                      key={`${note.id}:${editable}`}
                       ref={editorRef}
                       value={bodyMd}
-                      readOnly={locked}
+                      readOnly={!editable}
                       onChange={(md) => {
                         setBodyMd(md);
                         setDirty(true);
                       }}
                       onSave={save}
                     />
+
+                    {/* The amendment chain — appended below the frozen note,
+                        never woven into it, so the original text a clinician
+                        signed stays exactly what they signed. */}
+                    {amendments.length > 0 && (
+                      <section className="mt-8 border-t border-border pt-6">
+                        <h3 className="mb-4 flex items-center gap-2 text-[15px] font-semibold text-text">
+                          <Icon name="edit" size={15} className="text-text-muted" />
+                          Amendments
+                          <span className="text-[13px] font-normal text-text-muted">
+                            {amendments.length} correction{amendments.length === 1 ? "" : "s"} since signing
+                          </span>
+                        </h3>
+                        <ol className="space-y-4">
+                          {amendments.map((a, i) => (
+                            <li key={a.id} className="rounded-card border border-border bg-canvas px-4 py-3">
+                              <p className="mb-1.5 flex flex-wrap items-center gap-x-2 text-[13px] text-text-muted">
+                                <span className="font-semibold text-text">Amendment {i + 1}</span>
+                                <span>·</span>
+                                <span>{data.authors?.[a.authorId] ?? "Practitioner"}</span>
+                                <span>·</span>
+                                <span>{formatDateTimeNumeric(a.createdAt)}</span>
+                              </p>
+                              <p className="whitespace-pre-wrap text-[15px] text-text-body">{a.bodyMd}</p>
+                            </li>
+                          ))}
+                        </ol>
+                      </section>
+                    )}
                   </div>
                 ) : (
                   data.transcript && (
@@ -498,8 +594,8 @@ export function NoteSheet({
         >
           <p className="text-[15px] text-text-body">
             {note.status === "draft"
-              ? "Signing stamps this note with your name and the current time. You can still make corrections until it is locked."
-              : "Locking makes this note a finalised record in the client's profile. It cannot be edited afterwards."}
+              ? "Signing stamps this note with your name and the current time and freezes the text. Corrections after that are filed as amendments, which append to the note rather than change it."
+              : "Locking makes this note a finalised record in the client's profile. Amendments can still be appended; the signed text never changes."}
           </p>
           <div className="mt-4 rounded-card border border-border p-4">
             <div className="flex items-center gap-2.5">
@@ -514,6 +610,38 @@ export function NoteSheet({
               {note.status === "draft" ? "Signed" : "Completed"} by {data?.author} · {formatDateTime(new Date())}
             </p>
           </div>
+        </Modal>
+      )}
+
+      {/* file an amendment — the only way to correct a signed note */}
+      {note && (
+        <Modal
+          open={amendOpen}
+          onClose={() => setAmendOpen(false)}
+          title="File an amendment"
+          icon="edit"
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setAmendOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={fileAmendment} loading={amending} disabled={!amendBody.trim()}>
+                File amendment
+              </Button>
+            </>
+          }
+        >
+          <p className="mb-3 text-[15px] text-text-body">
+            This appends a correction to <b>{note.title}</b> under your name and the current time. The signed
+            note is not altered, and an amendment cannot be edited or removed once filed.
+          </p>
+          <Textarea
+            value={amendBody}
+            onChange={(e) => setAmendBody(e.target.value)}
+            rows={6}
+            placeholder="What is being corrected, and why"
+            aria-label="Amendment text"
+          />
         </Modal>
       )}
 
