@@ -10,12 +10,15 @@ import { TOPBAR_ACTIONS_ID } from "@/components/shell/topbar-slot";
 // a per-page edit — this is where the canonical title now lives (it used to sit
 // in the TopBar strip; the TopBar is a utility bar now). Page actions portal in
 // on the right via TopBarActions → TOPBAR_ACTIONS_ID, so they sit beside the H1.
+//
+// The title stands alone — no leading icon. `routeTitle` still returns one and
+// the map still carries it; nothing renders it today. Left in place so the
+// route → (icon, title) mapping keeps a single home if a surface wants it back.
 export function ContentHeader({ title, className = "" }: { title?: string; className?: string }) {
   const pathname = usePathname();
   const derived = routeTitle(pathname);
   return (
     <PageHeader
-      icon={derived.icon}
       title={title ?? derived.title}
       actions={<div id={TOPBAR_ACTIONS_ID} className="flex items-center gap-2" />}
       className={className}
