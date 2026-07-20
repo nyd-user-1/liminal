@@ -24,8 +24,9 @@ export const OPEN_COMMAND_PALETTE = "leuk:open-command-palette";
 type SearchItem = { id: string; title: string; subtitle?: string; href: string };
 type SearchGroup = { type: string; label: string; icon: IconName; items: SearchItem[] };
 
-// Static jump-to destinations — the workspace's top-level routes, always
-// filterable by label so ⌘K doubles as a keyboard nav.
+// Static jump-to destinations — the top-level routes of whichever app the
+// palette is mounted in, always filterable by label so ⌘K doubles as keyboard
+// nav.
 const DESTINATIONS: { label: string; href: string; icon: IconName }[] = [
   { label: "Workspace", href: "/workspace", icon: "grid" },
   { label: "Calendar", href: "/calendar", icon: "calendar" },
@@ -41,7 +42,45 @@ const DESTINATIONS: { label: string; href: string; icon: IconName }[] = [
   { label: "Settings", href: "/settings", icon: "gear" },
 ];
 
-export function CommandPalette() {
+const PORTAL_DESTINATIONS: { label: string; href: string; icon: IconName }[] = [
+  { label: "Home", href: "/portal", icon: "id-card" },
+  { label: "Appointments", href: "/portal/appointments", icon: "calendar-check" },
+  { label: "Medications", href: "/portal/medications", icon: "pill-bottle" },
+  { label: "Records", href: "/portal/records", icon: "file-text" },
+  { label: "Resources", href: "/portal/resources", icon: "globe" },
+  { label: "Forms", href: "/portal/forms", icon: "clipboard" },
+  { label: "Invoices", href: "/portal/invoices", icon: "credit-card" },
+  { label: "Messages", href: "/portal/messages", icon: "message" },
+  { label: "Profile", href: "/portal/profile", icon: "person-circle" },
+];
+
+// The two audiences differ ONLY in which endpoint answers and which routes are
+// jumpable — the interaction is the same, so this is one component with a scope
+// rather than a second palette to keep in step. The portal scope points at
+// /api/portal/search, which is session-scoped to the signed-in patient's own
+// record; it cannot reach the workspace corpora and is never handed an id by
+// this component (there is no id to hand — see the route's own notes).
+const SCOPES = {
+  workspace: {
+    endpoint: "/api/search",
+    destinations: DESTINATIONS,
+    placeholder: "Search clients, providers, organizations, plans — or jump to…",
+    label: "Search the workspace",
+    empty: "Type to search the workspace.",
+  },
+  portal: {
+    endpoint: "/api/portal/search",
+    destinations: PORTAL_DESTINATIONS,
+    placeholder: "Search your appointments, invoices, documents, messages — or jump to…",
+    label: "Search your record",
+    empty: "Type to search your record.",
+  },
+} as const;
+
+export type PaletteScope = keyof typeof SCOPES;
+
+export function CommandPalette({ scope = "workspace" }: { scope?: PaletteScope }) {
+  const cfg = SCOPES[scope];
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -88,7 +127,7 @@ export function CommandPalette() {
     let stale = false;
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(term)}`);
+        const res = await fetch(`${cfg.endpoint}?q=${encodeURIComponent(term)}`);
         const json = await res.json();
         if (!stale && res.ok) setGroups(json.groups ?? []);
       } catch {
@@ -99,14 +138,14 @@ export function CommandPalette() {
       stale = true;
       clearTimeout(t);
     };
-  }, [q, open]);
+  }, [q, open, cfg.endpoint]);
 
-  // Destination matches (client-side, instant).
+  // Destination matches (client-side, instant). These are ROUTES, not records —
+  // the only thing filtered in the browser.
   const dests = useMemo(() => {
     const term = q.trim().toLowerCase();
-    const list = term ? DESTINATIONS.filter((d) => d.label.toLowerCase().includes(term)) : DESTINATIONS;
-    return list;
-  }, [q]);
+    return term ? cfg.destinations.filter((d) => d.label.toLowerCase().includes(term)) : cfg.destinations;
+  }, [q, cfg.destinations]);
 
   // One flat, ordered list of everything selectable — for ↑/↓/Enter.
   const flat = useMemo(() => {
@@ -188,8 +227,8 @@ export function CommandPalette() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Search clients, providers, organizations, plans — or jump to…"
-            aria-label="Search the workspace"
+            placeholder={cfg.placeholder}
+            aria-label={cfg.label}
           />
         </div>
 
@@ -214,7 +253,7 @@ export function CommandPalette() {
 
           {flat.length === 0 && (
             <p className="px-3 py-6 text-center text-[14px] text-text-muted">
-              {q.trim().length < 2 ? "Type to search the workspace." : "No matches."}
+              {q.trim().length < 2 ? cfg.empty : "No matches."}
             </p>
           )}
         </div>

@@ -106,11 +106,14 @@ export function AppShell({
   const homeHref = variant === "portal" ? "/portal" : "/calendar";
   return (
     <div className="flex h-dvh overflow-hidden bg-page">
-      {/* ⌘K workspace search — client component, workspace variant only. */}
-      {variant === "workspace" && <CommandPalette />}
+      {/* ⌘K search. Both variants have one; they differ only in the endpoint
+          behind them. The portal's is scoped server-side to the signed-in
+          patient's own record — it cannot return another client, or anything
+          from the directory/rates side of the app. */}
+      <CommandPalette scope={variant === "portal" ? "portal" : "workspace"} />
       <Sidebar className="max-md:hidden" sections={sections} user={user} homeHref={homeHref} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar showSearch={variant === "workspace"} leading={<MobileNav sections={sections} user={user} homeHref={homeHref} />} />
+        <TopBar leading={<MobileNav sections={sections} user={user} homeHref={homeHref} />} />
         {/* The inset content panel: white surface, rounded only where it meets
             the sidebar/topbar junction (md+); the paper root shows through that
             corner. The scrollbar is hidden (scrolling still works). */}

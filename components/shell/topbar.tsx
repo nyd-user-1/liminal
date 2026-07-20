@@ -41,12 +41,9 @@ const SWITCH_DESTINATIONS: Array<{ label: string; href: string; icon: IconName }
 
 export function TopBar({
   leading,
-  showSearch = true,
 }: {
   /** Slot before the context pill — the mobile hamburger. */
   leading?: ReactNode;
-  /** Show the ⌘K search pill. Off only where the palette isn't mounted (portal). */
-  showSearch?: boolean;
 }) {
   const pathname = usePathname();
   const section = routeTitle(pathname).title;
@@ -55,7 +52,7 @@ export function TopBar({
       {leading}
       <ContextSwitcher section={section} />
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        {showSearch && <SearchTrigger />}
+        <SearchTrigger />
         <TopBarBell />
       </div>
     </header>
