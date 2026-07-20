@@ -10,7 +10,16 @@ blockers clear. **Test mode only. The DATABASE_URL is live.**
 
 ---
 
-## Status at time of writing — 4 blockers, all founder-side
+## Status — all 4 blockers CLEARED 2026-07-20 (T6 drive run)
+
+> **Update (T6 execution, 2026-07-20):** All four blockers below are resolved.
+> `.env.local` now holds `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`,
+> and `STRIPE_WEBHOOK_SECRET` (NYSgpt sandbox, test mode; values are quoted —
+> strip quotes when consuming from shell). The Stripe CLI is installed and
+> `stripe listen` is running detached on both scopes. Connect is enabled on the
+> sandbox. The block below is the historical record from the prep session.
+
+### Status at time of writing — 4 blockers, all founder-side
 
 `node --env-file=.env.local scripts/qa/preflight.mjs` (measured 2026-07-20):
 
@@ -61,7 +70,8 @@ Then re-run preflight until it says **Clear to drive**.
 | Bank routing | `110000000` | |
 | Bank account | `000123456789` | Success |
 | — failure variant | `000111111116` | Account-number failure, for the unhappy path |
-| Card | `4242 4242 4242 4242` | Any future expiry, any CVC, any ZIP |
+| Card (primary) | `4000 0000 0000 0077` | Funds land in the **available** balance immediately — payout verification is instant. Any future expiry, any CVC, any ZIP. |
+| Card (pending variant) | `4242 4242 4242 4242` | Succeeds but funds sit in the **pending** balance; use only when you want to exercise the pending→available path. |
 | ID document | upload any file | Test mode accepts anything |
 
 In test mode Stripe renders a **"Use test data"** control inside the onboarding
@@ -179,7 +189,9 @@ can still be blocked. Do not offer checkout until it is true.
 ### 3 — Client pays
 
 Sign in `casey@liminal.demo` / `demo` → `/portal/invoices` → `INV-2026-9003`
-→ **Pay now** → card `4242 4242 4242 4242`, any future expiry / CVC / ZIP.
+→ **Pay now** → card `4000 0000 0000 0077` (primary — funds land in the
+available balance immediately, so the transfer/payout side verifies without a
+pending wait), any future expiry / CVC / ZIP.
 
 Expect: redirect to Stripe, then back to the portal; `stripe listen` shows
 `checkout.session.completed`; the invoice flips to **paid** — *via the webhook,
@@ -203,6 +215,25 @@ It finds the PaymentIntent, retrieves it **from Stripe**, and prints:
 - the connected account's own balance (the therapist's view)
 - **a diff of Stripe against our `stripe_payment_splits` row**, field by field
 - the `stripe_events` ledger, flagging any event claimed but never completed
+
+**Both proof events must be present in `stripe_events` — assert this explicitly.**
+The loop is only proven when the ledger holds a *recorded* row (`processed_at`
+set, `error` NULL) for BOTH:
+
+- `checkout.session.completed` — arrives on the **platform** scope; this is what
+  flips the invoice to paid and writes the split.
+- `account.updated` — arrives on the **connected** scope; this is what synced the
+  therapist's `charges_enabled` to true so checkout was allowed at all.
+
+If either is absent — or present but stuck with `processed_at` NULL / `error` set
+— the loop is **not proven**, regardless of what the invoice or the split row
+say. A paid invoice with no recorded `account.updated` means the status sync
+never happened and the "active" gate was crossed on stale data. Capture the
+ledger rows verbatim in the report.
+
+```bash
+psql "$DATABASE_URL" -c "select event_id, type, account_scope, processed_at, error from stripe_events order by created_at;"
+```
 
 For `INV-2026-9003` the expected result is:
 
