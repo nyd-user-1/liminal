@@ -15,7 +15,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { SidePanel } from "@/components/ui/side-panel";
 import { Spinner } from "@/components/ui/spinner";
 import { TextLink } from "@/components/ui/text-link";
 import { useToast } from "@/components/ui/toast";
@@ -217,18 +216,13 @@ export function EarningsClient({ publishableKey }: { publishableKey: string }) {
           </div>
         </div>
 
-        {/* payment_details flyover — rendered inside ConnectEmbed so the Stripe
-            Connect context reaches it through the portal. */}
-        <SidePanel
-          open={Boolean(paymentId)}
-          onClose={closePayment}
-          title="Payment"
-          kicker="Transaction"
-          icon="credit-card"
-          width="max-w-lg"
-        >
-          {paymentId && <ConnectPaymentDetails payment={paymentId} onClose={closePayment} />}
-        </SidePanel>
+        {/* payment_details brings its OWN modal chrome — which is why onClose is
+            a required prop on this component and on no other. Mounting it inside
+            a kit SidePanel stacked two overlays: an empty flyover behind
+            Stripe's own dialog. Render it bare and let Stripe own the
+            presentation; ?payment= is still what opens it, and onClose clears
+            the param. */}
+        {paymentId && <ConnectPaymentDetails payment={paymentId} onClose={closePayment} />}
       </ConnectEmbed>
     </div>
   );
