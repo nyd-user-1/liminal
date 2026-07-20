@@ -52,7 +52,7 @@ const TEAL = "#3F8290";
 const INK = "#212A47";
 const PAPER = "#FAF7F1";
 
-function shell(opts: { heading: string; bodyHtml: string; cta?: { label: string; href: string } }): string {
+export function shell(opts: { heading: string; bodyHtml: string; cta?: { label: string; href: string } }): string {
   const cta = opts.cta
     ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:28px auto 0;"><tr><td style="border-radius:8px;background:${TEAL};">
          <a href="${opts.cta.href}" style="display:inline-block;padding:12px 28px;font-family:Inter,Helvetica,Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">${opts.cta.label}</a>
@@ -76,7 +76,7 @@ function shell(opts: { heading: string; bodyHtml: string; cta?: { label: string;
   </td></tr></table></body></html>`;
 }
 
-const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+export const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 function appointmentLines(a: {
   serviceName: string;
