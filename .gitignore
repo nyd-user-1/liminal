@@ -27,3 +27,10 @@ dev.log
 
 # Agent scratch dirs — may transiently hold pulled env values; never commit
 .*-tmp/
+
+# Stripe's official Connect sample app (downloaded 2026-07-20 as reference while
+# building the marketplace). Third-party code with its OWN package.json and a
+# .env file — tracking it would confuse tooling and normalise committing .env
+# shapes into the repo, on the same night a key leaked (NYS-184). The patterns
+# we took from it live in our own routes and docs/reference/stripe-connect-digest.md.
+stripe-sample-code/
