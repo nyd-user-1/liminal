@@ -5,13 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Tabs } from "@/components/ui/tabs";
-import { TextLink } from "@/components/ui/text-link";
+import { Tag } from "@/components/ui/tag";
 import type { InsurerCard } from "@/lib/repos/insurers-board";
 import { EcoSection } from "./section";
 
 // Insurers — the carrier registry as a card wall, in the "available frameworks"
-// shape: a mark and a name up top, a factual line about what the thing is, a
-// metadata line or two beneath, and one action at the foot.
+// shape: a mark and a name up top, a factual line about what the thing is, and
+// a metadata line or two beneath. No inline link in the footer
+// (docs/rules/no-card-links.md).
 //
 // Every value on a card comes off `insurers` and its neighbours; nothing is
 // scored or estimated. An insurer we know only by name shows only a name — a
@@ -40,8 +41,38 @@ const compact = (n: number): string =>
 const shortDate = (iso: string): string =>
   new Date(`${iso}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
-/** Up to two letters from the name — a stand-in mark. We hold no carrier logos,
- *  and a monogram is honest where a borrowed logo would not be. */
+// Real insurer marks, from the same public blob store the marketing strip uses
+// (components/site/insurer-strip.tsx). Keyed by OUR insurers.id, never by the
+// display name: `anthem-empire` is the Anthem card, `healthfirst` (NY) is not
+// `health-first-fl` (Rockledge, Florida), and Oxford is its own brand under UHG
+// rather than a UnitedHealthcare mark. An insurer with no mark keeps its
+// initials — a near-miss logo is worse than an honest monogram.
+//
+// `h` is per-mark OPTICAL sizing, mirroring the strip: most assets carry baked-in
+// whitespace and sit right at the shared height, but a few are cropped tight to
+// the glyph and read oversized unless they are scaled down. Ratios are carried
+// over from the strip's own tuning (BASE 48 → cdphp 32, humana 24, healthfirst 20).
+const LOGO_BASE = "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/insurance";
+const LOGO_H = "h-8"; // 32px — the shared box the well-padded marks sit in
+
+const LOGOS: Record<string, { file: string; h?: string }> = {
+  uhc: { file: "united.avif" },
+  aetna: { file: "aetna.avif" },
+  "anthem-empire": { file: "anthem.avif" },
+  cigna: { file: "cigna.avif" },
+  carelon: { file: "carelon.avif" },
+  // A two-line lockup: at the shared height it reads heavier than the single
+  // wordmarks beside it, so it comes down a step.
+  oscar: { file: "optum-oscar.avif", h: "h-7" },
+  cdphp: { file: "cdphp.png", h: "h-5" },
+  humana: { file: "humana.avif", h: "h-4" },
+  // The strip's pure ratio puts this at ~13px, but its second line is fine-print
+  // tagline — height without visual weight — so it reads light there. 16px.
+  healthfirst: { file: "healthfirst.svg", h: "h-4" },
+};
+
+/** Up to two letters from the name — the fallback mark for the 39 insurers we
+ *  hold no logo for. A monogram is honest where a borrowed logo would not be. */
 function monogram(name: string): string {
   const words = name.replace(/[^A-Za-z0-9 ]/g, " ").split(/\s+/).filter(Boolean);
   if (words.length === 0) return "?";
@@ -77,12 +108,7 @@ function InsurerTile({ c }: { c: InsurerCard }) {
         ].filter(Boolean) as string[])
       : [];
 
-  const action =
-    c.networks > 0
-      ? { href: "/networks", label: "Networks" }
-      : c.rateRows !== null
-        ? { href: "/rates", label: "Rates" }
-        : null;
+  const logo = LOGOS[c.id];
 
   return (
     // Every slot below reserves its full height whether or not it is filled, so
@@ -90,8 +116,21 @@ function InsurerTile({ c }: { c: InsurerCard }) {
     // footer or push text past the card's edge. Uniform height AND width.
     <Card className="flex h-[228px] min-w-0 flex-col gap-3 !p-5">
       <div className="flex min-h-9 min-w-0 items-start gap-2.5">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-field bg-primary-wash text-[13px] font-semibold text-primary-deep">
-          {monogram(c.name)}
+        {/* The mark slot is a FIXED box whether it holds a logo or initials, so
+            a card with a mark and a card without line up and neither shifts
+            when the image arrives. */}
+        <span className="flex h-9 w-[72px] shrink-0 items-center justify-start">
+          {logo ? (
+            <img
+              src={`${LOGO_BASE}/${logo.file}`}
+              alt=""
+              className={`${logo.h ?? LOGO_H} w-auto max-w-full object-contain`}
+            />
+          ) : (
+            <span className="flex h-9 w-9 items-center justify-center rounded-field bg-primary-wash text-[13px] font-semibold text-primary-deep">
+              {monogram(c.name)}
+            </span>
+          )}
         </span>
         <p className="line-clamp-2 min-w-0 flex-1 text-[15px] font-semibold leading-snug text-text">
           {c.name}
@@ -107,15 +146,17 @@ function InsurerTile({ c }: { c: InsurerCard }) {
         {rates.length > 0 && <span className="truncate">{rates.join(" · ")}</span>}
       </div>
 
-      <div className="mt-auto flex items-baseline justify-between gap-3 border-t border-border pt-2.5">
-        <span className="truncate text-[13px] capitalize text-text-muted">{c.kind}</span>
-        {action ? (
-          <TextLink href={action.href} className="shrink-0 text-[13px]">
-            {action.label}
-          </TextLink>
-        ) : (
-          <span className="shrink-0 text-[13px] text-text-muted">Registry only</span>
-        )}
+      {/* Identifier left, category right — the same footer the Data cards use,
+          and no link. See docs/rules/no-card-links.md: a small teal word in a
+          card corner is neither a card-sized target nor a discoverable one. */}
+      <div className="mt-auto flex items-center justify-between gap-3 border-t border-border pt-2.5">
+        <p
+          className="min-w-0 flex-1 truncate font-mono text-[11px] tracking-wide text-text-muted"
+          title={c.id}
+        >
+          {c.id}
+        </p>
+        <Tag hue="grey">{c.kind}</Tag>
       </div>
     </Card>
   );

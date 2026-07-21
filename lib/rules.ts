@@ -67,6 +67,12 @@ export const RULES: Rule[] = [
     body: "Counts count up, the queue scrolls, the rail slides — motion that says the system is live. All of it gated behind reduced-motion, which holds every value at rest.",
   },
   {
+    id: "no-card-links",
+    tab: "design",
+    title: "Cards carry no inline links",
+    body: "No small teal word in a card's corner. If a card is actionable the whole card is the target, or the kebab holds the action — a link inside a clickable card is two targets in one object and makes neither obvious.",
+  },
+  {
     id: "no-approx-glyph",
     tab: "design",
     title: "No almost-equal glyph",
