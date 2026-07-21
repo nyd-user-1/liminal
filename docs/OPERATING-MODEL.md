@@ -51,8 +51,9 @@ and a seam:
    with acceptance criteria, `OWNS` / `DO-NOT-TOUCH` seams, a disjoint `sql/0XX`
    range, house rules, and the report protocol. Identity is *not* re-written into
    the brief — that lives in the agent file; the brief carries only what varies.
-2. **Kickoff.** One line, pasted into a fresh session or passed to the Agent tool:
-   > You are `<agent>`. Execute `docs/TASK-X.md` tranche N per your identity contract.
+2. **Kickoff.** A short paragraph, pasted into a fresh session — identity + seam,
+   brief path + which tasks, any FIRST ACTION others depend on, explicit
+   owns/do-NOT-touch, and the closing discipline. See "The kickoff" below.
 3. **Execute.** The agent works only inside its seam, opens/closes its own Linear
    issues, verifies end-to-end, and stages explicitly.
 4. **Report.** The agent writes `docs/reports/<date>-<agent>[-tN].md`: what
@@ -95,17 +96,45 @@ hot instead of waiting for 01:04 — but never races a live run (check
 `.harvest/runner/lock.json`) and never schedules the runner *after* the 04:12
 matview cron (that ordering is load-bearing; see memory `liminal-harvestd`).
 
-## The kickoff template
+## The kickoff (founder correction, 2026-07-20)
 
-```
-You are <agent>. Execute docs/TASK-<NAME>.md tranche <N> per your identity
-contract. <Optional: one sentence of tranche-specific context or a ruling on a
-prior flag.>
-```
+**A kickoff is a short paragraph, not one line.** The one-line form this section
+used to prescribe was wrong — it dropped the seam and the closing discipline,
+which are exactly the parts that keep concurrent terminals from colliding and
+keep work from dying uncommitted. The practice that actually works is in the
+2026-07-20 transcripts. Two that ran cleanly, verbatim:
 
-That is the whole handoff. Everything else — the read-first list, the house rules,
-the seam discipline, the report format, the escalation rules — is in the agent
-file, invariant across tranches and across repos.
+> You are ui-agent on the PORTAL seam. Execute docs/TASK-STRIPE-MARKETPLACE.md
+> tasks T4+T5 per your identity contract. FIRST ACTION: create
+> lib/email/stripe-notifications.ts with typed stub functions … and commit
+> immediately — Terminal A imports them. Then: … You own
+> lib/email/stripe-notifications.ts + portal pay UI only. Do NOT touch
+> app/api/* or Settings. Reset ~1:30am: commit early/often, stop clean, report.
+
+> You are qa-agent. Execute docs/TASK-STRIPE-MARKETPLACE.md task T6 prep per
+> your identity contract: … You own scripts/qa/ only. … Reset ~1:30am: commit,
+> stop clean, report.
+
+**The five things a kickoff carries:**
+
+1. **Identity** — the agent type, plus **the seam name when several agents of
+   the same type are running** ("ui-agent on the PORTAL seam").
+2. **The brief path and which tasks within it** — not the whole file when only
+   part applies.
+3. **Any FIRST ACTION other terminals depend on**, with why ("commit
+   immediately — Terminal A imports them").
+4. **Explicit owns / do NOT touch** — named paths, both directions.
+5. **The closing discipline** — commit early/often with explicit pathspecs,
+   stop clean, report; **plus the reset time when one is near**.
+
+**Written fresh, per dispatch, by the lead.** There is deliberately no
+fill-in-the-blank template here: the founder is not filling in brackets, and
+only the lead knows the tranche — which seams are hot, which terminal is
+waiting on which first action, how close the reset is. A template would
+reintroduce exactly the omissions this correction exists to fix.
+
+Everything *invariant* — the read-first list, house rules, seam discipline,
+report format, escalation rules — stays in the agent file, not the kickoff.
 
 ## Standing decisions (don't re-litigate)
 
