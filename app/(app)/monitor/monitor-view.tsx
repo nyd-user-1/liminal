@@ -158,6 +158,31 @@ export function MonitorView({ snapshot }: { snapshot: MonitorSnapshot }) {
         </div>
       </Card>
 
+      {/* ── readings: measured, shown, and deliberately not judged ──
+          These carry no threshold and never raise a notification. They live in
+          their own card rather than among the checks so that a number nobody
+          can honestly call pass or fail is never mistaken for one. */}
+      {snapshot.stats.length > 0 && (
+        <Card className="min-w-0 p-4">
+          <div className="flex items-center gap-2 pb-1">
+            <span className="text-sm font-medium text-text">Readings</span>
+            <span className="text-[12px] text-text-muted">measured, not judged — no thresholds, no alerts</span>
+          </div>
+          <div className="flex min-w-0 flex-col divide-y divide-border">
+            {snapshot.stats.map((s) => (
+              <div key={s.id} className="min-w-0 py-3">
+                <div className="flex min-w-0 items-baseline justify-between gap-3">
+                  <span className="truncate text-sm text-text">{s.label}</span>
+                  <span className="shrink-0 font-mono text-sm tabular-nums text-text">{s.value}</span>
+                </div>
+                <p className="pt-1 text-[12px] leading-relaxed text-text-muted">{s.caveat}</p>
+                <p className="pt-1 font-mono text-[11px] text-text-muted">{s.source}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {/* ── materialized views ── */}
       <Table
         head={["View", "Size", "Last rebuilt", "Status"]}

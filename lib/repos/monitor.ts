@@ -27,15 +27,10 @@ export const THRESHOLDS = {
    *  count sitting high is a real signal that something is leaking sessions. */
   connectionsWarnPct: 70,
   connectionsFailPct: 90,
-  /** Buffer cache hit ratio. The textbook figure is 99%, and that number is
-   *  wrong for this database: pg_stat_database counts CUMULATIVELY since the
-   *  last stats reset, and this corpus is built by bulk loads and full-table
-   *  matview rebuilds that read hundreds of millions of blocks exactly once.
-   *  Measured 74% while healthy, so a 95% threshold would paint the page red
-   *  permanently and train everyone to ignore it. Set where a real regression
-   *  in the SERVING path would show. */
-  cacheHitWarnPct: 85,
-  cacheHitFailPct: 70,
+  // NOTE: there is deliberately no cache-hit threshold. The buffer cache hit
+  // ratio is reported as a READING, not a check — see the long note at its
+  // computation for the three measured reasons no threshold on it can be
+  // meaningful on Neon. Do not add one back without neon_stat_file_cache.
   /** Dead tuples as a share of live rows on any one table — bloat that vacuum
    *  has not reclaimed. */
   deadTupleWarnPct: 20,
@@ -84,12 +79,24 @@ export type MonitorCheck = {
   source: string;
 };
 
+/** A measured reading with no threshold and no status — a number worth showing
+ *  that cannot honestly be judged pass/fail. It can never raise a notification,
+ *  because alerts are derived from `checks` and a stat is not a check. */
+export type MonitorStat = {
+  id: string;
+  label: string;
+  value: string;
+  /** What the number can and cannot tell you. Shown, not buried. */
+  caveat: string;
+  source: string;
+};
+
 /** A proportion worth showing as the grid-of-squares meter. */
 export type MonitorMeter = {
   id: string;
   label: string;
   pct: number | null;
-  state: "healthy" | "warning" | "depleted";
+  state: "healthy" | "warning" | "depleted" | "share";
   /** The measured reading in its own units, e.g. "13 of 112 connections". */
   primary: string;
   /** Provenance, shown under the meter. */
@@ -120,6 +127,8 @@ export type MonitorSnapshot = {
   available: boolean;
   generatedAt: string;
   checks: MonitorCheck[];
+  /** Readings with no threshold — never alertable. */
+  stats: MonitorStat[];
   meters: MonitorMeter[];
   matviews: MatviewRow[];
   jobs: JobRow[];
@@ -151,6 +160,7 @@ const EMPTY: MonitorSnapshot = {
   available: false,
   generatedAt: new Date(0).toISOString(),
   checks: [],
+  stats: [],
   meters: [],
   matviews: [],
   jobs: [],
@@ -171,11 +181,15 @@ export async function readMonitor(): Promise<MonitorSnapshot> {
 
   const [conn, cache, size, dead, idx, long, mviews, refreshes, jobs, txAge] = await Promise.all([
     sql`SELECT (SELECT count(*) FROM pg_stat_activity) AS used,
-               (SELECT setting::int FROM pg_settings WHERE name = 'max_connections') AS max_conn` as unknown as Promise<
-      Array<{ used: number; max_conn: number }>
+               (SELECT setting::int FROM pg_settings WHERE name = 'max_connections') AS max_conn,
+               current_setting('shared_buffers') AS shared_buffers` as unknown as Promise<
+      Array<{ used: number; max_conn: number; shared_buffers: string }>
     >,
-    sql`SELECT coalesce(sum(blks_hit), 0)::float8 AS hit, coalesce(sum(blks_read), 0)::float8 AS read
-          FROM pg_stat_database WHERE datname = current_database()` as unknown as Promise<Array<{ hit: number; read: number }>>,
+    sql`SELECT coalesce(sum(blks_hit), 0)::float8 AS hit, coalesce(sum(blks_read), 0)::float8 AS read,
+               max(stats_reset) AS stats_reset
+          FROM pg_stat_database WHERE datname = current_database()` as unknown as Promise<
+      Array<{ hit: number; read: number; stats_reset: Date | null }>
+    >,
     sql`SELECT pg_size_pretty(pg_database_size(current_database())) AS size` as unknown as Promise<Array<{ size: string }>>,
     sql`SELECT relname, n_live_tup::int AS live, n_dead_tup::int AS dead,
                pg_size_pretty(pg_total_relation_size(relid)) AS size
@@ -263,26 +277,57 @@ export async function readMonitor(): Promise<MonitorSnapshot> {
     source: "pg_stat_activity · pg_settings",
   });
 
-  // ── cache hit ratio ──
+  // ── cache hit ratio — a READING, deliberately not a check ─────────────────
+  // This was a check with an 85%/70% threshold and it was wrong. It fired
+  // "Needs attention" on a perfectly healthy database and then its own
+  // remediation text told the reader to disregard it. An alert you are
+  // instructed to ignore is worse than no alert: it teaches the founder that
+  // this page cries wolf, which is the exact failure ALERT_REPEAT_HOURS exists
+  // to prevent.
+  //
+  // Three measured facts, and none of them are fixable by re-tuning a number:
+  //
+  //   · shared_buffers is 456 MB against a 23 GB database — under 2% resident.
+  //     A low buffer-pool ratio is the ARCHITECTURE, not a regression.
+  //   · pg_stat_database.stats_reset is NULL. It has never been reset, so this
+  //     is a lifetime average dominated by one-time bulk-load and matview-
+  //     rebuild sequential reads that will never be read again.
+  //   · Neon puts a local file cache BELOW shared_buffers. A miss here is
+  //     usually served from that cache at memory speed and never touches
+  //     storage — but pg_stat_database cannot see it, and the extension that
+  //     would expose it (neon_stat_file_cache) is not even present in
+  //     pg_available_extensions on this project.
+  //
+  // Windowing the figure — sampling and diffing so it reflects current traffic
+  // rather than all history — would fix the second point only. It cannot fix
+  // the first or the third: a windowed number still measures a 456 MB pool and
+  // is still blind to the layer that actually absorbs the misses. There is no
+  // threshold that means "going to disk" while the denominator is unobservable,
+  // so this is reported as a reading with its context attached and NO status.
+  //
+  // The way to earn a real check here is `neon_stat_file_cache` — see the
+  // caveat text, which says so on the page rather than in a comment nobody
+  // reads.
   const hit = Number(cache[0]?.hit ?? 0);
   const read = Number(cache[0]?.read ?? 0);
   const hitPct = hit + read > 0 ? (hit / (hit + read)) * 100 : null;
-  const cacheStatus =
-    hitPct === null ? "unknown" : band(hitPct, THRESHOLDS.cacheHitWarnPct, THRESHOLDS.cacheHitFailPct, false);
-  checks.push({
-    id: "cache-hit",
-    label: "Buffer cache hit ratio",
-    status: cacheStatus,
-    value: hitPct === null ? "no reads recorded yet" : pct(hitPct),
-    threshold: `warn below ${THRESHOLDS.cacheHitWarnPct}%, fail below ${THRESHOLDS.cacheHitFailPct}%`,
-    detail:
-      hitPct === null
-        ? "Statistics have been reset and no blocks have been read since."
-        : `${pct(hitPct)} of block reads were served from memory, counted cumulatively since the last statistics reset.`,
-    remediation:
-      "Read this one carefully before acting: it is a lifetime average, and every bulk load and full matview rebuild drags it down with one-time sequential reads that will never be re-read. A low number here is normal for this corpus. What matters is a fall relative to its own recent level while serving traffic.",
-    source: "pg_stat_database",
-  });
+  const sharedBuffers = conn[0]?.shared_buffers ?? "unknown";
+  const statsReset = isoDateTime(cache[0]?.stats_reset ?? null);
+
+  const stats: MonitorStat[] = [
+    {
+      id: "cache-hit",
+      label: "Buffer cache hit ratio",
+      value: hitPct === null ? "no reads recorded yet" : pct(hitPct),
+      caveat:
+        `Informational — no threshold, and it never raises an alert. shared_buffers is ${sharedBuffers} against a ` +
+        `${size[0]?.size ?? "large"} database, and ${statsReset ? "these counters were last reset " + statsReset : "these counters have never been reset"}, ` +
+        `so this is a lifetime average dominated by bulk loads that read each block once. Neon's local file cache sits ` +
+        `below shared_buffers and absorbs most of what counts as a "miss" here, but pg_stat_database cannot see it — ` +
+        `neon_stat_file_cache is not available on this project. Installing it is what would turn this into a real check.`,
+      source: "pg_stat_database · pg_settings",
+    },
+  ];
 
   // ── bloat ──
   const worstDead = dead
@@ -446,9 +491,12 @@ export async function readMonitor(): Promise<MonitorSnapshot> {
       id: "cache",
       label: "Cache hit ratio",
       pct: hitPct,
-      state: meterState(cacheStatus),
+      // Teal, never red/amber: this is a proportion, not a fuel level, and it
+      // carries no threshold. Colouring it by health would re-assert exactly
+      // the judgment that was just removed.
+      state: "share",
       primary: hitPct === null ? "—" : pct(hitPct),
-      secondary: "Share of block reads served from memory · pg_stat_database",
+      secondary: "Informational · lifetime average · pg_stat_database",
     },
     {
       id: "connections",
@@ -480,6 +528,7 @@ export async function readMonitor(): Promise<MonitorSnapshot> {
     available: true,
     generatedAt: new Date().toISOString(),
     checks,
+    stats,
     meters,
     matviews,
     jobs: jobRows,
