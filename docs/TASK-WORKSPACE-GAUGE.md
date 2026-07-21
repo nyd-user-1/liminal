@@ -14,10 +14,15 @@ source). Read `CLAUDE.md` and `docs/ops/PACING.md` before starting.
   **five_hour 8%, seven_day 62%**.
 - `~/.claude/hq/usage-snapshot.json` has keys `capturedAt` / `source` /
   `windows` only.
-- **There is NO per-model usage anywhere.** The string "fable" appears solely
-  in `ops/usage-gauge.mjs` as a `MODEL_WEIGHT` multiplier (5.0, same as opus)
-  used to *estimate* burn in the transcript-tally proxy — a coefficient, not a
-  measurement. See Part 1 card 3.
+- **Per-model usage IS derivable — from the transcripts, not the snapshots.**
+  (An earlier draft of this brief said otherwise; that was wrong and the
+  founder corrected it.) Claude Code's own `/usage` screen reports
+  "Current week (Fable): NN% used" with a per-model cost breakdown, and the
+  data behind it lives in `~/.claude/projects/**/*.jsonl` — every assistant
+  message carries its `model` and a `usage` block
+  (`input_tokens`, `output_tokens`, `cache_creation_input_tokens`,
+  `cache_read_input_tokens`). `ops/usage-gauge.mjs` already describes this as
+  its source 3, "mirrors hq/lib/usage.ts".
 - `lib/repos/lead-reports.ts` exports **only** `latestLeadReport()` (`LIMIT 1`)
   and `saveLeadReport()`. **No list function exists.**
 - Sections are composed in `app/(app)/workspace/page.tsx` via `<EcoSection>`:
@@ -49,15 +54,47 @@ you animate the fill.
 
 **The three columns:**
 
-1. **Window usage** — `rate_limits.five_hour`.
-2. **Weekly usage** — `rate_limits.seven_day`.
-3. **Fable usage — NOT DERIVABLE.** Render the honest empty state; say plainly
-   on the card that per-model usage is not published by the source. **Do NOT
-   substitute the proxy estimate, a computed stand-in, or any other number.**
-   Founder's rule: never invent a metric to fill a slot. Note it in the report.
+**Map each card to the correct field — do not mix them.** The five-hour figure
+is the **session window**; the seven-day figure is the **week**.
 
-Add a **read-only server route/loader** for the snapshot. Never read it
-client-side.
+1. **Window usage** — `rate_limits.five_hour` (the session window). `live`.
+2. **Weekly usage** — `rate_limits.seven_day` (the week). `live`.
+3. **Fable usage** — the Fable-model consumption specifically, **derived from
+   the transcripts using hq's method and labelled MODELED, not measured.**
+
+### Card 3: follow the working precedent one repo over
+
+**Read these before designing ours** — `~/Code/hq/app/ui/usage-panel.tsx`, its
+`~/Code/hq/app/api/usage/route.ts`, and `~/Code/hq/lib/usage.ts`. hq already
+ships a `byModel` breakdown in production; mirror its method rather than
+inventing one.
+
+The method, confirmed in `hq/lib/usage.ts`:
+
+- **Meter token totals from the local transcripts** `~/.claude/projects/**/*.jsonl`.
+  Each assistant message carries `model` plus a `usage` block. Files are
+  append-only, so hq caches per file by **byte offset** and parses only new
+  bytes — do the same; do not re-read whole transcripts on every request.
+- **Dedupe by** `requestId ?? message.id` (hq keys its record map that way).
+- **Cost weight within a model** (`shape()` in hq): fresh input ×1,
+  cache write ×1.25, **cache read ×0.1**, **output ×5**.
+- **Per-model tier multiplier** (`MODEL_WEIGHT`, Sonnet = 1.0): **opus 5.0,
+  fable 5.0, mythos 5.0, sonnet 1.0, haiku 0.33.** hq flags this as a
+  CALIBRATION KNOB — a price-tier proxy, with Fable a placeholder until a
+  Fable-heavy block is measured. Carry that caveat across; do not present the
+  multiplier as exact.
+- **Honesty convention — carry it verbatim in spirit:** hq's meter type has
+  `source: "live" | "modeled"`, and the panel renders a visible **`· modeled`**
+  label (`usage-panel.tsx:184`) so an estimate is never shown as a
+  measurement. **Card 3 must carry that label.** Cards 1 and 2 are `live` —
+  they come from the snapshot's real percentages.
+
+If any part of the derivation turns out not to hold, **say so in the report and
+render the honest empty state** rather than a fabricated number. Never invent a
+metric to fill a slot.
+
+Add a **read-only server route/loader** for both the snapshot and the
+transcript tally. Never read either client-side.
 
 ---
 
