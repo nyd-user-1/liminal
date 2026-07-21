@@ -29,7 +29,7 @@ interface GaugeCard {
   pct: number | null;
   state: GaugeState;
   source: "live" | "modeled";
-  primary: string;
+  note: string | null;
   secondary: string;
 }
 interface GaugeData {
@@ -94,11 +94,11 @@ function GaugeTile({ card }: { card: GaugeCard }) {
       <div className="flex min-w-0 items-start justify-between gap-3">
         <span className="flex min-w-0 items-center gap-2">
           {/* The Claude mark, one identity for all three cards — every reading
-              here is Claude's consumption. A 250px source at 18px stays sharp
-              well past 3x DPR, so the raster needs no vector twin. */}
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-field bg-canvas">
-            <img src="/brand/claude-mark.webp" alt="" width={18} height={18} />
-          </span>
+              here is Claude's consumption. It sits on the card, not in a chip:
+              the mark is already a shape, and a tile behind it just boxed it in.
+              A 250px source at 20px stays sharp well past 3x DPR, so the raster
+              needs no vector twin. */}
+          <img src="/brand/claude-mark.webp" alt="" width={20} height={20} className="shrink-0" />
           <span className="truncate text-sm font-medium text-text">{card.label}</span>
           {/* The chip describes the READING, so it goes away when there isn't
               one — a green "live" over an em-dash would claim a measurement the
@@ -133,11 +133,11 @@ function GaugeTile({ card }: { card: GaugeCard }) {
         ))}
       </div>
 
-      {/* Wraps rather than truncates: at a narrow card the reset clock drops to
-          its own line instead of eating the reading it sits next to. */}
-      <div className="mt-auto flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-[13px] text-text-muted">
-        <span>{card.primary}</span>
-        <span>{card.secondary}</span>
+      {/* One line: the window fact, plus the reason on the cards that have no
+          reading to show. The used-% used to sit here too and was deleted — the
+          number is already the largest thing on the card. */}
+      <div className="mt-auto text-[13px] text-text-muted">
+        {card.note ? `${card.note} · ${card.secondary}` : card.secondary}
       </div>
     </Card>
   );
@@ -151,7 +151,7 @@ const PENDING: GaugeCard[] = (["session", "week", "fable"] as const).map((key) =
   pct: null,
   state: "healthy" as GaugeState,
   source: key === "fable" ? ("modeled" as const) : ("live" as const),
-  primary: "reading…",
+  note: null,
   secondary: key === "session" ? "5-hour window" : "7-day window",
 }));
 

@@ -279,8 +279,10 @@ export interface GaugeCard {
   pct: number | null;
   state: GaugeState;
   source: "live" | "modeled";
-  /** Footer left — the raw count in words. */
-  primary: string;
+  /** Why there is no reading, when there isn't one. Null while a reading
+   *  exists — the percentage above already says it, and repeating it in the
+   *  footer was restating the card to itself. */
+  note: string | null;
   /** Footer right — the secondary fact (reset clock, window span). */
   secondary: string;
 }
@@ -320,7 +322,7 @@ export function usageGauge(): GaugeData {
           pct: w.pct,
           state: band(w.pct),
           source: "live",
-          primary: `${Math.round(w.pct)}% of ${span} used`,
+          note: null,
           secondary: w.resetsAt && w.resetsAt > now ? `resets ${format(w.resetsAt)}` : span,
         }
       : {
@@ -329,7 +331,7 @@ export function usageGauge(): GaugeData {
           pct: null,
           state: "healthy",
           source: "live",
-          primary: fresh ? "no reading for this window" : "no live reading yet",
+          note: fresh ? "no reading for this window" : "no live reading yet",
           secondary: span,
         };
 
@@ -342,7 +344,7 @@ export function usageGauge(): GaugeData {
         pct: fable ? fable.pct : 0,
         state: "share",
         source: "modeled",
-        primary: `${Math.round(fable?.pct ?? 0)}% of this week's work is Fable`,
+        note: null,
         secondary: "trailing 7 days",
       }
     : {
@@ -351,7 +353,7 @@ export function usageGauge(): GaugeData {
         pct: null,
         state: "share",
         source: "modeled",
-        primary: "no local transcripts to meter",
+        note: "no local transcripts to meter",
         secondary: "trailing 7 days",
       };
 
