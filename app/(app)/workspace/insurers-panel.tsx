@@ -7,6 +7,13 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Tabs } from "@/components/ui/tabs";
 import { Tag } from "@/components/ui/tag";
 import type { InsurerCard } from "@/lib/repos/insurers-board";
+import { INSURER_LOGOS, InsurerMark } from "./insurer-mark";
+import {
+  LoadingBlock,
+  MappingBakeOff,
+  NetworksTable,
+  useNetworkData,
+} from "./network-panels";
 import { EcoSection } from "./section";
 
 // Insurers — the carrier registry as a card wall, in the "available frameworks"
@@ -41,45 +48,6 @@ const compact = (n: number): string =>
 const shortDate = (iso: string): string =>
   new Date(`${iso}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
-// Real insurer marks, from the same public blob store the marketing strip uses
-// (components/site/insurer-strip.tsx). Keyed by OUR insurers.id, never by the
-// display name: `anthem-empire` is the Anthem card, `healthfirst` (NY) is not
-// `health-first-fl` (Rockledge, Florida), and Oxford is its own brand under UHG
-// rather than a UnitedHealthcare mark. An insurer with no mark keeps its
-// initials — a near-miss logo is worse than an honest monogram.
-//
-// `h` is per-mark OPTICAL sizing, mirroring the strip: most assets carry baked-in
-// whitespace and sit right at the shared height, but a few are cropped tight to
-// the glyph and read oversized unless they are scaled down. Ratios are carried
-// over from the strip's own tuning (BASE 48 → cdphp 32, humana 24, healthfirst 20).
-const LOGO_BASE = "https://c1vijjkvyt1skkfe.public.blob.vercel-storage.com/logos/insurance";
-const LOGO_H = "h-8"; // 32px — the shared box the well-padded marks sit in
-
-const LOGOS: Record<string, { file: string; h?: string }> = {
-  uhc: { file: "united.avif" },
-  aetna: { file: "aetna.avif" },
-  "anthem-empire": { file: "anthem.avif" },
-  cigna: { file: "cigna.avif" },
-  carelon: { file: "carelon.avif" },
-  // A two-line lockup: at the shared height it reads heavier than the single
-  // wordmarks beside it, so it comes down a step.
-  oscar: { file: "optum-oscar.avif", h: "h-7" },
-  cdphp: { file: "cdphp.png", h: "h-5" },
-  humana: { file: "humana.avif", h: "h-4" },
-  // The strip's pure ratio puts this at ~13px, but its second line is fine-print
-  // tagline — height without visual weight — so it reads light there. 16px.
-  healthfirst: { file: "healthfirst.svg", h: "h-4" },
-};
-
-/** Up to two letters from the name — the fallback mark for the 39 insurers we
- *  hold no logo for. A monogram is honest where a borrowed logo would not be. */
-function monogram(name: string): string {
-  const words = name.replace(/[^A-Za-z0-9 ]/g, " ").split(/\s+/).filter(Boolean);
-  if (words.length === 0) return "?";
-  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
-  return (words[0][0] + words[1][0]).toUpperCase();
-}
-
 /** What the insurer IS, in one line, when the registry carries no note. Derived
  *  from the two columns we always have — never filler prose. */
 function fallbackDescription(c: InsurerCard): string {
@@ -108,30 +76,13 @@ function InsurerTile({ c }: { c: InsurerCard }) {
         ].filter(Boolean) as string[])
       : [];
 
-  const logo = LOGOS[c.id];
-
   return (
     // Every slot below reserves its full height whether or not it is filled, so
     // a two-line insurer name or a missing rates line can never shift the
     // footer or push text past the card's edge. Uniform height AND width.
     <Card className="flex h-[228px] min-w-0 flex-col gap-3 !p-5">
       <div className="flex min-h-9 min-w-0 items-start gap-2.5">
-        {/* The mark slot is a FIXED box whether it holds a logo or initials, so
-            a card with a mark and a card without line up and neither shifts
-            when the image arrives. */}
-        <span className="flex h-9 w-[72px] shrink-0 items-center justify-start">
-          {logo ? (
-            <img
-              src={`${LOGO_BASE}/${logo.file}`}
-              alt=""
-              className={`${logo.h ?? LOGO_H} w-auto max-w-full object-contain`}
-            />
-          ) : (
-            <span className="flex h-9 w-9 items-center justify-center rounded-field bg-primary-wash text-[13px] font-semibold text-primary-deep">
-              {monogram(c.name)}
-            </span>
-          )}
-        </span>
+        <InsurerMark id={c.id} name={c.name} />
         <p className="line-clamp-2 min-w-0 flex-1 text-[15px] font-semibold leading-snug text-text">
           {c.name}
         </p>
@@ -162,22 +113,16 @@ function InsurerTile({ c }: { c: InsurerCard }) {
   );
 }
 
-export function InsurersPanel({
-  insurers,
-  networkRows,
-}: {
-  insurers: InsurerCard[];
-  /** Row count of `networks` — quoted in the placeholder so an unbuilt view is
-   *  never mistaken for an empty table. */
-  networkRows: number | null;
-}) {
+export function InsurersPanel({ insurers }: { insurers: InsurerCard[] }) {
   const [tab, setTab] = useState<Tab>("insurers");
   const [full, setFull] = useState(false);
+  const net = useNetworkData(tab === "networks" || tab === "mapping");
 
   // Two blocks: insurers whose slug resolves to a real mark, then the rest,
   // each A–Z. No header between them — the marks running out IS the divider.
   //
-  // The split is computed from the SAME `LOGOS` lookup the card renders from, so
+  // The split is computed from the SAME `INSURER_LOGOS` map the mark renders
+  // from (./insurer-mark), so
   // it cannot drift: add a mark and that insurer moves up on the next render;
   // rename an insurer and only its alphabetical position changes. There is no
   // second list to keep in sync, which is the failure mode a hand-maintained
@@ -185,7 +130,7 @@ export function InsurersPanel({
   const ordered = useMemo(
     () =>
       [...insurers].sort((a, b) => {
-        const rank = (LOGOS[a.id] ? 0 : 1) - (LOGOS[b.id] ? 0 : 1);
+        const rank = (INSURER_LOGOS[a.id] ? 0 : 1) - (INSURER_LOGOS[b.id] ? 0 : 1);
         return rank !== 0 ? rank : a.name.localeCompare(b.name, "en");
       }),
     [insurers],
@@ -229,28 +174,13 @@ export function InsurersPanel({
           </>
         )}
 
-        {/* Placeholders, deliberately. They say what exists in the database as
-            well as what is missing here, so "not built" never reads as "no
-            data". */}
-        {tab === "networks" && (
-          <EmptyState
-            icon="globe"
-            title="Networks view not built yet"
-            subtext={
-              networkRows === null
-                ? "The networks table is not readable from here."
-                : `${networkRows.toLocaleString("en-US")} rows already sit in the networks table — this surface for them is the missing piece, not the data.`
-            }
-          />
-        )}
+        {/* The crosswalk is fetched when one of these tabs is first opened, not
+            during page render: its unmapped half groups over 13.7M rate rows and
+            costs ~4.6s cold. Both tabs share one fetch. */}
+        {tab === "networks" && (net.data ? <NetworksTable data={net.data} /> : <LoadingBlock error={net.error} />)}
 
-        {tab === "mapping" && (
-          <EmptyState
-            icon="link"
-            title="Network mapping view not built yet"
-            subtext="Which payer-reported network label resolves to which of our networks. The crosswalk exists in payer_network_map; the surface does not."
-          />
-        )}
+        {tab === "mapping" && (net.data ? <MappingBakeOff data={net.data} /> : <LoadingBlock error={net.error} />)}
+
       </div>
     </EcoSection>
   );

@@ -5,7 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { nightlyMetrics, rateSignalCount, tableCount } from "@/lib/insights-metrics";
 import { platformInventory } from "@/lib/repos/admin";
 import { practiceSnapshot } from "@/lib/repos/dashboard";
-import { insurerBoard, networkRowCount } from "@/lib/repos/insurers-board";
+import { insurerBoard } from "@/lib/repos/insurers-board";
 import { EMPTY_CATALOG, schemaCatalog } from "@/lib/repos/schema-catalog";
 import { listLeadReports } from "@/lib/repos/lead-reports";
 import { recentReports } from "@/lib/repos/reports";
@@ -53,7 +53,7 @@ export default async function WorkspacePage() {
 
   // The observatory reads no PHI and the strip reads no platform tables, so the
   // flights go out together; each is independently memoized in its repo.
-  const [snapshot, inventory, leadReports, health, runs, reports, insurers, networkRows, catalog] =
+  const [snapshot, inventory, leadReports, health, runs, reports, insurers, catalog] =
     await Promise.all([
       practiceSnapshot(user),
       isAdmin ? platformInventory() : null,
@@ -62,7 +62,6 @@ export default async function WorkspacePage() {
       isAdmin ? recentSyncRuns() : null,
       isAdmin ? recentReports() : [],
       isAdmin ? insurerBoard() : [],
-      isAdmin ? networkRowCount() : null,
       isAdmin ? schemaCatalog() : EMPTY_CATALOG,
     ]);
   // The Reports tab lists every night report; the scoreboard below reads its
@@ -119,7 +118,7 @@ export default async function WorkspacePage() {
 
             {inventory && <DataPanel groups={inventory.groups} catalog={catalog} />}
 
-            <InsurersPanel insurers={insurers} networkRows={networkRows} />
+            <InsurersPanel insurers={insurers} />
           </div>
         </>
       )}

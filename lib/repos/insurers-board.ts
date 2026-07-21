@@ -86,12 +86,3 @@ export async function insurerBoard(): Promise<InsurerCard[]> {
     ratesAsOf: r.latest ? isoDateOnly(r.latest) : null,
   }));
 }
-
-/** How many `networks` rows exist at all — the Networks tabs are placeholders,
- *  and the placeholder states this number so an unbuilt view is never mistaken
- *  for an empty table. */
-export async function networkRowCount(): Promise<number | null> {
-  if (!hasDb) return null;
-  const rows = (await sql`SELECT count(*)::int AS c FROM networks`) as Array<{ c: number }>;
-  return rows[0] ? Number(rows[0].c) : null;
-}
