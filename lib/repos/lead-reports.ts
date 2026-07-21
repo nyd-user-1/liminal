@@ -12,20 +12,44 @@ export type LeadReport = {
   updatedAt: string;
 };
 
+type Row = { report_date: Date; title: string; body_md: string; updated_at: Date };
+
+const toReport = (r: Row): LeadReport => ({
+  reportDate: isoDateOnly(r.report_date),
+  title: r.title,
+  bodyMd: r.body_md,
+  updatedAt: r.updated_at.toISOString(),
+});
+
+/** Every night report, newest first — the /workspace Reports tab shows the whole
+ *  run, not just the latest. Empty without a database (the mock store has no
+ *  night reports; the tab renders its empty state). */
+export async function listLeadReports(): Promise<LeadReport[]> {
+  if (!hasDb) return [];
+  const rows = (await sql`
+    SELECT report_date, title, body_md, updated_at
+    FROM lead_reports ORDER BY report_date DESC
+  `) as Row[];
+  return rows.map(toReport);
+}
+
+/** One report by its date — what the DocSheet opens and saves back to. */
+export async function leadReport(reportDate: string): Promise<LeadReport | null> {
+  if (!hasDb) return null;
+  const rows = (await sql`
+    SELECT report_date, title, body_md, updated_at
+    FROM lead_reports WHERE report_date = ${reportDate}
+  `) as Row[];
+  return rows[0] ? toReport(rows[0]) : null;
+}
+
 export async function latestLeadReport(): Promise<LeadReport | null> {
   if (!hasDb) return null;
   const rows = (await sql`
     SELECT report_date, title, body_md, updated_at
     FROM lead_reports ORDER BY report_date DESC LIMIT 1
-  `) as Array<{ report_date: Date; title: string; body_md: string; updated_at: Date }>;
-  const r = rows[0];
-  if (!r) return null;
-  return {
-    reportDate: isoDateOnly(r.report_date),
-    title: r.title,
-    bodyMd: r.body_md,
-    updatedAt: r.updated_at.toISOString(),
-  };
+  `) as Row[];
+  return rows[0] ? toReport(rows[0]) : null;
 }
 
 export async function saveLeadReport(reportDate: string, title: string, bodyMd: string): Promise<void> {

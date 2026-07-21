@@ -125,9 +125,11 @@ function GaugeTile({ card }: { card: GaugeCard }) {
         ))}
       </div>
 
-      <div className="mt-auto flex items-end justify-between gap-3 text-[13px] text-text-muted">
-        <span className="min-w-0 truncate">{card.primary}</span>
-        <span className="shrink-0">{card.secondary}</span>
+      {/* Wraps rather than truncates: at a narrow card the reset clock drops to
+          its own line instead of eating the reading it sits next to. */}
+      <div className="mt-auto flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-[13px] text-text-muted">
+        <span>{card.primary}</span>
+        <span>{card.secondary}</span>
       </div>
     </Card>
   );

@@ -6,19 +6,17 @@ import { requireUser } from "@/lib/auth";
 import { nightlyMetrics, rateSignalCount, tableCount } from "@/lib/insights-metrics";
 import { platformInventory } from "@/lib/repos/admin";
 import { practiceSnapshot } from "@/lib/repos/dashboard";
-import { latestLeadReport } from "@/lib/repos/lead-reports";
+import { listLeadReports } from "@/lib/repos/lead-reports";
 import { recentReports } from "@/lib/repos/reports";
 import { recentSyncRuns, syncHealth } from "@/lib/repos/sync-runs";
 import { CoverageGrowth, type CoverageGrowthData } from "./coverage-growth";
-import { Fleet } from "./fleet";
-import { NightWork } from "./night-report";
 import { Observatory } from "./observatory";
 import { PracticeStrip } from "./practice-strip";
-import { RulesPanel } from "./rules-panel";
 import { RunsPanel } from "./runs-panel";
 import { EcoSection } from "./section";
 import { SummaryCard } from "./summary-card";
 import { UsageGauge } from "./usage-gauge";
+import { Workbench } from "./workbench";
 
 // /workspace — the practice front door, and (for the founder) the ecosystem's
 // front door beneath it. Two audiences, one page:
@@ -26,11 +24,13 @@ import { UsageGauge } from "./usage-gauge";
 //   Layer 1  every staff role: today's caseload, scoped to who's asking.
 //   Layer 2  admin only: the self-sustaining, self-healing data ecosystem —
 //              · the summary       an on-demand AI briefing, in the Summary card
+//              · fuel              how much of the fleet's budget is spent
 //              · coverage & growth  the corpus compounding nightly + the pins
 //              · operations         the harvest/history/report/queue/anthem tables (each self-stamping its health)
-//              · overnight          the lead's night report, editable in a sheet
-//              · the workforce      the ten-agent fleet
-//              · rules              the standards that make ten agents read as one
+//              · agents, reports
+//                and rules          the fleet, what it shipped, and the standards
+//                                   that make ten terminals read as one — one
+//                                   section, three tabs, one kind of card
 //              · under the hood     the full platform inventory
 //
 // BoardTabs (Workspace · Analytics · Dashboard · Data dictionary · Docs) sit at
@@ -50,14 +50,18 @@ export default async function WorkspacePage() {
 
   // The observatory reads no PHI and the strip reads no platform tables, so the
   // flights go out together; each is independently memoized in its repo.
-  const [snapshot, inventory, report, health, runs, reports] = await Promise.all([
+  const [snapshot, inventory, leadReports, health, runs, reports] = await Promise.all([
     practiceSnapshot(user),
     isAdmin ? platformInventory() : null,
-    isAdmin ? latestLeadReport() : null,
+    isAdmin ? listLeadReports() : [],
     isAdmin ? syncHealth() : null,
     isAdmin ? recentSyncRuns() : null,
     isAdmin ? recentReports() : [],
   ]);
+  // The Reports tab lists every night report; the scoreboard below reads its
+  // growth numbers off the newest one — the same row, so a card and the prose
+  // the founder edits can never disagree.
+  const report = leadReports[0] ?? null;
 
   // The Coverage & growth scoreboard — counts straight off the inventory the
   // page already fetched, growth/coverage from the lead's night report so the
@@ -104,15 +108,7 @@ export default async function WorkspacePage() {
         <>
           <Divider className="mt-2" />
           <div className="flex min-w-0 flex-col gap-12">
-            {report && (
-              <EcoSection title="The night's work">
-                <NightWork report={report} />
-              </EcoSection>
-            )}
-
-            <Fleet />
-
-            <RulesPanel />
+            <Workbench reports={leadReports} />
 
             {inventory && (
               <EcoSection

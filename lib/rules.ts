@@ -1,7 +1,8 @@
 // The standards that make ten independent terminals read like one hand — the
-// content behind the /workspace Rules tabs. Three families: Design (how a
+// content behind the /workspace Rules tab. Three families: Design (how a
 // surface looks and reads), Agent (how the fleet works and hands off), Database
-// (how the data layer stays trustworthy).
+// (how the data layer stays trustworthy). They share one list now, each card
+// wearing its family as a badge.
 //
 // This file is the CARD layer: title + the one-paragraph lede a card shows. The
 // full rule — the why and the how — lives in `docs/rules/<id>.md`, which is what
@@ -19,11 +20,13 @@ export interface Rule {
   body: string;
 }
 
-export const RULE_TABS: { key: RuleTab; label: string }[] = [
-  { key: "design", label: "Design Rules" },
-  { key: "agent", label: "Agent Rules" },
-  { key: "database", label: "Database Rules" },
-];
+/** The family a rule belongs to. Once its own tab; now the badge in the card's
+ *  lower-left, so the grouping survives the merge into one Rules list. */
+export const RULE_CATEGORY: Record<RuleTab, string> = {
+  design: "Design",
+  agent: "Agent",
+  database: "Database",
+};
 
 export const RULES: Rule[] = [
   // ── Design ────────────────────────────────────────────────────────────────
