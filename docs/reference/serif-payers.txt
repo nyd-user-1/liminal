@@ -1,0 +1,206 @@
+# Serif payer list (founder-provided 2026-07-19, from Serif Health's payer picker)
+# One payer per line, verbatim. Cross-reference target: our `insurers` table.
+Aetna
+Allegiance
+Alliant Health Plans
+Allina Health
+AllWays Health Partners
+Ambetter
+Americas PPO
+Amerihealth Caritas Next
+AmeriHealth Insurance Company of New Jersey
+Anthem
+Arkansas Blue Cross and Blue Shield
+Aspirus Health Plan
+Asuris Northwest Health
+AultCare Insurance Company
+Avera Health Plans Inc
+AvMed
+Baylor Scott and White Health Plan
+BCBS Puerto Rico (Triple S)
+Beacon Health Options
+Blue Card
+Blue Cross and Blue Shield of Illinois
+Blue Cross and Blue Shield of Kansas
+Blue Cross and Blue Shield of Kansas City
+Blue Cross and Blue Shield of Montana
+Blue Cross and Blue Shield of Nebraska
+Blue Cross and Blue Shield of New Mexico
+Blue Cross and Blue Shield of North Carolina
+Blue Cross and Blue Shield of Oklahoma
+Blue Cross and Blue Shield of Texas
+Blue Cross and Blue Shield of Vermont
+Blue Cross and Blue Shield of Wyoming
+Blue Cross Blue Shield Louisiana
+Blue Cross Blue Shield of Alabama
+Blue Cross Blue Shield of Arizona
+Blue Cross Blue Shield of Massachusetts
+Blue Cross Blue Shield of Michigan
+Blue Cross Blue Shield of Minnesota
+Blue Cross Blue Shield of Mississippi
+Blue Cross Blue Shield of North Dakota
+Blue Cross Blue Shield of Rhode Island
+Blue Cross of Idaho
+Blue Shield of California
+BlueCross BlueShield of South Carolina
+BlueCross BlueShield of Tennessee
+BridgeSpan
+Capital BlueCross
+Capital District Physicians Health Plan
+Capital Health Plan Inc
+CareFirst BlueCross BlueShield
+Caresource
+Carrum Health
+CenterCare
+Centivo
+Central California Alliance for Health
+Christus
+Cigna Corporation
+Common Ground Healthcare Cooperative
+Community Health Choice
+Community Health Options
+Community Health Plan of Washington
+CommunityCare
+ComPsych
+Connecticare
+Contra Costa Health
+Cost Plus Wellness
+Cox Health Systems
+Curative
+Dean Health Plan
+Denver Health Medical Plan
+Deseret Mutual Benefit Administrators
+EHN
+Emblem Health
+EMI Health
+Encore
+Evolutions Healthcare Systems
+Excellus BlueCross BlueShield
+Fallon Health
+Fidelis Care
+First Choice Health
+First Health
+Florida Blue
+Geisinger Health Plan
+Group Health Cooperative of Eau Claire
+Group Health Cooperative of South Central Wisconsin
+HAP
+Harvard Pilgrim Healthcare
+Hawaii Medical Assurance Association
+Hawaii Medical Service Association
+Health Advantage HMO Partners
+Health Alliance
+Health First
+Health Net
+Health New England Inc
+Health Payment Systems
+Health Plan of Nevada
+Health2Business
+Healthcare Highways
+Healthchoice
+Healthfirst
+HealthLink
+HealthPartners
+Healthsmart
+Henry Ford Health System
+Highmark Blue Cross Blue Shield Delaware
+Highmark Blue Cross Blue Shield Pennsylvania
+Highmark Blue Cross Blue Shield West Virginia
+Highmark Blue Cross Blue Shield Western New York
+Highmark Blue Shield of Northeastern New York
+Highmark Blue Shield Pennsylvania
+HMA
+Hometown Health Plan
+Horizon Blue Cross Blue Shield of New Jersey
+Imagine360
+Independence BCBS
+Independent Health
+Innovation Health Plan
+IU Health Plans
+Jefferson Health Plans
+Johns Hopkins Health Plans
+Kaiser Foundation Health Plan
+Lifewise
+Magellan Health
+MagnaCare
+McLaren
+Medcost
+Medica
+Medical Associates Health Plan
+Medical Card System Puerto Rico
+Medical Mutual of Ohio
+MercyCare
+Meritain Health
+MetroPlus
+Midlands Choice
+Mississippi Physicians Care Network
+Moda Health
+Molina Healthcare
+Motiv Health
+Mountain Health COOP
+MultiPlan
+MVP Health Care
+Neighborhood Health Plan of Rhode Island
+Network Health
+Networks By Design
+Ohio PPO Connect
+Optum
+Oscar Insurance Corporation
+Oxford Health Plan
+Pacificare
+PacificSource Health Plans
+Paramount Insurance Company
+Physicians Health Plan
+Physicians Health Plan of Northern Indiana
+Preferred Health Professionals
+Premera Blue Cross
+Presbyterian Health Plan
+Prime Health Services
+Priority Health
+Prominence Health Plan
+Providence Health Plan
+ProviDRs Care
+Qualchoice
+Quality Care Partners
+Quartz
+Regence BlueCross BlueShield of Oregon
+Regence BlueCross BlueShield of Utah
+Regence BlueShield of Idaho
+Regence BlueShield of Washington
+Rocky Mountain Health Plan
+Sagamore Health Network
+Samaritan Health Plans
+Sana Benefits
+Sanford Health Group
+Security Health Plan of Wisconsin
+SelectHealth
+Sendero
+Sentara Health Plans
+Sierra Health and Life
+SIHO Insurance Services
+SmartHealth
+St. Lukes Health Plan
+StayWell Insurance
+Summa Care
+Sutter Health Plus
+The Alliance
+The Health Plan
+Trilogy
+Truli
+Tufts Health Plan
+UCare
+UHA
+UnitedHealthcare
+Univera Healthcare
+University of Utah Health Plans
+UPMC Health Plan
+Valley Health Plan
+Viva Health
+Wellmark Blue Cross and Blue Shield of Iowa
+Wellmark Blue Cross and Blue Shield of South Dakota
+Wellpoint
+WellSense Health Plan
+Western Health Advantage
+WPS Health Plan
+Yale University Health Plan
+Zelis

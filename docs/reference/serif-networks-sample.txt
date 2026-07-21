@@ -1,0 +1,134 @@
+# Serif network model, sample (founder-provided 2026-07-19)
+# Serif's shape: each network = name + type (HMO/PPO/Exchange/Behavioral/RX) + state (or USA).
+# This is the model the founder wants our network canonicalization compared against
+# (bears directly on the Empire June-label curation question).
+# Sample: networks Serif shows for Aetna, Anthem, Optum, Oscar, Oxford, UnitedHealthcare.
+# Format: payer | network | type | state
+
+Aetna | Aetna National Gold HMO | HMO | USA
+Aetna | Aetna HMO | HMO | GA
+Aetna | Aetna PPO | PPO | USA
+Aetna | Aetna HMO | HMO | LA
+Aetna | ASA | PPO | USA
+Aetna | OAEPO | PPO | NY
+Aetna | Open Access Managed Choice | PPO | USA
+Aetna | Aetna HMO | HMO | IA
+Aetna | Open Access Elect Choice | PPO | USA
+Aetna | Aetna HMO | HMO | ME
+Aetna | Aetna Gold | HMO | CA
+Aetna | Aetna HMO | HMO | NJ
+Aetna | Aetna EPO | PPO | USA
+Anthem | PPO | PPO | WI
+Anthem | HMO | HMO | CT
+Anthem | HMO | HMO | CO
+Anthem | Blue Access EPO | PPO | NY
+Anthem | HMO | HMO | IN
+Anthem | PPO | PPO | NH
+Anthem | Blue Access Choice | PPO | MO
+Anthem | HMO | HMO | VA
+Anthem | Vivity Small Group | HMO | CA
+Anthem | Pathway | Exchange | OH
+Anthem | HMO | HMO | CA
+Anthem | Pathway | Exchange | GA
+Anthem | HMO | HMO | GA
+Anthem | PPO | PPO | KY
+Anthem | Healthkeepers | Exchange | VA
+Anthem | Blue Preferred | PPO | WI
+Anthem | Prudent Buyer PPO | PPO | CA
+Anthem | PPO | PPO | NY
+Anthem | California Care | HMO | CA
+Anthem | HMO | HMO | NV
+Anthem | HMO | HMO | MO
+Anthem | Small Group Blue Choice | PPO | ME
+Anthem | HMO | HMO | OH
+Anthem | PPO | PPO | GA
+Anthem | PPO | PPO | VA
+Anthem | Preferred Blue | PPO | NH
+Anthem | HMO | HMO | KY
+Anthem | PPO | PPO | ME
+Anthem | Individual Network | Exchange | NY
+Anthem | Priority Select | HMO | CA
+Anthem | PPO | PPO | CO
+Anthem | Blue New England | HMO | NH
+Anthem | HMO | HMO | ME
+Anthem | HMO | HMO | NH
+Anthem | PPO | PPO | CA
+Anthem | Connection EPO | HMO | NY
+Anthem | HMO | HMO | NY
+Anthem | Blue Access | PPO | KY
+Anthem | Century Preferred | PPO | CT
+Anthem | PPO | PPO | IN
+Anthem | Pathway | PPO | CO
+Anthem | PPO | PPO | MO
+Anthem | Small Group Blue Open Access POS | PPO | GA
+Anthem | PPO | PPO | OH
+Anthem | PPO | PPO | NV
+Anthem | PPO | PPO | CT
+Anthem | HMO | HMO | WI
+Optum | MTA Prescription Drug File | RX | USA
+Optum | National BH EAP | Behavioral | USA
+Optum | BMR Blackhawk1 Prescription Drug File | RX | USA
+Oscar Insurance Corporation | Individual Illinois | Exchange | IL
+Oscar Insurance Corporation | Illinois Select | Exchange | IL
+Oscar Insurance Corporation | Individual Iowa | Exchange | IA
+Oscar Insurance Corporation | Individual Cleveland | Exchange | OH
+Oscar Insurance Corporation | Individual Georgia HMO Non-Gatekept | Exchange | GA
+Oscar Insurance Corporation | Individual Nebraska | Exchange | NE
+Oscar Insurance Corporation | Individual Columbus | Exchange | OH
+Oscar Insurance Corporation | Individual New York | Exchange | NY
+Oscar Insurance Corporation | Individual Virginia | Exchange | VA
+Oscar Insurance Corporation | Individual Missouri | Exchange | MO
+Oscar Insurance Corporation | Individual Oklahoma | Exchange | OK
+Oscar Insurance Corporation | Individual Georgia | Exchange | GA
+Oscar Insurance Corporation | Individual Florida | Exchange | FL
+Oscar Insurance Corporation | Individual New Jersey | Exchange | NJ
+Oscar Insurance Corporation | Individual Texas | Exchange | TX
+Oscar Insurance Corporation | Individual North Carolina | Exchange | NC
+Oscar Insurance Corporation | Individual Pennsylvania | Exchange | PA
+Oscar Insurance Corporation | Individual Arizona | Exchange | AZ
+Oscar Insurance Corporation | Individual Tennessee | Exchange | TN
+Oscar Insurance Corporation | Individual Houston Choice | Exchange | TX
+Oscar Insurance Corporation | Individual Michigan | Exchange | MI
+Oscar Insurance Corporation | Individual Kansas | Exchange | KS
+Oxford Health Plan | Primary Advantage Non Gated EPO Freedom Network | HMO | NJ
+Oxford Health Plan | Primary Advantage Non-Gated EPO Liberty Network | HMO | NJ
+Oxford Health Plan | Primary Advantage Non-Gated EPO Metro Network | HMO | NJ
+UnitedHealthcare | South Carolina Provider Network | Exchange | SC
+UnitedHealthcare | Wisconsin Provider Network | Exchange | WI
+UnitedHealthcare | Heritage Plus POS | PPO | USA
+UnitedHealthcare | Texas Provider Network | Exchange | TX
+UnitedHealthcare | Virginia Provider Network | Exchange | VA
+UnitedHealthcare | Navigate Balanced | HMO | USA
+UnitedHealthcare | Non Diff PPO | PPO | USA
+UnitedHealthcare | Massachusetts Provider Network | Exchange | MA
+UnitedHealthcare | Maryland Provider Network | Exchange | MD
+UnitedHealthcare | Compass | Exchange | NY
+UnitedHealthcare | Nexus ACO OAP | HMO | USA
+UnitedHealthcare | Select Plus | PPO | USA
+UnitedHealthcare | New Jersey Provider Network | Exchange | NJ
+UnitedHealthcare | Wyoming Provider Network | Exchange | WY
+UnitedHealthcare | Sierra Health and Life Commercial PPO | PPO | NV
+UnitedHealthcare | Michigan Provider Network | Exchange | MI
+UnitedHealthcare | Kansas Provider Network | Exchange | KS
+UnitedHealthcare | Core | PPO | USA
+UnitedHealthcare | Charter Balanced | HMO | USA
+UnitedHealthcare | Nebraska Provider Network | Exchange | NE
+UnitedHealthcare | New Mexico Provider Network | Exchange | NM
+UnitedHealthcare | Alabama Provider Network | Exchange | AL
+UnitedHealthcare | Tennessee Provider Network | Exchange | TN
+UnitedHealthcare | Oklahoma Provider Network | Exchange | OK
+UnitedHealthcare | Indiana Provider Network | Exchange | IN
+UnitedHealthcare | North Carolina Provider Network | Exchange | NC
+UnitedHealthcare | Illinois Provider Network | Exchange | IL
+UnitedHealthcare | Iowa Provider Network | Exchange | IA
+UnitedHealthcare | Mississippi Provider Network | Exchange | MS
+UnitedHealthcare | Missouri Provider Network | Exchange | MO
+UnitedHealthcare | Options PPO | PPO | USA
+UnitedHealthcare | Washington Provider Network | Exchange | WA
+UnitedHealthcare | Georgia Provider Network | Exchange | GA
+UnitedHealthcare | Ohio Provider Network | Exchange | OH
+UnitedHealthcare | Arizona Provider Network | Exchange | AZ
+UnitedHealthcare | Choice Plus | PPO | USA
+UnitedHealthcare | Florida Provider Network | Exchange | FL
+UnitedHealthcare | Doctors Plan | PPO | USA
+UnitedHealthcare | Louisiana Provider Network | Exchange | LA
