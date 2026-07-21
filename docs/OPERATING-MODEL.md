@@ -141,3 +141,34 @@ Linear MCP measured at 43% of usage. Effective immediately:
   evidence`. The lead executes them in the end-of-session batch.
 - `docs/QUEUE.md` is the shared brain between syncs: the lead keeps warm
   assignments + pending intents there; briefs point at it.
+
+## Spawn discipline — terminals over invisible sub-agents (founder ruling, 2026-07-20)
+
+A visible window can be watched, jumped into, and stopped. An in-session
+sub-agent can't be. That is the whole reason for this rule.
+
+- **Every spawned agent MUST carry a domain `subagent_type`** (`ui-agent`,
+  `quality-agent`, `qa-agent`, `data-agent`, …). The task-shaped string is the
+  `name` label only. A generic/`general-purpose` spawn with the brief inline
+  bypasses the agent-file identity contract — seams, verification standard, PHI
+  handling, staging discipline — and is never acceptable.
+
+- **Substantial, multi-step, or watchable work → hand the founder a kickoff
+  prompt for a fresh terminal.** Write the brief, hand it over, don't spawn.
+  The test is not "can I run this?" but "would he want to watch or interrupt
+  it?" If yes, it belongs in a window.
+
+- **Reusing one of the four warm terminals:** they sit near their context
+  limits. Tell the founder to `/clear` the terminal first and re-kickoff there
+  — never spawn a parallel agent alongside an idle window.
+
+- **In-session spawns are reserved for bounded, short, clearly-scoped work.**
+
+- **Whenever a spawn is running, the lead's next message says what it is and
+  how to stop it.** No invisible work.
+
+*Occasioned by 2026-07-20: the lead ran ten in-session spawns — an e2e payment
+drive, a primitive-level table rework, a five-item UI batch, a security audit —
+while all four worker terminals sat idle. Every spawn carried a correct domain
+type, so the identity contract held; the pattern was still wrong, because the
+founder could not see or stop any of it.*
