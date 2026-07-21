@@ -156,6 +156,17 @@ Headless at **1440 and 1280**, practitioner login `brendan@liminal.demo` / `demo
 
 ## Report
 
-`docs/reports/2026-07-20-workspace-gauge.md` — per-item verification,
-screenshots, the reused-component statement, a plain statement of what the
-Fable card shows and why, and flags. File under NYS-174's siblings.
+**File to `docs/reports/2026-07-20-workspace-gauge.md`.** The **advisor**
+session reviews this report (the lead terminal is retired as of 2026-07-20
+evening) — write it for a reader who will re-run your claims, not skim them.
+
+Include: per-item verification with the evidence, screenshots, an explicit
+statement of **which existing component you reused** for the card→DocSheet
+gesture, a plain statement of **what the Fable card actually shows and how it
+was derived** (measured vs modeled — say which, and name the method), and any
+flags or premise corrections. Premise corrections are a good outcome, not a
+failure; if the brief is wrong about something, say so with evidence rather
+than building to a wrong spec. File under NYS-174's siblings.
+
+When the report is written: **commit it, do not push, and STOP.** Do not
+continue into adjacent work or self-assign follow-ups.
