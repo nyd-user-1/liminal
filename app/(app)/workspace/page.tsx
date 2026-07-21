@@ -6,12 +6,13 @@ import { nightlyMetrics, rateSignalCount, tableCount } from "@/lib/insights-metr
 import { platformInventory } from "@/lib/repos/admin";
 import { practiceSnapshot } from "@/lib/repos/dashboard";
 import { insurerBoard, networkRowCount } from "@/lib/repos/insurers-board";
+import { EMPTY_CATALOG, schemaCatalog } from "@/lib/repos/schema-catalog";
 import { listLeadReports } from "@/lib/repos/lead-reports";
 import { recentReports } from "@/lib/repos/reports";
 import { recentSyncRuns, syncHealth } from "@/lib/repos/sync-runs";
 import { CoverageGrowth, type CoverageGrowthData } from "./coverage-growth";
+import { DataPanel } from "./data-panel";
 import { InsurersPanel } from "./insurers-panel";
-import { Observatory } from "./observatory";
 import { PracticeStrip } from "./practice-strip";
 import { RunsPanel } from "./runs-panel";
 import { EcoSection } from "./section";
@@ -52,7 +53,7 @@ export default async function WorkspacePage() {
 
   // The observatory reads no PHI and the strip reads no platform tables, so the
   // flights go out together; each is independently memoized in its repo.
-  const [snapshot, inventory, leadReports, health, runs, reports, insurers, networkRows] =
+  const [snapshot, inventory, leadReports, health, runs, reports, insurers, networkRows, catalog] =
     await Promise.all([
       practiceSnapshot(user),
       isAdmin ? platformInventory() : null,
@@ -62,6 +63,7 @@ export default async function WorkspacePage() {
       isAdmin ? recentReports() : [],
       isAdmin ? insurerBoard() : [],
       isAdmin ? networkRowCount() : null,
+      isAdmin ? schemaCatalog() : EMPTY_CATALOG,
     ]);
   // The Reports tab lists every night report; the scoreboard below reads its
   // growth numbers off the newest one — the same row, so a card and the prose
@@ -115,11 +117,7 @@ export default async function WorkspacePage() {
           <div className="flex min-w-0 flex-col gap-12">
             <Workbench reports={leadReports} />
 
-            {inventory && (
-              <EcoSection title="Data">
-                <Observatory groups={inventory.groups} />
-              </EcoSection>
-            )}
+            {inventory && <DataPanel groups={inventory.groups} catalog={catalog} />}
 
             <InsurersPanel insurers={insurers} networkRows={networkRows} />
           </div>
