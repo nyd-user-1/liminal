@@ -37,8 +37,10 @@ Files modified: `page.tsx`, `lib/repos/lead-reports.ts`, `lib/rules.ts`.
 
 Three cards, placed immediately above "Coverage & growth" under the heading
 **Fuel**. Each carries the identity icon + label top-left, the percentage
-top-right, a 20 × 5 grid of small rounded squares (one square = one whole
-percent, so the grid *is* the reading), and a two-item footer.
+top-right, a grid of small rounded squares (one square = one whole percent, so
+the grid *is* the reading), and a two-item footer. *(Batch 2 below re-proportions
+this grid to 25 × 4 and swaps the per-card icons for the Claude mark — the
+screenshots in this section predate that.)*
 
 **Colour** comes from `docs/ops/PACING.md`'s own bands, on existing theme tokens
 — `bg-success` under 60%, `bg-warning` 60–85%, `bg-danger` above, `bg-canvas`
@@ -283,3 +285,190 @@ find out the hard way; the route's JSON is the contract and the comment says so.
   `modeled` label is doing necessary work.
 
 Report committed. Not pushed. Stopping here.
+
+---
+
+# Batch 2 — gauge polish, Claude mark, Insurers, Data rework
+
+Same seam, continuing after the report above. Four items, all shipped, four
+local commits, nothing pushed. Screenshots prefixed `b2-` in the same assets
+directory.
+
+Three premise corrections are in **Flags (batch 2)** — two of them change what
+the Data tabs say, so read those before the numbers.
+
+## Commits
+
+| Commit | What |
+| --- | --- |
+| `8c454d3` | Item 1 + 2 — 25×4 gauge grid; Claude mark replaces the three per-card icons |
+| `8378fa4` | Item 3 — Insurers section, 48 real rows, three tabs |
+| `1e0c00b` | Item 4 — Data reworked into 7 tabs over the live schema |
+
+(`2619369`, dropping the "Data dictionary" link from the Data header, landed in
+this tree from another session mid-batch; my page.tsx edits sit on top of it.)
+
+## 1 · Gauge grid — 25 × 4
+
+![gauge](assets/2026-07-20-workspace-gauge/b2-gauge-1440.png)
+
+Wider and shorter, and still one square per whole percent — asserted, not
+eyeballed: `GAUGE GRID {"cols":25,"squares":100}` from the computed
+`grid-template-columns`, at both widths.
+
+## 2 · The Claude mark
+
+`250px_Claude_AI_symbol.svg.webp` moved off the repo root to
+**`public/brand/claude-mark.webp`**. This repo had no `public/` directory before
+now — marketing imagery lives in the blob store — so that directory is new.
+
+**No vector is needed, and I measured rather than guessed.** The mark renders in
+an 18px box; at DPR 3 that is 54 device pixels drawn from a 250px source, so it
+is a downscale in every realistic case. Rendered at 3× it is clean:
+
+![the mark at 3x](assets/2026-07-20-workspace-gauge/b2-claude-mark-3x.png)
+
+All three cards carry it (`GAUGE ICONS 3`) — the founder's read is right that
+one identity beats three, since every reading on that row is Claude's own
+consumption.
+
+## 3 · Insurers
+
+![insurers](assets/2026-07-20-workspace-gauge/b2-ins-insurers.png)
+
+Last section on the page, 48 real rows from `insurers`, three tabs, 3×2 + View
+more. Card anatomy: monogram mark + name, the registry's own note as the
+description, the metadata that row actually has, one action at the foot.
+
+**Where every value comes from.** `insurers.name` / `kind` / `naic_group_code` /
+`notes`; parent name self-joined on `parent_id`; network count from `networks`;
+licensed-entity count from `insurer_companies`; rate rows, providers and
+priced-date summed from the **`payer_rate_totals` matview** through
+`insurer_aliases`. Nothing is scored, ranked or estimated.
+
+**Thin rows show thin.** 31 of 48 carry rates, 16 carry networks, 20 carry a
+NAIC group, 27 carry a note. A row with none of that gets a derived one-liner
+from the two columns we always have ("Carrier under Elevance Health") and a
+`Registry only` foot — never filler prose.
+
+**A measurement worth keeping:** the obvious query,
+`SELECT DISTINCT payer FROM provider_rate_signals`, takes **27 seconds** against
+13.7M rows. Through the matview the whole board is **~183ms**. I tried the
+obvious one first and rejected it on the clock.
+
+No carrier logos exist in this repo, so the mark slot is a monogram. A borrowed
+logo would be the dishonest option.
+
+## 4 · Data — seven tabs
+
+| Objects | Indexes | Functions |
+| --- | --- | --- |
+| ![](assets/2026-07-20-workspace-gauge/b2-data-objects.png) | ![](assets/2026-07-20-workspace-gauge/b2-data-indexes.png) | ![](assets/2026-07-20-workspace-gauge/b2-data-functions.png) |
+
+- Rich-text links **removed** — asserted per tab as `links=0` inside every card.
+- Uniform card size — `h=[196] w=[373]` at 1440, `w=[320]` at 1280: one distinct
+  height and one distinct width across the grid. Body clamps at two lines.
+- Own tab rail + collapse, matching the other sections.
+- **"Who exists (foundation)" → "Objects"** in `lib/table-atlas.mjs`.
+- 3×2 + View more bottom-left.
+- Six live-schema tabs, populated by introspection at page load.
+
+**Cards vs tables, and why.** Objects is cards: every row carries a written
+meaning, a count and a badge — that is a card's job. The six schema tabs are
+tables: uniform name/detail/metric triples with nothing to describe, up to 237
+of them. Cards there would be forty clicks of "View more" to read a list.
+
+### What is actually in the database
+
+| Tab | Count | Note |
+| --- | --- | --- |
+| Tables | 76 | row estimates from `reltuples`, carrying `+` |
+| Views | 18 | 6 plain + 12 materialized, distinguished in a column |
+| Indexes | 237 | sized, largest first — `provider_rate_signals` alone holds a 4,339 MB index |
+| Stored procedures & functions | **2** | see the correction below |
+| Triggers | **19** | see the correction below |
+| Sequences | 1 | `audit_events_id_seq` |
+
+## Verification (batch 2)
+
+Headless Chromium, admin login, both widths, printed assertions:
+
+| Claim | Evidence | 1440 | 1280 |
+| --- | --- | --- | --- |
+| Gauge is 25 × 4 = 100 squares | computed `cols:25, squares:100` | ✅ | ✅ |
+| Claude mark on all three cards | `GAUGE ICONS 3` (matched on `img[src="/brand/claude-mark.webp"]`) | ✅ | ✅ |
+| Insurers is last on the page | `H2 ORDER [… "Data","Insurers"]` | ✅ | ✅ |
+| Insurers 3×2 + View more | `INS/Insurers: cards=6 vm=1` | ✅ | ✅ |
+| Insurer cards uniform | `h=[228] w=[373]` / `w=[320]` | ✅ | ✅ |
+| Networks tabs visible + honestly empty | `cards=0`, EmptyState quoting the 72 real rows | ✅ | ✅ |
+| Data: no links in cards | `links=0` on every tab | ✅ | ✅ |
+| Data: Objects uniform + 3×2 + View more | `cards=6 vm=1 h=[196] w=[373]` | ✅ | ✅ |
+| Six schema tabs populated live | `rows=10/10/10/2/10/1` (paged) | ✅ | ✅ |
+| Ten rows a page | `rows=10` where the set is larger | ✅ | ✅ |
+| Workbench still intact | `WB/Agents=6 Reports=2 Rules=6` | ✅ | ✅ |
+| Zero "Editable" badges | `EDITABLE_BADGES 0` | ✅ | ✅ |
+| No horizontal scroll | `DOC H-SCROLL false` | ✅ | ✅ |
+| One H1 | `H1S ["Workspace"]` | ✅ | ✅ |
+
+`npx tsc --noEmit` clean. First paint 647–1,565ms with the two new query sets in
+the page's `Promise.all`.
+
+**The empty state was forced, not asserted.** Pointing the sequences query at a
+schema that does not exist and letting HMR pick it up:
+
+![forced empty state](assets/2026-07-20-workspace-gauge/b2-data-empty-state.png)
+
+## Flags (batch 2)
+
+**8. Premise correction — we DO have triggers: 19 of them.** The brief expected
+none. `set_updated_at()` is wired onto 19 tables (appointments, clients,
+invoices, forms, files, …). The tab lists them with the table and the function
+each one calls.
+
+**9. Premise correction — "69 stored procedures" is an illusion; we wrote 2.**
+`information_schema.routines` reports 69 in `public`, but 67 belong to
+extensions: pgcrypto (36), pg_trgm (31), pg_session_jwt (8), plpgsql (3). The
+tab filters them out via `pg_depend` and reports **`refresh_organizations`** and
+**`set_updated_at`** — then names the other 67 in its footer, so the gap between
+the two numbers is explained on the surface rather than discovered later.
+
+**10. Defect I introduced and fixed in the same session.** Rendering all 237
+indexes made the Data section **~9,600px tall** and swallowed the page. The
+schema tables now page at ten rows (the table standard's number). Worth
+recording because the first version passed every count assertion while being
+unusable — the assertions did not catch it, looking at the screenshot did.
+
+**11. Tab 2 of Insurers could be populated today.** I built it as the briefed
+placeholder, but `networks` holds **72 rows** and `payer_network_map` holds
+**1,133**. Rather than ship a blank that implies we have nothing, the
+placeholder states those counts — "72 rows already sit in the networks table —
+this surface for them is the missing piece, not the data." Say the word and
+tab 2 becomes real; the repo function is one query.
+
+**12. Same monochrome-first-page effect as Rules.** The Objects tab's first six
+cards all carry the `Objects` badge, because the curated groups are flattened in
+order. Consistent with the choice I made for Rules in batch 1, and the same
+alternative applies (interleave by group). Flagging it once for both.
+
+**13. `docs/data/DATABASE.md` still says "Who exists (foundation)".** That file
+is generated by `scripts/db-atlas.mjs` and owned by docs-agent, so I did not
+regenerate it. It wants a rerun to pick up the rename.
+
+**14. Data-section table standard, stated plainly.** The six schema tables ship
+the full v2 anatomy — title + count pill far left, search right, sortable
+columns, source + freshness footer, ten rows. They page **client-side**: the
+largest set is 237 rows, and the server-pagination half of the lightning stack
+is for the >10k tables. Saying so explicitly because the standing rule reads as
+unconditional.
+
+## Design-system position (batch 2)
+
+**Still no new primitive.** Insurers is `Card` + `Tabs` + `TextLink` +
+`EmptyState` + `Button`; Data is `Tabs` + `DataTable` + `SearchInput` +
+`Pagination` + `EmptyState` + `Card` + `Badge` + `Tag` + the existing `CopyChip`
+and `SchemaTree`. `components/ui/*` is untouched across both batches.
+
+`observatory.tsx` is deleted — `data-panel.tsx` supersedes it, carrying its card
+logic forward rather than running two inventory renderers.
+
+Report appended. Not pushed. Stopping here.
