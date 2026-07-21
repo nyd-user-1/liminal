@@ -5,10 +5,12 @@ import { requireUser } from "@/lib/auth";
 import { nightlyMetrics, rateSignalCount, tableCount } from "@/lib/insights-metrics";
 import { platformInventory } from "@/lib/repos/admin";
 import { practiceSnapshot } from "@/lib/repos/dashboard";
+import { insurerBoard, networkRowCount } from "@/lib/repos/insurers-board";
 import { listLeadReports } from "@/lib/repos/lead-reports";
 import { recentReports } from "@/lib/repos/reports";
 import { recentSyncRuns, syncHealth } from "@/lib/repos/sync-runs";
 import { CoverageGrowth, type CoverageGrowthData } from "./coverage-growth";
+import { InsurersPanel } from "./insurers-panel";
 import { Observatory } from "./observatory";
 import { PracticeStrip } from "./practice-strip";
 import { RunsPanel } from "./runs-panel";
@@ -31,6 +33,7 @@ import { Workbench } from "./workbench";
 //                                   that make ten terminals read as one — one
 //                                   section, three tabs, one kind of card
 //              · under the hood     the full platform inventory
+//              · insurers          the carrier registry, on the facts the schema holds
 //
 // BoardTabs (Workspace · Analytics · Dashboard · Data dictionary · Docs) sit at
 // the top of the content, under the route H1 (the shell renders that H1 above
@@ -49,14 +52,17 @@ export default async function WorkspacePage() {
 
   // The observatory reads no PHI and the strip reads no platform tables, so the
   // flights go out together; each is independently memoized in its repo.
-  const [snapshot, inventory, leadReports, health, runs, reports] = await Promise.all([
-    practiceSnapshot(user),
-    isAdmin ? platformInventory() : null,
-    isAdmin ? listLeadReports() : [],
-    isAdmin ? syncHealth() : null,
-    isAdmin ? recentSyncRuns() : null,
-    isAdmin ? recentReports() : [],
-  ]);
+  const [snapshot, inventory, leadReports, health, runs, reports, insurers, networkRows] =
+    await Promise.all([
+      practiceSnapshot(user),
+      isAdmin ? platformInventory() : null,
+      isAdmin ? listLeadReports() : [],
+      isAdmin ? syncHealth() : null,
+      isAdmin ? recentSyncRuns() : null,
+      isAdmin ? recentReports() : [],
+      isAdmin ? insurerBoard() : [],
+      isAdmin ? networkRowCount() : null,
+    ]);
   // The Reports tab lists every night report; the scoreboard below reads its
   // growth numbers off the newest one — the same row, so a card and the prose
   // the founder edits can never disagree.
@@ -114,6 +120,8 @@ export default async function WorkspacePage() {
                 <Observatory groups={inventory.groups} />
               </EcoSection>
             )}
+
+            <InsurersPanel insurers={insurers} networkRows={networkRows} />
           </div>
         </>
       )}
