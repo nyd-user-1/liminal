@@ -125,8 +125,45 @@ export async function GET(req: NextRequest) {
   const runId = await openRun("daily", isCron(req));
   const steps: SyncStep[] = [];
 
-  for (const v of VIEWS) steps.push(await refreshView(v));
-  for (const t of ANALYZE_TABLES) steps.push(await analyzeTable(t));
+  // WATCHDOG (found 2026-07-21): the one recorded failure of this route was a
+  // SIGKILL at exactly maxDuration — and closeRun/sendOpsAlertEmail/notifyAdmins
+  // all sit BELOW this loop, so none of them ran. The alarm died with the fire:
+  // the run row stayed open forever and no human was told. Stop short of the
+  // cap instead, so the timeout reports itself through the same path as any
+  // other failure.
+  //
+  // Not a guarantee. The deadline is checked BETWEEN steps, so one slow step
+  // that starts just under it can still overrun (org_tin_rosters has been
+  // measured at 76s). It converts the common case from silent death into a
+  // reported partial run; the harvestd runner (psql, no ceiling) remains the
+  // only path that reliably finishes the whole chain.
+  const DEADLINE_MS = 240_000; // 60s of headroom under maxDuration = 300.
+  const outOfTime = () => Date.now() - startedAt > DEADLINE_MS;
+  let stoppedAfter: string | null = null;
+
+  for (const v of VIEWS) {
+    if (outOfTime()) { stoppedAfter = v; break; }
+    steps.push(await refreshView(v));
+  }
+  if (!stoppedAfter) {
+    for (const t of ANALYZE_TABLES) {
+      if (outOfTime()) { stoppedAfter = `analyze ${t}`; break; }
+      steps.push(await analyzeTable(t));
+    }
+  }
+  if (stoppedAfter) {
+    const done = steps.length;
+    const total = VIEWS.length + ANALYZE_TABLES.length;
+    steps.push({
+      step: "watchdog",
+      ms: Date.now() - startedAt,
+      error:
+        `Stopped after ${done} of ${total} steps at the ${DEADLINE_MS / 1000}s deadline ` +
+        `(maxDuration is ${maxDuration}s). Remaining steps from "${stoppedAfter}" were not ` +
+        `attempted; the views they would have rebuilt keep their previous contents. ` +
+        `Use the harvestd runner for a guaranteed full rebuild.`,
+    });
+  }
 
   await closeRun(runId, steps, startedAt);
   const failed = steps.filter((s) => s.error);
