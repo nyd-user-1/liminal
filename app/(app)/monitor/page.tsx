@@ -24,7 +24,7 @@ export default async function MonitorPage() {
   } catch (e) {
     // A practitioner landing here gets a plain wall, not a stack trace.
     return (
-      <div className="mx-auto flex min-w-0 max-w-[1200px] flex-col gap-4">
+      <div className="mx-auto flex min-w-0 max-w-[1400px] flex-col gap-6">
         <EmptyState
           icon="lock"
           title="Monitoring is admin-only"
@@ -38,7 +38,7 @@ export default async function MonitorPage() {
 
   if (!snapshot.available) {
     return (
-      <div className="mx-auto flex min-w-0 max-w-[1200px] flex-col gap-4">
+      <div className="mx-auto flex min-w-0 max-w-[1400px] flex-col gap-6">
         <EmptyState
           icon="activity"
           title="No database is attached"
