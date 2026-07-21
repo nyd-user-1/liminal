@@ -38,7 +38,7 @@ and a seam:
         ▼
   ┌───────────┐   brief (docs/TASK-X.md)   ┌──────────┐
   │   LEAD    │ ─────────────────────────▶ │  AGENT   │
-  │  writes   │   + one-line kickoff       │ executes │
+  │  writes   │   + kickoff paragraph        │ executes │
   │  reviews  │ ◀───────────────────────── │  reports │
   │   rules   │   report (docs/reports/…)   └──────────┘
   └───────────┘
