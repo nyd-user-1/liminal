@@ -23,13 +23,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Incorrect email or password." }, { status: 401 });
   }
 
-  const { token, expiresAt } = await createSession(user.id);
+  const { token, absoluteExpiresAt } = await createSession(user.id);
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    expires: expiresAt,
+    expires: absoluteExpiresAt,
   });
 
   await logEvent({ actorId: user.id, action: "auth.login", entity: "user", entityId: user.id });

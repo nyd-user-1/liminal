@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { logEvent } from "@/lib/audit";
 import { AuthError, requireRole } from "@/lib/auth";
-import { hasDb, sql } from "@/lib/db";
+// Clinical domain — reads/writes the HIPAA-enabled project (see lib/db.ts).
+import { hasPhiDb as hasDb, sqlPhi as sql } from "@/lib/db";
 import { mockStore } from "@/lib/mock";
 import { createNote, getTranscript, listNotes, listTemplates, saveTranscript } from "@/lib/repos/notes";
 import type { NoteTemplateKind, TranscriptSegment } from "@/lib/types";

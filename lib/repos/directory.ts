@@ -1,4 +1,6 @@
-import { hasDb, sql } from "@/lib/db";
+// Mixed domain: the directory tables are reference data via `sql`; referrals
+// carries a client_id and lives in the HIPAA project via `sqlPhi`.
+import { hasDb, sql, sqlPhi } from "@/lib/db";
 import { isoDateOnly, isoDateTime } from "@/lib/format";
 import { mockId, mockStore } from "@/lib/mock";
 import "@/lib/mock/directory";
@@ -720,7 +722,7 @@ export async function createReferral(input: {
 }): Promise<Referral> {
   const status = input.status ?? "sent";
   if (hasDb) {
-    const rows = (await sql`
+    const rows = (await sqlPhi`
       INSERT INTO referrals (client_id, provider_id, program_id, reason, status, created_by)
       VALUES (${input.clientId}, ${input.providerId ?? null}, ${input.programId ?? null}, ${input.reason ?? null}, ${status}, ${input.createdBy ?? null})
       RETURNING *
@@ -744,17 +746,32 @@ export async function createReferral(input: {
 
 export async function listReferrals(opts: { clientId: string }): Promise<Referral[]> {
   if (hasDb) {
-    const rows = (await sql`
+    // referrals is PHI; directory_providers/directory_programs are reference.
+    // Separate servers, so no join — fetch the rows, then resolve the target
+    // names by id in one follow-up query and stitch them together.
+    const rows = (await sqlPhi`
       SELECT r.*,
-        COALESCE(dp.name, dpr.program_name) AS target_name,
         CASE WHEN r.provider_id IS NOT NULL THEN 'provider' ELSE 'program' END AS target_kind
       FROM referrals r
-      LEFT JOIN directory_providers dp ON dp.id = r.provider_id
-      LEFT JOIN directory_programs dpr ON dpr.id = r.program_id
       WHERE r.client_id = ${opts.clientId}
       ORDER BY r.created_at DESC
     `) as ReferralRow[];
-    return rows.map(toReferral);
+    if (!rows.length) return [];
+
+    const providerIds = [...new Set(rows.map((r) => r.provider_id).filter(Boolean))] as string[];
+    const programIds = [...new Set(rows.map((r) => r.program_id).filter(Boolean))] as string[];
+    const names = new Map<string, string>();
+    if (providerIds.length || programIds.length) {
+      const targets = (await sql`
+        SELECT id, name FROM directory_providers WHERE id = ANY(${providerIds}::uuid[])
+        UNION ALL
+        SELECT id, program_name FROM directory_programs WHERE id = ANY(${programIds}::uuid[])
+      `) as Array<{ id: string; name: string | null }>;
+      for (const t of targets) if (t.name) names.set(t.id, t.name);
+    }
+    return rows.map((r) =>
+      toReferral({ ...r, target_name: names.get(r.provider_id ?? r.program_id ?? "") ?? null }),
+    );
   }
   const store = mockStore();
   return [...store.referrals.values()]

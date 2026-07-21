@@ -1,4 +1,6 @@
-import { hasDb, sql } from "@/lib/db";
+// Mixed domain: inventory counts read reference tables via `sql`; the two
+// clients counts come from the HIPAA project via `sqlPhi`.
+import { hasDb, sql, sqlPhi } from "@/lib/db";
 import { isoDateOnly, isoDateTime } from "@/lib/format";
 import { RATE_CODES } from "@/lib/rate-table";
 import { TABLE_GROUPS } from "@/lib/table-atlas.mjs";
@@ -327,9 +329,14 @@ const SPECIALS_SQL = `
          -- Retired sources (out-of-region, superseded — NYS-72) are history,
          -- not aspiration: they don't belong in the "of N" denominator.
          (SELECT count(*) FROM payer_sources WHERE status IS DISTINCT FROM 'retired') AS payers_configured,
-         (SELECT count(DISTINCT payer_source_id) FROM payer_networks)             AS network_payers,
-         (SELECT count(*) FROM clients WHERE photon_patient_id IS NOT NULL)       AS photon_clients,
-         (SELECT count(*) FROM clients)                                           AS clients_total
+         (SELECT count(DISTINCT payer_source_id) FROM payer_networks)             AS network_payers
+`;
+
+// clients lives in the HIPAA project, so it cannot be a subquery in
+// SPECIALS_SQL above — separate round trip, merged in TypeScript.
+const CLIENT_SPECIALS_SQL = `
+  SELECT (SELECT count(*) FROM clients WHERE photon_patient_id IS NOT NULL) AS photon_clients,
+         (SELECT count(*) FROM clients)                                     AS clients_total
 `;
 
 let inventoryMemo: { at: number; data: PlatformInventory } | null = null;
@@ -384,9 +391,10 @@ export async function platformInventory(maxAgeMs = 5 * 60_000): Promise<Platform
     ? `SELECT ${exact.map((t) => `(SELECT count(*) FROM ${t}) AS "${t}"`).join(", ")}`
     : null;
 
-  const [exactRows, specialRows] = await Promise.all([
+  const [exactRows, specialRows, clientRows] = await Promise.all([
     exactSql ? (sql.query(exactSql, []) as Promise<Array<Record<string, number>>>) : Promise.resolve([]),
     sql.query(SPECIALS_SQL, []) as Promise<Array<Record<string, number>>>,
+    sqlPhi.query(CLIENT_SPECIALS_SQL, []) as Promise<Array<Record<string, number>>>,
   ]);
 
   for (const [k, v] of Object.entries(exactRows[0] ?? {})) counts[k] = Number(v);
@@ -403,8 +411,8 @@ export async function platformInventory(maxAgeMs = 5 * 60_000): Promise<Platform
         payersLive: Number(r.payers_live),
         payersConfigured: Number(r.payers_configured),
         networkPayers: Number(r.network_payers),
-        photonClients: Number(r.photon_clients),
-        clientsTotal: Number(r.clients_total),
+        photonClients: Number(clientRows[0]?.photon_clients ?? 0),
+        clientsTotal: Number(clientRows[0]?.clients_total ?? 0),
       }
     : null;
 

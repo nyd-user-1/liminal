@@ -1,4 +1,6 @@
-import { hasDb, sql } from "@/lib/db";
+// Mixed domain: health checks read reference tables via `sql`; the alert rows
+// it writes (notifications/users) live in the HIPAA project via `sqlPhi`.
+import { hasDb, sql, sqlPhi } from "@/lib/db";
 import { isoDateTime } from "@/lib/format";
 
 // Database health, read straight from Postgres (TASK-MONITOR Part 3).
@@ -595,7 +597,7 @@ export async function raiseMonitorAlerts(
   const crossing = snapshot.checks.filter((c) => c.status === "failing" || c.status === "warning");
   if (!crossing.length) return { written, suppressed };
 
-  const recent = (await sql`
+  const recent = (await sqlPhi`
     SELECT DISTINCT title FROM notifications
      WHERE kind = 'monitor_alert'
        AND created_at > now() - (${String(ALERT_REPEAT_HOURS)} || ' hours')::interval
@@ -608,7 +610,7 @@ export async function raiseMonitorAlerts(
       suppressed.push(title);
       continue;
     }
-    await sql`
+    await sqlPhi`
       INSERT INTO notifications (user_id, kind, title, body, href)
       SELECT id, 'monitor_alert', ${title}, ${`Threshold: ${c.threshold}. ${c.detail}`}, '/monitor'
         FROM users WHERE role = 'admin'

@@ -1,4 +1,5 @@
-import { hasDb, sql } from "@/lib/db";
+// Clinical domain — reads/writes the HIPAA-enabled project (see lib/db.ts).
+import { hasPhiDb as hasDb, sqlPhi as sql } from "@/lib/db";
 import { isoDateTime } from "@/lib/format";
 import { mockStore } from "@/lib/mock";
 import "@/lib/mock/clients";

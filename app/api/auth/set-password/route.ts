@@ -29,13 +29,13 @@ export async function POST(req: Request) {
   }
 
   await setUserPassword(userId, password);
-  const { token: session, expiresAt } = await createSession(userId);
+  const { token: session, absoluteExpiresAt } = await createSession(userId);
   (await cookies()).set(SESSION_COOKIE, session, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    expires: expiresAt,
+    expires: absoluteExpiresAt,
   });
 
   await logEvent({ actorId: userId, action: "auth.set_password", entity: "user", entityId: userId });

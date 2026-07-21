@@ -328,7 +328,10 @@ export interface AuditEvent {
 export interface Session {
   token: string;
   userId: string;
+  /** Idle deadline — slides forward on activity. */
   expiresAt: string;
+  /** Fixed at sign-in; caps total session life regardless of activity. */
+  createdAt: string;
 }
 
 /** One-time link for set-password (new portal account) or reset-password. */

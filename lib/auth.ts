@@ -1,7 +1,8 @@
 import { randomBytes } from "crypto";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
-import { hasDb, sql } from "@/lib/db";
+// Clinical domain — reads/writes the HIPAA-enabled project (see lib/db.ts).
+import { hasPhiDb as hasDb, sqlPhi as sql } from "@/lib/db";
 import { headshotFor } from "@/lib/headshots";
 import { mockId, mockStore } from "@/lib/mock";
 import type { AvatarHue, Role, User } from "@/lib/types";
@@ -11,7 +12,13 @@ import type { AvatarHue, Role, User } from "@/lib/types";
 // casey@liminal.demo, password "demo") and an in-memory sessions map.
 
 export const SESSION_COOKIE = "liminal_session";
-const SESSION_DAYS = 30;
+
+// Automatic logoff (HIPAA Security Rule §164.312(a)(2)(iii)). Two independent
+// clocks, both enforced server-side — the cookie is only a bearer token:
+//   idle     — dies after this long without a request; slides forward on use.
+//   absolute — hard ceiling from sign-in, no amount of activity extends it.
+const SESSION_IDLE_MINUTES = 15;
+const SESSION_ABSOLUTE_HOURS = 12;
 
 export interface SessionUser {
   id: string;
@@ -62,16 +69,29 @@ export async function verifyCredentials(email: string, password: string): Promis
   return toSessionUser(u);
 }
 
-/** Create a session row and return the cookie value + expiry. */
-export async function createSession(userId: string): Promise<{ token: string; expiresAt: Date }> {
+/**
+ * Create a session row. `expiresAt` is the sliding idle deadline (server-side);
+ * `absoluteExpiresAt` is what the cookie should carry, so the browser holds the
+ * token for the full allowed life while the server enforces the idle window.
+ */
+export async function createSession(
+  userId: string,
+): Promise<{ token: string; expiresAt: Date; absoluteExpiresAt: Date }> {
   const token = randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
+  const now = Date.now();
+  const expiresAt = new Date(now + SESSION_IDLE_MINUTES * 60 * 1000);
+  const absoluteExpiresAt = new Date(now + SESSION_ABSOLUTE_HOURS * 60 * 60 * 1000);
   if (hasDb) {
     await sql`INSERT INTO sessions (token, user_id, expires_at) VALUES (${token}, ${userId}, ${expiresAt.toISOString()})`;
   } else {
-    mockStore().sessions.set(token, { token, userId, expiresAt: expiresAt.toISOString() });
+    mockStore().sessions.set(token, {
+      token,
+      userId,
+      expiresAt: expiresAt.toISOString(),
+      createdAt: new Date(now).toISOString(),
+    });
   }
-  return { token, expiresAt };
+  return { token, expiresAt, absoluteExpiresAt };
 }
 
 export async function destroySession(token: string): Promise<void> {
@@ -210,19 +230,38 @@ export async function setUserPassword(userId: string, password: string): Promise
 export async function getUser(): Promise<SessionUser | null> {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
+  const idleMs = SESSION_IDLE_MINUTES * 60 * 1000;
+  const absoluteMs = SESSION_ABSOLUTE_HOURS * 60 * 60 * 1000;
   if (hasDb) {
     const rows = (await sql`
-      SELECT u.id, u.role, u.name, u.email, u.avatar_hue
+      SELECT u.id, u.role, u.name, u.email, u.avatar_hue, s.expires_at
       FROM sessions s JOIN users u ON u.id = s.user_id
-      WHERE s.token = ${token} AND s.expires_at > now() AND u.deleted_at IS NULL
-    `) as Array<Omit<UserRow, "password_hash">>;
+      WHERE s.token = ${token}
+        AND s.expires_at > now()
+        AND s.created_at > now() - ${SESSION_ABSOLUTE_HOURS}::int * interval '1 hour'
+        AND u.deleted_at IS NULL
+    `) as Array<Omit<UserRow, "password_hash"> & { expires_at: string }>;
     const u = rows[0];
-    return u ? toSessionUser({ id: u.id, role: u.role, name: u.name, email: u.email, avatarHue: u.avatar_hue }) : null;
+    if (!u) return null;
+    // Slide the idle window. Only write when the deadline has drifted by more
+    // than a minute, so a burst of requests costs one UPDATE, not one each.
+    if (new Date(u.expires_at).getTime() - Date.now() < idleMs - 60_000) {
+      await sql`
+        UPDATE sessions SET expires_at = now() + ${SESSION_IDLE_MINUTES}::int * interval '1 minute'
+        WHERE token = ${token}
+      `;
+    }
+    return toSessionUser({ id: u.id, role: u.role, name: u.name, email: u.email, avatarHue: u.avatar_hue });
   }
   const session = mockStore().sessions.get(token);
-  if (!session || new Date(session.expiresAt) < new Date()) return null;
+  if (!session) return null;
+  const now = Date.now();
+  if (new Date(session.expiresAt).getTime() <= now) return null;
+  if (new Date(session.createdAt).getTime() + absoluteMs <= now) return null;
   const u = mockStore().users.get(session.userId);
-  return u && !u.deletedAt ? toSessionUser(u) : null;
+  if (!u || u.deletedAt) return null;
+  mockStore().sessions.set(token, { ...session, expiresAt: new Date(now + idleMs).toISOString() });
+  return toSessionUser(u);
 }
 
 /** Guard: signed-in user or 401. Call at the top of every API route/page loader. */
