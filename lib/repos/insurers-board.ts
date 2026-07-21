@@ -13,8 +13,9 @@ import { isoDateOnly } from "@/lib/format";
 //                 Going straight at provider_rate_signals instead costs 27s for
 //                 a DISTINCT over 13.7M rows; the matview answers in ~180ms.
 //
-// Insurers holding rate rows sort first, then by network breadth, then by name —
-// so the first six cards are the ones with something to say.
+// Ordered by name. The card wall re-sorts into "has a real mark" then "does
+// not", each A–Z, because whether a mark resolves is a UI fact the repo has no
+// business knowing — see LOGOS in app/(app)/workspace/insurers-panel.tsx.
 
 export interface InsurerCard {
   id: string;
@@ -67,7 +68,7 @@ export async function insurerBoard(): Promise<InsurerCard[]> {
       JOIN payer_rate_totals t ON t.payer = a.label
       WHERE a.insurer_id = i.id AND a.role = 'insurer'
     ) r ON true
-    ORDER BY (r.rate_rows IS NULL), r.rate_rows DESC NULLS LAST, network_count DESC, i.name
+    ORDER BY i.name
   `) as Row[];
 
   return rows.map((r) => ({

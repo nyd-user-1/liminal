@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -173,7 +173,24 @@ export function InsurersPanel({
 }) {
   const [tab, setTab] = useState<Tab>("insurers");
   const [full, setFull] = useState(false);
-  const shown = full ? insurers : insurers.slice(0, INITIAL);
+
+  // Two blocks: insurers whose slug resolves to a real mark, then the rest,
+  // each A–Z. No header between them — the marks running out IS the divider.
+  //
+  // The split is computed from the SAME `LOGOS` lookup the card renders from, so
+  // it cannot drift: add a mark and that insurer moves up on the next render;
+  // rename an insurer and only its alphabetical position changes. There is no
+  // second list to keep in sync, which is the failure mode a hand-maintained
+  // order would have.
+  const ordered = useMemo(
+    () =>
+      [...insurers].sort((a, b) => {
+        const rank = (LOGOS[a.id] ? 0 : 1) - (LOGOS[b.id] ? 0 : 1);
+        return rank !== 0 ? rank : a.name.localeCompare(b.name, "en");
+      }),
+    [insurers],
+  );
+  const shown = full ? ordered : ordered.slice(0, INITIAL);
 
   return (
     <EcoSection
