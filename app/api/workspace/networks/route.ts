@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { AuthError, requireRole } from "@/lib/auth";
 import { networkData } from "@/lib/repos/network-mapping";
 
@@ -11,10 +11,13 @@ export const dynamic = "force-dynamic";
 // 13.7M rate rows and costs ~4.6s cold (see lib/repos/network-mapping.ts).
 // No PHI: these are payer catalogue strings.
 
-export async function GET() {
+// `?crosswalk=1` opts into the expensive half. Without it this answers the
+// Networks tab from a 72-row join in ~18ms.
+export async function GET(req: NextRequest) {
   try {
     await requireRole("admin");
-    return NextResponse.json(await networkData());
+    const crosswalk = req.nextUrl.searchParams.get("crosswalk") === "1";
+    return NextResponse.json(await networkData({ crosswalk }));
   } catch (e) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
     return NextResponse.json({ error: "Unexpected error." }, { status: 500 });

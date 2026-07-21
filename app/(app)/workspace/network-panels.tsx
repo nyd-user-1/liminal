@@ -662,14 +662,24 @@ export function NetworksTable({ data }: { data: NetworkData }) {
 
 // ── the loader + the bake-off ───────────────────────────────────────────────
 
-export function useNetworkData(active: boolean) {
+/**
+ * `crosswalk` decides which half the server runs. The Networks tab needs only
+ * the 72-row roster (~18ms); the Network mapping tab needs the label crosswalk,
+ * which groups over 13.7M rate rows. Fetching both for either meant the cheap
+ * tab waited on the expensive one.
+ */
+export function useNetworkData(active: boolean, crosswalk = false) {
   const [data, setData] = useState<NetworkData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Roster-only data can't satisfy the mapping tab, so a roster response must
+  // not count as "already loaded" once the crosswalk is asked for.
+  const satisfied = data !== null && (!crosswalk || data.mappings.length > 0 || data.counts.total > 0);
 
   useEffect(() => {
-    if (!active || data) return;
+    if (!active || satisfied) return;
     let alive = true;
-    fetch("/api/workspace/networks", { cache: "no-store" })
+    setError(null);
+    fetch(`/api/workspace/networks${crosswalk ? "?crosswalk=1" : ""}`, { cache: "no-store" })
       .then(async (r) => {
         const j = await r.json();
         if (!r.ok) throw new Error(j.error ?? "Failed to load");
@@ -679,7 +689,7 @@ export function useNetworkData(active: boolean) {
     return () => {
       alive = false;
     };
-  }, [active, data]);
+  }, [active, crosswalk, satisfied]);
 
   return { data, error };
 }
@@ -692,7 +702,8 @@ export function LoadingBlock({ error }: { error: string | null }) {
     <div className="flex items-center justify-center gap-3 py-16 text-text-muted">
       <Spinner size={22} />
       <span className="text-sm">
-        Reading the crosswalk — the unmapped half groups over 13.7M rate rows, so this takes a moment.
+        Reading the crosswalk — the unmapped half groups over 16.5M rate rows with no index that helps,
+        measured at ~50s. It needs a matview (NYS-185); until then this is the honest wait, not a hang.
       </span>
     </div>
   );

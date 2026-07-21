@@ -116,7 +116,7 @@ function InsurerTile({ c }: { c: InsurerCard }) {
 export function InsurersPanel({ insurers }: { insurers: InsurerCard[] }) {
   const [tab, setTab] = useState<Tab>("insurers");
   const [full, setFull] = useState(false);
-  const net = useNetworkData(tab === "networks" || tab === "mapping");
+  const net = useNetworkData(tab === "networks" || tab === "mapping", tab === "mapping");
 
   // Two blocks: insurers whose slug resolves to a real mark, then the rest,
   // each A–Z. No header between them — the marks running out IS the divider.

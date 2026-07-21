@@ -100,6 +100,7 @@ export function DropdownMenu({
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top?: number; bottom?: number; left?: number; right?: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -107,13 +108,24 @@ export function DropdownMenu({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
+    // Scroll-to-dismiss is registered in the CAPTURE phase so it catches a
+    // scrolling ancestor the menu is anchored to. That also caught scrolls
+    // INSIDE the menu — a menu with its own overflow list (the notification
+    // bell) dismissed itself the moment the pointer scrolled over its rows,
+    // which reads as "it closes when you hover it". Ignore scrolls whose
+    // target sits within the menu panel; anything else still dismisses.
+    const onScroll = (e: Event) => {
+      const t = e.target as Node | null;
+      if (t && menuRef.current?.contains(t)) return;
+      setOpen(false);
+    };
     window.addEventListener("click", close);
     window.addEventListener("keydown", onKey);
-    window.addEventListener("scroll", close, true);
+    window.addEventListener("scroll", onScroll, true);
     return () => {
       window.removeEventListener("click", close);
       window.removeEventListener("keydown", onKey);
-      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("scroll", onScroll, true);
     };
   }, [open]);
 
@@ -154,6 +166,7 @@ export function DropdownMenu({
         createPortal(
           <MenuCloseCtx.Provider value={() => setOpen(false)}>
             <div
+              ref={menuRef}
               role="menu"
               onClick={(e) => e.stopPropagation()}
               style={{ top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right }}

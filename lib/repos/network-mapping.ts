@@ -74,7 +74,12 @@ const EMPTY: NetworkData = {
 };
 
 const TTL_MS = 5 * 60 * 1000;
-let cache: NetworkData | null = null;
+// Two caches, because the two halves cost three orders of magnitude apart.
+// The roster (networks × insurers) is an 18ms join over 72 rows; the crosswalk
+// groups over 13.7M rate rows. Cached together, the cheap half waited on the
+// expensive one and the Networks tab spun for seconds to show a 72-row list.
+let rosterCache: NetworkData | null = null;
+let crosswalkCache: NetworkData | null = null;
 
 interface MapRow {
   status: MappingStatus;
@@ -100,9 +105,20 @@ interface NetRow {
   mapped_labels: number;
 }
 
-export async function networkData(): Promise<NetworkData> {
+/**
+ * `crosswalk: false` (the default) answers the Networks tab: every network with
+ * its insurer, 72 rows, ~18ms. `crosswalk: true` additionally runs the label
+ * crosswalk the Network mapping tab needs, which is the expensive half.
+ *
+ * The founder's correction, 2026-07-21: "I just wanted the networks mapped to
+ * the insurers — Aetna 10, Anthem 10, Cigna 9. We don't need 14M rows." He was
+ * right; asking one question should not pay for the other.
+ */
+export async function networkData(opts?: { crosswalk?: boolean }): Promise<NetworkData> {
   if (!hasDb) return EMPTY;
-  if (cache && Date.now() - cache.generatedAt < TTL_MS) return cache;
+  const wantCrosswalk = opts?.crosswalk === true;
+  const hit = wantCrosswalk ? crosswalkCache : rosterCache;
+  if (hit && Date.now() - hit.generatedAt < TTL_MS) return hit;
 
   const t0 = Date.now();
   const [nets, maps] = await Promise.all([
@@ -120,7 +136,10 @@ export async function networkData(): Promise<NetworkData> {
     // everything else comes from the unmapped view, carrying the pattern rule
     // that bucketed it. The bucket lookup is a CTE, not a correlated lateral,
     // so it hash-joins once instead of probing per row.
-    sql`
+    //
+    // Skipped entirely unless the caller asked for it — this is the 13.7M-row half.
+    wantCrosswalk
+      ? (sql`
       WITH bucket AS (
         SELECT DISTINCT ON (pn.network_name) pn.network_name, pm.rule, pm.scope, pm.mapped_at
         FROM payer_networks pn
@@ -155,7 +174,8 @@ export async function networkData(): Promise<NetworkData> {
       LEFT JOIN payer_insurer pi ON pi.label = u.payer_label
       LEFT JOIN insurers ins ON ins.id = pi.insurer_id
       LEFT JOIN insurers di ON di.id = u.payer_label
-    ` as unknown as Promise<MapRow[]>,
+    `.then((r) => r as unknown as MapRow[]) as Promise<MapRow[]>)
+      : (Promise.resolve([]) as Promise<MapRow[]>),
   ]);
   const queryMs = Date.now() - t0;
 
@@ -184,7 +204,7 @@ export async function networkData(): Promise<NetworkData> {
     total: mappings.length,
   };
 
-  cache = {
+  const result: NetworkData = {
     networks: nets.map((n) => ({
       id: n.id,
       name: n.name,
@@ -199,5 +219,7 @@ export async function networkData(): Promise<NetworkData> {
     queryMs,
     generatedAt: Date.now(),
   };
-  return cache;
+  if (wantCrosswalk) crosswalkCache = result;
+  else rosterCache = result;
+  return result;
 }
