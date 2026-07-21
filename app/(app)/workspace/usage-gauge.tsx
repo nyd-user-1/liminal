@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Icon, type IconName } from "@/components/ui/icons";
 import { Tooltip } from "@/components/ui/tooltip";
 import { EcoSection } from "./section";
 
@@ -38,13 +37,10 @@ interface GaugeData {
   generatedAt: number;
 }
 
-const SQUARES = 100; // 20 × 5 — one square per whole percent, so the grid IS the reading
-
-const ICON: Record<GaugeCard["key"], IconName> = {
-  session: "clock",
-  week: "calendar",
-  fable: "sparkle",
-};
+// 25 × 4 — one square per whole percent, so the grid stays the reading rather
+// than a decoration, in the reference's wider-and-shorter proportion.
+const SQUARES = 100;
+const COLUMNS = 25;
 
 // Filled-square colour by state, on theme tokens. `share` is a mix, not a fuel
 // level, so it stays teal — ramping it to red would say "nearly out" about a
@@ -97,8 +93,11 @@ function GaugeTile({ card }: { card: GaugeCard }) {
     <Card className="flex h-full min-w-0 flex-col gap-4 p-5">
       <div className="flex min-w-0 items-start justify-between gap-3">
         <span className="flex min-w-0 items-center gap-2">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-field bg-canvas text-text-muted">
-            <Icon name={ICON[card.key]} size={15} />
+          {/* The Claude mark, one identity for all three cards — every reading
+              here is Claude's consumption. A 250px source at 18px stays sharp
+              well past 3x DPR, so the raster needs no vector twin. */}
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-field bg-canvas">
+            <img src="/brand/claude-mark.webp" alt="" width={18} height={18} />
           </span>
           <span className="truncate text-sm font-medium text-text">{card.label}</span>
           {/* The chip describes the READING, so it goes away when there isn't
@@ -121,7 +120,11 @@ function GaugeTile({ card }: { card: GaugeCard }) {
         </span>
       </div>
 
-      <div className="grid gap-1 [grid-template-columns:repeat(20,minmax(0,1fr))]" aria-hidden>
+      <div
+        className="grid gap-1"
+        style={{ gridTemplateColumns: `repeat(${COLUMNS}, minmax(0, 1fr))` }}
+        aria-hidden
+      >
         {Array.from({ length: SQUARES }, (_, i) => (
           <span
             key={i}
