@@ -15,8 +15,9 @@ import {
 // NEVER LOG PHI. This module logs model id, latency, and token counts only —
 // never prompt or completion text. Callers must do the same.
 //
-// Config (all required for the real path; absent → bedrockConfigured() is false
-// and clinical callers fall back or fail closed, they never fabricate):
+// Config (absent → bedrockConfigured() is false and clinical callers fall back
+// or fail closed, they never fabricate). A model id + region + EITHER credential
+// shape is required:
 //   LIMINAL_BEDROCK_MODEL_ID    the exact Bedrock model id / inference profile
 //                               for the Claude model enabled in your account,
 //                               e.g. an "us.anthropic.claude-*" inference
@@ -24,16 +25,32 @@ import {
 //   LIMINAL_BEDROCK_REGION      region where the model is enabled (falls back
 //                               to LIMINAL_SES_REGION so one region env can
 //                               serve both AWS integrations).
+//   — then ONE of the two credential shapes (both are static secrets in env) —
+//   LIMINAL_BEDROCK_API_KEY     Bedrock API key (bearer token) — the one-click
+//                               console key, Authorization: Bearer style, same
+//                               pattern as our other integrations. Takes
+//                               precedence if both are set.
 //   LIMINAL_AWS_ACCESS_KEY_ID / LIMINAL_AWS_SECRET_ACCESS_KEY
-//                               IAM creds with bedrock:InvokeModel.
+//                               IAM access key (SigV4), scoped to
+//                               bedrock:InvokeModel.
 
 let client: BedrockRuntimeClient | null = null;
 function bedrock(): BedrockRuntimeClient | null {
+  if (client) return client;
   const region = process.env.LIMINAL_BEDROCK_REGION ?? process.env.LIMINAL_SES_REGION;
+  if (!region) return null;
+  const apiKey = process.env.LIMINAL_BEDROCK_API_KEY;
   const accessKeyId = process.env.LIMINAL_AWS_ACCESS_KEY_ID;
   const secretAccessKey = process.env.LIMINAL_AWS_SECRET_ACCESS_KEY;
-  if (!region || !accessKeyId || !secretAccessKey) return null;
-  if (!client) client = new BedrockRuntimeClient({ region, credentials: { accessKeyId, secretAccessKey } });
+  if (apiKey) {
+    // Bearer-token auth: the httpBearerAuth scheme is selected when a token
+    // identity is supplied (no SigV4 signing, no IAM user needed).
+    client = new BedrockRuntimeClient({ region, token: { token: apiKey } });
+  } else if (accessKeyId && secretAccessKey) {
+    client = new BedrockRuntimeClient({ region, credentials: { accessKeyId, secretAccessKey } });
+  } else {
+    return null;
+  }
   return client;
 }
 
