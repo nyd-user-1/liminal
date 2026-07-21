@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Bricolage_Grotesque } from "next/font/google";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ToastProvider } from "@/components/ui/toast";
 import { BrandProvider } from "@/lib/brand";
 import "./globals.css";
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <BrandProvider>
           <ToastProvider>{children}</ToastProvider>
         </BrandProvider>
+        <SpeedInsights />
       </body>
     </html>
   );
