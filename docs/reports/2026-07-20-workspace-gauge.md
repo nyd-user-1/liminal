@@ -472,3 +472,129 @@ and `SchemaTree`. `components/ui/*` is untouched across both batches.
 logic forward rather than running two inventory renderers.
 
 Report appended. Not pushed. Stopping here.
+
+---
+
+# Batch 3 — insurer marks, and the card-link rule written down
+
+One commit, `6e7f455`. Not pushed.
+
+## 1 · The links are gone, and the rule is recorded
+
+The founder's correction is fair and I should say so plainly: I removed the
+`powers` links from the Data cards earlier in this same session, then put the
+identical pattern straight back into the Insurers cards I built an hour later.
+Deleting them again would have been the same non-fix.
+
+So the rule is now written down in the two places the fleet actually reads:
+
+- **`docs/rules/no-card-links.md`** — the full rule. Why it exists (two targets
+  in one object, a ~60px hit area inside a 370px surface, a footer that changes
+  shape row to row), how to apply it (`onOpen` on the card, or `KebabMenu` for
+  multiple actions, plain text or a `Tag` for identifiers and categories), and
+  the scope: `TextLink` stays correct in prose, table cells and section asides.
+  It records that the instruction was given twice, and why that made it a rule.
+- **`lib/rules.ts`** — a new `no-card-links` design rule, so it renders as a card
+  in the Rules tab and opens in the DocSheet like every other rule. Verified:
+  `GET /api/rules/no-card-links` → 200 with the doc body.
+
+The insurer card footer is now the slug in mono opposite a kind `Tag` — the same
+footer the Data cards use, so the two card walls in the ecosystem column match.
+
+## 2 · Real marks — 9 of 48
+
+![insurers with real marks](assets/2026-07-20-workspace-gauge/b3-insurers-1440.png)
+
+Loaded from the same public blob store as `components/site/insurer-strip.tsx`.
+**Mapped by our `insurers.id`, never by display name.**
+
+| Our slug | Mark | Note |
+| --- | --- | --- |
+| `uhc` | united.avif | |
+| `aetna` | aetna.avif | |
+| `anthem-empire` | anthem.avif | the Empire card, per the brief |
+| `cigna` | cigna.avif | |
+| `carelon` | carelon.avif | administrator; the asset is the Behavioral Health lockup |
+| `oscar` | optum-oscar.avif | **see the flag below** |
+| `cdphp` | cdphp.png | |
+| `humana` | humana.avif | |
+| `healthfirst` | healthfirst.svg | Healthfirst **NY** |
+
+**The 39 that fall back to initials**, so nobody assumes coverage:
+`anthem-ca`, `anthem-co`, `anthem-mo`, `bcbs-al`, `bcbs-az`, `bcbs-ma`,
+`bcbs-mi`, `bcbs-mn`, `bcbs-pr`, `bcbs-tn`, `blue-shield-ca`, `carefirst`,
+`centene`, `cigna-group`, `cvs-health`, `elevance`, `emblemhealth`, `evernorth`,
+`excellus`, `fidelis`, `florida-blue`, `health-first-fl`, `highmark-health`,
+`highmark-ny`, `independent-health`, `lacare`, `lifetime-healthcare`,
+`magnacare`, `metroplus`, `molina`, `multiplan`, `mvp`, `optum`, `oxford`,
+`regence-id`, `regence-or`, `regence-wa`, `uhg`, `univera`.
+
+Three of those are load-bearing and were left deliberately:
+
+- **`health-first-fl` keeps initials.** It is the Rockledge, Florida
+  health-system plan, not Healthfirst NY. Giving it the Healthfirst mark would
+  collapse exactly the distinction the registry note exists to preserve.
+- **`oxford` keeps initials.** It is UHG's NY commercial brand, not
+  UnitedHealthcare; there is no Oxford mark in the store.
+- **`optum` keeps initials.** The only Optum-ish asset is a co-brand (below),
+  not a plain Optum mark.
+
+`bcbs.avif` (Massachusetts), `horizon.avif` (New Jersey) and
+`optum-unitedhealth.avif` (a colored lockup) are in the store and are not used
+here, same as on the strip.
+
+## 3 · Optical sizing
+
+![all nine marks at 3x in their real slots](assets/2026-07-20-workspace-gauge/b3-marks-optical.png)
+
+The strip's own tuning carried across (base 48 → cdphp 32, humana 24,
+healthfirst 20), rescaled to our 32px box. Then two nudges made by rendering all
+nine at DPR 3 in their actual slots and looking at them side by side:
+
+- **`optum-oscar` 32 → 28px.** A two-line lockup reads heavier than the single
+  wordmarks beside it at the same box height.
+- **`healthfirst` 14 → 16px.** The pure ratio puts it at ~13px, but its second
+  line is a fine-print tagline — height without visual weight — so it read light
+  rather than equal.
+
+## Verification (batch 3)
+
+All 48 cards exercised (View more expanded), both widths:
+
+| Claim | Evidence | 1440 | 1280 |
+| --- | --- | --- | --- |
+| Zero inline links in any card in the section | `inlineLinks=0` across all 48 | ✅ | ✅ |
+| Logos load, none broken | `LOGOS RENDERED: 9`, each `complete && naturalWidth > 0`; `FAILED REQUESTS: none` (network listener on `logos/insurance`) | ✅ | ✅ |
+| Fallback initials still render | `FALLBACK INITIALS: 39` — and `9 + 39 = 48 of 48`, so no card is markless | ✅ | ✅ |
+| No layout shift as images arrive | the mark slot is a fixed `h-9 w-[72px]` box whether it holds a logo or a monogram | ✅ | ✅ |
+| Card heights uniform | `heights=[228]` — one distinct height across all 48 | ✅ | ✅ |
+| Card widths uniform | `widths=[373]` / `[320]` | ✅ | ✅ |
+| Rest of the page unaffected | `H2 ORDER` unchanged, `DATA/Objects links=0`, `EDITABLE_BADGES 0`, `DOC H-SCROLL false` | ✅ | ✅ |
+
+`npx tsc --noEmit` clean. No page errors.
+
+## Flags (batch 3)
+
+**15. `optum-oscar.avif` is a co-brand, not an Oscar mark.** I downloaded and
+looked at all nine assets before mapping any of them, and this one reads
+**"Optum ᵛⁱᵃ oscar"** — a product lockup, not a plain Oscar Health logo. I used
+it on the `oscar` card because it matches how our Oscar data actually arrives
+(the payer label is `Oscar Health (Optum BH)`, and the registry note records the
+Optum behavioral-health arrangement). But it is a co-brand standing in for a
+carrier, so: if you want a plain Oscar mark, that is a new asset, and I did not
+put this one on the `optum` card either.
+
+**16. `anthem-ca`, `anthem-co` and `anthem-mo` are genuinely Anthem and could
+take the same mark.** The brief said to map by slug and named `anthem-empire`,
+so I mapped only that one rather than extending the pattern myself. Say the word
+and it is three lines — but it is your call whether one Anthem mark should
+appear on four cards.
+
+**17. The marks are hot-linked to the blob store, not bundled.** Same as the
+marketing strip. That store is public and these are `<img>` loads with no token,
+so this is not the Production upload problem recorded in memory — but it does
+mean the section needs network access to that host to show marks, and falls back
+to nothing (not initials) if the host is unreachable, since the fallback is
+keyed on whether we *have* a mark, not on whether it loaded.
+
+Report appended. Not pushed. Stopping here.
