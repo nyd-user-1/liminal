@@ -101,15 +101,20 @@ function GaugeTile({ card }: { card: GaugeCard }) {
             <Icon name={ICON[card.key]} size={15} />
           </span>
           <span className="truncate text-sm font-medium text-text">{card.label}</span>
-          <Tooltip label={SOURCE_NOTE[card.source]}>
-            <span
-              className={`shrink-0 font-mono text-[10px] uppercase tracking-wider ${
-                card.source === "live" ? "text-success" : "text-text-muted"
-              }`}
-            >
-              · {card.source}
-            </span>
-          </Tooltip>
+          {/* The chip describes the READING, so it goes away when there isn't
+              one — a green "live" over an em-dash would claim a measurement the
+              card is explicitly saying it doesn't have. */}
+          {card.pct !== null && (
+            <Tooltip label={SOURCE_NOTE[card.source]}>
+              <span
+                className={`shrink-0 font-mono text-[10px] uppercase tracking-wider ${
+                  card.source === "live" ? "text-success" : "text-text-muted"
+                }`}
+              >
+                · {card.source}
+              </span>
+            </Tooltip>
+          )}
         </span>
         <span className="shrink-0 text-[22px] font-bold leading-none tabular-nums text-text">
           {card.pct === null ? "—" : `${Math.round(eased)}%`}
