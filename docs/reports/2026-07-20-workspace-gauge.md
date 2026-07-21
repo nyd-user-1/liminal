@@ -598,3 +598,87 @@ to nothing (not initials) if the host is unreachable, since the fallback is
 keyed on whether we *have* a mark, not on whether it loaded.
 
 Report appended. Not pushed. Stopping here.
+
+---
+
+# Batch 4 — insurer card ordering
+
+One commit, `8326336`. Not pushed.
+
+![the branded block above the fold](assets/2026-07-20-workspace-gauge/b4-insurers-ordered-1440.png)
+
+## Logo coverage across the 48
+
+| Block | Count | Share |
+| --- | --- | --- |
+| Has a real mark | **9** | 19% |
+| Falls back to initials | **39** | 81% |
+
+Block 1, A–Z: Aetna · Anthem Blue Cross Blue Shield (Empire) · Carelon
+Behavioral Health · CDPHP · Cigna · Healthfirst · Humana · Oscar Health ·
+UnitedHealthcare.
+
+## How the split is derived
+
+From the **same `LOGOS` lookup the card renders from** — one expression, no
+parallel list:
+
+```ts
+const rank = (LOGOS[a.id] ? 0 : 1) - (LOGOS[b.id] ? 0 : 1);
+return rank !== 0 ? rank : a.name.localeCompare(b.name, "en");
+```
+
+So the order cannot rot the way a hand-maintained one would: add a mark and that
+insurer moves into block 1 on the next render; rename an insurer and only its
+alphabetical position changes; delete a mark and it drops back. There is no
+second list that can disagree with the first.
+
+**The repo's `ORDER BY` dropped to plain `i.name`.** It previously sorted by rate
+rows, which the component now overrides — leaving that in place would have been
+a lie in the SQL about what determines the order. Whether a mark resolves is a UI
+fact, and `lib/repos/insurers-board.ts` has no business knowing it.
+
+No section headers or dividers between the blocks, as briefed.
+
+## The fold consequence — chosen, not stumbled into
+
+Worth stating plainly, since it is exactly the kind of thing that looks like an
+accident later: **9 marks against a 6-card fold means every card above "View
+more" is branded, and every initials-only insurer is behind it.**
+
+`ABOVE FOLD: 6 cards; branded = 6` at both widths.
+
+I am taking that as intended — best foot forward on a founder-facing surface,
+and the initials block is one click away, not hidden. Two things follow that are
+worth knowing:
+
+- The fold stops being all-branded the moment coverage drops below 6 marks. It
+  cannot silently show a half-branded fold *and* a stale order, because both come
+  off the same lookup.
+- The first six cards are no longer the six with the most rate data. Aetna,
+  Anthem-Empire, CDPHP and Oscar carry rates, but Carelon and Healthfirst are
+  there on brand rather than on substance, while `health-first-fl` (686.6K rate
+  rows) and `oxford` (399.1K) now sit behind "View more". If the fold's job is to
+  show the richest data rather than the strongest brands, this ordering is the
+  wrong one and the previous rate-rows sort was right — say so and it reverts to
+  a two-line change.
+
+## Verification (batch 4)
+
+All 48 cards expanded, both widths, printed assertions:
+
+| Claim | Evidence | 1440 | 1280 |
+| --- | --- | --- | --- |
+| 9 marked / 39 unmarked | `TOTAL 48 \| with mark 9 \| without 39` | ✅ | ✅ |
+| The two blocks are contiguous | `BLOCKS CONTIGUOUS: true (last marked idx 8, first unmarked idx 9)` | ✅ | ✅ |
+| Block 1 is A–Z | `BLOCK 1 A-Z: true` (pairwise `localeCompare` over rendered names) | ✅ | ✅ |
+| Block 2 is A–Z | `BLOCK 2 A-Z: true` | ✅ | ✅ |
+| Every above-fold card is branded | `ABOVE FOLD: 6 cards; branded = 6` | ✅ | ✅ |
+| Sorted by display name, not slug | block 2 opens `anthem-co, anthem-mo, anthem-ca` — Colorado, Missouri, California, which is A–Z on *name* and not on slug | ✅ | ✅ |
+| Card heights still uniform | `HEIGHTS [228]` | ✅ | ✅ |
+| Still zero inline links | `inline links 0` | ✅ | ✅ |
+| Rest of the page unaffected | `H2 ORDER` unchanged, `EDITABLE_BADGES 0`, `DOC H-SCROLL false` | ✅ | ✅ |
+
+`npx tsc --noEmit` clean.
+
+Report appended. Not pushed. Stopping here.
