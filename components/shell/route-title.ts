@@ -34,6 +34,7 @@ const ROUTE_TITLES: Array<[prefix: string, icon: IconName, title: string]> = [
   // Settings is a tabbed section (services/locations/availability) — one constant
   // title, tab bar switches the panel. See app/(app)/settings/layout.tsx.
   ["/settings", "gear", "Settings"],
+  ["/monitor", "activity", "Monitor"],
   ["/design-system", "paint-roller", "Design System"],
   ["/admin/data", "grid", "Data dictionary"],
   ["/portal/dashboard", "grid", "Dashboard"],

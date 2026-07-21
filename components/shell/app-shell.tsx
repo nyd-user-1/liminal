@@ -58,6 +58,7 @@ const WORKSPACE_NAV: SidebarNavSection[] = [
     header: "System",
     icon: "monitor-check",
     items: [
+      { label: "Monitor", href: "/monitor", icon: "activity" },
       { label: "Settings", href: "/settings", icon: "gear" },
       { label: "Design system", href: "/design-system", icon: "paint-roller" },
     ],

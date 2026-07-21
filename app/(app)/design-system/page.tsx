@@ -31,6 +31,7 @@ import { Modal } from "@/components/ui/modal";
 import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import { SquareMeter } from "@/components/ui/square-meter";
 import { Radio } from "@/components/ui/radio";
 import { SearchInput } from "@/components/ui/search-input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -386,6 +387,7 @@ const KIT_IMPORTS: Record<string, string> = {
   ListRow: 'import { ListRow } from "@/components/ui/list-row";',
   Table: 'import { Table, Tr, Td } from "@/components/ui/table";',
   ProgressBar: 'import { ProgressBar } from "@/components/ui/progress-bar";',
+  SquareMeter: 'import { SquareMeter } from "@/components/ui/square-meter";',
   Stepper: 'import { Stepper } from "@/components/ui/stepper";',
   "Spinner / Skeleton": 'import { Spinner, Skeleton } from "@/components/ui/spinner";',
   Tabs: 'import { Tabs } from "@/components/ui/tabs";',
@@ -1559,6 +1561,12 @@ export default function DesignSystemPage() {
               <div className="w-full space-y-3">
                 <ProgressBar value={38} showLabel />
                 <ProgressBar value={72} showLabel />
+              </div>
+            </Spec>
+            <Spec name="SquareMeter" desc="Grid of squares filling to a proportion; one square per percent. 25x4." wide>
+              <div className="w-full space-y-3">
+                <SquareMeter value={74} state="warning" />
+                <SquareMeter value={92} state="healthy" />
               </div>
             </Spec>
             <Spec name="Spinner / Skeleton" desc="Inline loader + placeholder bars.">
