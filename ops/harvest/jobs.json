@@ -2,6 +2,14 @@
   "//": "Recurring data jobs for ops/harvest/runner.mjs. every: day|week|month|once. Commands run from the repo root with .env.local via each job's own --env-file. Set \"disabled\": true to park a job without deleting it. MRF manifests don't go here — drop them in .harvest/mrf/manifests/queue/ instead.",
   "jobs": [
     {
+      "id": "night-report",
+      "every": "day",
+      "run": "node --env-file=.env.local ops/night-report.mjs",
+      "timeoutMinutes": 15,
+      "attempts": 1,
+      "memo": "Writes yesterday's lead_reports row from git log, docs/reports, sql/, sync_runs and corpus row counts. No LLM. FIRST on purpose: it counts rows to measure yesterday's growth, so it must read the database BEFORE tonight's loads start adding to it — running it last would bill tonight's rows to yesterday. Base tables only, so it does not care that the matview rebuild comes later in the pass. Never overwrites a row a human has edited; an existing row is a clean skip, not a failure."
+    },
+    {
       "id": "rates-rollup",
       "every": "day",
       "run": "node --env-file=.env.local scripts/mrf/rollup.mjs",
