@@ -41,8 +41,24 @@ export function TopBarBell() {
     }
   }, []);
 
+  // A fetch on mount alone is why the bell looked dead: these tabs stay open for
+  // hours, and every producer we have (the harvest runner at ~05:07, the monitor
+  // checks) writes while the app is already open. Without a poll the row sits in
+  // the table until someone happens to reload. Poll on an interval, and refresh
+  // on focus so returning to the tab is immediate rather than up to a minute late.
   useEffect(() => {
     void refresh();
+    const id = setInterval(() => {
+      if (document.visibilityState === "visible") void refresh();
+    }, 60_000);
+    const onFocus = () => void refresh();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
   }, [refresh]);
 
   // The DropdownMenu owns its open state; this capture handler sees only
