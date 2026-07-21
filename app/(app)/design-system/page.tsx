@@ -1626,7 +1626,7 @@ export default function DesignSystemPage() {
             <Spec name="Breadcrumb" desc="Muted link trail above a PageHeader.">
               <Breadcrumb items={[{ label: "Clients", href: "#" }, { label: "Amara Okafor", href: "#" }, { label: "Billing" }]} />
             </Spec>
-            <Spec name="Pagination" desc="Prev/next + range label under a Table.">
+            <Spec name="Pagination" desc="URL-paged PUBLIC listings only — never under a table in the app. Tables show ten rows and scroll (docs/rules/table-standard.md).">
               <Pagination className="w-full" page={page} pageCount={5} onPageChange={setPage} />
             </Spec>
             <Spec name="KebabMenu" desc="Dots trigger → DropdownMenu of actions.">

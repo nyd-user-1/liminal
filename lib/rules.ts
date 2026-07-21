@@ -67,6 +67,12 @@ export const RULES: Rule[] = [
     body: "Counts count up, the queue scrolls, the rail slides — motion that says the system is live. All of it gated behind reduced-motion, which holds every value at rest.",
   },
   {
+    id: "table-standard",
+    tab: "design",
+    title: "Tables scroll; paging is a fetch strategy",
+    body: "Ten rows in a height-bounded region, scroll for the rest — no page numbers, no arrows, no \"Page 3 of 8\" under any table. Server-side paging exists so a browser never receives 100k rows; when it's needed it feeds the scroll, never a control.",
+  },
+  {
     id: "no-card-links",
     tab: "design",
     title: "Cards carry no inline links",

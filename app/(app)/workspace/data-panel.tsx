@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Pagination } from "@/components/ui/pagination";
 import { SearchInput } from "@/components/ui/search-input";
 import { Tabs } from "@/components/ui/tabs";
 import { Tag } from "@/components/ui/tag";
@@ -30,11 +29,17 @@ import { SchemaTree } from "./schema-tree";
 //   · Tables/Views/Indexes/Functions/Triggers/Sequences are TABLES — uniform
 //     name/detail/metric triples with nothing to describe, up to 237 of them.
 //     Cards there would be 40 clicks of "View more" to read a list.
-// All six live tabs are ≤237 rows, so the sort and search run client-side; the
-// server-pagination stack is for the >10k tables, and these are not that.
+// All six live tabs are ≤237 rows: the whole set is fetched once and scrolls.
+// No paging at all — see docs/rules/table-standard.md, paging is a fetch
+// strategy for row counts a browser should not receive, never a UI.
 
 const INITIAL = 6; // 3 columns × 2 rows
-const PAGE_SIZE = 10; // table standard — ten rows a page
+
+// Ten rows visible, the rest reached by scrolling — never by a pager. A MAX
+// height, not a fixed one, so a two-row table sizes to its two rows instead of
+// reserving an empty box; `fillHeight` bounds the Table's own overflow-auto to
+// it and pins the header band while the body moves under it.
+const TABLE_H = "max-h-[512px]";
 
 type Tab =
   | "objects"
@@ -213,7 +218,6 @@ function SchemaPanel({
   footnote?: string;
 }) {
   const [q, setQ] = useState("");
-  const [page, setPage] = useState(1);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -222,15 +226,6 @@ function SchemaPanel({
       `${r.name} ${r.detail} ${r.metric ?? ""}`.toLowerCase().includes(s),
     );
   }, [rows, q]);
-
-  // Ten rows a page, per the table standard. Not cosmetic: 237 indexes rendered
-  // in one go made this section ~9,600px tall and swallowed the page.
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const current = Math.min(page, pageCount);
-  const pageRows = filtered.slice(
-    (current - 1) * PAGE_SIZE,
-    current * PAGE_SIZE,
-  );
 
   if (rows.length === 0) {
     return (
@@ -276,11 +271,13 @@ function SchemaPanel({
   ];
 
   return (
-    <div className="flex min-w-0 flex-col gap-3">
+    <div className={`flex ${TABLE_H} min-w-0 flex-col`}>
       <DataTable
         columns={columns}
-        rows={pageRows}
+        rows={filtered}
         rowKey={(r) => r.name}
+        fillHeight
+        lazy
         stacked
         collapseActions
         title={spec.title}
@@ -297,22 +294,12 @@ function SchemaPanel({
         toolbarLeft={
           <SearchInput
             value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
-              setPage(1); // a new search starts at its first page, not page 12
-            }}
+            onChange={(e) => setQ(e.target.value)}
             placeholder={`Search ${spec.nameLabel.toLowerCase()}s`}
             className="w-full sm:w-60"
           />
         }
       />
-      {pageCount > 1 && (
-        <Pagination
-          page={current}
-          pageCount={pageCount}
-          onPageChange={setPage}
-        />
-      )}
     </div>
   );
 }
