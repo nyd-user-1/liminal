@@ -18,6 +18,7 @@ import { RulesPanel } from "./rules-panel";
 import { RunsPanel } from "./runs-panel";
 import { EcoSection } from "./section";
 import { SummaryCard } from "./summary-card";
+import { UsageGauge } from "./usage-gauge";
 
 // /workspace — the practice front door, and (for the founder) the ecosystem's
 // front door beneath it. Two audiences, one page:
@@ -86,6 +87,7 @@ export default async function WorkspacePage() {
           practitioner's own day (everyone else). */}
       {isAdmin ? (
         <div className="flex min-w-0 flex-col gap-8">
+          <UsageGauge />
           <CoverageGrowth data={coverage} />
           {health && (
             <EcoSection title="Operations">
