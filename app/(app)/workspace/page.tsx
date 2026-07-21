@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { BoardTabs } from "@/components/shell/board-tabs";
 import { Divider } from "@/components/ui/divider";
-import { TextLink } from "@/components/ui/text-link";
 import { requireUser } from "@/lib/auth";
 import { nightlyMetrics, rateSignalCount, tableCount } from "@/lib/insights-metrics";
 import { platformInventory } from "@/lib/repos/admin";
@@ -111,14 +110,7 @@ export default async function WorkspacePage() {
             <Workbench reports={leadReports} />
 
             {inventory && (
-              <EcoSection
-                title="Data"
-                aside={
-                  <TextLink href="/workspace/data-dictionary" className="text-sm">
-                    Data dictionary
-                  </TextLink>
-                }
-              >
+              <EcoSection title="Data">
                 <Observatory groups={inventory.groups} />
               </EcoSection>
             )}
