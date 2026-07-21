@@ -682,3 +682,119 @@ All 48 cards expanded, both widths, printed assertions:
 `npx tsc --noEmit` clean.
 
 Report appended. Not pushed. Stopping here.
+
+---
+
+# Batch 5 — the pagination correction, and the network bake-off
+
+Two commits: `1257de5` (correction), `0f92559` (bake-off). Not pushed.
+
+## Part A — tables scroll, they do not page
+
+**I shipped the violation, so the fix starts with the rule.** `docs/rules/table-standard.md` plus a `table-standard` entry in `lib/rules.ts` now separate the two things that were conflated:
+
+- **Presentation, always** — ten rows in a height-bounded region with a sticky header, scroll for the rest. No page numbers, no arrows, no "Page 3 of 8".
+- **Fetching, only when the row count warrants it** — server paging exists so a browser never receives 100k rows; when needed it feeds the scroll via a sentinel, never a control. Below a few thousand rows, no paging at all.
+
+There was no table-standard rule in `lib/rules.ts` to update — it lived only in memory and in the design-system prose. It exists now.
+
+### What I changed
+
+| Surface | Before | After |
+| --- | --- | --- |
+| Data → Tables (76) | `Page 1 of 8` pager | 10 visible, scrolls |
+| Data → Views (18) | pager | 10 visible, scrolls |
+| Data → Indexes (237) | pager | 10 visible, scrolls to all 237 |
+| Data → Triggers (19) | pager | 10 visible, scrolls |
+| Data → Functions (2) | 512px box, mostly empty | sizes to 2 rows (230px) |
+| Data → Sequences (1) | 512px box | sizes to 1 row (190px) |
+
+The height is a **max**, not a fixed value, so short tables stop at their content instead of reserving an empty box. `lazy` grows the DOM in batches as the reader scrolls — a rendering optimization inside the scroll, not paging.
+
+Measured: `visibleRows=10` on every table over ten rows; scrolling Indexes to the end took the DOM from 101 to **237 of 237**; the header stayed pinned 66px from the scroller top (the toolbar height) throughout.
+
+### What was already correct
+
+- **`app/(app)/directory/directory-client.tsx`** — already server-paginated with a scroll sentinel, and its own comment already said "no `<Pagination>`". This is the reference implementation and the rule doc now points at it.
+- Every other `DataTable` in the repo (28 files) — none used `Pagination`.
+
+### What I left alone, and why
+
+- **`app/programs/family/[slug]/page.tsx` + `components/site/program-controls.tsx`** — the public marketing program listing. It is not a table, it is a URL-paged listing of cards where each page is a separately crawlable document. That is what the primitive is for, and the rule doc says so explicitly.
+- The **`Pagination` primitive stays in the kit** for that case. Its design-system catalog card now reads "URL-paged PUBLIC listings only — never under a table in the app", so the next builder does not reach for it.
+
+## Part B — Networks and the bake-off
+
+![the Networks roster](assets/2026-07-20-workspace-gauge/b5-networks.png)
+
+### What the data actually is
+
+| | Count |
+| --- | --- |
+| Networks (roster) | 72 |
+| Payer-reported labels, total | **1,563** |
+| — mapped (alias crosswalk) | 89 |
+| — ambiguous (one label naming several networks) | 269 |
+| — unmapped | 1,205 |
+
+### The architecture decision, and the measurement behind it
+
+`network_unmapped_labels` is a **VIEW**, and its MRF half is `GROUP BY payer, plan_or_network` over `provider_rate_signals` — 13.7M rows. It costs **~4.6s every call** and no index changes that.
+
+So the crosswalk is **not** on the page-render path. It sits behind `/api/workspace/networks`, fetched when one of the two tabs is first opened, memoized in-process for five minutes (the data only moves on the nightly harvest). Warm `/workspace` load stayed at **~780ms** with both tabs built — asserted on every drive, since a 4.6s regression in page load would be the easy mistake here.
+
+**The real fix is a matview**, exactly like `payer_rate_totals`. That lives in `sql/` and is ops/quality-agent's seam, so it is flagged, not built.
+
+### The three options
+
+| Option 1 · Status-grouped monitor | Option 2 · Directory table | Option 3 · Record detail |
+| --- | --- | --- |
+| ![](assets/2026-07-20-workspace-gauge/b5-option1.png) | ![](assets/2026-07-20-workspace-gauge/b5-option2.png) | ![](assets/2026-07-20-workspace-gauge/b5-option3.png) |
+
+All three consume **one fetch**, handed down from the parent — the same 1,563 rows, the same object, no option given an easier slice.
+
+### Which I would pick: **Option 3, with Option 1's chips grafted on**
+
+Option 3 is the only one that answers the question the crosswalk actually raises. 1,205 unmapped rows is not a list you work through — it is a list you need to understand the shape of, and "how we know" is the column that does that: `alias-matched` (89), `rule-bucketed · oos-state` (355), `rule-bucketed · medicare` (320), `unresolved` (528). It is also the only option where the 37-part labels are legible rather than merely present — expanding prints a numbered list of all 20/37 parts instead of a wrapped 950-character wall.
+
+Option 1 is the better *shell*: its filter-count chips read the distribution at a glance in a way Option 3's stats card states but does not let you act on. Its selection + bulk bar is speculative until there is a bulk action to run, and there isn't one yet.
+
+Option 2 is the weakest here and it is worth saying why, since it is the most conventional: six columns of a flat list is the right shape for a set you *scan*, and this set is one you *triage*. Its own best column — the insurer mark — is decorative in a table where 218 of 269 ambiguous rows are the same insurer.
+
+**Networks roster: built in Option 2's shape**, because that one genuinely is a flat scan — 72 rows, one row per network, name/insurer/administrator/kind/label-count. Different question, different shape.
+
+## Verification (batch 5)
+
+| Claim | Evidence | 1440 | 1280 |
+| --- | --- | --- | --- |
+| No pager survives anywhere | `pagers=0`, `pageLabel=none` across all Data tabs and all 7 bake-off tables | ✅ | ✅ |
+| Ten rows visible, scrolls | `visibleRows=10` on every table over ten; Indexes 101 → **237 of 237** on scroll | ✅ | ✅ |
+| Short tables size to content | Functions 230px, Sequences 190px — no empty box | ✅ | ✅ |
+| Crosswalk is off the page-render path | warm page ready **789ms / 733ms** with both tabs built | ✅ | ✅ |
+| All three options render | `["Option 1 · Status-grouped monitor","Option 2 · Directory table","Option 3 · Record detail"]` | ✅ | ✅ |
+| All three share one fetch | one `/api/workspace/networks` call; `data` passed to all three | ✅ | ✅ |
+| Every table names its source | `footers naming source table: 7` (7 of 7) | ✅ | ✅ |
+| Ambiguous labels not truncated into uselessness | longest cell text **994 chars**; Option 3 expand rendered **20 of 20** parts | ✅ | ✅ |
+| Networks roster real | `domRows=72` | ✅ | ✅ |
+| No horizontal page scroll | `DOC H-SCROLL false` | ✅ | ✅ |
+| Rest of page unaffected | `H2 ORDER` unchanged, `EDITABLE_BADGES 0`, Data tabs intact | ✅ | ✅ |
+
+`npx tsc --noEmit` clean, no page errors.
+
+## Flags (batch 5)
+
+**18. Two defects I only caught by looking at pixels.** Both passed every count assertion. An unbounded label column pushed Option 3's provenance column — the entire reason that option exists — off the right edge of its own table; and Option 2's `Bucketed` column clipped on the Mapped group, whose network names are longest. Both columns are bounded now and all columns fit at 1440. Recording it because it is the second time this session that assertions went green on an unusable surface.
+
+**19. `network_unmapped_labels` wants to be a matview.** 4.6s, every call, from a `GROUP BY` over 13.7M rows. Everything above is a workaround. Same shape as the `payer_rate_totals` fix that already exists — quality/ops seam, sized and ready.
+
+**20. Premise correction — the semicolon labels are mostly Anthem California, not Empire.** The brief calls them "the semicolon-joined Empire labels". By payer: **Anthem Blue Cross California 218**, Anthem Missouri 27, **Empire 17**, Anthem Colorado 6, BCBS Alabama 1. Empire's are the ones you have looked at, but 81% of the problem is California. Worst case is 37 networks in a single 950-character label.
+
+**21. "Hand-curated" provenance does not exist in the data.** Option 3 was briefed to show three provenance kinds. The rules present are `alias` (89), `pattern:*` (946) and `unresolved` (528) — there is no hand-curation flag on any row. I show the three that exist rather than a chip that never appears. If hand-curation should be distinguishable, that is a column the crosswalk does not currently carry.
+
+**22. Health First FL and Healthfirst NY stay distinct** — the insurer resolution joins through `insurer_aliases`/`insurers.id`, never a name match, so nothing collapses them. 1,561 of 1,563 rows resolved to an insurer; the 2 that did not show "—" rather than a guess.
+
+**23. At 1280 the widest tables scroll internally.** Option 2 loses `Bucketed` and Option 3 loses `Rows` from the visible box; both scroll horizontally *inside* the table, and the page body never does. Within the table-overflow rule, but worth knowing before judging the options at a narrow window — judge them at 1440.
+
+**24. Options 1 and 2 are ~1,664px tall each** because "all statuses" stacks three grouped tables. Narrowing with a chip or a status filter drops them to one. Inherent to grouped-by-status; noting it since it is most of the bake-off page's length.
+
+Report appended. Not pushed. Stopping here.
