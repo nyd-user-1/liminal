@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { AuthError, requireRole } from "@/lib/auth";
 import { getNote } from "@/lib/repos/notes";
+import { bedrockConfigured, clinicalComplete, parseJsonLoose } from "@/lib/ai/bedrock";
 import { delay } from "../demo-script";
 
 export const dynamic = "force-dynamic";
+
+const ASK_SYSTEM = `You are a clinical writing assistant helping a psychiatrist edit a note. Answer the clinician's question grounded ONLY in the provided note context — never invent clinical facts, diagnoses, medications, doses, or scores. If the context does not support an answer, say so.
+Output ONLY minified JSON with two string keys: "answer" (your reply to the clinician, plain text) and "insertMd" (markdown the clinician can Insert or Replace into the note). No text outside the JSON.`;
 
 /**
  * POST /api/ai/ask { noteId?, question, context? } → { answer, insertMd }
@@ -26,6 +30,27 @@ export async function POST(req: Request) {
     const context = typeof body.context === "string" ? body.context : "";
     const note = typeof body.noteId === "string" ? await getNote(body.noteId) : null;
     const grounding = context || note?.bodyMd || "";
+
+    // Real Claude on Bedrock when configured (PHI-safe, BAA-covered). On failure
+    // surface a 502 rather than dropping to canned answers.
+    if (bedrockConfigured()) {
+      try {
+        const { text } = await clinicalComplete({
+          system: ASK_SYSTEM,
+          user: `Clinical note context:\n${grounding || "(no note context provided)"}\n\nClinician question: ${question}\n\nReturn the JSON now.`,
+          maxTokens: 900,
+        });
+        const parsed = parseJsonLoose<{ answer?: string; insertMd?: string }>(text);
+        if (parsed?.answer) {
+          return NextResponse.json({ answer: parsed.answer, insertMd: parsed.insertMd ?? "" });
+        }
+        return NextResponse.json({ answer: text, insertMd: text });
+      } catch (err) {
+        console.error("ai/ask: Bedrock call failed", (err as Error)?.name ?? "error");
+        return NextResponse.json({ error: "The assistant is temporarily unavailable. Try again." }, { status: 502 });
+      }
+    }
+
     const ptsd = /prazosin|nightmare|hypervigilan/i.test(grounding);
 
     await delay(); // simulated LLM latency

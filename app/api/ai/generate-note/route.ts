@@ -6,9 +6,48 @@ import { hasPhiDb as hasDb, sqlPhi as sql } from "@/lib/db";
 import { mockStore } from "@/lib/mock";
 import { createNote, getTranscript, listNotes, listTemplates, saveTranscript } from "@/lib/repos/notes";
 import type { NoteTemplateKind, TranscriptSegment } from "@/lib/types";
+import { bedrockConfigured, clinicalComplete, parseJsonLoose } from "@/lib/ai/bedrock";
 import { DEMO_SEGMENTS, delay, generatedNote } from "../demo-script";
 
 export const dynamic = "force-dynamic";
+
+const NOTE_HEADINGS: Record<NoteTemplateKind, string> = {
+  soap: "SOAP format with sections: ## Subjective, ## Objective, ## Assessment, ## Plan",
+  dap: "DAP format with sections: ## Data, ## Assessment, ## Plan",
+  progress: "psychiatric progress-note format with sections: ## Interval history, ## Mental status, ## Assessment, ## Plan",
+  intake: "psychiatric intake format with sections: ## Chief complaint, ## History of present illness, ## Psychiatric history, ## Assessment, ## Plan",
+  free: "free-form clinical note using markdown headings where they aid clarity",
+};
+
+function noteSystem(kind: NoteTemplateKind): string {
+  return `You are a clinical documentation assistant for a licensed New York psychiatry practice. Draft a session note in ${NOTE_HEADINGS[kind]}.
+Rules: use ONLY information stated in the transcript and practitioner notes. Never invent diagnoses, medications, doses, scores, or findings. If a section has no supporting content, write "Not discussed." Write in concise clinical prose. Do not include the client's name.
+Output ONLY minified JSON with two string keys: "bodyMd" (the full note in markdown) and "summaryMd" (a 1–2 sentence plain-text summary). No text outside the JSON.`;
+}
+
+/** Real Claude on Bedrock when configured; the canned demo draft otherwise.
+ *  Throws when Bedrock IS configured but the call fails — the caller turns that
+ *  into a 502 so a clinician never receives a fabricated note. */
+async function draftNote(
+  kind: NoteTemplateKind,
+  segments: TranscriptSegment[],
+): Promise<{ bodyMd: string; summaryMd: string }> {
+  if (!bedrockConfigured()) {
+    await delay(); // preserve the demo's simulated latency in stub mode
+    return generatedNote(kind, segments);
+  }
+  const transcript = segments.map((s) => `${s.speaker}: ${s.text}`).join("\n");
+  const { text } = await clinicalComplete({
+    system: noteSystem(kind),
+    user: `Session transcript:\n${transcript}\n\nReturn the JSON now.`,
+    maxTokens: 1600,
+  });
+  const parsed = parseJsonLoose<{ bodyMd?: string; summaryMd?: string }>(text);
+  if (parsed?.bodyMd) return { bodyMd: parsed.bodyMd, summaryMd: parsed.summaryMd ?? "" };
+  // Model returned prose instead of JSON — use it as the note body rather than
+  // failing; still a real, grounded completion.
+  return { bodyMd: text, summaryMd: "" };
+}
 
 // Which client was this session with? appointment row → prior note on the
 // same appointment → explicit clientId in the request body.
@@ -63,8 +102,16 @@ export async function POST(req: Request) {
     const saved = appointmentId ? await getTranscript(appointmentId) : null;
     const segments = passed ?? (saved && saved.segments.length > 0 ? saved.segments : DEMO_SEGMENTS);
 
-    await delay(); // simulated LLM latency
-    const { bodyMd: generatedMd, summaryMd } = generatedNote(kind, segments);
+    let generatedMd: string;
+    let summaryMd: string;
+    try {
+      ({ bodyMd: generatedMd, summaryMd } = await draftNote(kind, segments));
+    } catch (err) {
+      // Real Bedrock path failed (model access, throttling, network). Do NOT
+      // fall back to canned clinical text — surface the failure instead.
+      console.error("generate-note: Bedrock draft failed", (err as Error)?.name ?? "error");
+      return NextResponse.json({ error: "Note generation is temporarily unavailable. Try again." }, { status: 502 });
+    }
     // Custom notes typed during the call ("Add notes" tab) are woven in as a
     // practitioner-addendum section so they reach the drafted note verbatim.
     const extraNotes = typeof body.extraNotes === "string" ? body.extraNotes.trim() : "";
