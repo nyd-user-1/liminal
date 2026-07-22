@@ -11,11 +11,6 @@ import { PlusMenu } from "@/components/directory/plus-menu";
 // Auto-grow textarea, Enter-to-send, and the ArrowUp↔Square send/stop button
 // carry over from the insurance ChatInput port.
 
-const CLAUDE_ICON = (
-  // eslint-disable-next-line @next/next/no-img-element
-  <img src="/anthropic-icon.webp" alt="Anthropic" className="h-4 w-4 object-contain" />
-);
-
 const ARROW_UP = (
   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="m5 12 7-7 7 7" />
@@ -151,7 +146,6 @@ export function ChatInput({ onSend, onStop, isStreaming, selectedModelId, onMode
                 className="inline-flex items-center gap-1.5 text-[var(--muted)] hover:text-[var(--txt)] transition-colors rounded-lg px-1.5 py-1"
                 aria-label={`Model: ${selectedModel.label}`}
               >
-                {CLAUDE_ICON}
                 <span className="text-[13px] font-medium">{selectedModel.label}</span>
                 <span className={`transition-transform ${modelMenuOpen ? "rotate-180" : ""}`}>{CHEVRON_DOWN}</span>
               </button>
@@ -171,7 +165,6 @@ export function ChatInput({ onSend, onStop, isStreaming, selectedModelId, onMode
                       }}
                       className="flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-[var(--inp-bg)] transition-colors"
                     >
-                      <span className="shrink-0">{CLAUDE_ICON}</span>
                       <span className="flex-1 text-left">
                         <span className="block font-medium text-[var(--txt)]">{m.label}</span>
                         <span className="block text-[11px] text-[var(--muted2)]">{m.description}</span>

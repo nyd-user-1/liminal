@@ -32,12 +32,46 @@ const TOOL_LABELS: Record<string, [active: string, done: string]> = {
   "tool-directory_facets": ["Loading filters…", "Loaded filters"],
 };
 
+// Claude-style minimalist footer under each finished answer: copy + retry.
+function AnswerFooter({ text, isLast, busy, onRegenerate }: { text: string; isLast: boolean; busy: boolean; onRegenerate: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    void navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+  return (
+    <div className="mt-1.5 flex items-center gap-0.5 text-text-muted">
+      <button
+        type="button"
+        onClick={copy}
+        aria-label="Copy answer"
+        className="inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-canvas hover:text-text"
+      >
+        <Icon name={copied ? "check" : "copy"} size={14} className={copied ? "text-success" : undefined} />
+      </button>
+      {isLast && (
+        <button
+          type="button"
+          onClick={onRegenerate}
+          disabled={busy}
+          aria-label="Regenerate answer"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-canvas hover:text-text disabled:opacity-40"
+        >
+          <Icon name="refresh-cw" size={13} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function AskDirectoryPage() {
   const [model, setModel] = useState("claude-haiku-4-5");
   const modelRef = useRef(model);
   modelRef.current = model;
 
-  const { messages, sendMessage, stop, status, error } = useChat({
+  const { messages, sendMessage, stop, status, error, regenerate } = useChat({
     transport: new DefaultChatTransport({
       api: "/api/ai/directory",
       body: () => ({ model: modelRef.current }),
@@ -96,7 +130,7 @@ export default function AskDirectoryPage() {
     <div className="flex h-full flex-col overflow-hidden">
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-3xl space-y-4 px-4 py-4">
-          {messages.map((message) =>
+          {messages.map((message, mi) =>
             message.role === "user" ? (
               <div key={message.id} className="flex justify-end">
                 <div className="max-w-[85%] rounded-card rounded-br-sm bg-primary px-3.5 py-2 text-[13.5px] text-white">
@@ -125,6 +159,17 @@ export default function AskDirectoryPage() {
                     }
                     return null;
                   })}
+                  {!(isStreaming && mi === messages.length - 1) && (
+                    <AnswerFooter
+                      text={message.parts
+                        .filter((p): p is Extract<(typeof message.parts)[number], { type: "text" }> => p.type === "text")
+                        .map((p) => p.text)
+                        .join("\n")}
+                      isLast={mi === messages.length - 1}
+                      busy={isStreaming}
+                      onRegenerate={() => void regenerate()}
+                    />
+                  )}
                 </div>
               </div>
             ),

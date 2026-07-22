@@ -1,8 +1,12 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { useState, type ReactNode } from "react";
+import { Icon } from "@/components/ui/icons";
 
 // Tiny read-only markdown renderer for agent answers: headings, bold, bullets,
-// and tables. No markdown dependency exists in the app, and the notes editor
-// is an editor, not a viewer — so this carries the ~60 lines it needs.
+// and tables (hover a table for click-to-copy — copies TSV so it pastes
+// straight into a spreadsheet). No markdown dependency exists in the app, and
+// the notes editor is an editor, not a viewer — so this carries what it needs.
 
 function inline(text: string): ReactNode[] {
   const out: ReactNode[] = [];
@@ -31,6 +35,57 @@ function cells(row: string): string[] {
   return row.replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
 }
 
+const strip = (s: string) => s.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\*([^*]+)\*/g, "$1").replace(/`([^`]+)`/g, "$1");
+
+function TableBlock({ header, rows }: { header: string[]; rows: string[][] }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    const tsv = [header, ...rows].map((r) => r.map(strip).join("\t")).join("\n");
+    void navigator.clipboard.writeText(tsv).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+  return (
+    <div className="group relative my-4">
+      <button
+        type="button"
+        onClick={copy}
+        aria-label="Copy table"
+        className={`absolute -top-2.5 right-0 inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-surface text-text-body shadow-card transition-opacity hover:text-text ${
+          copied ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+        }`}
+      >
+        <Icon name={copied ? "check" : "copy"} size={13} className={copied ? "text-success" : undefined} />
+      </button>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[360px] border-collapse text-[13px]">
+          <thead>
+            <tr>
+              {header.map((h, j) => (
+                <th key={j} className="border-b border-border px-2 py-1.5 text-left font-semibold">
+                  {inline(h)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, ri) => (
+              <tr key={ri} className={ri % 2 ? "bg-canvas/60" : undefined}>
+                {r.map((c, j) => (
+                  <td key={j} className="border-b border-border/60 px-2 py-1.5 align-top">
+                    {inline(c)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export function Markdown({ md }: { md: string }) {
   const lines = md.split("\n");
   const blocks: ReactNode[] = [];
@@ -49,32 +104,7 @@ export function Markdown({ md }: { md: string }) {
         rows.push(cells(lines[i]));
         i++;
       }
-      blocks.push(
-        <div key={k++} className="my-2 overflow-x-auto">
-          <table className="w-full min-w-[360px] border-collapse text-[13px]">
-            <thead>
-              <tr>
-                {header.map((h, j) => (
-                  <th key={j} className="border-b border-border px-2 py-1.5 text-left font-semibold">
-                    {inline(h)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, ri) => (
-                <tr key={ri} className={ri % 2 ? "bg-canvas/60" : undefined}>
-                  {r.map((c, j) => (
-                    <td key={j} className="border-b border-border/60 px-2 py-1.5 align-top">
-                      {inline(c)}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>,
-      );
+      blocks.push(<TableBlock key={k++} header={header} rows={rows} />);
       continue;
     }
 
