@@ -213,15 +213,6 @@ export default function AskDirectoryPage() {
                   <div key={message.id} className="px-1">
                     <div>
                       {rendered}
-                      {settled && followUps.length > 0 && (
-                        <div className="mt-3 flex flex-col items-start gap-1.5">
-                          {followUps.map((q) => (
-                            <TextLink key={q} onClick={() => send(q)} className="text-left">
-                              {q}
-                            </TextLink>
-                          ))}
-                        </div>
-                      )}
                       {settled && (
                         <AnswerFooter
                           text={bodyTexts.join("\n")}
@@ -229,6 +220,15 @@ export default function AskDirectoryPage() {
                           busy={isStreaming}
                           onRegenerate={() => void regenerate()}
                         />
+                      )}
+                      {settled && followUps.length > 0 && (
+                        <div className="mt-6 flex flex-col items-start gap-1.5">
+                          {followUps.map((q) => (
+                            <TextLink key={q} onClick={() => send(q)} className="text-left">
+                              {q}
+                            </TextLink>
+                          ))}
+                        </div>
                       )}
                     </div>
                   </div>

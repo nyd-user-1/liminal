@@ -47,12 +47,12 @@ function TableBlock({ header, rows }: { header: string[]; rows: string[][] }) {
     });
   };
   return (
-    <div className="group relative my-4">
+    <div className="group relative my-6">
       <button
         type="button"
         onClick={copy}
         aria-label="Copy table"
-        className={`absolute -top-2.5 right-0 inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-surface text-text-body shadow-card transition-opacity hover:text-text ${
+        className={`absolute top-2 right-2 inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-surface text-text-body shadow-card transition-opacity hover:text-text ${
           copied ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
         }`}
       >
