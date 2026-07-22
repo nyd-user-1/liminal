@@ -24,6 +24,7 @@ import type { SessionUser } from "@/lib/auth";
 const WORKSPACE_NAV: SidebarNavSection[] = [
   {
     items: [
+      { label: "Chat", href: "/chat", icon: "message" },
       { label: "Workspace", href: "/workspace", icon: "grid" },
       { label: "Calendar", href: "/calendar", icon: "calendar" },
       { label: "Inbox", href: "/inbox", icon: "inbox" },

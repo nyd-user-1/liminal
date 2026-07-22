@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
+import type { UIMessage } from "ai";
 import { ChatInput } from "@/components/directory/chat-input";
 import { Markdown } from "@/components/directory/markdown";
 import { ThinkingOrb } from "@/components/directory/thinking-orb";
@@ -12,10 +13,10 @@ import { TextLink } from "@/components/ui/text-link";
 // /chat — chat surface for the care-directory agent. Streams from
 // POST /api/ai/directory (AI SDK UI message stream): text renders as it
 // generates and tool calls surface live as status lines. Reference data only,
-// no PHI. Layout follows the insurance repo's HomeChat: input centered while
-// the thread is empty (suggested prompts beneath it), pinned to the bottom
-// once the first message sends. The route title strip supplies the H1 via
-// ROUTE_TITLES ("/chat"), so this page renders no H1 of its own.
+// no PHI. Message anatomy (ruling 2026-07-22): answer → footer icons →
+// suggested follow-ups (accordion, + in the footer toggles; default set via
+// the input's settings gear, persisted) → the orb, which trails the stream
+// and rests last on the newest answer. No page H1 (ownsPageTitle).
 
 const STARTERS: Array<{ icon: IconName; label: string; prompt: string }> = [
   { icon: "dollar", label: "Cigna 60-min rate", prompt: "What does Cigna pay for a 60-minute therapy session?" },
@@ -26,13 +27,32 @@ const STARTERS: Array<{ icon: IconName; label: string; prompt: string }> = [
   { icon: "users-round", label: "Therapists in Manhattan", prompt: "Find therapists in Manhattan accepting new patients" },
 ];
 
-// Friendly labels for streamed tool activity.
-const TOOL_LABELS: Record<string, [active: string, done: string]> = {
-  "tool-search_providers": ["Searching providers…", "Searched providers"],
-  "tool-get_provider": ["Pulling provider record…", "Pulled provider record"],
-  "tool-market_rates": ["Checking published rates…", "Checked published rates"],
-  "tool-directory_facets": ["Loading filters…", "Loaded filters"],
-};
+const FOLLOWUPS_KEY = "leuk-chat-followups";
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+// Per-call status labels, specific where the tool input names a subject
+// ("Checked Oxford published rates", "Searched providers in Brooklyn").
+function toolLabel(type: string, input: unknown): [active: string, done: string] | null {
+  const inp = (input ?? {}) as Record<string, unknown>;
+  switch (type) {
+    case "tool-market_rates": {
+      const payer = typeof inp.payer === "string" && inp.payer.trim() ? ` ${cap(inp.payer.trim())}` : "";
+      return [`Checking${payer} published rates…`, `Checked${payer} published rates`];
+    }
+    case "tool-search_providers": {
+      const where = [inp.city, inp.county, inp.zip].find((v) => typeof v === "string" && v) as string | undefined;
+      const suffix = where ? ` in ${cap(where)}` : "";
+      return [`Searching providers${suffix}…`, `Searched providers${suffix}`];
+    }
+    case "tool-get_provider":
+      return ["Pulling provider record…", "Pulled provider record"];
+    case "tool-directory_facets":
+      return ["Loading filters…", "Loaded filters"];
+    default:
+      return null;
+  }
+}
 
 // The model ends each answer with a FOLLOW_UPS: block (see DIRECTORY_SYSTEM);
 // strip it from the rendered body and surface the questions as links.
@@ -63,8 +83,24 @@ const THUMB_DOWN = (
   </svg>
 );
 
-// Claude-style minimalist footer: copy · thumbs up/down · retry, one quiet row.
-function AnswerFooter({ text, isLast, busy, onRegenerate }: { text: string; isLast: boolean; busy: boolean; onRegenerate: () => void }) {
+// Minimalist footer: [+ follow-ups toggle] copy · thumbs · retry.
+function AnswerFooter({
+  text,
+  isLast,
+  busy,
+  onRegenerate,
+  hasFollowUps,
+  followUpsOpen,
+  onToggleFollowUps,
+}: {
+  text: string;
+  isLast: boolean;
+  busy: boolean;
+  onRegenerate: () => void;
+  hasFollowUps: boolean;
+  followUpsOpen: boolean;
+  onToggleFollowUps: () => void;
+}) {
   const [copied, setCopied] = useState(false);
   const [vote, setVote] = useState<"up" | "down" | null>(null);
   const copy = () => {
@@ -76,6 +112,17 @@ function AnswerFooter({ text, isLast, busy, onRegenerate }: { text: string; isLa
   const btn = "inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-canvas hover:text-text";
   return (
     <div className="mt-1.5 flex items-center gap-0.5 text-text-muted">
+      {hasFollowUps && (
+        <button
+          type="button"
+          onClick={onToggleFollowUps}
+          aria-label={followUpsOpen ? "Hide suggested follow-ups" : "Show suggested follow-ups"}
+          aria-expanded={followUpsOpen}
+          className={`${btn} ${followUpsOpen ? "text-primary" : ""}`}
+        >
+          <Icon name="plus" size={15} className={`transition-transform ${followUpsOpen ? "rotate-45" : ""}`} />
+        </button>
+      )}
       <button type="button" onClick={copy} aria-label="Copy answer" className={btn}>
         <Icon name={copied ? "check" : "copy"} size={14} className={copied ? "text-success" : undefined} />
       </button>
@@ -104,10 +151,110 @@ function AnswerFooter({ text, isLast, busy, onRegenerate }: { text: string; isLa
   );
 }
 
-export default function AskDirectoryPage() {
+// One assistant turn: parts → footer → follow-ups (accordion) → orb (latest
+// turn only; breathing while that turn streams, at rest once settled).
+function AssistantMessage({
+  message,
+  isCurrent,
+  isStreaming,
+  followUpsDefault,
+  onSend,
+  onRegenerate,
+}: {
+  message: UIMessage;
+  isCurrent: boolean;
+  isStreaming: boolean;
+  followUpsDefault: boolean;
+  onSend: (q: string) => void;
+  onRegenerate: () => void;
+}) {
+  const [open, setOpen] = useState(followUpsDefault);
+  useEffect(() => setOpen(followUpsDefault), [followUpsDefault]);
+
+  const settled = !(isStreaming && isCurrent);
+  const lastTextIdx = message.parts.reduce((acc, p, i) => (p.type === "text" ? i : acc), -1);
+  const bodyTexts: string[] = [];
+  let followUps: string[] = [];
+  const rendered = message.parts.map((part, i) => {
+    if (part.type === "text") {
+      let body = part.text;
+      if (i === lastTextIdx) {
+        const split = splitFollowUps(part.text);
+        body = split.body;
+        followUps = split.followUps;
+      }
+      bodyTexts.push(body);
+      return <Markdown key={i} md={body} />;
+    }
+    const running = "state" in part && part.state !== "output-available" && part.state !== "output-error";
+    const label = toolLabel(part.type, "input" in part ? part.input : undefined);
+    if (label && "state" in part) {
+      // Teal while running, then FADE to a lighter teal (never grey).
+      return (
+        <p
+          key={i}
+          className={`my-1 flex items-center gap-1.5 text-[12px] transition-colors duration-700 ${
+            running ? "animate-pulse text-primary" : "text-primary/50"
+          }`}
+        >
+          <span className={`inline-block h-1.5 w-1.5 rounded-full ${running ? "bg-primary" : "bg-primary/40"}`} />
+          {running ? label[0] : label[1]}
+        </p>
+      );
+    }
+    return null;
+  });
+
+  return (
+    <div className="px-1">
+      <div>
+        {rendered}
+        {settled && (
+          <AnswerFooter
+            text={bodyTexts.join("\n")}
+            isLast={isCurrent}
+            busy={isStreaming}
+            onRegenerate={onRegenerate}
+            hasFollowUps={followUps.length > 0}
+            followUpsOpen={open}
+            onToggleFollowUps={() => setOpen((o) => !o)}
+          />
+        )}
+        {settled && open && followUps.length > 0 && (
+          <div className="mt-6 flex flex-col items-start gap-1.5">
+            {followUps.map((q) => (
+              <TextLink key={q} onClick={() => onSend(q)} className="text-left">
+                {q}
+              </TextLink>
+            ))}
+          </div>
+        )}
+        {isCurrent && (
+          <div className="mt-4">
+            <ThinkingOrb size={26} isThinking={isStreaming} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function ChatPage() {
   const [model, setModel] = useState("claude-haiku-4-5");
   const modelRef = useRef(model);
   modelRef.current = model;
+
+  // Default visibility of suggested follow-ups — toggled via the input's
+  // settings gear, persisted per browser.
+  const [followUpsDefault, setFollowUpsDefault] = useState(true);
+  useEffect(() => {
+    const v = localStorage.getItem(FOLLOWUPS_KEY);
+    if (v !== null) setFollowUpsDefault(v === "1");
+  }, []);
+  const changeFollowUpsDefault = (v: boolean) => {
+    setFollowUpsDefault(v);
+    localStorage.setItem(FOLLOWUPS_KEY, v ? "1" : "0");
+  };
 
   const { messages, sendMessage, stop, status, error, regenerate } = useChat({
     transport: new DefaultChatTransport({
@@ -134,6 +281,8 @@ export default function AskDirectoryPage() {
       isStreaming={isStreaming}
       selectedModelId={model}
       onModelChange={setModel}
+      followUpsDefault={followUpsDefault}
+      onFollowUpsDefaultChange={changeFollowUpsDefault}
       autoFocus
     />
   );
@@ -176,72 +325,15 @@ export default function AskDirectoryPage() {
                 </div>
               </div>
             ) : (
-              // Assistant answers sit flat on the page — no card, no border, no
-              // shadow (chat-vue reference; design ruling 2026-07-22).
-              (() => {
-                const isCurrent = mi === messages.length - 1;
-                const settled = !(isStreaming && isCurrent);
-                const lastTextIdx = message.parts.reduce((acc, p, i) => (p.type === "text" ? i : acc), -1);
-                const bodyTexts: string[] = [];
-                let followUps: string[] = [];
-                const rendered = message.parts.map((part, i) => {
-                  if (part.type === "text") {
-                    let body = part.text;
-                    if (i === lastTextIdx) {
-                      const split = splitFollowUps(part.text);
-                      body = split.body;
-                      followUps = split.followUps;
-                    }
-                    bodyTexts.push(body);
-                    return <Markdown key={i} md={body} />;
-                  }
-                  const label = TOOL_LABELS[part.type];
-                  if (label && "state" in part) {
-                    const done = part.state === "output-available" || part.state === "output-error";
-                    return (
-                      <p
-                        key={i}
-                        className={`my-1 flex items-center gap-1.5 text-[12px] ${done ? "text-text-muted" : "animate-pulse text-primary"}`}
-                      >
-                        <span className={`inline-block h-1.5 w-1.5 rounded-full ${done ? "bg-border" : "bg-primary"}`} />
-                        {done ? label[1] : label[0]}
-                      </p>
-                    );
-                  }
-                  return null;
-                });
-                return (
-                  <div key={message.id} className="px-1">
-                    <div>
-                      {rendered}
-                      {/* The orb leads the incoming stream's growing edge and
-                          comes to rest (static) on the latest answer. */}
-                      {isCurrent && (
-                        <div className="mt-2">
-                          <ThinkingOrb size={26} isThinking={isStreaming} />
-                        </div>
-                      )}
-                      {settled && (
-                        <AnswerFooter
-                          text={bodyTexts.join("\n")}
-                          isLast={isCurrent}
-                          busy={isStreaming}
-                          onRegenerate={() => void regenerate()}
-                        />
-                      )}
-                      {settled && followUps.length > 0 && (
-                        <div className="mt-6 flex flex-col items-start gap-1.5">
-                          {followUps.map((q) => (
-                            <TextLink key={q} onClick={() => send(q)} className="text-left">
-                              {q}
-                            </TextLink>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()
+              <AssistantMessage
+                key={message.id}
+                message={message}
+                isCurrent={mi === messages.length - 1}
+                isStreaming={isStreaming}
+                followUpsDefault={followUpsDefault}
+                onSend={send}
+                onRegenerate={() => void regenerate()}
+              />
             ),
           )}
           {status === "submitted" && (

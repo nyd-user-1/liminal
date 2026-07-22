@@ -161,7 +161,7 @@ export function PlusMenu({ onSelect }: { onSelect: (text: string) => void }) {
             setMenuOpen(true);
           }
         }}
-        className="h-9 w-9 rounded-lg flex items-center justify-center transition-colors text-[var(--muted)] hover:bg-[var(--inp-bg)] hover:text-[var(--txt)]"
+        className="h-9 w-9 rounded-lg flex items-center justify-center transition-colors text-[var(--muted)] hover:bg-[rgba(0,0,0,0.05)] hover:text-[var(--txt)]"
       >
         {ICON.plus}
       </button>

@@ -53,7 +53,9 @@ const ROUTE_TITLES: Array<[prefix: string, icon: IconName, title: string]> = [
 // client-record exception in CLAUDE.md. The shell's ContentHeader stands down
 // for these, so "Home" never stacks above the name it is describing.
 export function ownsPageTitle(pathname: string): boolean {
-  return pathname === "/portal";
+  // /chat is a full-height conversation surface — no page H1 at all (ruling
+  // 2026-07-22); the sidebar item + thread content carry the identity.
+  return pathname === "/portal" || pathname === "/chat";
 }
 
 // /portal is the patient's own record and carries its own entity header (the

@@ -61,7 +61,7 @@ function TableBlock({ header, rows }: { header: string[]; rows: string[][] }) {
       <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full min-w-[360px] border-collapse text-[13px]">
           <thead>
-            <tr>
+            <tr className="bg-canvas/60">
               {header.map((h, j) => (
                 <th key={j} className="border-b border-border px-2 py-1.5 text-left font-semibold">
                   {inline(h)}
@@ -71,7 +71,7 @@ function TableBlock({ header, rows }: { header: string[]; rows: string[][] }) {
           </thead>
           <tbody>
             {rows.map((r, ri) => (
-              <tr key={ri} className={ri % 2 ? "bg-canvas/60" : undefined}>
+              <tr key={ri}>
                 {r.map((c, j) => (
                   <td key={j} className="border-b border-border/60 px-2 py-1.5 align-top">
                     {inline(c)}
