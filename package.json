@@ -8,6 +8,8 @@
     "start": "next start -p 3010"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.18",
+    "@ai-sdk/react": "^4.0.37",
     "@anthropic-ai/sdk": "^0.111.0",
     "@aws-sdk/client-bedrock-runtime": "^3.1092.0",
     "@neondatabase/serverless": "^1.1.0",
@@ -17,6 +19,7 @@
     "@stripe/stripe-js": "^9.10.0",
     "@vercel/blob": "^2.5.0",
     "@vercel/speed-insights": "^2.0.0",
+    "ai": "^7.0.34",
     "bcryptjs": "^3.0.2",
     "next": "16.2.9",
     "prosemirror-commands": "^1.7.1",
