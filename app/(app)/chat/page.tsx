@@ -8,13 +8,13 @@ import { Markdown } from "@/components/directory/markdown";
 import { Icon, type IconName } from "@/components/ui/icons";
 import { TextLink } from "@/components/ui/text-link";
 
-// /directory/ask — chat surface for the care-directory agent. Streams from
+// /chat — chat surface for the care-directory agent. Streams from
 // POST /api/ai/directory (AI SDK UI message stream): text renders as it
 // generates and tool calls surface live as status lines. Reference data only,
 // no PHI. Layout follows the insurance repo's HomeChat: input centered while
 // the thread is empty (suggested prompts beneath it), pinned to the bottom
-// once the first message sends. The route title strip says "Directory"
-// (longest-prefix match on /directory), so this page renders no H1.
+// once the first message sends. The route title strip supplies the H1 via
+// ROUTE_TITLES ("/chat"), so this page renders no H1 of its own.
 
 const STARTERS: Array<{ icon: IconName; label: string; prompt: string }> = [
   { icon: "dollar", label: "Cigna 60-min rate", prompt: "What does Cigna pay for a 60-minute therapy session?" },

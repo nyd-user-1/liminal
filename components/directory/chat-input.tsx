@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { PlusMenu } from "@/components/directory/plus-menu";
 
-// ChatInput — the prompt container for /directory/ask. Layout follows the
+// ChatInput — the prompt container for /chat. Layout follows the
 // Nuxt UI chat template (nuxt-ui-templates/chat-vue): a soft rounded rectangle
 // with the textarea on top and a controls row beneath — [+ menu] [model
 // selector] bottom-left, send/stop bottom-right. No border, no shadow (per

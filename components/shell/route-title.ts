@@ -18,6 +18,7 @@ const ROUTE_TITLES: Array<[prefix: string, icon: IconName, title: string]> = [
   ["/prescriptions", "pill-bottle", "Prescriptions"],
   ["/orders", "send", "Orders"],
   ["/catalog", "grid", "Catalog"],
+  ["/chat", "message", "Chat"],
   ["/directory", "globe", "Directory"],
   ["/billing", "dollar", "Billing"],
   ["/earnings", "credit-card", "Earnings"],
