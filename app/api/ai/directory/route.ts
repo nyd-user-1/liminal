@@ -39,7 +39,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 const MODELS = new Set(["claude-opus-4-8", "claude-sonnet-4-6", "claude-haiku-4-5"]);
-const DEFAULT_MODEL = process.env.LIMINAL_DIRECTORY_AI_MODEL ?? "claude-opus-4-8";
+const DEFAULT_MODEL = process.env.LIMINAL_DIRECTORY_AI_MODEL ?? "claude-haiku-4-5";
 
 const tools = {
   search_providers: tool({

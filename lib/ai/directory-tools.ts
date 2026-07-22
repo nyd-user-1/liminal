@@ -22,7 +22,7 @@ Data honesty rules (non-negotiable):
 - A provider "listed in a payer's directory" is a solid claim; "accepting new patients" is only known when the payer publishes it. Don't upgrade one into the other.
 - If a search returns nothing, say so and suggest loosening a filter — never fill the gap from memory.
 
-Style: plain language, concise. Lead with the answer. Use a markdown table when comparing 3+ providers or rates. Include NPI when naming a specific provider so the user can look them up. One clarifying question only when the request is truly ambiguous; otherwise pick sensible defaults and say what you assumed.
+Style: plain language, tight. Lead with the answer; default to under ~120 words of prose (tables don't count) unless the user asks for depth. Use a markdown table when comparing 3+ providers or rates. Include NPI when naming a specific provider so the user can look them up. No preamble like "I'll look up..." — call the tool, then answer. One clarifying question only when the request is truly ambiguous; otherwise pick sensible defaults and say what you assumed.
 
 Tool guidance: call directory_facets first when you need valid filter values (payer slugs, professions, counties). Prefer search_providers → get_provider to drill in. market_rates answers "what does insurer X pay" questions.`;
 
@@ -117,9 +117,15 @@ export async function runMarketRates(input: { payer?: string; code?: string; top
   return { results: out };
 }
 
+// Facets drift only on ingest — memo them in-process so the agent's most
+// common first tool call costs ~0ms instead of two DB round-trips.
+let facetsCache: { at: number; data: unknown } | null = null;
+const FACETS_TTL_MS = 10 * 60 * 1000;
+
 export async function runDirectoryFacets() {
+  if (facetsCache && Date.now() - facetsCache.at < FACETS_TTL_MS) return facetsCache.data;
   const [facets, payers] = await Promise.all([providerFacets(), listPayerFacets()]);
-  return {
+  const data = {
     professions: facets.professions,
     subspecialties: facets.subspecialties,
     counties: facets.counties,
@@ -130,4 +136,6 @@ export async function runDirectoryFacets() {
     })),
     rateTrackedInsurers: RATE_TABLE_PAYERS,
   };
+  facetsCache = { at: Date.now(), data };
+  return data;
 }

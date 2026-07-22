@@ -30,7 +30,7 @@ const TOOL_LABELS: Record<string, [active: string, done: string]> = {
 };
 
 export default function AskDirectoryPage() {
-  const [model, setModel] = useState("claude-opus-4-8");
+  const [model, setModel] = useState("claude-haiku-4-5");
   const modelRef = useRef(model);
   modelRef.current = model;
 
@@ -97,8 +97,10 @@ export default function AskDirectoryPage() {
                 </div>
               </div>
             ) : (
-              <div key={message.id} className="flex justify-start">
-                <div className="max-w-[92%] rounded-card rounded-bl-sm border border-border bg-surface px-4 py-3 shadow-card">
+              // Assistant answers sit flat on the page — no card, no border, no
+              // shadow (chat-vue reference; design ruling 2026-07-22).
+              <div key={message.id} className="px-1">
+                <div>
                   {message.parts.map((part, i) => {
                     if (part.type === "text") return <Markdown key={i} md={part.text} />;
                     const label = TOOL_LABELS[part.type];
