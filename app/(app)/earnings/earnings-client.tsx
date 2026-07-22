@@ -210,7 +210,7 @@ export function EarningsClient({ publishableKey }: { publishableKey: string }) {
           {/* Quiet fallback — the embedded components cover day-to-day; the full
               Express dashboard is one muted link away, not a primary action. */}
           <div className="pt-1">
-            <TextLink variant="underline" disabled={busy} onClick={() => void openDashboard()}>
+            <TextLink disabled={busy} onClick={() => void openDashboard()}>
               Open your Stripe Express dashboard
             </TextLink>
           </div>

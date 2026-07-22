@@ -6,6 +6,7 @@ import { DefaultChatTransport } from "ai";
 import { ChatInput } from "@/components/directory/chat-input";
 import { Markdown } from "@/components/directory/markdown";
 import { Icon, type IconName } from "@/components/ui/icons";
+import { TextLink } from "@/components/ui/text-link";
 
 // /directory/ask — chat surface for the care-directory agent. Streams from
 // POST /api/ai/directory (AI SDK UI message stream): text renders as it
@@ -215,14 +216,9 @@ export default function AskDirectoryPage() {
                       {settled && followUps.length > 0 && (
                         <div className="mt-3 flex flex-col items-start gap-1.5">
                           {followUps.map((q) => (
-                            <button
-                              key={q}
-                              type="button"
-                              onClick={() => send(q)}
-                              className="text-left text-[13.5px] text-primary underline decoration-primary/40 underline-offset-2 transition-colors hover:decoration-primary"
-                            >
+                            <TextLink key={q} onClick={() => send(q)} className="text-left">
                               {q}
-                            </button>
+                            </TextLink>
                           ))}
                         </div>
                       )}

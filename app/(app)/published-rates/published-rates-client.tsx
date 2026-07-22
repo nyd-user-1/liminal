@@ -290,7 +290,7 @@ export function PublishedRatesClient({ data }: { data: RateTableData }) {
             // to a flex item — a bare `truncate` on the link hard-clips mid-word.
             <TextLink
               href={`/orgs/${encodeURIComponent(r.tin)}`}
-              variant="primary"
+              variant="name"
               className="!block min-w-0 truncate"
               title={name}
             >

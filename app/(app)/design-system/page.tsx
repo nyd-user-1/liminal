@@ -1194,12 +1194,10 @@ export default function DesignSystemPage() {
                 );
               })}
             </Spec>
-            <Spec name="TextLink" desc="Inline link. STANDARD (default): teal with an underline that wipes in on hover. Variants: primary (teal, no underline), underline (static rule), related (see RelatedLink). Optional leading icon.">
+            <Spec name="TextLink" desc="Inline link. STANDARD (default): teal with an underline that wipes in on hover. Variants: name (the wipe at 500 for a row's subject), related (see RelatedLink). Optional leading icon.">
               <div className="flex flex-col items-start gap-2">
                 <TextLink>View all clients</TextLink>
                 <TextLink icon="download">Export</TextLink>
-                <TextLink variant="primary">Primary — teal, no underline</TextLink>
-                <TextLink variant="underline">Underline — static rule</TextLink>
               </div>
             </Spec>
             <Spec

@@ -12,8 +12,6 @@ import { Icon, type IconName } from "@/components/ui/icons";
 //     column (client, plan, provider). The one place weight earns its keep: it
 //     makes the row's SUBJECT findable while everything else stays quiet. Use
 //     it for the thing the row IS, never merely for a link that matters.
-//   • primary   — 600 weight, teal, no underline
-//   • underline — muted body text, static underline; hover → teal
 //   • related   — the RELATED-RECORD treatment: body text under a muted-teal
 //     dotted underline at rest; on hover the text goes teal and a solid teal
 //     underline WIPES in over the dotted line (the .link-wipe motion), so the
@@ -24,8 +22,6 @@ import { Icon, type IconName } from "@/components/ui/icons";
 const base = "inline-flex items-center gap-1.5 text-[15px] transition-colors";
 
 const VARIANTS = {
-  primary: "font-semibold text-primary hover:text-primary-hover",
-  underline: "font-medium text-text underline underline-offset-2 hover:text-primary",
   wipe: "group font-normal text-primary",
   name: "group font-medium text-primary",
   // The dotted rest-underline lives on the wipe span (WIPE_SPAN_EXTRA), not the
