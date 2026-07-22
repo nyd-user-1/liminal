@@ -32,33 +32,69 @@ const TOOL_LABELS: Record<string, [active: string, done: string]> = {
   "tool-directory_facets": ["Loading filters…", "Loaded filters"],
 };
 
-// Claude-style minimalist footer under each finished answer: copy + retry.
+// The model ends each answer with a FOLLOW_UPS: block (see DIRECTORY_SYSTEM);
+// strip it from the rendered body and surface the questions as links.
+function splitFollowUps(text: string): { body: string; followUps: string[] } {
+  const idx = text.search(/\n?FOLLOW_UPS:\s*(\n|$)/);
+  if (idx === -1) return { body: text, followUps: [] };
+  const followUps = text
+    .slice(idx)
+    .replace(/^\n?FOLLOW_UPS:\s*\n?/, "")
+    .split("\n")
+    .map((l) => l.replace(/^\s*(?:[-*\d.)]+\s*)?/, "").replace(/^<|>$/g, "").trim())
+    .filter(Boolean)
+    .slice(0, 3);
+  return { body: text.slice(0, idx).trimEnd(), followUps };
+}
+
+// Kit has no thumbs glyphs — inline lucide paths, page-local.
+const THUMB_UP = (
+  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M7 10v12" />
+    <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
+  </svg>
+);
+const THUMB_DOWN = (
+  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 14V2" />
+    <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z" />
+  </svg>
+);
+
+// Claude-style minimalist footer: copy · thumbs up/down · retry, one quiet row.
 function AnswerFooter({ text, isLast, busy, onRegenerate }: { text: string; isLast: boolean; busy: boolean; onRegenerate: () => void }) {
   const [copied, setCopied] = useState(false);
+  const [vote, setVote] = useState<"up" | "down" | null>(null);
   const copy = () => {
     void navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     });
   };
+  const btn = "inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-canvas hover:text-text";
   return (
     <div className="mt-1.5 flex items-center gap-0.5 text-text-muted">
-      <button
-        type="button"
-        onClick={copy}
-        aria-label="Copy answer"
-        className="inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-canvas hover:text-text"
-      >
+      <button type="button" onClick={copy} aria-label="Copy answer" className={btn}>
         <Icon name={copied ? "check" : "copy"} size={14} className={copied ? "text-success" : undefined} />
       </button>
+      <button
+        type="button"
+        onClick={() => setVote(vote === "up" ? null : "up")}
+        aria-label="Good answer"
+        className={`${btn} ${vote === "up" ? "text-primary" : ""}`}
+      >
+        {THUMB_UP}
+      </button>
+      <button
+        type="button"
+        onClick={() => setVote(vote === "down" ? null : "down")}
+        aria-label="Bad answer"
+        className={`${btn} ${vote === "down" ? "text-primary" : ""}`}
+      >
+        {THUMB_DOWN}
+      </button>
       {isLast && (
-        <button
-          type="button"
-          onClick={onRegenerate}
-          disabled={busy}
-          aria-label="Regenerate answer"
-          className="inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-canvas hover:text-text disabled:opacity-40"
-        >
+        <button type="button" onClick={onRegenerate} disabled={busy} aria-label="Regenerate answer" className={`${btn} disabled:opacity-40`}>
           <Icon name="refresh-cw" size={13} />
         </button>
       )}
@@ -129,7 +165,7 @@ export default function AskDirectoryPage() {
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-3xl space-y-4 px-4 py-4">
+        <div className="mx-auto max-w-3xl space-y-6 px-4 py-4">
           {messages.map((message, mi) =>
             message.role === "user" ? (
               <div key={message.id} className="flex justify-end">
@@ -140,38 +176,68 @@ export default function AskDirectoryPage() {
             ) : (
               // Assistant answers sit flat on the page — no card, no border, no
               // shadow (chat-vue reference; design ruling 2026-07-22).
-              <div key={message.id} className="px-1">
-                <div>
-                  {message.parts.map((part, i) => {
-                    if (part.type === "text") return <Markdown key={i} md={part.text} />;
-                    const label = TOOL_LABELS[part.type];
-                    if (label && "state" in part) {
-                      const done = part.state === "output-available" || part.state === "output-error";
-                      return (
-                        <p
-                          key={i}
-                          className={`my-1 flex items-center gap-1.5 text-[12px] ${done ? "text-text-muted" : "animate-pulse text-primary"}`}
-                        >
-                          <span className={`inline-block h-1.5 w-1.5 rounded-full ${done ? "bg-border" : "bg-primary"}`} />
-                          {done ? label[1] : label[0]}
-                        </p>
-                      );
+              (() => {
+                const isCurrent = mi === messages.length - 1;
+                const settled = !(isStreaming && isCurrent);
+                const lastTextIdx = message.parts.reduce((acc, p, i) => (p.type === "text" ? i : acc), -1);
+                const bodyTexts: string[] = [];
+                let followUps: string[] = [];
+                const rendered = message.parts.map((part, i) => {
+                  if (part.type === "text") {
+                    let body = part.text;
+                    if (i === lastTextIdx) {
+                      const split = splitFollowUps(part.text);
+                      body = split.body;
+                      followUps = split.followUps;
                     }
-                    return null;
-                  })}
-                  {!(isStreaming && mi === messages.length - 1) && (
-                    <AnswerFooter
-                      text={message.parts
-                        .filter((p): p is Extract<(typeof message.parts)[number], { type: "text" }> => p.type === "text")
-                        .map((p) => p.text)
-                        .join("\n")}
-                      isLast={mi === messages.length - 1}
-                      busy={isStreaming}
-                      onRegenerate={() => void regenerate()}
-                    />
-                  )}
-                </div>
-              </div>
+                    bodyTexts.push(body);
+                    return <Markdown key={i} md={body} />;
+                  }
+                  const label = TOOL_LABELS[part.type];
+                  if (label && "state" in part) {
+                    const done = part.state === "output-available" || part.state === "output-error";
+                    return (
+                      <p
+                        key={i}
+                        className={`my-1 flex items-center gap-1.5 text-[12px] ${done ? "text-text-muted" : "animate-pulse text-primary"}`}
+                      >
+                        <span className={`inline-block h-1.5 w-1.5 rounded-full ${done ? "bg-border" : "bg-primary"}`} />
+                        {done ? label[1] : label[0]}
+                      </p>
+                    );
+                  }
+                  return null;
+                });
+                return (
+                  <div key={message.id} className="px-1">
+                    <div>
+                      {rendered}
+                      {settled && followUps.length > 0 && (
+                        <div className="mt-3 flex flex-col items-start gap-1.5">
+                          {followUps.map((q) => (
+                            <button
+                              key={q}
+                              type="button"
+                              onClick={() => send(q)}
+                              className="text-left text-[13.5px] text-primary underline decoration-primary/40 underline-offset-2 transition-colors hover:decoration-primary"
+                            >
+                              {q}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {settled && (
+                        <AnswerFooter
+                          text={bodyTexts.join("\n")}
+                          isLast={isCurrent}
+                          busy={isStreaming}
+                          onRegenerate={() => void regenerate()}
+                        />
+                      )}
+                    </div>
+                  </div>
+                );
+              })()
             ),
           )}
           {status === "submitted" && (

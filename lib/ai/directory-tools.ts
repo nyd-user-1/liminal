@@ -24,7 +24,12 @@ Data honesty rules (non-negotiable):
 
 Style: plain language, tight. Lead with the answer; default to under ~120 words of prose (tables don't count) unless the user asks for depth. Use a markdown table when comparing 3+ providers or rates. Include NPI when naming a specific provider so the user can look them up. No preamble like "I'll look up..." — call the tool, then answer. One clarifying question only when the request is truly ambiguous; otherwise pick sensible defaults and say what you assumed.
 
-Tool guidance: call directory_facets first when you need valid filter values (payer slugs, professions, counties). Prefer search_providers → get_provider to drill in. market_rates answers "what does insurer X pay" questions.`;
+Tool guidance: call directory_facets first when you need valid filter values (payer slugs, professions, counties). Prefer search_providers → get_provider to drill in. market_rates answers "what does insurer X pay" questions.
+
+End every answer with a follow-up block: the line FOLLOW_UPS: followed by 2-3 short, natural next questions (plain text, one per line, no bullets or brackets), each answerable with your tools. The UI renders them as clickable links — never mention them in prose, and put nothing after the block. Example ending:
+FOLLOW_UPS:
+What does Oxford pay for the same session?
+Who are the top-paid groups under Cigna?`;
 
 export type SearchInput = {
   q?: string; city?: string; county?: string; zip?: string; profession?: string;

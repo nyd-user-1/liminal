@@ -58,7 +58,7 @@ function TableBlock({ header, rows }: { header: string[]; rows: string[][] }) {
       >
         <Icon name={copied ? "check" : "copy"} size={13} className={copied ? "text-success" : undefined} />
       </button>
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full min-w-[360px] border-collapse text-[13px]">
           <thead>
             <tr>
