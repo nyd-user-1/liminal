@@ -165,6 +165,28 @@ body {
   background-size: 100% 1.5px;
 }
 
+/* ── ThinkingOrb breathing pulse (components/directory/thinking-orb.tsx) ──
+   Scale 0.92→1.08 + opacity 0.7→1.0, ease-in-out, 2.4s per full cycle
+   (alternate = 1.2s per direction). No rotation. Reduced-motion: static. */
+@keyframes orb-pulse {
+  from {
+    transform: scale(0.92);
+    opacity: 0.7;
+  }
+  to {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+.orb-pulse {
+  animation: orb-pulse 1.2s ease-in-out infinite alternate;
+}
+@media (prefers-reduced-motion: reduce) {
+  .orb-pulse {
+    animation: none;
+  }
+}
+
 /* ── Marketing landing motion (additive; safe to remove with the redesign) ──
    Entrance choreography for the home hero + sections. Elements are visible by
    default and only animate as an enhancement, so headless/prefers-reduced

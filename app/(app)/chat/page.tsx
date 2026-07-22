@@ -5,6 +5,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { ChatInput } from "@/components/directory/chat-input";
 import { Markdown } from "@/components/directory/markdown";
+import { ThinkingOrb } from "@/components/directory/thinking-orb";
 import { Icon, type IconName } from "@/components/ui/icons";
 import { TextLink } from "@/components/ui/text-link";
 
@@ -213,6 +214,13 @@ export default function AskDirectoryPage() {
                   <div key={message.id} className="px-1">
                     <div>
                       {rendered}
+                      {/* The orb leads the incoming stream's growing edge and
+                          comes to rest (static) on the latest answer. */}
+                      {isCurrent && (
+                        <div className="mt-2">
+                          <ThinkingOrb size={26} isThinking={isStreaming} />
+                        </div>
+                      )}
                       {settled && (
                         <AnswerFooter
                           text={bodyTexts.join("\n")}
@@ -237,10 +245,8 @@ export default function AskDirectoryPage() {
             ),
           )}
           {status === "submitted" && (
-            <div className="flex items-center gap-1 px-1 py-2">
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:0ms]" />
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:150ms]" />
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:300ms]" />
+            <div className="px-1 py-2">
+              <ThinkingOrb size={30} isThinking />
             </div>
           )}
           {error && (
