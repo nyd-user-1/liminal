@@ -5,6 +5,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { ChatInput } from "@/components/directory/chat-input";
 import { Markdown } from "@/components/directory/markdown";
+import { Icon, type IconName } from "@/components/ui/icons";
 
 // /directory/ask — chat surface for the care-directory agent. Streams from
 // POST /api/ai/directory (AI SDK UI message stream): text renders as it
@@ -14,11 +15,13 @@ import { Markdown } from "@/components/directory/markdown";
 // once the first message sends. The route title strip says "Directory"
 // (longest-prefix match on /directory), so this page renders no H1.
 
-const STARTERS = [
-  "What does Cigna pay for a 60-minute therapy session?",
-  "Find psychiatrists in Brooklyn accepting new patients",
-  "Compare Oxford and Empire rates for medication management",
-  "Which group practices get paid the most for intakes?",
+const STARTERS: Array<{ icon: IconName; label: string; prompt: string }> = [
+  { icon: "dollar", label: "Cigna 60-min rate", prompt: "What does Cigna pay for a 60-minute therapy session?" },
+  { icon: "map-pin", label: "Psychiatrists in Brooklyn", prompt: "Find psychiatrists in Brooklyn accepting new patients" },
+  { icon: "activity", label: "Oxford vs Empire", prompt: "Compare Oxford and Empire rates for medication management" },
+  { icon: "id-card", label: "Top-paid groups", prompt: "Which group practices get paid the most for intakes?" },
+  { icon: "pill-bottle", label: "Med-management rates", prompt: "Which insurer pays the most for medication management (99214)?" },
+  { icon: "users-round", label: "Therapists in Manhattan", prompt: "Find therapists in Manhattan accepting new patients" },
 ];
 
 // Friendly labels for streamed tool activity.
@@ -63,22 +66,26 @@ export default function AskDirectoryPage() {
     />
   );
 
-  // Empty thread: input centered vertically, suggested prompts beneath it.
+  // Empty thread: input centered vertically; short iconed prompt chips wrap
+  // beneath it, left-aligned to the input container's edge (chat-vue layout).
   if (messages.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center px-4">
-        <div className="w-full max-w-[770px]">{input}</div>
-        <div className="mt-4 flex max-w-xl flex-wrap justify-center gap-2">
-          {STARTERS.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => send(s)}
-              className="rounded-full border border-border bg-surface px-3 py-1.5 text-[12.5px] text-text transition-colors hover:border-primary hover:text-primary"
-            >
-              {s}
-            </button>
-          ))}
+      <div className="flex h-full flex-col items-center justify-center">
+        <div className="w-full">{input}</div>
+        <div className="w-full px-1.5 sm:px-4">
+          <div className="mx-auto flex w-full max-w-[770px] flex-wrap gap-2">
+            {STARTERS.map((s) => (
+              <button
+                key={s.label}
+                type="button"
+                onClick={() => send(s.prompt)}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-[13px] text-text transition-colors hover:border-primary hover:text-primary"
+              >
+                <Icon name={s.icon} size={14} className="text-primary" />
+                {s.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     );
