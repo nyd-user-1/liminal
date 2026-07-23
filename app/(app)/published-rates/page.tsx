@@ -10,11 +10,18 @@ import { getRateTable } from "@/lib/repos/rate-table";
 // The H1 lives in the TopBar (ROUTE_TITLES in components/shell/topbar.tsx) —
 // nothing here renders a page-level H1. No logEvent: this reads zero PHI.
 //
-// One read, no searchParams: insurer / entity type / credential are all
-// client-side filters over the loaded set. The 1h cache lives in the repo, not
-// unstable_cache — the corpus is ~12MB and Next's data cache rejects >2MB.
+// One read: insurer / entity type / credential are all client-side filters
+// over the loaded set. The 1h cache lives in the repo, not unstable_cache —
+// the corpus is ~12MB and Next's data cache rejects >2MB. searchParams only
+// SEED the client filters (deep links from the /orgs Map tab: ?payer=…&q=…);
+// they never change what is fetched.
 
-export default async function PublishedRatesPage() {
+export default async function PublishedRatesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ payer?: string; q?: string }>;
+}) {
+  const { payer, q } = await searchParams;
   const data = await getRateTable();
-  return <PublishedRatesClient data={data} />;
+  return <PublishedRatesClient data={data} initialPayer={payer} initialQ={q} />;
 }

@@ -19,6 +19,7 @@
     "@stripe/stripe-js": "^9.10.0",
     "@vercel/blob": "^2.5.0",
     "@vercel/speed-insights": "^2.0.0",
+    "@xyflow/react": "^12.11.2",
     "ai": "^7.0.34",
     "bcryptjs": "^3.0.2",
     "next": "16.2.9",

@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { Badge } from "@/components/ui/badge";
 import { Banner } from "@/components/ui/banner";
 import { Icon } from "@/components/ui/icons";
+import { Spinner } from "@/components/ui/spinner";
 import { LoadMoreRow, SortableHead, Table, Td, Tr, useSentinel, useSort } from "@/components/ui/table";
 import { Tooltip } from "@/components/ui/tooltip";
 import { TableSkeleton } from "@/components/rates/table-skeleton";
@@ -12,11 +14,23 @@ import { InsurerMark } from "@/components/rates/insurer-mark";
 import { cptLabel } from "@/components/rates/cpt";
 import { prettyNetworkLabel, titleCase } from "@/lib/format";
 import type { OrgParticipationRow, OrgRateBand, OrgRosterRow } from "@/lib/repos/orgs";
+import type { OrgGraph } from "@/lib/org-graph";
 
 // The org workspace's content column — same shape as the provider drill-down's
 // ProviderRates: toggle chips over a SINGLE sortable table that owns its scroll
-// (min-h-0 flex-1, sticky header), so the page itself never moves. Three views:
-// per-insurer rate economics, roster, and directory participation.
+// (min-h-0 flex-1, sticky header), so the page itself never moves. Four views:
+// per-insurer rate economics, roster, directory participation, and the
+// relationship Map (React Flow — dynamically imported so @xyflow/react stays
+// out of every other bundle).
+
+const OrgMap = dynamic(() => import("./org-map").then((m) => m.OrgMap), {
+  ssr: false,
+  loading: () => (
+    <div className="flex min-h-0 flex-1 items-center justify-center">
+      <Spinner size={22} className="text-text-muted" />
+    </div>
+  ),
+});
 
 const CPT_ORDER = ["90791", "90792", "90834", "90837", "90853", "99213", "99214", "99215"];
 const cptRank = (c: string) => {
@@ -33,7 +47,7 @@ function median(nums: number[]): number {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 }
 
-type View = "rates" | "roster" | "participation";
+type View = "rates" | "roster" | "participation" | "map";
 
 function ToggleChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
@@ -142,6 +156,22 @@ export function OrgPanels({
       .then((d) => setParticipation((d.rows ?? []) as OrgParticipationRow[]))
       .catch(() => setParticipation([]));
   }, [view, participation, tin]);
+
+  // ── Map: lazy-load the graph on first view ──────────────────────────────────
+  const [graph, setGraph] = useState<OrgGraph | null>(null);
+  const [graphFailed, setGraphFailed] = useState(false);
+  const graphReq = useRef(false);
+  useEffect(() => {
+    if (view !== "map" || graph !== null || graphReq.current) return;
+    graphReq.current = true;
+    fetch(`/api/orgs/graph?tin=${encodeURIComponent(tin)}`)
+      .then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
+      .then((d) => setGraph(d as OrgGraph))
+      .catch(() => setGraphFailed(true));
+  }, [view, graph, tin]);
   const [partSort, togglePartSort] = useSort<"insurer" | "network" | "clinicians" | "accepting">({ col: "clinicians", dir: "desc" });
   const sortedParticipation = useMemo(() => {
     if (!participation) return [];
@@ -168,9 +198,22 @@ export function OrgPanels({
         <ToggleChip active={view === "participation"} onClick={() => setView("participation")}>
           Participation
         </ToggleChip>
+        <ToggleChip active={view === "map"} onClick={() => setView("map")}>
+          Map
+        </ToggleChip>
       </div>
 
-      {view === "rates" ? (
+      {view === "map" ? (
+        graphFailed ? (
+          <Banner variant="info">The relationship map didn&rsquo;t load — reload the page to try again.</Banner>
+        ) : graph === null ? (
+          <div className="flex min-h-0 flex-1 items-center justify-center">
+            <Spinner size={22} className="text-text-muted" />
+          </div>
+        ) : (
+          <OrgMap graph={graph} onShowRoster={() => setView("roster")} />
+        )
+      ) : view === "rates" ? (
         sortedGroups.length === 0 ? (
           <Banner variant="info">
             No dollar-denominated rate rows for this organization — its contracts may all be percentage-of-charge.

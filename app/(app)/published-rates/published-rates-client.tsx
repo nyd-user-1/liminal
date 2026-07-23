@@ -187,13 +187,22 @@ function FacetChip({
   );
 }
 
-export function PublishedRatesClient({ data }: { data: RateTableData }) {
+export function PublishedRatesClient({
+  data,
+  initialPayer,
+  initialQ,
+}: {
+  data: RateTableData;
+  /** Deep-link seeds (from the /orgs Map tab) — the page stays client-filtered. */
+  initialPayer?: string;
+  initialQ?: string;
+}) {
   const router = useRouter();
   const [tab, setTab] = useState<TabKey>("all");
-  const [term, setTerm] = useState("");
-  const [debounced, setDebounced] = useState("");
+  const [term, setTerm] = useState(initialQ ?? "");
+  const [debounced, setDebounced] = useState(initialQ ?? "");
   const [creds, setCreds] = useState<Set<string>>(new Set());
-  const [payers, setPayers] = useState<Set<string>>(new Set());
+  const [payers, setPayers] = useState<Set<string>>(() => (initialPayer ? new Set([initialPayer]) : new Set()));
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(term), 250);
