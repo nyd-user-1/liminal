@@ -69,6 +69,35 @@ function splitFollowUps(text: string): { body: string; followUps: string[] } {
   return { body: text.slice(0, idx).trimEnd(), followUps };
 }
 
+// Chain-of-thought block: expanded while its answer is streaming, then
+// auto-collapses into a one-line accordion once the answer lands (it serves
+// no ongoing function at full size — reopen on click).
+function ReasoningBlock({ text, live }: { text: string; live: boolean }) {
+  const [open, setOpen] = useState(live);
+  useEffect(() => {
+    if (!live) setOpen(false);
+  }, [live]);
+  if (!text.trim()) return null;
+  return (
+    <div className="my-2">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide text-text-muted transition-colors hover:text-text"
+      >
+        Thinking
+        <Icon name="chevron-down" size={12} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="mt-1 border-l-2 border-primary/30 pl-3">
+          <p className="whitespace-pre-wrap text-[12.5px] italic leading-relaxed text-text-muted">{text}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Kit has no thumbs glyphs — inline lucide paths, page-local.
 const THUMB_UP = (
   <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -186,16 +215,9 @@ function AssistantMessage({
       bodyTexts.push(body);
       return <Markdown key={i} md={body} />;
     }
-    // Internal chain-of-thought — summarized reasoning, streamed before and
-    // between tool calls. Muted italic block so it reads as sotto voce.
+    // Internal chain-of-thought — expanded while streaming, accordion after.
     if (part.type === "reasoning") {
-      if (!part.text.trim()) return null;
-      return (
-        <div key={i} className="my-2 border-l-2 border-primary/30 pl-3">
-          <p className="mb-0.5 text-[11px] font-medium uppercase tracking-wide text-text-muted">Thinking</p>
-          <p className="whitespace-pre-wrap text-[12.5px] italic leading-relaxed text-text-muted">{part.text}</p>
-        </div>
-      );
+      return <ReasoningBlock key={i} text={part.text} live={!settled} />;
     }
     const running = "state" in part && part.state !== "output-available" && part.state !== "output-error";
     const label = toolLabel(part.type, "input" in part ? part.input : undefined);
@@ -275,10 +297,25 @@ export default function ChatPage() {
   });
 
   const isStreaming = status === "submitted" || status === "streaming";
+
+  // Sticky-bottom scrolling: follow the stream only while the reader is at the
+  // bottom. Scroll up mid-stream and the thread stays put (content keeps
+  // streaming below the fold) with a jump-to-latest button as the way back.
   const endRef = useRef<HTMLDivElement>(null);
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const [atBottom, setAtBottom] = useState(true);
+  const atBottomRef = useRef(true);
+  const handleScroll = () => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    atBottomRef.current = nearBottom;
+    setAtBottom(nearBottom);
+  };
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: "end" });
+    if (atBottomRef.current) endRef.current?.scrollIntoView({ block: "end" });
   }, [messages]);
+  const scrollToBottom = () => endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
 
   const send = (text: string) => {
     if (!text.trim() || isStreaming) return;
@@ -323,11 +360,17 @@ export default function ChatPage() {
     );
   }
 
-  // With messages: scrollable thread + input pinned to the bottom.
+  // With messages: scrollable thread (scrollbar hidden — everyone knows a chat
+  // scrolls) + input pinned to the bottom.
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-3xl space-y-6 px-4 py-4">
+      <div className="relative flex-1 overflow-hidden">
+        <div
+          ref={scrollerRef}
+          onScroll={handleScroll}
+          className="h-full overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <div className="mx-auto max-w-3xl space-y-6 px-4 py-4">
           {messages.map((message, mi) =>
             message.role === "user" ? (
               <div key={message.id} className="flex justify-end">
@@ -357,8 +400,19 @@ export default function ChatPage() {
               {error.message || "The directory assistant is temporarily unavailable."}
             </p>
           )}
-          <div ref={endRef} />
+            <div ref={endRef} />
+          </div>
         </div>
+        {!atBottom && (
+          <button
+            type="button"
+            onClick={scrollToBottom}
+            aria-label="Scroll to latest"
+            className="absolute bottom-4 left-1/2 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-border bg-surface text-text-body shadow-card transition-colors hover:text-text"
+          >
+            <Icon name="chevron-down" size={16} />
+          </button>
+        )}
       </div>
       <div className="shrink-0">{input}</div>
     </div>
