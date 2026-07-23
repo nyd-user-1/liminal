@@ -127,15 +127,28 @@ export async function POST(req: Request) {
       };
     }
 
+    // Internal chain-of-thought ON (ruling 2026-07-22): the model thinks before
+    // and between tool calls and the summarized reasoning streams to the UI as
+    // `reasoning` parts. Haiku is a pre-adaptive model — it takes a budget;
+    // Sonnet/Opus run adaptive with display opt-in (omitted-by-default there).
+    const thinking =
+      model === "claude-haiku-4-5"
+        ? { type: "enabled", budgetTokens: 2000 }
+        : { type: "adaptive", display: "summarized" };
+
     const result = streamText({
       model: anthropic(model),
       instructions: DIRECTORY_SYSTEM,
       messages,
       tools,
       stopWhen: isStepCount(8),
+      maxOutputTokens: 8192,
+      providerOptions: { anthropic: { thinking } },
     });
 
-    return createUIMessageStreamResponse({ stream: toUIMessageStream({ stream: result.stream }) });
+    return createUIMessageStreamResponse({
+      stream: toUIMessageStream({ stream: result.stream, sendReasoning: true }),
+    });
   } catch (err) {
     if (err instanceof AuthError) {
       return NextResponse.json({ error: err.message }, { status: err.status });

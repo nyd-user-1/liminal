@@ -186,6 +186,17 @@ function AssistantMessage({
       bodyTexts.push(body);
       return <Markdown key={i} md={body} />;
     }
+    // Internal chain-of-thought — summarized reasoning, streamed before and
+    // between tool calls. Muted italic block so it reads as sotto voce.
+    if (part.type === "reasoning") {
+      if (!part.text.trim()) return null;
+      return (
+        <div key={i} className="my-2 border-l-2 border-primary/30 pl-3">
+          <p className="mb-0.5 text-[11px] font-medium uppercase tracking-wide text-text-muted">Thinking</p>
+          <p className="whitespace-pre-wrap text-[12.5px] italic leading-relaxed text-text-muted">{part.text}</p>
+        </div>
+      );
+    }
     const running = "state" in part && part.state !== "output-available" && part.state !== "output-error";
     const label = toolLabel(part.type, "input" in part ? part.input : undefined);
     if (label && "state" in part) {
