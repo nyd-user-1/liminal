@@ -144,7 +144,7 @@ export function Sidebar({
               type="button"
               onClick={() => setCollapsed((c) => !c)}
               aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-field text-text-body transition-colors hover:bg-page-edge/60 hover:text-text"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-field text-text-body transition-colors hover:bg-[rgba(0,0,0,0.05)] hover:text-text"
             >
               <Icon name={collapsed ? "chevron-right" : "chevron-left"} size={18} />
             </button>
@@ -158,7 +158,7 @@ export function Sidebar({
           // separator before each titled section so the groups still read.
           if (collapsed) {
             return (
-              <div key={section.header ?? "top"} className={si > 0 && section.header ? "mt-1.5 border-t border-page-edge pt-1.5" : ""}>
+              <div key={section.header ?? "top"} className={si > 0 && section.header ? "mt-1.5 border-t border-border pt-1.5" : ""}>
                 {section.items.map((item) => (
                   <div key={item.href}>{navLink(item)}</div>
                 ))}
@@ -189,7 +189,7 @@ export function Sidebar({
                 <Icon name={open ? "chevron-down" : "chevron-right"} size={14} className="shrink-0" />
               </button>
               {open && (
-                <div className="ml-[18px] mt-0.5 space-y-0.5 border-l border-page-edge pl-2">
+                <div className="ml-[18px] mt-0.5 space-y-0.5 border-l border-border pl-2">
                   {section.items.map((item) => (
                     <div key={item.href}>{navLink(item)}</div>
                   ))}
@@ -200,7 +200,7 @@ export function Sidebar({
         })}
       </nav>
 
-      <div className="border-t border-page-edge p-3">
+      <div className="border-t border-border p-3">
         <AccountMenu user={user} collapsed={collapsed} />
       </div>
     </aside>

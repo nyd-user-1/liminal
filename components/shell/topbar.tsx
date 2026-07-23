@@ -140,7 +140,7 @@ function ContextSwitcher({ section }: { section: string }) {
                   type="button"
                   role="menuitem"
                   onClick={() => go(d.href)}
-                  className="flex w-full items-center gap-2.5 rounded-field px-2.5 py-2 text-left text-[14px] font-medium text-text-body transition-colors hover:bg-page-edge/60 hover:text-text"
+                  className="flex w-full items-center gap-2.5 rounded-field px-2.5 py-2 text-left text-[14px] font-medium text-text-body transition-colors hover:bg-[rgba(0,0,0,0.05)] hover:text-text"
                 >
                   <Icon name={d.icon} size={18} className="shrink-0 text-text-muted" />
                   <span className="flex-1 truncate">{d.label}</span>
