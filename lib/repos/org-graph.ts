@@ -1,13 +1,6 @@
 import { hasDb, sql } from "@/lib/db";
 import { isoDateOnly } from "@/lib/format";
-import {
-  ORG_GRAPH_CODES,
-  type OrgGraph,
-  type OrgGraphCode,
-  type OrgGraphEdge,
-  type OrgGraphNode,
-  type OrgGraphRate,
-} from "@/lib/org-graph";
+import type { OrgGraph, OrgGraphEdge, OrgGraphNode, OrgGraphRate } from "@/lib/org-graph";
 import { getOrgHeader } from "@/lib/repos/orgs";
 import { normTin } from "@/lib/repos/tin-registry";
 
@@ -15,19 +8,26 @@ import { normTin } from "@/lib/repos/tin-registry";
 // Pure {nodes, edges}: no React, no layout coordinates. The same shape feeds
 // the future /chat `relationship_map` tool (generative UI), so keep it that
 // way. The shape itself lives in lib/org-graph.ts (db-free) so client
-// components can import its values without dragging lib/db into the browser.
+// components can import it without dragging lib/db into the browser.
 //
 // Shape: member providers → the org → payers. The provider side aggregates
 // (~10 named nodes + a "+N more" supernode — Headway alone is 13,614); the
-// payer side is small and ships whole.
+// payer side is small and ships whole. Codes are dynamic: every billing code
+// the org has rate rows for.
 //
-// Edge dollars follow the corpus's honesty rules (sql/027 header): a payer's
-// SINGLE published rate is a fact and shows as one; when the payer publishes
-// several rates for the code, we either show the median across this org's
-// clinicians (labeled as a median, from org_tin_rate_summary/sql 025) or the
-// count of distinct published rates (rate_table_mv) — never one picked number.
+// Chip honesty (ruling 2026-07-23): a cell shows the ONE published rate when
+// exactly one distinct dollar value exists (min = max in the rollup — a
+// quotable fact), else the COUNT of distinct published rates ("78 rates").
+// No medians, no bands: one insurer publishing 78 prices for one code at one
+// org IS the finding. Both rollups come from sql/066.
+//
+// Provider ranking: 'breadth' = most payer books (stable across codes);
+// 'rate' = highest published rate for ONE code (org_tin_npi_rates.max_rate —
+// the roster reshuffles per code, so the client refetches per code).
 
-export type { OrgGraph, OrgGraphCode, OrgGraphEdge, OrgGraphNode, OrgGraphRate };
+export type { OrgGraph, OrgGraphEdge, OrgGraphNode, OrgGraphRate };
+
+export type OrgGraphRank = "breadth" | "rate";
 
 const PROVIDER_NODE_LIMIT = 10;
 
@@ -41,6 +41,7 @@ const MOCK_GRAPH: OrgGraph = {
   tin: "ein:832675429",
   label: "New York Medical Behavioral Health Services (Headway NY)",
   clinicians: 13614,
+  codes: ["90837"],
   nodes: [
     { id: "org", kind: "org", label: "Headway NY", tin: "ein:832675429", clinicians: 13614 },
     { id: "p:1234567893", kind: "provider", label: "Shelley Padgett", npi: "1234567893", profession: "Psychologist", href: "/directory/providers/1234567893" },
@@ -48,7 +49,13 @@ const MOCK_GRAPH: OrgGraph = {
     { id: "y:Oxford Health Insurance Inc", kind: "payer", label: "Oxford Health Insurance Inc", payer: "Oxford Health Insurance Inc", clinicians: 3251, href: publishedRatesHref("Oxford Health Insurance Inc", "ein:832675429") },
   ],
   edges: [
-    { id: "m:1234567893", source: "p:1234567893", target: "org", kind: "member" },
+    {
+      id: "m:1234567893",
+      source: "p:1234567893",
+      target: "org",
+      kind: "member",
+      rates: { "90837": { kind: "published", amount: 135.0 } },
+    },
     { id: "m:more", source: "providers-more", target: "org", kind: "member" },
     {
       id: "r:Oxford Health Insurance Inc",
@@ -56,69 +63,96 @@ const MOCK_GRAPH: OrgGraph = {
       target: "y:Oxford Health Insurance Inc",
       kind: "rates",
       payer: "Oxford Health Insurance Inc",
-      rates: { "90837": { kind: "median", amount: 137.78, npis: 3250 } },
+      rates: { "90837": { kind: "multiple", nRates: 42 } },
       asOf: "2026-07-13",
       href: publishedRatesHref("Oxford Health Insurance Inc", "ein:832675429"),
     },
   ],
 };
 
-/** The org's relationship map: ~10 named member providers (+ supernode), the
- *  org, every payer whose book it appears in, and per-code dollars on the
- *  org→payer edges. Null when the TIN has no roster. */
-export async function getOrgGraph(tin: string): Promise<OrgGraph | null> {
+type BandRow = {
+  payer: string;
+  billing_code: string;
+  npis: number;
+  distinct_rates: number;
+  min_rate: unknown;
+  as_of: Date | null;
+};
+
+/** The org's relationship map. Providers ranked by `rank` (payer breadth by
+ *  default; highest published rate for `code` when rank = 'rate'), each named
+ *  provider's own rate counts on their member edge, every payer whose book
+ *  the TIN appears in, and per-code chips on the org→payer edges. Null when
+ *  the TIN has no roster. */
+export async function getOrgGraph(
+  tin: string,
+  opts: { rank?: OrgGraphRank; code?: string } = {},
+): Promise<OrgGraph | null> {
   const key = normTin(tin);
   if (!hasDb) return key === MOCK_GRAPH.tin ? MOCK_GRAPH : null;
+
+  const rank: OrgGraphRank = opts.rank === "rate" && opts.code ? "rate" : "breadth";
 
   const header = await getOrgHeader(key);
   if (!header) return null;
 
-  const [providersRaw, payerBandsRaw, mvRaw] = await Promise.all([
+  const providersQuery =
+    rank === "rate"
+      ? sql`
+          SELECT nr.npi, d.name, d.profession
+          FROM org_tin_npi_rates nr
+          LEFT JOIN LATERAL (
+            SELECT name, profession FROM directory_providers
+            WHERE npi = nr.npi ORDER BY (source = 'medicaid') DESC LIMIT 1
+          ) d ON true
+          WHERE nr.tin = ${key} AND nr.billing_code = ${opts.code}
+          ORDER BY nr.max_rate DESC, nr.npi
+          LIMIT ${PROVIDER_NODE_LIMIT}
+        `
+      : sql`
+          SELECT r.npi, d.name, d.profession
+          FROM org_tin_rosters r
+          LEFT JOIN LATERAL (
+            SELECT name, profession FROM directory_providers
+            WHERE npi = r.npi ORDER BY (source = 'medicaid') DESC LIMIT 1
+          ) d ON true
+          WHERE r.tin = ${key}
+          ORDER BY r.payer_count DESC, (d.name IS NULL), d.name, r.npi
+          LIMIT ${PROVIDER_NODE_LIMIT}
+        `;
+
+  const [providersRaw, bandsRaw] = await Promise.all([
+    providersQuery,
+    // Long rows, one per payer × code — every code the org's book carries.
     sql`
-      SELECT r.npi, d.name, d.profession
-      FROM org_tin_rosters r
-      LEFT JOIN LATERAL (
-        SELECT name, profession FROM directory_providers
-        WHERE npi = r.npi ORDER BY (source = 'medicaid') DESC LIMIT 1
-      ) d ON true
-      WHERE r.tin = ${key}
-      ORDER BY (d.name IS NULL), d.name, r.npi
-      LIMIT ${PROVIDER_NODE_LIMIT}
-    `,
-    // One row per payer: clinician reach + the median per code (numeric comes
-    // back stringly from the driver in places — Number() at the mapper). No
-    // billing_code WHERE-filter: a payer whose book carries none of the five
-    // graph codes still gets its node (all payers render; its edge just has no
-    // dollars) — the FILTER clauses scope the medians to the graph codes.
-    sql`
-      SELECT payer, max(npis)::int AS npis, max(as_of) AS as_of,
-             max(median) FILTER (WHERE billing_code = '90791') AS m90791,
-             max(npis)   FILTER (WHERE billing_code = '90791') AS n90791,
-             max(median) FILTER (WHERE billing_code = '90834') AS m90834,
-             max(npis)   FILTER (WHERE billing_code = '90834') AS n90834,
-             max(median) FILTER (WHERE billing_code = '90837') AS m90837,
-             max(npis)   FILTER (WHERE billing_code = '90837') AS n90837,
-             max(median) FILTER (WHERE billing_code = '90853') AS m90853,
-             max(npis)   FILTER (WHERE billing_code = '90853') AS n90853,
-             max(median) FILTER (WHERE billing_code = '99214') AS m99214,
-             max(npis)   FILTER (WHERE billing_code = '99214') AS n99214
+      SELECT payer, billing_code, npis, distinct_rates, min_rate, as_of
       FROM org_tin_rate_summary
       WHERE tin = ${key}
-      GROUP BY payer
-      ORDER BY max(npis) DESC, payer
-    `,
-    sql`
-      SELECT payer, as_of,
-             c90791, c90834, c90837, c90853, c99214,
-             n90791, n90834, n90837, n90853, n99214
-      FROM rate_table_mv WHERE tin = ${key}
     `,
   ]);
   const providers = providersRaw as Array<{ npi: string; name: string | null; profession: string | null }>;
-  const payerBands = payerBandsRaw as Array<Record<string, unknown> & { payer: string; npis: number; as_of: Date | null }>;
-  const mvRows = mvRaw as Array<Record<string, unknown> & { payer: string; as_of: Date | null }>;
+  const bands = bandsRaw as BandRow[];
 
-  const mvByPayer = new Map(mvRows.map((r) => [r.payer, r]));
+  // Member-edge chips: each named provider's own published-rate counts under
+  // this TIN, from the (tin, npi, code) rollup — same fact test as the payer
+  // side (min = max ⇒ one distinct published rate).
+  const namedNpis = providers.map((p) => p.npi);
+  const memberRatesRaw = namedNpis.length
+    ? await sql`
+        SELECT npi, billing_code, distinct_rates, min_rate
+        FROM org_tin_npi_rates
+        WHERE tin = ${key} AND npi = ANY(${namedNpis})
+      `
+    : [];
+  const memberRates = new Map<string, Record<string, OrgGraphRate>>();
+  for (const row of memberRatesRaw as Array<{ npi: string; billing_code: string; distinct_rates: number; min_rate: unknown }>) {
+    const rates = memberRates.get(row.npi) ?? {};
+    rates[row.billing_code] =
+      row.distinct_rates === 1
+        ? { kind: "published", amount: Number(row.min_rate) }
+        : { kind: "multiple", nRates: row.distinct_rates };
+    memberRates.set(row.npi, rates);
+  }
 
   const nodes: OrgGraphNode[] = [
     { id: "org", kind: "org", label: header.label, tin: key, clinicians: header.npis },
@@ -135,7 +169,8 @@ export async function getOrgGraph(tin: string): Promise<OrgGraph | null> {
       profession: p.profession,
       href: `/directory/providers/${p.npi}`,
     });
-    edges.push({ id: `m:${p.npi}`, source: id, target: "org", kind: "member" });
+    const rates = memberRates.get(p.npi);
+    edges.push({ id: `m:${p.npi}`, source: id, target: "org", kind: "member", ...(rates ? { rates } : {}) });
   }
   const overflow = header.npis - providers.length;
   if (overflow > 0) {
@@ -148,39 +183,52 @@ export async function getOrgGraph(tin: string): Promise<OrgGraph | null> {
     edges.push({ id: "m:more", source: "providers-more", target: "org", kind: "member" });
   }
 
-  for (const band of payerBands) {
-    const mv = mvByPayer.get(band.payer);
-    const rates: Partial<Record<OrgGraphCode, OrgGraphRate>> = {};
-    for (const code of ORG_GRAPH_CODES) {
-      const single = mv?.[`c${code}`] != null ? Number(mv[`c${code}`]) : null;
-      const nRates = mv ? Number(mv[`n${code}`] ?? 0) : 0;
-      const median = band[`m${code}`] != null ? Number(band[`m${code}`]) : null;
-      const npis = band[`n${code}`] != null ? Number(band[`n${code}`]) : 0;
-      if (single != null) rates[code] = { kind: "published", amount: single };
-      else if (median != null) rates[code] = { kind: "median", amount: median, npis };
-      else if (nRates > 1) rates[code] = { kind: "multiple", nRates };
+  const codes = [...new Set(bands.map((b) => b.billing_code))].sort();
+
+  // Group per payer; order payers by clinician reach (max npis), then name.
+  const byPayer = new Map<string, BandRow[]>();
+  for (const b of bands) {
+    const g = byPayer.get(b.payer);
+    if (g) g.push(b);
+    else byPayer.set(b.payer, [b]);
+  }
+  const payerGroups = [...byPayer.entries()]
+    .map(([payer, rows]) => ({
+      payer,
+      rows,
+      maxNpis: Math.max(...rows.map((r) => r.npis)),
+      asOf: rows.reduce<Date | null>((m, r) => (r.as_of && (!m || r.as_of > m) ? r.as_of : m), null),
+    }))
+    .sort((a, b) => b.maxNpis - a.maxNpis || a.payer.localeCompare(b.payer));
+
+  for (const group of payerGroups) {
+    const rates: Record<string, OrgGraphRate> = {};
+    for (const r of group.rows) {
+      rates[r.billing_code] =
+        r.distinct_rates === 1
+          ? { kind: "published", amount: Number(r.min_rate) }
+          : { kind: "multiple", nRates: r.distinct_rates };
     }
-    const id = `y:${band.payer}`;
+    const id = `y:${group.payer}`;
     nodes.push({
       id,
       kind: "payer",
-      label: band.payer,
-      payer: band.payer,
-      clinicians: band.npis,
-      href: publishedRatesHref(band.payer, key),
+      label: group.payer,
+      payer: group.payer,
+      clinicians: group.maxNpis,
+      href: publishedRatesHref(group.payer, key),
     });
-    const asOf = (mv?.as_of as Date | null) ?? band.as_of;
     edges.push({
-      id: `r:${band.payer}`,
+      id: `r:${group.payer}`,
       source: "org",
       target: id,
       kind: "rates",
-      payer: band.payer,
+      payer: group.payer,
       rates,
-      asOf: asOf ? isoDateOnly(asOf) : null,
-      href: publishedRatesHref(band.payer, key),
+      asOf: group.asOf ? isoDateOnly(group.asOf) : null,
+      href: publishedRatesHref(group.payer, key),
     });
   }
 
-  return { tin: key, label: header.label, clinicians: header.npis, nodes, edges };
+  return { tin: key, label: header.label, clinicians: header.npis, codes, nodes, edges };
 }

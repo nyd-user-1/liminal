@@ -13,7 +13,7 @@ import { Icon, type IconName } from "@/components/ui/icons";
 // the old TopBar strip + ContentHeader H1 (retired 2026-07-23): the panel's
 // first row IS the page chrome now. Reads left → right:
 //
-//   [Leuk › Section ⇅]  ···········  [page actions]  [Search… ⌘K]  [bell?]
+//   [Section ⇅]  ···················  [page actions]  [Search… ⌘K]  [bell?]
 //
 // The LEFT pill is a self-contained section switcher (its own anchored menu,
 // Vercel "All Projects ⇅") — it is the page identifier (the route title renders
@@ -42,6 +42,7 @@ const SWITCH_DESTINATIONS: Array<{ label: string; href: string; icon: IconName }
   { label: "Directory", href: "/directory", icon: "globe" },
   { label: "Programs", href: "/programs", icon: "hand-heart" },
   { label: "Organizations", href: "/orgs", icon: "id-card" },
+  { label: "Maps", href: "/maps", icon: "map-pin" },
   { label: "Networks", href: "/networks", icon: "link" },
   { label: "Plans", href: "/plans", icon: "credit-card" },
   { label: "Recruiting", href: "/recruiting", icon: "users-round" },
@@ -113,8 +114,9 @@ export function ContentSurface({
   );
 }
 
-// The far-left switcher pill (Vercel "All Projects ⇅"): brand › current section
-// + a stacked up/down glyph. Click opens its OWN anchored menu — a "Find…" filter
+// The far-left switcher pill (Vercel "All Projects ⇅"): the current section +
+// a stacked up/down glyph (no brand crumb — ruling 2026-07-23). Click opens its
+// OWN anchored menu — a "Find…" filter
 // over a scrollable list of jump-to destinations — NOT the global ⌘K palette.
 // Desktop-only; on mobile the hamburger + sidebar sheet carry the brand.
 function ContextSwitcher({ section }: { section: string }) {
@@ -156,13 +158,11 @@ function ContextSwitcher({ section }: { section: string }) {
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={`Leuk, ${section} — switch section`}
+        aria-label={`${section} — switch section`}
         className={`flex h-9 items-center gap-1.5 rounded-field pl-3 pr-2 text-[14px] transition-colors ${
           open ? "bg-black/[0.04] text-primary" : "bg-black/[0.04] text-text-body hover:text-primary"
         }`}
       >
-        <span className="font-semibold">Leuk</span>
-        <Icon name="chevron-right" size={15} className="shrink-0 text-text-muted" />
         <span className="max-w-[180px] truncate font-medium">{section}</span>
         <span className="ml-0.5 flex shrink-0 flex-col text-text-muted" aria-hidden>
           <Icon name="chevron-up" size={12} className="-mb-[3px]" />

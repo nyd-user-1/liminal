@@ -17,6 +17,7 @@ import {
   runDirectoryFacets,
   runGetProvider,
   runMarketRates,
+  runRelationshipMap,
   runSearchProviders,
 } from "@/lib/ai/directory-tools";
 
@@ -94,6 +95,16 @@ const tools = {
         .describe("Also return the N highest-paid billing entities for that payer+code (max 10)"),
     }),
     execute: (input) => runMarketRates(input),
+  }),
+  relationship_map: tool({
+    description:
+      "Draw an organization's relationship map — rendered INLINE in the chat as an interactive graph: member clinicians on one side, the insurance plans that pay the organization on the other, with published-rate chips per billing code (the one published rate when a plan publishes exactly one, else the count of distinct rates). Use for organization-level questions: who bills under a group practice or platform (Headway, Alma, a hospital system), which insurers pay it, at what published rates. The graph appears automatically — do not restate its contents.",
+    inputSchema: z.object({
+      org: z
+        .string()
+        .describe("Organization name fragment (e.g. 'Headway') or a 9-digit EIN / 10-digit organization NPI"),
+    }),
+    execute: (input) => runRelationshipMap(input),
   }),
   directory_facets: tool({
     description:

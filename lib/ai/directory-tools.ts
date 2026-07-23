@@ -1,5 +1,7 @@
 import { searchProviders, getProviderByNpi, providerFacets } from "@/lib/repos/directory";
 import { listPayerFacets, networkParticipationForNpi } from "@/lib/repos/networks";
+import { getOrgGraph } from "@/lib/repos/org-graph";
+import { listOrgs } from "@/lib/repos/orgs";
 import { listProviderRates } from "@/lib/repos/rate-directory";
 import { getRateTable } from "@/lib/repos/rate-table";
 import { RATE_TABLE_PAYERS, type RateTableRow } from "@/lib/rate-table";
@@ -22,14 +24,16 @@ Data honesty rules (non-negotiable):
 - A provider "listed in a payer's directory" is a solid claim; "accepting new patients" is only known when the payer publishes it. Don't upgrade one into the other.
 - If a search returns nothing, say so and suggest loosening a filter — never fill the gap from memory.
 
-Style: plain language, tight. Lead with the answer; default to under ~120 words of prose (tables don't count) unless the user asks for depth. Use a markdown table when comparing 3+ providers or rates. Include NPI when naming a specific provider so the user can look them up. No preamble like "I'll look up..." — call the tool, then answer. One clarifying question only when the request is truly ambiguous; otherwise pick sensible defaults and say what you assumed.
+Style: plain language, tight. Lead with the answer; default to under ~120 words of prose (tables don't count) unless the user asks for depth. Use a markdown table when comparing 3+ providers or rates. Include NPI when naming a specific provider so the user can look them up. Say "insurance plan(s)" or "plan(s)" — never the phrase "payer books". No preamble like "I'll look up..." — call the tool, then answer. One clarifying question only when the request is truly ambiguous; otherwise pick sensible defaults and say what you assumed.
 
-Tool guidance: call directory_facets first when you need valid filter values (payer slugs, professions, counties). Prefer search_providers → get_provider to drill in. market_rates answers "what does insurer X pay" questions.
+Entity names are LINKS. Tool results carry an "href" for every entity (providers, organizations, insurance plans). When you name one in prose or a table, link its FIRST mention with that exact href as a markdown link — e.g. [Headway NY](/orgs/ein%3A832675429), [Aetna Life Insurance Company](/published-rates?payer=Aetna%20Life%20Insurance%20Company&q=832675429). Copy hrefs verbatim from tool results; never construct or guess a URL. Later mentions of the same entity stay plain text.
 
-End every answer with a follow-up block: the line FOLLOW_UPS: followed by 2-3 short, natural next questions (plain text, one per line, no bullets or brackets), each answerable with your tools. The UI renders them as clickable links — never mention them in prose, and put nothing after the block. Example ending:
+Tool guidance: call directory_facets first when you need valid filter values (payer slugs, professions, counties). Prefer search_providers → get_provider to drill in. market_rates answers "what does insurer X pay" questions. relationship_map answers organization-level questions ("who does Headway work with", "map X's relationships", "which plans pay this group") — it renders an interactive relationship graph inline below your text automatically, so never recite the edges; give one or two takeaways (the plan covering the most clinicians, or a striking rate-count like one insurer publishing 78 different prices for one code) and let the map carry the rest.
+
+End every answer with a follow-up block: the line FOLLOW_UPS: followed by 2-3 short, natural next questions (plain text, one per line, no bullets or brackets), each answerable with your tools. Whenever an organization or group practice is in play, make one of them a relationship-map request ("Map <organization>'s insurance relationships"); when THIS answer already rendered a relationship map, ALWAYS include one map follow-up (a sibling organization from otherMatches, or another group the conversation surfaced). The UI renders them as clickable links — never mention them in prose, and put nothing after the block. Example ending:
 FOLLOW_UPS:
 What does Oxford pay for the same session?
-Who are the top-paid groups under Cigna?`;
+Map Headway New Jersey's insurance relationships`;
 
 export type SearchInput = {
   q?: string; city?: string; county?: string; zip?: string; profession?: string;
@@ -50,6 +54,7 @@ export async function runSearchProviders(input: SearchInput) {
     items: res.items.map((p) => ({
       npi: p.npi, name: p.name, profession: p.profession, subspecialty: p.subspecialty ?? null,
       credential: p.credential ?? null, city: p.city, county: p.county, phone: p.phone,
+      href: `/directory/providers/${p.npi}`,
     })),
   };
 }
@@ -69,6 +74,7 @@ export async function runGetProvider(input: { npi?: string }) {
       npi: p.npi, name: p.name, profession: p.profession, subspecialty: p.subspecialty ?? null,
       credential: p.credential ?? null, gender: p.gender ?? null, address: p.address,
       city: p.city, county: p.county, zip: p.zip, phone: p.phone,
+      href: `/directory/providers/${p.npi}`,
     },
     insuranceNetworks: networks,
     publishedRates: cappedRates,
@@ -120,6 +126,51 @@ export async function runMarketRates(input: { payer?: string; code?: string; top
     return { ...summary, topEntities: top };
   });
   return { results: out };
+}
+
+// The relationship_map tool — resolves the user's words to ONE billing TIN
+// (digits → EIN/org-NPI directly; otherwise name search, biggest roster
+// wins), then returns the same pure {nodes, edges} graph the /orgs Map tab
+// renders. The chat UI mounts it inline as generative UI; the model narrates
+// takeaways from the summary fields and must not recite edges.
+export async function runRelationshipMap(input: { org?: string }) {
+  const q = (input.org ?? "").trim();
+  if (!q) return { error: "Provide an organization name or EIN." };
+
+  const digits = q.replace(/\D/g, "");
+  const numericOnly = /^[\d\s().-]+$/.test(q);
+  let tin: string | null = null;
+  let otherMatches: Array<{ tin: string; name: string; clinicians: number }> = [];
+  if (numericOnly && digits.length === 9) tin = `ein:${digits}`;
+  else if (numericOnly && digits.length === 10) tin = `npi:${digits}`;
+  else {
+    const res = await listOrgs({ q, named: true, limit: 5 });
+    if (!res.rows.length) {
+      return { error: `No organization matching "${q}" has published rates in the corpus.` };
+    }
+    // listOrgs orders by roster size — the biggest matching org wins; the
+    // rest ride along so the model can offer them if the pick looks wrong.
+    tin = res.rows[0].tin;
+    otherMatches = res.rows.slice(1).map((r) => ({ tin: r.tin, name: r.label, clinicians: r.npis }));
+  }
+
+  const graph = await getOrgGraph(tin);
+  if (!graph) return { error: `No billing roster for ${tin} in the rate corpus.` };
+  return {
+    organization: graph.label,
+    tin: graph.tin,
+    href: `/orgs/${encodeURIComponent(graph.tin)}`,
+    clinicians: graph.clinicians,
+    codes: graph.codes,
+    insurancePlans: graph.nodes
+      .filter((n) => n.kind === "payer")
+      .map((n) => ({ name: n.label, cliniciansInPlan: n.clinicians, href: n.href })),
+    // The UI renders this inline as the relationship map.
+    graph,
+    otherMatches: otherMatches.length
+      ? otherMatches.map((m) => ({ ...m, href: `/orgs/${encodeURIComponent(m.tin)}` }))
+      : undefined,
+  };
 }
 
 // Facets drift only on ingest — memo them in-process so the agent's most

@@ -6,9 +6,11 @@ import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "ai";
 import { ChatInput } from "@/components/directory/chat-input";
 import { Markdown } from "@/components/directory/markdown";
+import { RelationshipMap } from "@/components/directory/relationship-map";
 import { ThinkingOrb } from "@/components/directory/thinking-orb";
 import { Icon, type IconName } from "@/components/ui/icons";
 import { TextLink } from "@/components/ui/text-link";
+import type { OrgGraph } from "@/lib/org-graph";
 
 // /chat — chat surface for the care-directory agent. Streams from
 // POST /api/ai/directory (AI SDK UI message stream): text renders as it
@@ -25,6 +27,7 @@ const STARTERS: Array<{ icon: IconName; label: string; prompt: string }> = [
   { icon: "id-card", label: "Top-paid groups", prompt: "Which group practices get paid the most for intakes?" },
   { icon: "pill-bottle", label: "Med-management rates", prompt: "Which insurer pays the most for medication management (99214)?" },
   { icon: "users-round", label: "Therapists in Manhattan", prompt: "Find therapists in Manhattan accepting new patients" },
+  { icon: "id-card", label: "Map Headway", prompt: "Show me the relationship map for Headway — who bills under it and which insurance plans pay it" },
 ];
 
 const FOLLOWUPS_KEY = "leuk-chat-followups";
@@ -58,6 +61,10 @@ function groupToolLabel(type: string, inputs: Array<Record<string, unknown>>, ru
       const n = inputs.length;
       if (n > 1) return running ? `Pulling ${n} provider records…` : `Pulled ${n} provider records`;
       return running ? "Pulling provider record…" : "Pulled provider record";
+    }
+    case "tool-relationship_map": {
+      const s = joinSubjects(inputs.map((i) => (typeof i.org === "string" ? i.org : undefined)));
+      return running ? `Mapping${s} relationships…` : `Mapped${s} relationships`;
     }
     case "tool-directory_facets":
       return running ? "Loading filters…" : "Loaded filters";
@@ -246,11 +253,13 @@ function AssistantMessage({
       // Group consecutive calls to the SAME tool into one status line.
       const type = part.type;
       const inputs: Array<Record<string, unknown>> = [];
+      const outputs: unknown[] = [];
       let running = false;
       const groupKey = pi;
       while (pi < parts.length && parts[pi].type === type) {
         const p = parts[pi];
         inputs.push((("input" in p ? p.input : undefined) ?? {}) as Record<string, unknown>);
+        outputs.push("output" in p ? p.output : undefined);
         if ("state" in p && p.state !== "output-available" && p.state !== "output-error") running = true;
         pi++;
       }
@@ -268,6 +277,14 @@ function AssistantMessage({
             {label}
           </p>,
         );
+      }
+      // Generative UI: a relationship_map result mounts the org canvas
+      // inline, right under its status line.
+      if (type === "tool-relationship_map") {
+        outputs.forEach((o, oi) => {
+          const graph = (o as { graph?: OrgGraph } | undefined)?.graph;
+          if (graph) rendered.push(<RelationshipMap key={`${groupKey}:map:${oi}`} graph={graph} />);
+        });
       }
       continue;
     }

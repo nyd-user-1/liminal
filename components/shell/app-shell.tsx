@@ -3,6 +3,7 @@ import { MobileNav } from "@/components/shell/mobile-nav";
 import { CommandPalette } from "@/components/search/command-palette";
 import { ContentSurface } from "@/components/shell/content-surface";
 import { Sidebar, type SidebarNavSection } from "@/components/shell/sidebar";
+import { MAIN_PANEL_ID } from "@/components/shell/main-panel";
 import type { SessionUser } from "@/lib/auth";
 
 // Catalog `AppShell` — Sidebar + the floating content panel.
@@ -50,6 +51,7 @@ const WORKSPACE_NAV: SidebarNavSection[] = [
       { label: "Directory", href: "/directory", icon: "globe" },
       { label: "Programs", href: "/programs", icon: "hand-heart" },
       { label: "Organizations", href: "/orgs", icon: "id-card" },
+      { label: "Maps", href: "/maps", icon: "map-pin" },
       { label: "Networks", href: "/networks", icon: "link" },
       { label: "Plans", href: "/plans", icon: "credit-card" },
       { label: "Recruiting", href: "/recruiting", icon: "users-round" },
@@ -118,7 +120,10 @@ export function AppShell({
         {/* The floating content panel: white surface, rounded on every corner
             (md+), paper showing on all sides. Full-bleed on mobile. The panel
             clips its own children; scrolling happens inside ContentSurface. */}
-        <main className="flex min-h-0 flex-1 flex-col overflow-hidden border border-[#e2e4e9] bg-surface md:rounded-2xl">
+        <main
+          id={MAIN_PANEL_ID}
+          className="relative flex min-h-0 flex-1 flex-col overflow-hidden border border-[#e2e4e9] bg-surface md:rounded-2xl"
+        >
           <ContentSurface
             variant={variant}
             leading={<MobileNav sections={sections} user={user} homeHref={homeHref} />}

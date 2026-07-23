@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -9,8 +9,8 @@ import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { KebabMenu } from "@/components/ui/kebab-menu";
 import { MenuItem } from "@/components/ui/dropdown-menu";
 import { SearchInput } from "@/components/ui/search-input";
-import { Tabs } from "@/components/ui/tabs";
 import { TabReveal } from "@/components/ui/tab-reveal";
+import { DrillDownScaffold } from "@/components/shell/drill-down-scaffold";
 import { Spinner } from "@/components/ui/spinner";
 import { TextLink } from "@/components/ui/text-link";
 import { TableSkeleton } from "@/components/rates/table-skeleton";
@@ -28,7 +28,7 @@ import type { OrgGraph } from "@/lib/org-graph";
 // select column where rows are entities, and an honest source + freshness
 // footer on each.
 
-const OrgMap = dynamic(() => import("./org-map").then((m) => m.OrgMap), {
+const OrgMap = dynamic(() => import("@/components/orgs/org-map").then((m) => m.OrgMap), {
   ssr: false,
   loading: () => (
     <div className="flex min-h-0 flex-1 items-center justify-center">
@@ -67,11 +67,16 @@ export function OrgPanels({
   rates,
   rosterInitial,
   rosterTotal,
+  rail,
 }: {
   tin: string;
   rates: OrgRateBand[];
   rosterInitial: OrgRosterRow[];
   rosterTotal: number;
+  /** The org identity card — rendered in the object column beside the table.
+      Lives here (not the page) so the tab rail can span the full width ABOVE
+      the split, leaving card and table the same height (index-page anatomy). */
+  rail: ReactNode;
 }) {
   const router = useRouter();
   const [view, setView] = useState<View>("roster");
@@ -355,24 +360,17 @@ export function OrgPanels({
   }, [view, graph, tin]);
 
   return (
-    <>
-      {/* The drill-down tab rail (founder spec 2026-07-23): same anatomy as the
-          index pages' rail, resting atop the content column; the object panel
-          beside it stays fixed. TabReveal below plays the framer-motion reveal
-          on every switch. */}
-      <Tabs
-        slideActive
-        className="mb-4 shrink-0"
-        active={view}
-        onChange={(k) => setView(k as View)}
-        items={[
-          { key: "roster", label: "Roster" },
-          { key: "rates", label: "Rates" },
-          { key: "participation", label: "Participation" },
-          { key: "map", label: "Map" },
-        ]}
-      />
-
+    <DrillDownScaffold
+      object={rail}
+      active={view}
+      onChange={(k) => setView(k as View)}
+      tabs={[
+        { key: "roster", label: "Roster" },
+        { key: "rates", label: "Rates" },
+        { key: "participation", label: "Participation" },
+        { key: "map", label: "Map" },
+      ]}
+    >
       <TabReveal id={view} className="flex min-h-0 flex-1 flex-col">
       {view === "map" ? (
         graphFailed ? (
@@ -382,7 +380,7 @@ export function OrgPanels({
             <Spinner size={22} className="text-text-muted" />
           </div>
         ) : (
-          <OrgMap graph={graph} onShowRoster={() => setView("roster")} />
+          <OrgMap tin={tin} graph={graph} onShowRoster={() => setView("roster")} />
         )
       ) : view === "rates" ? (
         rateGroups.length === 0 ? (
@@ -497,6 +495,6 @@ export function OrgPanels({
         />
       )}
       </TabReveal>
-    </>
+    </DrillDownScaffold>
   );
 }

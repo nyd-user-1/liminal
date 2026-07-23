@@ -29,6 +29,7 @@ const ROUTE_TITLES: Array<[prefix: string, icon: IconName, title: string]> = [
   // prefix match is exact-or-"/rates/", so the two never collide.
   ["/published-rates", "dollar", "Published rates"],
   ["/orgs", "id-card", "Organizations"],
+  ["/maps", "map-pin", "Maps"],
   ["/networks", "link", "Networks"],
   ["/plans", "credit-card", "Plans"],
   ["/recruiting", "users-round", "Recruiting"],

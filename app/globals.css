@@ -222,6 +222,27 @@ body {
   }
 }
 
+/* ── Org-map rate-chip pulse — when the billing-code switcher changes a chip's
+   value, its border flashes the success green and fades back to the resting
+   border color. Triggered by remount: chips are keyed on their displayed
+   value, so an unchanged dollar figure doesn't false-alarm. Only `from` frames
+   are declared — the browser animates back to the element's own computed
+   border-color, so the resting state is always the class's truth. */
+@keyframes edge-chip-pulse {
+  0%,
+  30% {
+    border-color: var(--color-success);
+  }
+}
+.edge-chip-pulse {
+  animation: edge-chip-pulse 1.2s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .edge-chip-pulse {
+    animation: none;
+  }
+}
+
 /* ── Marketing landing motion (additive; safe to remove with the redesign) ──
    Entrance choreography for the home hero + sections. Elements are visible by
    default and only animate as an enhancement, so headless/prefers-reduced

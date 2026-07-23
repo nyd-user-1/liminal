@@ -2,22 +2,48 @@
 
 import { useState, type ReactNode } from "react";
 import { Icon } from "@/components/ui/icons";
+import { TextLink } from "@/components/ui/text-link";
 
 // Tiny read-only markdown renderer for agent answers: headings, bold, bullets,
-// and tables (hover a table for click-to-copy — copies TSV so it pastes
+// links, and tables (hover a table for click-to-copy — copies TSV so it pastes
 // straight into a spreadsheet). No markdown dependency exists in the app, and
 // the notes editor is an editor, not a viewer — so this carries what it needs.
+//
+// Links are APP-RELATIVE ONLY: the agent links entity names to their record
+// pages (/orgs/…, /directory/providers/…) using hrefs its tools returned. A
+// href that doesn't start with "/" renders as plain text — model output never
+// becomes an external or javascript: link.
+
+const strip = (s: string) =>
+  s
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/`([^`]+)`/g, "$1");
 
 function inline(text: string): ReactNode[] {
   const out: ReactNode[] = [];
-  const re = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g;
+  const re = /(\[[^\]]+\]\([^)\s]+\)|\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g;
   let last = 0;
   let m: RegExpExecArray | null;
   let k = 0;
   while ((m = re.exec(text))) {
     if (m.index > last) out.push(text.slice(last, m.index));
     const tok = m[0];
-    if (tok.startsWith("**")) out.push(<strong key={k++}>{tok.slice(2, -2)}</strong>);
+    if (tok.startsWith("[")) {
+      const lm = tok.match(/^\[([^\]]+)\]\(([^)\s]+)\)$/);
+      const label = strip(lm?.[1] ?? tok);
+      const href = lm?.[2] ?? "";
+      if (href.startsWith("/")) {
+        out.push(
+          <TextLink key={k++} href={href} className="!text-[length:inherit]">
+            {label}
+          </TextLink>,
+        );
+      } else {
+        out.push(label);
+      }
+    } else if (tok.startsWith("**")) out.push(<strong key={k++}>{tok.slice(2, -2)}</strong>);
     else if (tok.startsWith("`")) {
       out.push(
         <code key={k++} className="rounded bg-canvas px-1 py-0.5 text-[12px]">
@@ -34,8 +60,6 @@ function inline(text: string): ReactNode[] {
 function cells(row: string): string[] {
   return row.replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
 }
-
-const strip = (s: string) => s.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\*([^*]+)\*/g, "$1").replace(/`([^`]+)`/g, "$1");
 
 function TableBlock({ header, rows }: { header: string[]; rows: string[][] }) {
   const [copied, setCopied] = useState(false);
