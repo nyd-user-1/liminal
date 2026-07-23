@@ -107,7 +107,7 @@ export function AppShell({
     : base;
   const homeHref = variant === "portal" ? "/portal" : "/calendar";
   return (
-    <div className="flex h-dvh overflow-hidden bg-[#f6f6f7]">
+    <div className="flex h-dvh overflow-hidden bg-page">
       {/* ⌘K search. Both variants have one; they differ only in the endpoint
           behind them. The portal's is scoped server-side to the signed-in
           patient's own record — it cannot return another client, or anything

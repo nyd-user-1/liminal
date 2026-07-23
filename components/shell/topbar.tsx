@@ -48,7 +48,7 @@ export function TopBar({
   const pathname = usePathname();
   const section = routeTitle(pathname).title;
   return (
-    <header className="flex h-[calc(4rem_+_env(safe-area-inset-top))] shrink-0 items-center gap-2 bg-[#f6f6f7] px-3 pt-[env(safe-area-inset-top)] md:gap-3 md:px-6">
+    <header className="flex h-[calc(4rem_+_env(safe-area-inset-top))] shrink-0 items-center gap-2 bg-page px-3 pt-[env(safe-area-inset-top)] md:gap-3 md:px-6">
       {leading}
       <ContextSwitcher section={section} />
       <div className="ml-auto flex shrink-0 items-center gap-2">
