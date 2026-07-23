@@ -1,8 +1,8 @@
 import type { IconName } from "@/components/ui/icons";
 
-// The route → (icon, title) map that names each page. Shared by ContentHeader
-// (which renders the H1 at the top of the content surface) — kept out of any
-// one component so the mapping has a single home.
+// The route → (icon, title) map that names each page. Consumed by
+// ContentSurface (the surface header's context switcher + sr-only H1) — kept
+// out of any one component so the mapping has a single home.
 //
 // Longest-prefix wins: order specific → general.
 const ROUTE_TITLES: Array<[prefix: string, icon: IconName, title: string]> = [
@@ -50,11 +50,11 @@ const ROUTE_TITLES: Array<[prefix: string, icon: IconName, title: string]> = [
 ];
 
 // Routes whose PAGE supplies the H1 because the record names itself — the
-// client-record exception in CLAUDE.md. The shell's ContentHeader stands down
-// for these, so "Home" never stacks above the name it is describing.
+// client-record exception in CLAUDE.md. The surface header's sr-only H1 stands
+// down for these so the document never carries two.
 export function ownsPageTitle(pathname: string): boolean {
   // /chat is a full-height conversation surface — no page H1 at all (ruling
-  // 2026-07-22); the sidebar item + thread content carry the identity.
+  // 2026-07-22); the switcher pill + thread content carry the identity.
   return pathname === "/portal" || pathname === "/chat";
 }
 

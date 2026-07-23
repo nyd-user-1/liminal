@@ -1,23 +1,31 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { ReactNode, UIEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { TopBarBell } from "@/components/shell/topbar-bell";
-import { routeTitle } from "@/components/shell/route-title";
+import { ownsPageTitle, routeTitle } from "@/components/shell/route-title";
 import { OPEN_COMMAND_PALETTE } from "@/components/search/command-palette";
+import { TOPBAR_ACTIONS_ID } from "@/components/shell/topbar-slot";
 import { Icon, type IconName } from "@/components/ui/icons";
 
-// Catalog `TopBar` — the utility bar (warm-paper `bg-page`, forming the L-frame
-// with the Sidebar). No page title here: the route H1 lives at the top of the
-// content surface (ContentHeader). Reads left → right (Stellate / Vercel shape):
+// Catalog `ContentSurface` — the inside of the floating white panel. Replaces
+// the old TopBar strip + ContentHeader H1 (retired 2026-07-23): the panel's
+// first row IS the page chrome now. Reads left → right:
 //
-//   [Leuk › Section ⇅]  ···········  [Search… ⌘K]  [bell]
+//   [Leuk › Section ⇅]  ···········  [page actions]  [Search… ⌘K]  [bell?]
 //
 // The LEFT pill is a self-contained section switcher (its own anchored menu,
-// Vercel "All Projects ⇅"). The RIGHT pill opens the global ⌘K palette. Both
-// wear the light-on-paper treatment. The account chip is NOT here — it lives at
-// the bottom of the Sidebar.
+// Vercel "All Projects ⇅") — it is the page identifier (the route title renders
+// as an sr-only H1 beside it) and a nav function in one. The RIGHT pill opens
+// the global ⌘K palette. The bell appears on the Workspace board family only
+// (ruling 2026-07-23). Page actions portal in via TopBarActions; index pages
+// instead put their "+ New" at the right end of the tab rail (IndexHeader).
+//
+// The row is fixed to the top of the panel; content scrolls in the region below
+// and slides beneath it. Once anything under the row has scrolled, the row
+// casts a small bottom shadow (scroll events are watched in the capture phase
+// so inner scroll owners — the /chat thread, full-height tables — count too).
 
 // Jump-to destinations for the switcher menu — the main app areas.
 const SWITCH_DESTINATIONS: Array<{ label: string; href: string; icon: IconName }> = [
@@ -39,23 +47,68 @@ const SWITCH_DESTINATIONS: Array<{ label: string; href: string; icon: IconName }
   { label: "Settings", href: "/settings", icon: "gear" },
 ];
 
-export function TopBar({
+// The bell survives only where its alerts land: the Workspace board family.
+const BELL_ROUTES = ["/workspace", "/analytics", "/dashboard"];
+
+export function ContentSurface({
+  variant,
   leading,
+  children,
 }: {
+  variant: "workspace" | "portal";
   /** Slot before the context pill — the mobile hamburger. */
   leading?: ReactNode;
+  children: ReactNode;
 }) {
   const pathname = usePathname();
   const section = routeTitle(pathname).title;
+  const showBell =
+    variant === "workspace" && BELL_ROUTES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+
+  // Shadow once content is under the row. Scroll doesn't bubble, but capture
+  // listeners on the content wrapper still see every inner scroller (the /chat
+  // thread on a full-height page). Only scrollers whose top edge sits at the
+  // header's bottom count — an embedded scroll region further down the page
+  // (a table body) never moves content beneath the row, so it neither earns
+  // nor clears the shadow. Horizontal-only scrollers are ignored too.
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => setScrolled(false), [pathname]);
+  const onScrollCapture = (e: UIEvent<HTMLDivElement>) => {
+    const t = e.target as HTMLElement | null;
+    if (!t || t.scrollHeight <= t.clientHeight + 1) return;
+    if (t !== e.currentTarget) {
+      const dy = t.getBoundingClientRect().top - e.currentTarget.getBoundingClientRect().top;
+      if (dy > 80) return;
+    }
+    setScrolled(t.scrollTop > 0);
+  };
+
   return (
-    <header className="flex h-[calc(4rem_+_env(safe-area-inset-top))] shrink-0 items-center gap-2 bg-page px-3 pt-[env(safe-area-inset-top)] md:gap-3 md:px-6">
-      {leading}
-      <ContextSwitcher section={section} />
-      <div className="ml-auto flex shrink-0 items-center gap-2">
-        <SearchTrigger />
-        <TopBarBell />
+    <>
+      <header
+        className={`relative z-20 flex h-14 shrink-0 items-center gap-2 px-4 transition-shadow duration-200 md:h-16 md:gap-3 md:px-6 ${
+          scrolled ? "shadow-[0_8px_16px_-10px_rgba(28,36,64,0.45)]" : ""
+        }`}
+      >
+        {leading}
+        <ContextSwitcher section={section} />
+        {/* The switcher pill is the visible page identity; this keeps the
+            document outline honest without a second visible title. Pages whose
+            record names itself (/portal home) keep their own H1. */}
+        {!ownsPageTitle(pathname) && <h1 className="sr-only">{section}</h1>}
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <div id={TOPBAR_ACTIONS_ID} className="flex items-center gap-2" />
+          <SearchTrigger />
+          {showBell && <TopBarBell />}
+        </div>
+      </header>
+      <div
+        onScrollCapture={onScrollCapture}
+        className="min-h-0 flex-1 overflow-y-auto p-4 pb-[calc(1rem_+_env(safe-area-inset-bottom))] [scrollbar-width:none] md:p-6 md:pb-6 [&::-webkit-scrollbar]:hidden"
+      >
+        {children}
       </div>
-    </header>
+    </>
   );
 }
 
@@ -156,7 +209,7 @@ function ContextSwitcher({ section }: { section: string }) {
 
 // A search field in look, a button in behavior: it opens the ⌘K CommandPalette
 // (which owns the actual search). Full "Search… ⌘K" pill at md+, icon-only on
-// mobile so the utility bar stays uncramped.
+// mobile so the row stays uncramped.
 function SearchTrigger() {
   const open = () => window.dispatchEvent(new Event(OPEN_COMMAND_PALETTE));
   return (

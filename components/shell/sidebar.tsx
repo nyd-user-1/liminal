@@ -81,6 +81,11 @@ export function Sidebar({
   const activeLen = Math.max(-1, ...sections.flatMap((s) => s.items.map((i) => matchLen(i.href))));
   const isActive = (href: string) => activeLen >= 0 && matchLen(href) === activeLen;
 
+  // Pin the headerless top group above the scroll region — but only when other
+  // sections follow it (workspace nav). A single flat list (portal) scrolls whole.
+  const pinnedSection = !sections[0]?.header && sections.length > 1 ? sections[0] : null;
+  const scrollSections = pinnedSection ? sections.slice(1) : sections;
+
   // Icon-only rail → every control gets the Tooltip chip in place of the native title.
   const withTip = (label: string, node: ReactNode) =>
     collapsed ? (
@@ -152,13 +157,25 @@ export function Sidebar({
         )}
       </div>
 
+      {/* The headerless top group is pinned — it never scrolls out from under
+          you; the titled sections scroll in their own region beneath it. Only
+          when there IS something beneath (the portal nav is one flat group and
+          keeps the plain scrolling list). */}
+      {pinnedSection && (
+        <div className="shrink-0 space-y-0.5 px-2.5">
+          {pinnedSection.items.map((item) => (
+            <div key={item.href}>{navLink(item)}</div>
+          ))}
+        </div>
+      )}
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {sections.map((section, si) => {
+        {scrollSections.map((section, si) => {
+          const separated = pinnedSection !== null || si > 0;
           // Collapsed rail: no headers/rails — just icons, with a hairline
           // separator before each titled section so the groups still read.
           if (collapsed) {
             return (
-              <div key={section.header ?? "top"} className={si > 0 && section.header ? "mt-1.5 border-t border-border pt-1.5" : ""}>
+              <div key={section.header ?? "top"} className={separated && section.header ? "mt-1.5 border-t border-border pt-1.5" : ""}>
                 {section.items.map((item) => (
                   <div key={item.href}>{navLink(item)}</div>
                 ))}

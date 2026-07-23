@@ -5,9 +5,8 @@ import { getUser } from "@/lib/auth";
 
 // Client portal shell.
 
-// Match the iPhone status-bar band to the white TopBar (bottom overscroll
-// already matches: body + main are canvas).
-export const viewport: Viewport = { themeColor: "#ffffff" };
+// Match the iPhone status-bar band to the warm-paper shell ground.
+export const viewport: Viewport = { themeColor: "#F7F3E8" };
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const user = await getUser();

@@ -3,20 +3,20 @@
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, type TabItem } from "@/components/ui/tabs";
-import { TopBarActions } from "@/components/shell/topbar-slot";
 
 /**
- * The top half of the index page standard: the TopBar's actions (New) and the
- * tab row, as one piece. The notification bell is the TopBar's own TopBarBell —
- * IndexHeader must NOT render its own, or every index page shows two bells. DataTable is the bottom half — it already owns
- * the toolbar, column picker, table and scroll.
+ * The top half of the index page standard: the tab row, with the page's
+ * actions (New) at its right end — one piece. Since the TopBar strip retired
+ * (2026-07-23) the tab rail is the canonical home for an index page's "+ New";
+ * nothing portals out of the page anymore. DataTable is the bottom half — it
+ * already owns the toolbar, column picker, table and scroll.
  *
  * Thin on purpose. It decides nothing: no data, no filtering, no active-tab
  * state. If this file grows logic, the logic belongs in the page.
  *
- * The H1 is NOT here — it stays route-derived in components/shell/topbar.tsx.
- * The tab row carries the only in-content list heading (see the Component
- * Catalog's canonical layout rules).
+ * The page identity is NOT here — the surface header's context switcher names
+ * the page (components/shell/content-surface.tsx). The tab row carries the only
+ * in-content list heading (see the Component Catalog's canonical layout rules).
  */
 export function IndexHeader({
   tabs,
@@ -43,30 +43,32 @@ export function IndexHeader({
   /** The New button. Omit both to render no create action. */
   newLabel?: string;
   onNew?: () => void;
-  /** Extra TopBar actions, rendered before New. */
+  /** Extra actions, rendered before New at the right end of the rail. */
   actions?: ReactNode;
 }) {
-  return (
-    <>
-      <TopBarActions>
+  const trailing =
+    actions || newLabel ? (
+      <>
         {actions}
         {newLabel && (
           <Button size="sm" leftIcon="plus" onClick={onNew}>
             {newLabel}
           </Button>
         )}
-      </TopBarActions>
+      </>
+    ) : undefined;
 
-      <Tabs
-        className="mt-4 mb-4 shrink-0"
-        slideActive={slideActive}
-        active={active}
-        onChange={onChange}
-        onClose={onClose}
-        overflow={overflow}
-        overflowLabel={overflowLabel}
-        items={tabs}
-      />
-    </>
+  return (
+    <Tabs
+      className="mb-4 shrink-0"
+      slideActive={slideActive}
+      active={active}
+      onChange={onChange}
+      onClose={onClose}
+      overflow={overflow}
+      overflowLabel={overflowLabel}
+      items={tabs}
+      trailing={trailing}
+    />
   );
 }

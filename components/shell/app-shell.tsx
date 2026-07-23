@@ -1,21 +1,20 @@
 import type { ReactNode } from "react";
 import { MobileNav } from "@/components/shell/mobile-nav";
 import { CommandPalette } from "@/components/search/command-palette";
-import { ContentHeader } from "@/components/shell/content-header";
+import { ContentSurface } from "@/components/shell/content-surface";
 import { Sidebar, type SidebarNavSection } from "@/components/shell/sidebar";
-import { TopBar } from "@/components/shell/topbar";
 import type { SessionUser } from "@/lib/auth";
 
-// Catalog `AppShell` — Sidebar + main column (TopBar utility bar + content).
+// Catalog `AppShell` — Sidebar + the floating content panel.
 // Two variants: `workspace` (practitioner/admin) and `portal` (client).
 // Server component; layouts pass the session user down.
 //
-// Shell chrome: the warm-paper Sidebar (left) + warm-paper TopBar (top) read as
-// one L-frame. The white content panel (`main`, bg-surface) tucks into that
-// junction with a single rounded top-left corner (md+); the paper root shows
-// through that corner. The route H1 sits at the top of the content surface
-// (ContentHeader), not in the TopBar — the TopBar is a utility bar (context
-// pill / search / bell). The account chip lives at the bottom of the Sidebar.
+// Shell chrome (2026-07-23 rework — the TopBar strip is retired): the
+// warm-paper Sidebar sits left; the white content panel floats beside it,
+// rounded on all corners with a 24px paper margin at top/right/bottom (md+).
+// The panel's first row is the surface header (ContentSurface): context
+// switcher left, page actions + search right — the page chrome lives INSIDE
+// the panel now. The account chip lives at the bottom of the Sidebar.
 
 // The practitioner nav, categorized (Fathom pattern): a headerless top group,
 // then collapsible sections. Workspace is a single top item — its sub-views
@@ -114,14 +113,17 @@ export function AppShell({
           from the directory/rates side of the app. */}
       <CommandPalette scope={variant === "portal" ? "portal" : "workspace"} />
       <Sidebar className="max-md:hidden" sections={sections} user={user} homeHref={homeHref} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar leading={<MobileNav sections={sections} user={user} homeHref={homeHref} />} />
-        {/* The inset content panel: white surface, rounded only where it meets
-            the sidebar/topbar junction (md+); the paper root shows through that
-            corner. The scrollbar is hidden (scrolling still works). */}
-        <main className="flex-1 overflow-y-auto border border-[#e2e4e9] bg-surface p-4 pb-[calc(1rem_+_env(safe-area-inset-bottom))] [scrollbar-width:none] md:rounded-tl-2xl md:p-6 md:pb-6 [&::-webkit-scrollbar]:hidden">
-          <ContentHeader className="mb-6" />
-          {children}
+      <div className="flex min-w-0 flex-1 flex-col pt-[env(safe-area-inset-top)] md:py-6 md:pr-6">
+        {/* The floating content panel: white surface, rounded on every corner
+            (md+), paper showing on all sides. Full-bleed on mobile. The panel
+            clips its own children; scrolling happens inside ContentSurface. */}
+        <main className="flex min-h-0 flex-1 flex-col overflow-hidden border border-[#e2e4e9] bg-surface md:rounded-2xl">
+          <ContentSurface
+            variant={variant}
+            leading={<MobileNav sections={sections} user={user} homeHref={homeHref} />}
+          >
+            {children}
+          </ContentSurface>
         </main>
       </div>
     </div>

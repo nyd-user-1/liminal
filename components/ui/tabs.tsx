@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { DropdownMenu, MenuItem } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/ui/icons";
 
@@ -41,6 +41,7 @@ export function Tabs({
   overflow,
   overflowLabel = "View More",
   slideActive = false,
+  trailing,
   className = "",
 }: {
   items: TabItem[];
@@ -54,6 +55,9 @@ export function Tabs({
   /** Slide the active underline between tabs (nav rail-slider) instead of
       jumping. Best for controlled (non-route) tab bars. */
   slideActive?: boolean;
+  /** Right-aligned content on the rail — the page's "+ New" action lives here
+      (canonical home since the TopBar strip retired, 2026-07-23). */
+  trailing?: ReactNode;
   className?: string;
 }) {
   const pathname = usePathname();
@@ -180,6 +184,7 @@ export function Tabs({
           ))}
         </DropdownMenu>
       )}
+      {trailing && <div className="ml-auto flex items-center gap-2 pb-1.5">{trailing}</div>}
       {shownRail && (
         <span
           className={`pointer-events-none absolute bottom-0 z-0 h-0.5 rounded-full transition-all duration-200 ease-out ${

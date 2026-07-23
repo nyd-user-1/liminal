@@ -8,7 +8,7 @@ All-in-one practice management + EHR (Next 16 App Router · React 19 · Tailwind
 
 ## Canonical layout rules (never re-litigate)
 
-- **One H1 per page, and it lives in the TopBar strip** — route-derived in `components/shell/topbar.tsx` (icon + title left, page actions + bell + UserChip right). Pages NEVER render their own page-level H1/PageHeader in content; page actions go through `TopBarActions` (`components/shell/topbar-slot.tsx`). Exceptions: entity headers on detail pages (client record, invoice) and full-screen surfaces (calls, print, note sheet). New page? Add its route to `ROUTE_TITLES` in topbar.tsx.
+- **No visible page H1s; the surface header names the page** (2026-07-23 — the TopBar strip is retired). The white content panel floats beside the sidebar (rounded-2xl, 24px paper margin top/right/bottom) and its first row is the surface header (`components/shell/content-surface.tsx`): context switcher `Leuk › Section ⇅` left (page identifier + nav; renders the route title as an sr-only H1), portal'd page actions + ⌘K search right, bell on the Workspace board family only. The row is fixed; content scrolls beneath it and it gains a small shadow once scrolled. Pages NEVER render their own page-level H1/PageHeader. Index pages put "+ New" at the right end of the tab rail (`IndexHeader`); other pages portal actions via `TopBarActions` (`components/shell/topbar-slot.tsx`). Exceptions: entity headers on detail pages (client record, invoice) and full-screen surfaces (calls, print, note sheet). New page? Add its route to `ROUTE_TITLES` in `components/shell/route-title.ts`.
 
 ## Conventions (short form)
 

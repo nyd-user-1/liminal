@@ -5,8 +5,8 @@ import { getUser } from "@/lib/auth";
 
 // Workspace shell (practitioner/admin). Clients are bounced to their portal.
 
-// Match the iPhone status-bar band to the white TopBar.
-export const viewport: Viewport = { themeColor: "#ffffff" };
+// Match the iPhone status-bar band to the warm-paper shell ground.
+export const viewport: Viewport = { themeColor: "#F7F3E8" };
 
 export default async function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   const user = await getUser();
