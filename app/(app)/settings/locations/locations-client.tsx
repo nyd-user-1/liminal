@@ -3,8 +3,11 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Field } from "@/components/ui/field";
-import { Icon, IconSquare } from "@/components/ui/icons";
+import { IconSquare } from "@/components/ui/icons";
+import { KebabMenu } from "@/components/ui/kebab-menu";
+import { MenuItem } from "@/components/ui/dropdown-menu";
 import { TopBarActions } from "@/components/shell/topbar-slot";
 import { Select } from "@/components/ui/select";
 import { SidePanel } from "@/components/ui/side-panel";
@@ -18,6 +21,8 @@ export function LocationsSettings({ initialLocations }: { initialLocations: Loca
   const toast = useToast();
   const [locations, setLocations] = useState(initialLocations);
   const [panel, setPanel] = useState<PanelState>(null);
+  // Standard anatomy: select column (nothing consumes the selection yet).
+  const [sel, setSel] = useState<Set<string>>(new Set());
   const [name, setName] = useState("");
   const [kind, setKind] = useState<LocationKind>("office");
   const [address, setAddress] = useState("");
@@ -78,9 +83,48 @@ export function LocationsSettings({ initialLocations }: { initialLocations: Loca
           New location
         </Button>
       </TopBarActions>
-      <Table head={["Location", "Type", "Address", ""]}>
+      <Table
+        footer={
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[13px] text-text-muted">
+            <span className="min-w-0 truncate tabular-nums">{locations.length.toLocaleString("en-US")} records</span>
+            <span className="shrink-0">Data set by NYSgpt</span>
+          </div>
+        }
+        head={[
+          <Checkbox
+            key="__sel"
+            aria-label="Select all"
+            checked={locations.length > 0 && locations.every((l) => sel.has(l.id))}
+            onChange={() =>
+              setSel((prev) => {
+                const all = locations.every((l) => prev.has(l.id));
+                const next = new Set(prev);
+                locations.forEach((l) => (all ? next.delete(l.id) : next.add(l.id)));
+                return next;
+              })
+            }
+          />,
+          "Location",
+          "Type",
+          "Address",
+          "",
+        ]}
+      >
         {locations.map((l) => (
           <Tr key={l.id} onClick={() => open({ mode: "edit", location: l })}>
+            <Td className="w-10" onClick={(e) => e.stopPropagation()}>
+              <Checkbox
+                aria-label="Select row"
+                checked={sel.has(l.id)}
+                onChange={() =>
+                  setSel((prev) => {
+                    const next = new Set(prev);
+                    if (!next.delete(l.id)) next.add(l.id);
+                    return next;
+                  })
+                }
+              />
+            </Td>
             <Td className="font-semibold text-text">
               <span className="flex items-center gap-2.5">
                 <IconSquare name={l.kind === "telehealth" ? "video" : "globe"} />
@@ -95,8 +139,10 @@ export function LocationsSettings({ initialLocations }: { initialLocations: Loca
               )}
             </Td>
             <Td>{l.address ?? (l.kind === "telehealth" ? "Video conferencing" : "—")}</Td>
-            <Td className="w-10 text-right">
-              <Icon name="chevron-right" size={18} className="text-text-muted" />
+            <Td className="w-12" onClick={(e) => e.stopPropagation()}>
+              <KebabMenu label={`Actions for ${l.name}`}>
+                <MenuItem icon="edit" label="Edit" onClick={() => open({ mode: "edit", location: l })} />
+              </KebabMenu>
             </Td>
           </Tr>
         ))}

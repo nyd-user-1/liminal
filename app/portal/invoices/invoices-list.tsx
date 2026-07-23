@@ -11,7 +11,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/ui/empty-state";
+import { KebabMenu } from "@/components/ui/kebab-menu";
+import { MenuItem } from "@/components/ui/dropdown-menu";
 import { StatCard } from "@/components/ui/stat-card";
 import { Table, Td, Tr } from "@/components/ui/table";
 import { Tabs } from "@/components/ui/tabs";
@@ -49,6 +52,8 @@ export function InvoicesList({
   const toast = useToast();
   const [openId, setOpenId] = useState<string | null>(null);
   const [tab, setTab] = useState<"overview" | "unpaid" | "paid">("overview");
+  // Standard anatomy: the payment-history select column.
+  const [paySel, setPaySel] = useState<Set<string>>(new Set());
   // null = not confirming. Otherwise the invoice we're waiting on ("" when the
   // breadcrumb was lost and we can only wait generically).
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
@@ -212,13 +217,58 @@ export function InvoicesList({
                 <EmptyState icon="credit-card" title="No payments yet" subtext="Your payments will appear here." />
               </div>
             ) : (
-              <Table head={["Date", "Method", "Invoice", "Amount"]}>
+              <Table
+                footer={
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[13px] text-text-muted">
+                    <span className="min-w-0 truncate tabular-nums">{allPayments.length.toLocaleString("en-US")} records</span>
+                    <span className="shrink-0">Data set by NYSgpt</span>
+                  </div>
+                }
+                head={[
+                  <Checkbox
+                    key="__sel"
+                    aria-label="Select all"
+                    checked={allPayments.every((p) => paySel.has(p.id))}
+                    onChange={() =>
+                      setPaySel((prev) => {
+                        const all = allPayments.every((p) => prev.has(p.id));
+                        const next = new Set(prev);
+                        allPayments.forEach((p) => (all ? next.delete(p.id) : next.add(p.id)));
+                        return next;
+                      })
+                    }
+                  />,
+                  "Date",
+                  "Method",
+                  "Invoice",
+                  "Amount",
+                  "",
+                ]}
+              >
                 {allPayments.map((p) => (
                   <Tr key={p.id} onClick={() => setOpenId(p.invoiceId)}>
+                    <Td className="w-10" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        aria-label="Select row"
+                        checked={paySel.has(p.id)}
+                        onChange={() =>
+                          setPaySel((prev) => {
+                            const next = new Set(prev);
+                            if (!next.delete(p.id)) next.add(p.id);
+                            return next;
+                          })
+                        }
+                      />
+                    </Td>
                     <Td className="whitespace-nowrap text-text-muted">{formatDate(p.paidAt)}</Td>
                     <Td>{METHOD_LABEL[p.method] ?? p.method}</Td>
                     <Td className="font-medium text-text">{p.invoiceNumber}</Td>
                     <Td className="whitespace-nowrap font-semibold">{formatCents(p.amountCents)}</Td>
+                    <Td className="w-12" onClick={(e) => e.stopPropagation()}>
+                      <KebabMenu label={`Actions for ${p.invoiceNumber}`}>
+                        <MenuItem icon="eye" label="Open invoice" onClick={() => setOpenId(p.invoiceId)} />
+                      </KebabMenu>
+                    </Td>
                   </Tr>
                 ))}
               </Table>

@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { KebabMenu } from "@/components/ui/kebab-menu";
+import { MenuItem } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SearchInput } from "@/components/ui/search-input";
 import { Tabs } from "@/components/ui/tabs";
@@ -276,6 +278,11 @@ function SchemaPanel({
         columns={columns}
         rows={filtered}
         rowKey={(r) => r.name}
+        rowActions={(r) => (
+          <KebabMenu label={`Actions for ${r.name}`}>
+            <MenuItem icon="copy" label="Copy table name" onClick={() => void navigator.clipboard.writeText(r.name)} />
+          </KebabMenu>
+        )}
         fillHeight
         lazy
         stacked

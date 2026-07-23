@@ -2,6 +2,8 @@
 
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/ui/data-table";
+import { KebabMenu } from "@/components/ui/kebab-menu";
+import { MenuItem } from "@/components/ui/dropdown-menu";
 import { SidePanel } from "@/components/ui/side-panel";
 import { TextLink } from "@/components/ui/text-link";
 import type { MetricDef, MetricValue } from "@/lib/analytics/metrics";
@@ -78,6 +80,12 @@ export function DictionaryPanel({
                 { key: "name", label: "Name", fixed: true, render: (r) => r.name, cellClassName: "max-w-64 truncate" },
                 { key: "value", label: "Value", align: "right", render: (r) => <span className="tabular-nums">{r.value}</span> },
               ]}
+              rowActions={(r) => (
+                <KebabMenu label={`Actions for ${r.name}`}>
+                  <MenuItem icon="copy" label="Copy name" onClick={() => void navigator.clipboard.writeText(r.name)} />
+                </KebabMenu>
+              )}
+              records={rows.length}
             />
           </div>
         )}

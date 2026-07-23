@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ChoiceChip } from "@/components/ui/choice-chip";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { KebabMenu } from "@/components/ui/kebab-menu";
+import { MenuItem } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
@@ -206,6 +208,15 @@ function Option1({ data }: { data: NetworkData }) {
               columns={columns}
               rows={gr}
               rowKey={(m) => m.id}
+              rowActions={(m) => (
+                <KebabMenu label={`Actions for ${m.payerLabel}`}>
+                  <MenuItem
+                    icon="copy"
+                    label="Copy payer label"
+                    onClick={() => void navigator.clipboard.writeText(m.payerLabel)}
+                  />
+                </KebabMenu>
+              )}
               fillHeight
               lazy
               stacked
@@ -379,6 +390,15 @@ function Option2({ data }: { data: NetworkData }) {
               columns={columns}
               rows={tr}
               rowKey={(m) => m.id}
+              rowActions={(m) => (
+                <KebabMenu label={`Actions for ${m.payerLabel}`}>
+                  <MenuItem
+                    icon="copy"
+                    label="Copy payer label"
+                    onClick={() => void navigator.clipboard.writeText(m.payerLabel)}
+                  />
+                </KebabMenu>
+              )}
               fillHeight
               lazy
               stacked
@@ -550,6 +570,15 @@ function Option3({ data }: { data: NetworkData }) {
           columns={columns}
           rows={rows}
           rowKey={(m) => m.id}
+              rowActions={(m) => (
+                <KebabMenu label={`Actions for ${m.payerLabel}`}>
+                  <MenuItem
+                    icon="copy"
+                    label="Copy payer label"
+                    onClick={() => void navigator.clipboard.writeText(m.payerLabel)}
+                  />
+                </KebabMenu>
+              )}
           fillHeight
           lazy
           stacked
@@ -633,6 +662,15 @@ export function NetworksTable({ data }: { data: NetworkData }) {
         columns={columns}
         rows={rows}
         rowKey={(n) => n.id}
+        rowActions={(n) => (
+          <KebabMenu label={`Actions for ${n.name}`}>
+            <MenuItem
+              icon="copy"
+              label="Copy network name"
+              onClick={() => void navigator.clipboard.writeText(n.name)}
+            />
+          </KebabMenu>
+        )}
         fillHeight
         lazy
         stacked

@@ -6,6 +6,7 @@ import { InvoiceStatusBadge } from "@/components/billing/invoice-status-badge";
 import { RecordPaymentModal, type PaymentTarget } from "@/components/billing/record-payment-modal";
 import { Avatar } from "@/components/ui/avatar";
 import { Banner } from "@/components/ui/banner";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { MenuItem } from "@/components/ui/dropdown-menu";
 import { Field } from "@/components/ui/field";
@@ -134,6 +135,8 @@ export function InvoicePane({
   const toast = useToast();
   const [paymentTarget, setPaymentTarget] = useState<PaymentTarget | null>(null);
   const [sendOpen, setSendOpen] = useState(false);
+  // Standard anatomy: the payments table's select column.
+  const [paySel, setPaySel] = useState<Set<string>>(new Set());
   const [collecting, setCollecting] = useState(false);
 
   const open = invoice.status !== "paid" && invoice.status !== "void";
@@ -358,13 +361,65 @@ export function InvoicePane({
             No payments yet{collectable ? " — send the invoice or share the pay link to collect." : "."}
           </p>
         ) : (
-          <Table head={["Method", "Date", "Reference", "Amount"]}>
+          <Table
+            footer={
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[13px] text-text-muted">
+                <span className="min-w-0 truncate tabular-nums">{invoice.payments.length.toLocaleString("en-US")} records</span>
+                <span className="shrink-0">Data set by NYSgpt</span>
+              </div>
+            }
+            head={[
+              <Checkbox
+                key="__sel"
+                aria-label="Select all"
+                checked={invoice.payments.length > 0 && invoice.payments.every((p) => paySel.has(p.id))}
+                onChange={() =>
+                  setPaySel((prev) => {
+                    const all = invoice.payments.every((p) => prev.has(p.id));
+                    const next = new Set(prev);
+                    invoice.payments.forEach((p) => (all ? next.delete(p.id) : next.add(p.id)));
+                    return next;
+                  })
+                }
+              />,
+              "Method",
+              "Date",
+              "Reference",
+              "Amount",
+              "",
+            ]}
+          >
             {invoice.payments.map((p) => (
               <Tr key={p.id}>
+                <Td className="w-10" onClick={(e) => e.stopPropagation()}>
+                  <Checkbox
+                    aria-label="Select row"
+                    checked={paySel.has(p.id)}
+                    onChange={() =>
+                      setPaySel((prev) => {
+                        const next = new Set(prev);
+                        if (!next.delete(p.id)) next.add(p.id);
+                        return next;
+                      })
+                    }
+                  />
+                </Td>
                 <Td className="font-medium text-text">{METHOD_LABEL[p.method] ?? p.method}</Td>
                 <Td>{formatDateTime(p.paidAt)}</Td>
                 <Td className="font-mono text-[13px] text-text-muted">{p.stripePaymentIntent ?? "—"}</Td>
                 <Td className="font-semibold">{formatCents(p.amountCents)}</Td>
+                <Td className="w-12" onClick={(e) => e.stopPropagation()}>
+                  <KebabMenu label="Payment actions">
+                    <MenuItem
+                      icon="copy"
+                      label="Copy reference"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(p.stripePaymentIntent ?? p.id);
+                        toast("Reference copied.", "success");
+                      }}
+                    />
+                  </KebabMenu>
+                </Td>
               </Tr>
             ))}
           </Table>

@@ -8,8 +8,8 @@ import { NewInvoicePanel, type ClientOption, type ServiceOption } from "@/compon
 import { IndexHeader } from "@/components/ui/index-header";
 import { PayerPanel } from "@/components/billing/payer-panel";
 import { ChipMenu } from "@/components/rates/chip-menu";
-import { Avatar } from "@/components/ui/avatar";
 import { DotBadge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { MenuItem } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
 import { KebabMenu } from "@/components/ui/kebab-menu";
@@ -17,7 +17,6 @@ import { SearchInput } from "@/components/ui/search-input";
 import { StatCard } from "@/components/ui/stat-card";
 import { LoadMoreRow, SortableHead, Table, Td, Tr, useLazyBatch, useSort } from "@/components/ui/table";
 import { TextLink } from "@/components/ui/text-link";
-import { Toolbar } from "@/components/ui/toolbar";
 import { useToast } from "@/components/ui/toast";
 import { formatCents, formatDate } from "@/lib/format";
 import type { InvoiceListItem, InvoiceStats } from "@/lib/repos/invoices";
@@ -73,6 +72,9 @@ export function BillingShell({
   const [tab, setTab] = useState<ShellTab>("overview");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<InvoiceStatus | undefined>();
+  // Standard anatomy: select columns (nothing consumes the selections yet).
+  const [invSel, setInvSel] = useState<Set<string>>(new Set());
+  const [payerSel, setPayerSel] = useState<Set<string>>(new Set());
   const [newInvoiceOpen, setNewInvoiceOpen] = useState(false);
   const [payerPanel, setPayerPanel] = useState<{ open: boolean; payer: PayerListItem | null }>({
     open: false,
@@ -201,132 +203,197 @@ export function BillingShell({
           </div>
         </div>
       ) : tab === "clients" ? (
-        <>
-          <Toolbar className="mb-4 shrink-0 md:mb-6">
-            <SearchInput
-              placeholder="Search invoices or clients"
-              className="w-full max-w-md"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-            <ChipMenu
-              label="Status"
-              options={(Object.keys(STATUS_LABELS) as InvoiceStatus[]).map((s) => ({
-                value: s,
-                label: STATUS_LABELS[s],
-                lead: <DotBadge variant={STATUS_VARIANT[s]} />,
-              }))}
-              value={status}
-              onSelect={(v) => setStatus(v as InvoiceStatus)}
-              onClear={() => setStatus(undefined)}
-            />
-            {hasFilters && (
-              <TextLink
-                onClick={() => {
-                  setQuery("");
-                  setStatus(undefined);
-                }}
-              >
-                Reset
-              </TextLink>
-            )}
-          </Toolbar>
-
-          {sortedInvoices.length === 0 ? (
-            <div className="rounded-card border border-border bg-surface shadow-card">
-              <EmptyState
-                icon="credit-card"
-                title={hasFilters ? "No invoices match" : "No invoices yet"}
-                subtext={hasFilters ? "Try a different search or filter." : "Create an invoice to start collecting."}
+        <Table
+          className="min-h-0 flex-1"
+          stickyHeader
+          toolbar={
+            <>
+              <SearchInput
+                placeholder="Search invoices or clients"
+                className="w-full max-w-md"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
               />
+              <ChipMenu
+                label="Status"
+                options={(Object.keys(STATUS_LABELS) as InvoiceStatus[]).map((s) => ({
+                  value: s,
+                  label: STATUS_LABELS[s],
+                  lead: <DotBadge variant={STATUS_VARIANT[s]} />,
+                }))}
+                value={status}
+                onSelect={(v) => setStatus(v as InvoiceStatus)}
+                onClear={() => setStatus(undefined)}
+              />
+              {hasFilters && (
+                <TextLink
+                  onClick={() => {
+                    setQuery("");
+                    setStatus(undefined);
+                  }}
+                >
+                  Reset
+                </TextLink>
+              )}
+            </>
+          }
+          footer={
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[13px] text-text-muted">
+              <span className="min-w-0 truncate tabular-nums">{sortedInvoices.length.toLocaleString("en-US")} records</span>
+              <span className="shrink-0">Data set by NYSgpt</span>
             </div>
-          ) : (
-            <Table
-              className="min-h-0 flex-1"
-              stickyHeader
-              head={[
-                <SortableHead key="client" label="Client" col="client" sort={invoiceSort} onSort={toggleInvoiceSort} />,
-                <SortableHead key="number" label="Invoice #" col="number" sort={invoiceSort} onSort={toggleInvoiceSort} />,
-                <SortableHead key="issued" label="Issued" col="issued" sort={invoiceSort} onSort={toggleInvoiceSort} />,
-                <SortableHead key="due" label="Due" col="due" sort={invoiceSort} onSort={toggleInvoiceSort} />,
-                <SortableHead key="status" label="Status" col="status" sort={invoiceSort} onSort={toggleInvoiceSort} />,
-                <SortableHead key="balance" label="Balance" col="balance" sort={invoiceSort} onSort={toggleInvoiceSort} />,
-              ]}
-            >
-              {visibleInvoices.map((inv) => (
-                <Tr key={inv.id} onClick={() => router.push(`/billing/${inv.id}`)}>
-                  <Td className="max-w-56">
-                    <span className="flex min-w-0 items-center gap-2.5">
-                      <Avatar name={inv.clientName} size="sm" className="shrink-0" />
-                      <span className="min-w-0 truncate font-medium text-text" title={inv.clientName}>
-                        {inv.clientName}
-                      </span>
-                    </span>
-                  </Td>
-                  <Td className="whitespace-nowrap">{inv.number}</Td>
-                  <Td className="whitespace-nowrap text-text-muted">{dateOnly(inv.issuedOn)}</Td>
-                  <Td className={`whitespace-nowrap ${inv.status === "overdue" ? "font-medium text-danger" : "text-text-muted"}`}>
-                    {dateOnly(inv.dueOn)}
-                  </Td>
-                  <Td className="whitespace-nowrap">
-                    <InvoiceStatusBadge status={inv.status} />
-                  </Td>
-                  <Td className="whitespace-nowrap font-semibold">{formatCents(inv.balanceCents)}</Td>
-                </Tr>
-              ))}
-              {invoicesHaveMore && <LoadMoreRow sentinelRef={invoiceSentinel} colSpan={6} />}
-            </Table>
+          }
+          head={[
+            <Checkbox
+              key="__sel"
+              aria-label="Select all"
+              checked={visibleInvoices.length > 0 && visibleInvoices.every((i) => invSel.has(i.id))}
+              onChange={() =>
+                setInvSel((prev) => {
+                  const all = visibleInvoices.every((i) => prev.has(i.id));
+                  const next = new Set(prev);
+                  visibleInvoices.forEach((i) => (all ? next.delete(i.id) : next.add(i.id)));
+                  return next;
+                })
+              }
+            />,
+            <SortableHead key="client" label="Client" col="client" sort={invoiceSort} onSort={toggleInvoiceSort} />,
+            <SortableHead key="number" label="Invoice #" col="number" sort={invoiceSort} onSort={toggleInvoiceSort} />,
+            <SortableHead key="issued" label="Issued" col="issued" sort={invoiceSort} onSort={toggleInvoiceSort} />,
+            <SortableHead key="due" label="Due" col="due" sort={invoiceSort} onSort={toggleInvoiceSort} />,
+            <SortableHead key="status" label="Status" col="status" sort={invoiceSort} onSort={toggleInvoiceSort} />,
+            <SortableHead key="balance" label="Balance" col="balance" sort={invoiceSort} onSort={toggleInvoiceSort} />,
+            "",
+          ]}
+        >
+          {sortedInvoices.length === 0 && (
+            <Tr>
+              <Td colSpan={8}>
+                <EmptyState
+                  icon="credit-card"
+                  title={hasFilters ? "No invoices match" : "No invoices yet"}
+                  subtext={hasFilters ? "Try a different search or filter." : "Create an invoice to start collecting."}
+                />
+              </Td>
+            </Tr>
           )}
-        </>
+          {visibleInvoices.map((inv) => (
+            <Tr key={inv.id} onClick={() => router.push(`/billing/${inv.id}`)}>
+              <Td className="w-10" onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  aria-label="Select row"
+                  checked={invSel.has(inv.id)}
+                  onChange={() =>
+                    setInvSel((prev) => {
+                      const next = new Set(prev);
+                      if (!next.delete(inv.id)) next.add(inv.id);
+                      return next;
+                    })
+                  }
+                />
+              </Td>
+              <Td className="max-w-56">
+                <span className="block min-w-0 truncate font-medium text-text" title={inv.clientName}>
+                  {inv.clientName}
+                </span>
+              </Td>
+              <Td className="whitespace-nowrap">{inv.number}</Td>
+              <Td className="whitespace-nowrap text-text-muted">{dateOnly(inv.issuedOn)}</Td>
+              <Td className={`whitespace-nowrap ${inv.status === "overdue" ? "font-medium text-danger" : "text-text-muted"}`}>
+                {dateOnly(inv.dueOn)}
+              </Td>
+              <Td className="whitespace-nowrap">
+                <InvoiceStatusBadge status={inv.status} />
+              </Td>
+              <Td className="whitespace-nowrap font-semibold">{formatCents(inv.balanceCents)}</Td>
+              <Td className="w-12" onClick={(e) => e.stopPropagation()}>
+                <KebabMenu label={`Actions for invoice ${inv.number}`}>
+                  <MenuItem icon="eye" label="Open invoice" onClick={() => router.push(`/billing/${inv.id}`)} />
+                </KebabMenu>
+              </Td>
+            </Tr>
+          ))}
+          {invoicesHaveMore && <LoadMoreRow sentinelRef={invoiceSentinel} colSpan={8} />}
+        </Table>
       ) : (
-        <>
-          <Toolbar className="mb-4 shrink-0 md:mb-6">
+        <Table
+          className="min-h-0 flex-1"
+          stickyHeader
+          toolbar={
             <SearchInput
               placeholder="Search payers"
               className="w-full max-w-md"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
-          </Toolbar>
-
-          {sortedPayers.length === 0 ? (
-            <div className="rounded-card border border-border bg-surface shadow-card">
-              <EmptyState
-                icon="shield-plus"
-                title={q ? "No payers match" : "No payers yet"}
-                subtext={q ? undefined : "Add the insurance payers your practice bills."}
-              />
+          }
+          footer={
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[13px] text-text-muted">
+              <span className="min-w-0 truncate tabular-nums">{sortedPayers.length.toLocaleString("en-US")} records</span>
+              <span className="shrink-0">Data set by NYSgpt</span>
             </div>
-          ) : (
-            <Table
-              className="min-h-0 flex-1"
-              stickyHeader
-              head={[
-                <SortableHead key="code" label="Code" col="code" sort={payerSort} onSort={togglePayerSort} />,
-                <SortableHead key="name" label="Payer" col="name" sort={payerSort} onSort={togglePayerSort} />,
-                <SortableHead key="policies" label="Policies" col="policies" sort={payerSort} onSort={togglePayerSort} />,
-                "",
-              ]}
-            >
-              {visiblePayers.map((p) => (
-                // The row opens the panel the Edit kebab already opened — it
-                // was the one list here you could not click into.
-                <Tr key={p.id} onClick={() => setPayerPanel({ open: true, payer: p })}>
-                  <Td className="whitespace-nowrap font-semibold">{p.payerCode}</Td>
-                  <Td className="max-w-64 truncate" title={p.name}>{p.name}</Td>
-                  <Td className="whitespace-nowrap">{p.policyCount}</Td>
-                  <Td className="w-12" onClick={(e) => e.stopPropagation()}>
-                    <KebabMenu label={`Actions for ${p.name}`}>
-                      <MenuItem icon="edit" label="Edit" onClick={() => setPayerPanel({ open: true, payer: p })} />
-                      <MenuItem icon="trash" danger label="Delete" onClick={() => deletePayer(p)} />
-                    </KebabMenu>
-                  </Td>
-                </Tr>
-              ))}
-              {payersHaveMore && <LoadMoreRow sentinelRef={payerSentinel} colSpan={4} />}
-            </Table>
+          }
+          head={[
+            <Checkbox
+              key="__sel"
+              aria-label="Select all"
+              checked={visiblePayers.length > 0 && visiblePayers.every((p) => payerSel.has(p.id))}
+              onChange={() =>
+                setPayerSel((prev) => {
+                  const all = visiblePayers.every((p) => prev.has(p.id));
+                  const next = new Set(prev);
+                  visiblePayers.forEach((p) => (all ? next.delete(p.id) : next.add(p.id)));
+                  return next;
+                })
+              }
+            />,
+            <SortableHead key="code" label="Code" col="code" sort={payerSort} onSort={togglePayerSort} />,
+            <SortableHead key="name" label="Payer" col="name" sort={payerSort} onSort={togglePayerSort} />,
+            <SortableHead key="policies" label="Policies" col="policies" sort={payerSort} onSort={togglePayerSort} />,
+            "",
+          ]}
+        >
+          {sortedPayers.length === 0 && (
+            <Tr>
+              <Td colSpan={5}>
+                <EmptyState
+                  icon="shield-plus"
+                  title={q ? "No payers match" : "No payers yet"}
+                  subtext={q ? undefined : "Add the insurance payers your practice bills."}
+                />
+              </Td>
+            </Tr>
           )}
-        </>
+          {visiblePayers.map((p) => (
+            // The row opens the panel the Edit kebab already opened — it
+            // was the one list here you could not click into.
+            <Tr key={p.id} onClick={() => setPayerPanel({ open: true, payer: p })}>
+              <Td className="w-10" onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  aria-label="Select row"
+                  checked={payerSel.has(p.id)}
+                  onChange={() =>
+                    setPayerSel((prev) => {
+                      const next = new Set(prev);
+                      if (!next.delete(p.id)) next.add(p.id);
+                      return next;
+                    })
+                  }
+                />
+              </Td>
+              <Td className="whitespace-nowrap font-semibold">{p.payerCode}</Td>
+              <Td className="max-w-64 truncate" title={p.name}>{p.name}</Td>
+              <Td className="whitespace-nowrap">{p.policyCount}</Td>
+              <Td className="w-12" onClick={(e) => e.stopPropagation()}>
+                <KebabMenu label={`Actions for ${p.name}`}>
+                  <MenuItem icon="edit" label="Edit" onClick={() => setPayerPanel({ open: true, payer: p })} />
+                  <MenuItem icon="trash" danger label="Delete" onClick={() => deletePayer(p)} />
+                </KebabMenu>
+              </Td>
+            </Tr>
+          ))}
+          {payersHaveMore && <LoadMoreRow sentinelRef={payerSentinel} colSpan={5} />}
+        </Table>
       )}
 
       <NewInvoicePanel

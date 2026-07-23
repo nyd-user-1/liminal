@@ -1,12 +1,16 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { NetworkRateSummary, Plan } from "@/lib/repos/plans";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/ui/empty-state";
+import { KebabMenu } from "@/components/ui/kebab-menu";
+import { MenuItem } from "@/components/ui/dropdown-menu";
 import { SortableHead, Table, Td, Tr, useSort } from "@/components/ui/table";
 import { Tooltip } from "@/components/ui/tooltip";
+import { useToast } from "@/components/ui/toast";
 import { prettyNetworkLabel } from "@/lib/format";
 
 // Client panels for the employer workspace's content column (see
@@ -14,7 +18,14 @@ import { prettyNetworkLabel } from "@/lib/format";
 // be client components. Data arrives fetched + serializable from the server
 // page, including `cptLabels` (the repo's CPT_LABELS, passed down rather than
 // imported here so the server-only repo module never bundles into the
-// client).
+// client). Both tables wear the standard anatomy (select / kebab / footer).
+
+const stdFooter = (n: number) => (
+  <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[13px] text-text-muted">
+    <span className="min-w-0 truncate tabular-nums">{n.toLocaleString("en-US")} records</span>
+    <span className="shrink-0">Data set by NYSgpt</span>
+  </div>
+);
 
 type RateSortCol = "network" | "plans" | `cpt:${string}`;
 
@@ -33,8 +44,10 @@ export function RatesPanel({
   plans: Plan[];
   cptLabels: Record<string, string>;
 }) {
+  const toast = useToast();
   const cptCodes = useMemo(() => Object.keys(cptLabels), [cptLabels]);
   const [sort, toggleSort] = useSort<RateSortCol>({ col: "plans", dir: "desc" });
+  const [sel, setSel] = useState<Set<string>>(new Set());
 
   const rows = useMemo<RateRow[]>(() => {
     return rateSummary.map((net) => {
@@ -80,7 +93,21 @@ export function RatesPanel({
       <Table
         className="min-h-0 flex-1"
         stickyHeader
+        footer={stdFooter(sorted.length)}
         head={[
+          <Checkbox
+            key="__sel"
+            aria-label="Select all"
+            checked={sorted.every((r) => sel.has(r.networkProduct))}
+            onChange={() =>
+              setSel((prev) => {
+                const all = sorted.every((r) => prev.has(r.networkProduct));
+                const next = new Set(prev);
+                sorted.forEach((r) => (all ? next.delete(r.networkProduct) : next.add(r.networkProduct)));
+                return next;
+              })
+            }
+          />,
           <SortableHead key="network" label="Network product" col="network" sort={sort} onSort={toggleSort} />,
           <SortableHead key="plans" label="Plans" col="plans" sort={sort} onSort={toggleSort} />,
           ...cptCodes.map((code) => (
@@ -88,10 +115,24 @@ export function RatesPanel({
               <SortableHead label={cptLabels[code]} col={`cpt:${code}`} sort={sort} onSort={toggleSort} />
             </Tooltip>
           )),
+          "",
         ]}
       >
         {sorted.map((r) => (
           <Tr key={r.networkProduct}>
+            <Td className="w-10" onClick={(e) => e.stopPropagation()}>
+              <Checkbox
+                aria-label="Select row"
+                checked={sel.has(r.networkProduct)}
+                onChange={() =>
+                  setSel((prev) => {
+                    const next = new Set(prev);
+                    if (!next.delete(r.networkProduct)) next.add(r.networkProduct);
+                    return next;
+                  })
+                }
+              />
+            </Td>
             <Td className="whitespace-nowrap">
               <span className="block max-w-64 truncate font-medium text-text" title={r.networkProduct}>
                 {prettyNetworkLabel(r.networkProduct)}
@@ -103,6 +144,18 @@ export function RatesPanel({
                 {r.cpts[code] ?? "—"}
               </Td>
             ))}
+            <Td className="w-12" onClick={(e) => e.stopPropagation()}>
+              <KebabMenu label={`Actions for ${r.networkProduct}`}>
+                <MenuItem
+                  icon="copy"
+                  label="Copy network name"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(r.networkProduct);
+                    toast("Network name copied.", "success");
+                  }}
+                />
+              </KebabMenu>
+            </Td>
           </Tr>
         ))}
       </Table>
@@ -122,7 +175,9 @@ interface PlanRow {
 }
 
 export function PlansPanel({ plans, employerName }: { plans: Plan[]; employerName: string }) {
+  const toast = useToast();
   const [sort, toggleSort] = useSort<PlanSortCol>({ col: "plan", dir: "asc" });
+  const [sel, setSel] = useState<Set<string>>(new Set());
 
   // NYS-44: plan names arrive glued to the employer name in caps
   // ("UNITED AIRLINESAetna Choice POS II") — strip it for display only, then
@@ -168,20 +223,51 @@ export function PlansPanel({ plans, employerName }: { plans: Plan[]; employerNam
     );
   }
 
+  const rowKey = (r: PlanRow, i: number) => `${r.planName}|${r.networkProduct}|${r.fileDate}|${i}`;
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <Table
         className="min-h-0 flex-1"
         stickyHeader
+        footer={stdFooter(sorted.length)}
         head={[
+          <Checkbox
+            key="__sel"
+            aria-label="Select all"
+            checked={sorted.every((r, i) => sel.has(rowKey(r, i)))}
+            onChange={() =>
+              setSel((prev) => {
+                const all = sorted.every((r, i) => prev.has(rowKey(r, i)));
+                const next = new Set(prev);
+                sorted.forEach((r, i) => (all ? next.delete(rowKey(r, i)) : next.add(rowKey(r, i))));
+                return next;
+              })
+            }
+          />,
           <SortableHead key="plan" label="Plan" col="plan" sort={sort} onSort={toggleSort} />,
           "Network",
           "Type",
           <SortableHead key="published" label="Published" col="published" sort={sort} onSort={toggleSort} />,
+          "",
         ]}
       >
         {sorted.map((r, i) => (
-          <Tr key={`${r.planName}|${r.networkProduct}|${r.fileDate}|${i}`}>
+          <Tr key={rowKey(r, i)}>
+            <Td className="w-10" onClick={(e) => e.stopPropagation()}>
+              <Checkbox
+                aria-label="Select row"
+                checked={sel.has(rowKey(r, i))}
+                onChange={() =>
+                  setSel((prev) => {
+                    const next = new Set(prev);
+                    const k = rowKey(r, i);
+                    if (!next.delete(k)) next.add(k);
+                    return next;
+                  })
+                }
+              />
+            </Td>
             <Td className="whitespace-nowrap text-text-body" title={r.raw}>
               <span className="inline-flex items-center gap-2">
                 {r.planName}
@@ -199,6 +285,18 @@ export function PlansPanel({ plans, employerName }: { plans: Plan[]; employerNam
               {r.fileSchema === "IN_NETWORK_RATES" ? "In-network rates" : (r.fileSchema ?? "—")}
             </Td>
             <Td className="tabular-nums text-text-muted">{r.fileDate ?? "—"}</Td>
+            <Td className="w-12" onClick={(e) => e.stopPropagation()}>
+              <KebabMenu label={`Actions for ${r.planName}`}>
+                <MenuItem
+                  icon="copy"
+                  label="Copy plan name"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(r.raw);
+                    toast("Plan name copied.", "success");
+                  }}
+                />
+              </KebabMenu>
+            </Td>
           </Tr>
         ))}
       </Table>

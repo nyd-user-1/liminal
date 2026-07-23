@@ -3,7 +3,10 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ColorSwatch } from "@/components/ui/color-swatch";
+import { KebabMenu } from "@/components/ui/kebab-menu";
+import { MenuItem } from "@/components/ui/dropdown-menu";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Icon } from "@/components/ui/icons";
 import { TopBarActions } from "@/components/shell/topbar-slot";
@@ -49,6 +52,8 @@ export function ServicesSettings({ initialServices }: { initialServices: Service
   const toast = useToast();
   const [services, setServices] = useState(initialServices);
   const [panel, setPanel] = useState<PanelState>(null);
+  // Standard anatomy: select column (nothing consumes the selection yet).
+  const [sel, setSel] = useState<Set<string>>(new Set());
   const [form, setForm] = useState<FormState>(emptyForm);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -104,9 +109,50 @@ export function ServicesSettings({ initialServices }: { initialServices: Service
           New service
         </Button>
       </TopBarActions>
-      <Table head={["Service", "Duration", "Rate", "Type", "Status", ""]}>
+      <Table
+        footer={
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[13px] text-text-muted">
+            <span className="min-w-0 truncate tabular-nums">{services.length.toLocaleString("en-US")} records</span>
+            <span className="shrink-0">Data set by NYSgpt</span>
+          </div>
+        }
+        head={[
+          <Checkbox
+            key="__sel"
+            aria-label="Select all"
+            checked={services.length > 0 && services.every((s) => sel.has(s.id))}
+            onChange={() =>
+              setSel((prev) => {
+                const all = services.every((s) => prev.has(s.id));
+                const next = new Set(prev);
+                services.forEach((s) => (all ? next.delete(s.id) : next.add(s.id)));
+                return next;
+              })
+            }
+          />,
+          "Service",
+          "Duration",
+          "Rate",
+          "Type",
+          "Status",
+          "",
+        ]}
+      >
         {services.map((s) => (
           <Tr key={s.id} onClick={() => open({ mode: "edit", service: s })}>
+            <Td className="w-10" onClick={(e) => e.stopPropagation()}>
+              <Checkbox
+                aria-label="Select row"
+                checked={sel.has(s.id)}
+                onChange={() =>
+                  setSel((prev) => {
+                    const next = new Set(prev);
+                    if (!next.delete(s.id)) next.add(s.id);
+                    return next;
+                  })
+                }
+              />
+            </Td>
             <Td className="font-semibold text-text">
               <span className="flex items-center gap-2.5">
                 <ColorSwatch color={serviceColorHex(s.color)} />
@@ -127,8 +173,10 @@ export function ServicesSettings({ initialServices }: { initialServices: Service
             <Td>
               {s.active ? <Badge variant="success">Active</Badge> : <Badge variant="neutral">Inactive</Badge>}
             </Td>
-            <Td className="w-10 text-right">
-              <Icon name="chevron-right" size={18} className="text-text-muted" />
+            <Td className="w-12" onClick={(e) => e.stopPropagation()}>
+              <KebabMenu label={`Actions for ${s.name}`}>
+                <MenuItem icon="edit" label="Edit" onClick={() => open({ mode: "edit", service: s })} />
+              </KebabMenu>
             </Td>
           </Tr>
         ))}

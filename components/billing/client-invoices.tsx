@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Checkbox } from "@/components/ui/checkbox";
 import { InvoiceStatusBadge } from "@/components/billing/invoice-status-badge";
 import { NewInvoicePanel, type ServiceOption } from "@/components/billing/new-invoice-panel";
 import { RecordPaymentModal, type PaymentTarget } from "@/components/billing/record-payment-modal";
@@ -46,6 +47,8 @@ export function ClientInvoices({
   const setNewInvoiceOpen = (open: boolean) =>
     onNewOpenChange ? onNewOpenChange(open) : setUncontrolledNewOpen(open);
   const [paymentTarget, setPaymentTarget] = useState<PaymentTarget | null>(null);
+  // Standard anatomy: select column (nothing consumes the selection yet).
+  const [sel, setSel] = useState<Set<string>>(new Set());
 
   const patchInvoice = async (id: string, status: "sent" | "void", done: string) => {
     const res = await fetch(`/api/invoices/${id}`, {
@@ -98,11 +101,52 @@ export function ClientInvoices({
           }
         />
       ) : (
-        <Table head={["Invoice", "Issued", "Due", "Total", "Status", ""]}>
+        <Table
+          footer={
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[13px] text-text-muted">
+              <span className="min-w-0 truncate tabular-nums">{invoices.length.toLocaleString("en-US")} records</span>
+              <span className="shrink-0">Data set by NYSgpt</span>
+            </div>
+          }
+          head={[
+            <Checkbox
+              key="__sel"
+              aria-label="Select all"
+              checked={invoices.length > 0 && invoices.every((i) => sel.has(i.id))}
+              onChange={() =>
+                setSel((prev) => {
+                  const all = invoices.every((i) => prev.has(i.id));
+                  const next = new Set(prev);
+                  invoices.forEach((i) => (all ? next.delete(i.id) : next.add(i.id)));
+                  return next;
+                })
+              }
+            />,
+            "Invoice",
+            "Issued",
+            "Due",
+            "Total",
+            "Status",
+            "",
+          ]}
+        >
           {invoices.map((inv) => (
             <Tr key={inv.id} onClick={() => router.push(`/billing/${inv.id}`)}>
+              <Td className="w-10" onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  aria-label="Select row"
+                  checked={sel.has(inv.id)}
+                  onChange={() =>
+                    setSel((prev) => {
+                      const next = new Set(prev);
+                      if (!next.delete(inv.id)) next.add(inv.id);
+                      return next;
+                    })
+                  }
+                />
+              </Td>
               <Td>
-                <TextLink href={`/billing/${inv.id}`} onClick={(e) => e.stopPropagation()}>
+                <TextLink variant="name" href={`/billing/${inv.id}`} onClick={(e) => e.stopPropagation()}>
                   {inv.number}
                 </TextLink>
               </Td>

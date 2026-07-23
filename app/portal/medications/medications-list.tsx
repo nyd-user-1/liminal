@@ -4,7 +4,10 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/ui/empty-state";
+import { KebabMenu } from "@/components/ui/kebab-menu";
+import { MenuItem } from "@/components/ui/dropdown-menu";
 import { Table, Td, Tr } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { PharmacyPicker } from "@/components/photon/pharmacy-picker";
@@ -30,6 +33,21 @@ export function MedicationsList({
   const toast = useToast();
   const [detailId, setDetailId] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // Standard anatomy: select columns (nothing consumes the selections yet).
+  const [rxSel, setRxSel] = useState<Set<string>>(new Set());
+  const [orderSel, setOrderSel] = useState<Set<string>>(new Set());
+  const toggleIn = (set: React.Dispatch<React.SetStateAction<Set<string>>>) => (id: string) =>
+    set((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  const stdFooter = (n: number) => (
+    <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[13px] text-text-muted">
+      <span className="min-w-0 truncate tabular-nums">{n.toLocaleString("en-US")} records</span>
+      <span className="shrink-0">Data set by NYSgpt</span>
+    </div>
+  );
   const [preferred, setPreferred] = useState(initialPreferred);
   const [removing, setRemoving] = useState(false);
 
@@ -102,9 +120,34 @@ export function MedicationsList({
             />
           </div>
         ) : (
-          <Table head={["Medication", "Instructions", "Written", "Status"]}>
+          <Table
+            footer={stdFooter(prescriptions.length)}
+            head={[
+              <Checkbox
+                key="__sel"
+                aria-label="Select all"
+                checked={prescriptions.every((rx) => rxSel.has(rx.id))}
+                onChange={() =>
+                  setRxSel((prev) => {
+                    const all = prescriptions.every((rx) => prev.has(rx.id));
+                    const next = new Set(prev);
+                    prescriptions.forEach((rx) => (all ? next.delete(rx.id) : next.add(rx.id)));
+                    return next;
+                  })
+                }
+              />,
+              "Medication",
+              "Instructions",
+              "Written",
+              "Status",
+              "",
+            ]}
+          >
             {prescriptions.map((rx) => (
               <Tr key={rx.id} onClick={() => setDetailId(rx.id)}>
+                <Td className="w-10" onClick={(e) => e.stopPropagation()}>
+                  <Checkbox aria-label="Select row" checked={rxSel.has(rx.id)} onChange={() => toggleIn(setRxSel)(rx.id)} />
+                </Td>
                 <Td className="font-medium">{rx.medication}</Td>
                 <Td className="max-w-72 truncate" title={rx.instructions ?? undefined}>
                   {rx.instructions ?? "–"}
@@ -112,6 +155,11 @@ export function MedicationsList({
                 <Td className="whitespace-nowrap text-text-muted">{rx.writtenAt ? formatDate(rx.writtenAt) : "–"}</Td>
                 <Td>
                   <Badge variant={RX_STATE_VARIANT[rx.state]}>{RX_STATE_LABEL[rx.state]}</Badge>
+                </Td>
+                <Td className="w-12" onClick={(e) => e.stopPropagation()}>
+                  <KebabMenu label={`Actions for ${rx.medication}`}>
+                    <MenuItem icon="eye" label="View details" onClick={() => setDetailId(rx.id)} />
+                  </KebabMenu>
                 </Td>
               </Tr>
             ))}
@@ -122,9 +170,34 @@ export function MedicationsList({
       {orders.length > 0 && (
         <section>
           <h2 className="mb-3 text-[17px] font-semibold text-text">Orders</h2>
-          <Table head={["Medication", "Status", "Pharmacy", "Created"]}>
+          <Table
+            footer={stdFooter(orders.length)}
+            head={[
+              <Checkbox
+                key="__sel"
+                aria-label="Select all"
+                checked={orders.every((o) => orderSel.has(o.id))}
+                onChange={() =>
+                  setOrderSel((prev) => {
+                    const all = orders.every((o) => prev.has(o.id));
+                    const next = new Set(prev);
+                    orders.forEach((o) => (all ? next.delete(o.id) : next.add(o.id)));
+                    return next;
+                  })
+                }
+              />,
+              "Medication",
+              "Status",
+              "Pharmacy",
+              "Created",
+              "",
+            ]}
+          >
             {orders.map((o) => (
               <Tr key={o.id}>
+                <Td className="w-10" onClick={(e) => e.stopPropagation()}>
+                  <Checkbox aria-label="Select row" checked={orderSel.has(o.id)} onChange={() => toggleIn(setOrderSel)(o.id)} />
+                </Td>
                 <Td className="max-w-72 truncate" title={o.medications.join(", ")}>
                   {o.medications.join(", ") || "–"}
                 </Td>
@@ -139,6 +212,18 @@ export function MedicationsList({
                   )}
                 </Td>
                 <Td className="whitespace-nowrap text-text-muted">{o.createdAt ? formatDate(o.createdAt) : "–"}</Td>
+                <Td className="w-12" onClick={(e) => e.stopPropagation()}>
+                  <KebabMenu label="Order actions">
+                    <MenuItem
+                      icon="copy"
+                      label="Copy medication list"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(o.medications.join(", "));
+                        toast("Medication list copied.", "success");
+                      }}
+                    />
+                  </KebabMenu>
+                </Td>
               </Tr>
             ))}
           </Table>

@@ -1,12 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icons";
+import { KebabMenu } from "@/components/ui/kebab-menu";
+import { MenuItem } from "@/components/ui/dropdown-menu";
 import { SearchInput } from "@/components/ui/search-input";
 import { Table, Td, Tr } from "@/components/ui/table";
 import { Tag } from "@/components/ui/tag";
@@ -58,6 +62,9 @@ function candidateLabel(f: CredentialingFootprint): string {
 }
 
 function FootprintCard({ f, payerMix }: { f: CredentialingFootprint; payerMix: string[] }) {
+  const router = useRouter();
+  // Standard anatomy: select column (nothing consumes the selection yet).
+  const [bookSel, setBookSel] = useState<Set<string>>(new Set());
   const majorAbsent = pickMajorAbsent(f.absentFrom);
   const foundNames = [...new Set(f.foundIn.map((b) => b.payer))];
   const coveredCount = payerMix.length > 0 ? foundNames.filter((p) => payerMix.includes(p)).length : 0;
@@ -101,12 +108,56 @@ function FootprintCard({ f, payerMix }: { f: CredentialingFootprint; payerMix: s
       {f.foundIn.length > 0 && (
         <div className="mt-5">
           <Table
-            head={["Insurer", "Network", "Holder", ...RATE_CPTS.map((c) => c.code), "As-of"]}
+            footer={
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[13px] text-text-muted">
+                <span className="min-w-0 truncate tabular-nums">{f.foundIn.length.toLocaleString("en-US")} records</span>
+                <span className="shrink-0">Data set by NYSgpt</span>
+              </div>
+            }
+            head={[
+              <Checkbox
+                key="__sel"
+                aria-label="Select all"
+                checked={f.foundIn.every((b) => bookSel.has(`${f.npi}|${b.payer}|${b.tin}`))}
+                onChange={() =>
+                  setBookSel((prev) => {
+                    const all = f.foundIn.every((b) => prev.has(`${f.npi}|${b.payer}|${b.tin}`));
+                    const next = new Set(prev);
+                    f.foundIn.forEach((b) => {
+                      const k = `${f.npi}|${b.payer}|${b.tin}`;
+                      if (all) next.delete(k);
+                      else next.add(k);
+                    });
+                    return next;
+                  })
+                }
+              />,
+              "Insurer",
+              "Network",
+              "Holder",
+              ...RATE_CPTS.map((c) => c.code),
+              "As-of",
+              "",
+            ]}
           >
             {f.foundIn.map((book) => {
               const highlighted = payerMix.length > 0 && payerMix.includes(book.payer);
+              const selKey = `${f.npi}|${book.payer}|${book.tin}`;
               return (
                 <Tr key={`${book.payer}|${book.tin}`} className={highlighted ? "bg-primary-wash/40" : ""}>
+                  <Td className="w-10" onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      aria-label="Select row"
+                      checked={bookSel.has(selKey)}
+                      onChange={() =>
+                        setBookSel((prev) => {
+                          const next = new Set(prev);
+                          if (!next.delete(selKey)) next.add(selKey);
+                          return next;
+                        })
+                      }
+                    />
+                  </Td>
                   <Td className="whitespace-nowrap">
                     <span className="flex items-center gap-2">
                       <InsurerMark payer={book.payer} />
@@ -119,10 +170,11 @@ function FootprintCard({ f, payerMix }: { f: CredentialingFootprint; payerMix: s
                     </span>
                   </Td>
                   <Td>
-                    <span className="block max-w-40 truncate" title={book.tin}>
+                    {/* One line always — the platform note rides inline, not on a second row. */}
+                    <span className="block max-w-56 truncate" title={book.tin}>
                       {book.holder}
+                      {book.platformScale && <span className="ml-1.5 text-[13px] text-text-muted">· via platform group</span>}
                     </span>
-                    {book.platformScale && <span className="text-[13px] text-text-muted">via platform group</span>}
                   </Td>
                   {RATE_CPTS.map((c) => {
                     const val = book.codes[c.code];
@@ -141,6 +193,20 @@ function FootprintCard({ f, payerMix }: { f: CredentialingFootprint; payerMix: s
                     );
                   })}
                   <Td className="whitespace-nowrap text-text-muted">{book.asOf}</Td>
+                  <Td className="w-12" onClick={(e) => e.stopPropagation()}>
+                    <KebabMenu label={`Actions for ${book.payer}`}>
+                      <MenuItem
+                        icon="id-card"
+                        label="Open holder in org book"
+                        onClick={() => router.push(`/orgs/${encodeURIComponent(book.tin)}`)}
+                      />
+                      <MenuItem
+                        icon="dollar"
+                        label="Open insurer in Published rates"
+                        onClick={() => router.push(`/published-rates?payer=${encodeURIComponent(book.payer)}`)}
+                      />
+                    </KebabMenu>
+                  </Td>
                 </Tr>
               );
             })}

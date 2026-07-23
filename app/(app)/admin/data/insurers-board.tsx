@@ -2,6 +2,8 @@
 
 import type { InsurerBoardRow } from "@/lib/repos/admin";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { KebabMenu } from "@/components/ui/kebab-menu";
+import { MenuItem } from "@/components/ui/dropdown-menu";
 import { InsurerCell } from "@/components/rates/insurer-mark";
 
 function fmt(n: number | undefined): string {
@@ -38,6 +40,12 @@ export function InsurersBoard({ rows }: { rows: InsurerBoardRow[] }) {
       rowKey={(r) => r.name}
       rowClassName={(r) => (r.isOther ? "bg-canvas/60" : undefined)}
       storageKey="admin.insurers.columns"
+      rowActions={(r) => (
+        <KebabMenu label={`Actions for ${r.name}`}>
+          <MenuItem icon="copy" label="Copy insurer name" onClick={() => void navigator.clipboard.writeText(r.name)} />
+        </KebabMenu>
+      )}
+      records={rows.length}
       footnote={<p className="text-sm text-text-muted">Counts are live; a running harvest moves Membership within minutes.</p>}
     />
   );
