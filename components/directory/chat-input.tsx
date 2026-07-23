@@ -147,7 +147,7 @@ export function ChatInput({
   return (
     <div className="bg-transparent p-1.5 sm:p-4" style={TOKEN_MAP}>
       <div className="max-w-[770px] mx-auto w-full">
-        <div className="rounded-2xl sm:rounded-3xl bg-[var(--inp-bg)] border border-transparent focus-within:border-primary transition-colors px-3 pt-3 pb-2 sm:px-4 sm:pt-4 sm:pb-2.5">
+        <div className="rounded-2xl sm:rounded-3xl bg-[var(--inp-bg)] border border-border focus-within:border-primary transition-colors px-3 pt-3 pb-2 sm:px-4 sm:pt-4 sm:pb-2.5">
           <textarea
             ref={textareaRef}
             value={value}
