@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icons";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -61,11 +62,8 @@ export function OrgRail({ header, fhirNames }: { header: OrgHeader; fhirNames: O
   return (
     <Card className="flex h-full min-h-0 flex-col overflow-hidden !p-0">
       <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto p-6">
-        <div className="mb-5 flex items-center gap-2.5">
-          <Icon name="id-card" className="shrink-0 text-text-body" />
-          <h2 className="min-w-0 flex-1 truncate text-[19px] font-semibold text-text" title={header.label}>
-            {header.label}
-          </h2>
+        <div className="mb-5 flex items-start gap-2.5">
+          <h2 className="min-w-0 flex-1 text-[16px] font-semibold leading-snug text-text">{header.label}</h2>
           <OrgRailMenu tin={header.tin} />
         </div>
 
@@ -94,12 +92,23 @@ export function OrgRail({ header, fhirNames }: { header: OrgHeader; fhirNames: O
                   <Icon name="info" size={13} className="cursor-help text-text-muted" />
                 </Tooltip>
               </div>
-              <div className="mt-1.5 flex flex-col gap-2.5">
+              {/* Each alias drills into the org index searched for that name —
+                  the marketing footer's row treatment (4% wash + ↗ on hover). */}
+              <div className="mt-1.5 flex flex-col gap-1">
                 {related.map((a) => (
-                  <div key={a.display}>
-                    <div className="leading-snug text-text">{a.display}</div>
-                    <div className="text-[13px] text-text-muted">{a.npis.toLocaleString()} clinicians</div>
-                  </div>
+                  <Link
+                    key={a.display}
+                    href={`/orgs?q=${encodeURIComponent(a.display)}`}
+                    className="group -mx-2 flex items-center justify-between gap-2 rounded-field px-2 py-1.5 transition-colors hover:bg-black/[0.04]"
+                  >
+                    <span className="min-w-0">
+                      <span className="block leading-snug text-text">{a.display}</span>
+                      <span className="block text-[13px] text-text-muted">{a.npis.toLocaleString()} clinicians</span>
+                    </span>
+                    <span aria-hidden className="shrink-0 text-text-body opacity-0 transition-opacity group-hover:opacity-100">
+                      ↗
+                    </span>
+                  </Link>
                 ))}
               </div>
             </div>

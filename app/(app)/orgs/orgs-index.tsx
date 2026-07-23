@@ -101,10 +101,19 @@ function ChipMenu({
   );
 }
 
-export function OrgsIndex({ initial, payerOptions }: { initial: OrgListRow[]; payerOptions: string[] }) {
+export function OrgsIndex({
+  initial,
+  initialQ,
+  payerOptions,
+}: {
+  initial: OrgListRow[];
+  /** Search seed from ?q= — the server already filtered `initial` by it. */
+  initialQ?: string;
+  payerOptions: string[];
+}) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("all");
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(initialQ ?? "");
   const [payer, setPayer] = useState<string | undefined>();
   const [type, setType] = useState<(typeof TYPE_OPTIONS)[number] | undefined>();
   const [rows, setRows] = useState<OrgListRow[]>(initial);
@@ -149,6 +158,7 @@ export function OrgsIndex({ initial, payerOptions }: { initial: OrgListRow[]; pa
   const toast = useToast();
 
   const sorted = sortRows(rows, sort.col, sort.dir);
+  const latestFile = rows.reduce<string | null>((m, r) => (r.lastFileDate && (!m || r.lastFileDate > m) ? r.lastFileDate : m), null);
 
   const columns: DataTableColumn<OrgListRow>[] = [
     {
@@ -157,14 +167,29 @@ export function OrgsIndex({ initial, payerOptions }: { initial: OrgListRow[]; pa
       fixed: true,
       sortValue: (o) => o.name ?? o.label,
       cellClassName: "max-w-[28rem]",
+      // The row's own identity is a TextLink `name` (the design-system link
+      // standard) — same destination as the row click, but a real anchor.
       render: (o) =>
         o.name ? (
-          <span className="block truncate font-medium text-text" title={o.name}>
-            {o.name}
-          </span>
+          <TextLink
+            href={href(o.tin)}
+            variant="name"
+            title={o.name}
+            className="min-w-0 max-w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="block truncate">{o.name}</span>
+          </TextLink>
         ) : (
           <span className="flex items-center gap-2">
-            <span className="font-medium tabular-nums text-text-body">{o.label}</span>
+            <TextLink
+              href={href(o.tin)}
+              variant="name"
+              className="tabular-nums"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {o.label}
+            </TextLink>
             <Badge variant="neutral" className="!font-normal">
               unnamed
             </Badge>
@@ -210,6 +235,8 @@ export function OrgsIndex({ initial, payerOptions }: { initial: OrgListRow[]; pa
           onSelectedChange={setSelected}
           onExport={() => toast("Export isn\u2019t wired up yet.", "info")}
           onRefresh={() => load()}
+          source="Billing groups observed in insurer rate files; names from payer rosters and the NPI registry."
+          updatedAt={`${sorted.length.toLocaleString()} organizations${latestFile ? ` \u00b7 latest file ${latestFile}` : ""}`}
           filter={
             <ChipMenu
               label="Filter"

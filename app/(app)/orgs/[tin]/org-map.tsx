@@ -314,8 +314,8 @@ export function OrgMap({ graph, onShowRoster }: { graph: OrgGraph; onShowRoster:
             </button>
           ))}
         </Panel>
-        <Panel position="top-right" className="max-w-64">
-          <span className="block truncate text-[13px] font-medium text-text">{cptLabel(code)}</span>
+        <Panel position="bottom-left" className="max-w-64">
+          <span className="block truncate text-[13px] font-medium text-primary">{cptLabel(code)}</span>
         </Panel>
         <Background variant={BackgroundVariant.Dots} gap={22} size={1.25} color="#dcdfe6" />
         <Controls showInteractive={false} position="bottom-right" />

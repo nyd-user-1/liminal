@@ -11,8 +11,10 @@ import { OrgsIndex } from "./orgs-index";
 
 export const dynamic = "force-dynamic";
 
-export default async function OrgsPage() {
+export default async function OrgsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   await requireRole("practitioner");
-  const [orgs, facets] = await Promise.all([listOrgs({ limit: 50 }), orgFacets()]);
-  return <OrgsIndex initial={orgs} payerOptions={facets.payers} />;
+  // ?q= seeds the search (deep links from an org rail's Related list).
+  const { q } = await searchParams;
+  const [orgs, facets] = await Promise.all([listOrgs({ q, limit: 50 }), orgFacets()]);
+  return <OrgsIndex initial={orgs} initialQ={q} payerOptions={facets.payers} />;
 }

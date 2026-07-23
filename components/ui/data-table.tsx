@@ -97,6 +97,7 @@ export function DataTable<T>({
   fillHeight,
   subRows,
   isSubRow,
+  initialExpanded,
   selected,
   onSelectedChange,
   rowActions,
@@ -171,6 +172,10 @@ export function DataTable<T>({
   subRows?: (row: T) => T[] | undefined;
   /** True for a child row — drives the indent. Required with `subRows`. */
   isSubRow?: (row: T) => boolean;
+  /** Tree only: parents open on mount — "all" opens every parent (for the small
+   *  grouped tables whose children ARE the content, e.g. an org's per-insurer
+   *  rate bands). Collapsed-by-default stays the default. */
+  initialExpanded?: "all" | string[];
   /**
    * THE INDEX-PAGE STANDARD (see /clients). Leading select column + trailing
    * kebab column + the Filter/Columns/Export/Refresh cluster. All opt-in, so
@@ -301,7 +306,9 @@ export function DataTable<T>({
   // operating on one flat list and needs to know nothing about depth. The sort
   // above ran on PARENTS only, which is what keeps a child attached to its
   // parent instead of being re-ranked away from it.
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(() =>
+    initialExpanded === "all" ? new Set(rows.map((r) => rowKey(r))) : new Set(initialExpanded ?? []),
+  );
   const treeRows = useMemo(() => {
     if (!subRows) return sortedRows;
     const out: T[] = [];
