@@ -126,7 +126,7 @@ export function Sidebar({
 
   return (
     <aside
-      className={`flex h-full shrink-0 flex-col bg-page ${
+      className={`flex h-full shrink-0 flex-col bg-[#f6f6f7] ${
         sheet
           ? "w-full pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
           : `transition-[width] duration-200 ${collapsed ? "w-[68px]" : "w-[248px]"}`
