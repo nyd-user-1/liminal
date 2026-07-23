@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { AuthError, requireRole } from "@/lib/auth";
 import { getNote } from "@/lib/repos/notes";
-import { bedrockConfigured, clinicalComplete, parseJsonLoose } from "@/lib/ai/bedrock";
+import { clinicalConfigured, clinicalComplete, parseJsonLoose } from "@/lib/ai/clinical";
 import { delay } from "../demo-script";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
 
     // Real Claude on Bedrock when configured (PHI-safe, BAA-covered). On failure
     // surface a 502 rather than dropping to canned answers.
-    if (bedrockConfigured()) {
+    if (clinicalConfigured()) {
       try {
         const { text } = await clinicalComplete({
           system: ASK_SYSTEM,

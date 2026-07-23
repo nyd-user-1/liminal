@@ -6,7 +6,7 @@ import { hasPhiDb as hasDb, sqlPhi as sql } from "@/lib/db";
 import { mockStore } from "@/lib/mock";
 import { createNote, getTranscript, listNotes, listTemplates, saveTranscript } from "@/lib/repos/notes";
 import type { NoteTemplateKind, TranscriptSegment } from "@/lib/types";
-import { bedrockConfigured, clinicalComplete, parseJsonLoose } from "@/lib/ai/bedrock";
+import { clinicalConfigured, clinicalComplete, parseJsonLoose } from "@/lib/ai/clinical";
 import { DEMO_SEGMENTS, delay, generatedNote } from "../demo-script";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +32,7 @@ async function draftNote(
   kind: NoteTemplateKind,
   segments: TranscriptSegment[],
 ): Promise<{ bodyMd: string; summaryMd: string }> {
-  if (!bedrockConfigured()) {
+  if (!clinicalConfigured()) {
     await delay(); // preserve the demo's simulated latency in stub mode
     return generatedNote(kind, segments);
   }
