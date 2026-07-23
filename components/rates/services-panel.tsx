@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { KebabMenu } from "@/components/ui/kebab-menu";
+import { MenuItem } from "@/components/ui/dropdown-menu";
 import { Banner } from "@/components/ui/banner";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -59,6 +62,7 @@ function clientMatch(r: RateRow, qn: string): boolean {
 }
 
 export function ServicesPanel() {
+  const router = useRouter();
   const [q, setQ] = useState("");
   const [payer, setPayer] = useState<string | undefined>();
   const [code, setCode] = useState<string | undefined>();
@@ -244,6 +248,20 @@ export function ServicesPanel() {
       rows={rows}
       rowKey={(r) => `${r.payer}|${r.tin}|${r.npi}|${r.network}|${r.setting}|${r.billingCode}`}
       storageKey="rates.services.columns"
+      rowActions={(r) => (
+        <KebabMenu label={`Actions for ${r.displayName ? providerDisplayName(r.displayName) : r.npi}`}>
+          <MenuItem
+            icon="person-circle"
+            label="Open provider"
+            onClick={() => router.push(`/directory/providers/${r.npi}`)}
+          />
+          <MenuItem
+            icon="id-card"
+            label="View organization"
+            onClick={() => router.push(`/orgs/${encodeURIComponent(r.tin)}`)}
+          />
+        </KebabMenu>
+      )}
       fillHeight
       stacked
       collapseActions

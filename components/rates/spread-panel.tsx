@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Banner } from "@/components/ui/banner";
+import { KebabMenu } from "@/components/ui/kebab-menu";
+import { MenuItem } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -58,6 +61,7 @@ function annualSortValue(display?: string): number {
 }
 
 export function SpreadPanel() {
+  const router = useRouter();
   const [base, setBase] = useState<Baseline | null>(null);
   const [baseError, setBaseError] = useState<string | null>(null);
   const [q, setQ] = useState("");
@@ -271,6 +275,15 @@ export function SpreadPanel() {
             </Button>
           </>
         }
+        rowActions={(r) => (
+          <KebabMenu label={`Actions for ${r.payer}`}>
+            <MenuItem
+              icon="dollar"
+              label="Open insurer in Published rates"
+              onClick={() => router.push(`/published-rates?payer=${encodeURIComponent(r.payer)}`)}
+            />
+          </KebabMenu>
+        )}
         tableFooter={
           result ? (
             // A personalized run states its assumptions — that beats the

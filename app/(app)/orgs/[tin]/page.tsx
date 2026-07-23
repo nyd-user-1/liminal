@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { getOrgFhirNames, getOrgHeader, getOrgRates, getOrgRoster } from "@/lib/repos/orgs";
 import { OrgRail } from "./org-rail";
-import { OrgJumpSearch } from "./org-jump-search";
 import { OrgPanels } from "./org-panels";
 
 // One organization's workspace — the SAME split as the directory drill-down
@@ -33,7 +32,6 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ tin:
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex min-h-0 flex-1 flex-col gap-6 lg:flex-row">
         <aside className="flex min-h-0 flex-col gap-4 lg:h-full lg:w-80 lg:shrink-0">
-          <OrgJumpSearch currentTin={tin} />
           <div className="min-h-0 flex-1">
             <OrgRail header={header} fhirNames={fhirNames} />
           </div>

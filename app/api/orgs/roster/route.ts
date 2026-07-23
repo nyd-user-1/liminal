@@ -16,9 +16,11 @@ export async function GET(req: NextRequest) {
     if (!tin) return NextResponse.json({ error: "Provide a TIN." }, { status: 400 });
     const offset = Number(req.nextUrl.searchParams.get("offset") ?? 0);
     const limit = Number(req.nextUrl.searchParams.get("limit") ?? 50);
+    const q = req.nextUrl.searchParams.get("q") ?? undefined;
     const page = await getOrgRoster(tin, {
       offset: Number.isFinite(offset) ? offset : 0,
       limit: Number.isFinite(limit) ? limit : 50,
+      q,
     });
     return NextResponse.json(page);
   } catch (e) {

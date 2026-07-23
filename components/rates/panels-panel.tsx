@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { KebabMenu } from "@/components/ui/kebab-menu";
+import { MenuItem } from "@/components/ui/dropdown-menu";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -98,9 +102,14 @@ export function PanelsPanel({
   onGoToRoster: () => void;
 }) {
   const [q, setQ] = useState("");
+  const router = useRouter();
   const [standings, setStandings] = useState<NpiStanding[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Standard table anatomy: the standing view's select column (nothing consumes
+  // the selection yet — the column is part of the anatomy).
+  const [standingSelected, setStandingSelected] = useState<Set<string>>(new Set());
+  const standingKey = (r: Row, i: number) => `${r.npi}|${r.payer}|${r.tin}|${r.billingCode}|${i}`;
   const [insurer, setInsurer] = useState<string | undefined>();
   const [code, setCode] = useState<string | undefined>();
   const [sort, toggleSort] = useSort<SortCol>({ col: "payer", dir: "asc" });
@@ -335,7 +344,9 @@ export function PanelsPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
-      {!showingDefaults && <div className="flex shrink-0 items-center gap-3">{searchNode}</div>}
+      {/* The search lives INSIDE whichever table is showing (the standard);
+          it only floats up here when NO table renders (loading / no-rows). */}
+      {!showingDefaults && rows.length === 0 && <div className="flex shrink-0 items-center gap-3">{searchNode}</div>}
       {error && <Banner className="shrink-0" variant="danger">{error}</Banner>}
 
       {noRowNpis.map((s) => (
@@ -410,6 +421,7 @@ export function PanelsPanel({
           tintedHeader
           toolbar={
             <>
+              {searchNode}
               <ChipMenu
                 label="Insurer"
                 options={insurerOptions}
@@ -433,16 +445,35 @@ export function PanelsPanel({
                   {s.providerName ? clinicianName(s.providerName) : s.npi}
                 </Tag>
               ))}
-              <span className="ml-auto text-sm tabular-nums text-text-muted">
-                {shown.length.toLocaleString("en-US")} of {rows.length.toLocaleString("en-US")} rows
-              </span>
             </>
           }
-          head={headCells}
+          footer={
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[13px] text-text-muted">
+              <span className="min-w-0 truncate tabular-nums">{rows.length.toLocaleString("en-US")} records</span>
+              <span className="shrink-0">Data set by NYSgpt</span>
+            </div>
+          }
+          head={[
+            <Checkbox
+              key="__sel"
+              aria-label="Select all"
+              checked={shown.length > 0 && shown.every((r, i) => standingSelected.has(standingKey(r, i)))}
+              onChange={() =>
+                setStandingSelected((prev) => {
+                  const all = shown.every((r, i) => prev.has(standingKey(r, i)));
+                  const next = new Set(prev);
+                  shown.forEach((r, i) => (all ? next.delete(standingKey(r, i)) : next.add(standingKey(r, i))));
+                  return next;
+                })
+              }
+            />,
+            ...headCells,
+            "",
+          ]}
         >
           {shown.length === 0 && (
             <Tr>
-              <Td colSpan={headCells.length} className="text-center text-text-muted">
+              <Td colSpan={headCells.length + 2} className="text-center text-text-muted">
                 No rows match — clear the search or filters, or press Enter on a 10-digit NPI to add a
                 clinician.
               </Td>
@@ -450,6 +481,20 @@ export function PanelsPanel({
           )}
           {visible.map((r, i) => (
             <Tr key={`${r.npi}|${r.payer}|${r.tin}|${r.billingCode}|${i}`}>
+              <Td className="w-10" onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  aria-label="Select row"
+                  checked={standingSelected.has(standingKey(r, i))}
+                  onChange={() =>
+                    setStandingSelected((prev) => {
+                      const next = new Set(prev);
+                      const k = standingKey(r, i);
+                      if (!next.delete(k)) next.add(k);
+                      return next;
+                    })
+                  }
+                />
+              </Td>
               {multi && <Td className="whitespace-nowrap">{r.clinician}</Td>}
               <Td className="whitespace-nowrap">
                 <span className="flex items-center gap-2.5">
@@ -495,9 +540,23 @@ export function PanelsPanel({
                   {r.directoryListed && <Badge variant="success" className="!font-normal">In directory</Badge>}
                 </span>
               </Td>
+              <Td className="w-12" onClick={(e) => e.stopPropagation()}>
+                <KebabMenu label={`Actions for ${r.clinician}`}>
+                  <MenuItem
+                    icon="person-circle"
+                    label="Open provider"
+                    onClick={() => router.push(`/directory/providers/${r.npi}`)}
+                  />
+                  <MenuItem
+                    icon="id-card"
+                    label="View organization"
+                    onClick={() => router.push(`/orgs/${encodeURIComponent(r.tin)}`)}
+                  />
+                </KebabMenu>
+              </Td>
             </Tr>
           ))}
-          {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={headCells.length} />}
+          {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={headCells.length + 2} />}
         </Table>
       )}
     </div>
@@ -585,6 +644,7 @@ const DEFAULT_COLS: DataTableColumn<DefaultRow>[] = [
 ];
 
 function DefaultPanels({ rows, q, toolbarLeft }: { rows: DefaultRow[]; q: string; toolbarLeft: React.ReactNode }) {
+  const router = useRouter();
   const [payer, setPayer] = useState<string | undefined>();
   const needle = q.trim().toLowerCase();
   const filtered = rows.filter(
@@ -619,6 +679,12 @@ function DefaultPanels({ rows, q, toolbarLeft }: { rows: DefaultRow[]; q: string
           onSelect={(_k, v) => setPayer(v)}
         />
       }
+      rowActions={(r) => (
+        <KebabMenu label={`Actions for ${r.displayName ? providerDisplayName(r.displayName) : r.npi}`}>
+          <MenuItem icon="person-circle" label="Open provider" onClick={() => router.push(`/directory/providers/${r.npi}`)} />
+          <MenuItem icon="id-card" label="View organization" onClick={() => router.push(`/orgs/${encodeURIComponent(r.tin)}`)} />
+        </KebabMenu>
+      )}
       records={rows.length}
       updatedDate={rows.reduce<string | null>((m, r) => (r.asOf && (!m || r.asOf > m) ? r.asOf : m), null)}
       footnote={

@@ -1,10 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Banner } from "@/components/ui/banner";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ColumnPicker } from "@/components/ui/column-picker";
 import { Icon } from "@/components/ui/icons";
+import { KebabMenu } from "@/components/ui/kebab-menu";
+import { MenuItem } from "@/components/ui/dropdown-menu";
 import { SortableHead, Table, Td, Tr, useSort } from "@/components/ui/table";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cptLabel } from "@/components/rates/cpt";
@@ -64,6 +68,23 @@ function ToggleChip({ active, onClick, children }: { active: boolean; onClick: (
 }
 
 export function ProviderRates({ npi }: { npi: string | null }) {
+  const router = useRouter();
+  // Standard anatomy: select column (nothing consumes the selection yet).
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const toggleSel = (k: string) =>
+    setSel((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(k)) next.add(k);
+      return next;
+    });
+  const publishedRatesHref = (payer: string) =>
+    `/published-rates?payer=${encodeURIComponent(payer)}${npi ? `&q=${npi}` : ""}`;
+  const stdFooter = (n: number) => (
+    <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[13px] text-text-muted">
+      <span className="min-w-0 truncate tabular-nums">{n.toLocaleString("en-US")} records</span>
+      <span className="shrink-0">Data set by NYSgpt</span>
+    </div>
+  );
   const [rates, setRates] = useState<ProviderRateRow[] | null>(null);
   const [memberships, setMemberships] = useState<NetworkMembershipRow[] | null>(null);
   const [view, setView] = useState<"networks" | "rates">("rates");
@@ -163,7 +184,9 @@ export function ProviderRates({ npi }: { npi: string | null }) {
         <Table
           className="min-h-0 flex-1"
           stickyHeader
+          footer={stdFooter(sortedMembers.length)}
           head={[
+            <span key="__sel" aria-hidden />,
             <SortableHead key="insurer" label="Insurer" col="insurer" sort={sort} onSort={toggleSort} />,
             // Headers render in colOrder — hide + re-add moves a column last.
             ...colOrder.map((k) => {
@@ -177,10 +200,18 @@ export function ProviderRates({ npi }: { npi: string | null }) {
                 </Tooltip>
               ) : null;
             }),
+            "",
           ]}
         >
           {sortedMembers.map((m, i) => (
             <Tr key={`${m.payer}|${m.network}|${i}`}>
+              <Td className="w-10" onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  aria-label="Select row"
+                  checked={sel.has(`n|${m.payer}|${m.network}|${i}`)}
+                  onChange={() => toggleSel(`n|${m.payer}|${m.network}|${i}`)}
+                />
+              </Td>
               <Td className="whitespace-nowrap">
                 <span className="flex items-center gap-2.5">
                   <InsurerMark payer={m.payer} />
@@ -229,6 +260,15 @@ export function ProviderRates({ npi }: { npi: string | null }) {
                   </Td>
                 ) : null;
               })}
+              <Td className="w-12" onClick={(e) => e.stopPropagation()}>
+                <KebabMenu label={`Actions for ${m.payer}`}>
+                  <MenuItem
+                    icon="dollar"
+                    label="Open insurer in Published rates"
+                    onClick={() => router.push(publishedRatesHref(m.payer))}
+                  />
+                </KebabMenu>
+              </Td>
             </Tr>
           ))}
         </Table>
@@ -236,21 +276,31 @@ export function ProviderRates({ npi }: { npi: string | null }) {
         <Table
           className="min-h-0 flex-1"
           stickyHeader
+          footer={stdFooter(rates.length)}
           head={[
+            <span key="__sel" aria-hidden />,
             "Insurer",
             "Network",
             "Code",
             <Tooltip key="rate" label="In-Network rate as published by the payer.">
               <span className="inline-flex cursor-help items-center gap-1">
-                Rate <Icon name="info" size={13} className="text-text-muted" />
+                In Ntwk <Icon name="info" size={13} className="text-text-muted" />
               </span>
             </Tooltip>,
             "Schedule",
             "Updated",
+            "",
           ]}
         >
           {rates.map((r, i) => (
             <Tr key={`${r.payer}|${r.network}|${r.billingCode}|${r.figure}|${i}`}>
+              <Td className="w-10" onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  aria-label="Select row"
+                  checked={sel.has(`r|${r.payer}|${r.network}|${r.billingCode}|${i}`)}
+                  onChange={() => toggleSel(`r|${r.payer}|${r.network}|${r.billingCode}|${i}`)}
+                />
+              </Td>
               <Td className="whitespace-nowrap">
                 <span className="flex items-center gap-2.5">
                   <InsurerMark payer={r.payer} />
@@ -274,6 +324,15 @@ export function ProviderRates({ npi }: { npi: string | null }) {
                 </Badge>
               </Td>
               <Td className="whitespace-nowrap text-text-muted">{r.asOf ?? "—"}</Td>
+              <Td className="w-12" onClick={(e) => e.stopPropagation()}>
+                <KebabMenu label={`Actions for ${r.payer}`}>
+                  <MenuItem
+                    icon="dollar"
+                    label="Open insurer in Published rates"
+                    onClick={() => router.push(publishedRatesHref(r.payer))}
+                  />
+                </KebabMenu>
+              </Td>
             </Tr>
           ))}
         </Table>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -8,12 +8,13 @@ import { Banner } from "@/components/ui/banner";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { KebabMenu } from "@/components/ui/kebab-menu";
 import { MenuItem } from "@/components/ui/dropdown-menu";
+import { SearchInput } from "@/components/ui/search-input";
 import { Spinner } from "@/components/ui/spinner";
 import { TextLink } from "@/components/ui/text-link";
 import { TableSkeleton } from "@/components/rates/table-skeleton";
 import { InsurerMark } from "@/components/rates/insurer-mark";
 import { cptLabel } from "@/components/rates/cpt";
-import { prettyNetworkLabel, titleCase } from "@/lib/format";
+import { prettyNetworkLabel, providerDisplayName, titleCase } from "@/lib/format";
 import type { OrgParticipationRow, OrgRateBand, OrgRosterRow } from "@/lib/repos/orgs";
 import type { OrgGraph } from "@/lib/org-graph";
 
@@ -112,6 +113,15 @@ export function OrgPanels({
     return m;
   }, [rateGroups]);
   const ratesAsOf = rateGroups.reduce((m, g) => (g.group && g.asOf > m ? g.asOf : m), "");
+  // In-chrome search over insurer groups (all loaded — client-side is honest here).
+  const [ratesQ, setRatesQ] = useState("");
+  const shownRateGroups = useMemo(() => {
+    const needle = ratesQ.trim().toLowerCase();
+    return needle ? rateGroups.filter((g) => g.payer.toLowerCase().includes(needle)) : rateGroups;
+  }, [rateGroups, ratesQ]);
+  // The payer edge door /orgs' Map uses — insurer filter chip + this org's row.
+  const publishedRatesHref = (payer: string) =>
+    `/published-rates?payer=${encodeURIComponent(payer)}&q=${tin.replace(/\D/g, "")}`;
 
   const rateColumns: DataTableColumn<RateTreeRow>[] = [
     {
@@ -162,43 +172,83 @@ export function OrgPanels({
     },
   ];
 
-  // ── Roster: server-paged; grows on scroll ───────────────────────────────────
+  // ── Roster: server-paged; grows on scroll; server-side search ───────────────
   const [roster, setRoster] = useState<OrgRosterRow[]>(rosterInitial);
+  const [rosterCount, setRosterCount] = useState(rosterTotal);
+  const [rosterQ, setRosterQ] = useState("");
   const [loadingRoster, setLoadingRoster] = useState(false);
   const [rosterSelected, setRosterSelected] = useState<Set<string>>(new Set());
-  const rosterHasMore = roster.length < rosterTotal;
+  const rosterHasMore = roster.length < rosterCount;
+  const rosterSeq = useRef(0);
+  const rosterParams = useCallback(
+    (offset: number) =>
+      `tin=${encodeURIComponent(tin)}&offset=${offset}&limit=${ROSTER_PAGE}${rosterQ.trim() ? `&q=${encodeURIComponent(rosterQ.trim())}` : ""}`,
+    [tin, rosterQ],
+  );
   async function loadMoreRoster() {
     if (loadingRoster) return;
     setLoadingRoster(true);
+    const s = rosterSeq.current;
     try {
-      const res = await fetch(`/api/orgs/roster?tin=${encodeURIComponent(tin)}&offset=${roster.length}&limit=${ROSTER_PAGE}`);
+      const res = await fetch(`/api/orgs/roster?${rosterParams(roster.length)}`);
       const data = await res.json();
-      setRoster((prev) => [...prev, ...((data.rows ?? []) as OrgRosterRow[])]);
+      if (s === rosterSeq.current) setRoster((prev) => [...prev, ...((data.rows ?? []) as OrgRosterRow[])]);
     } catch {
       /* leave the list; the sentinel re-fires on next scroll */
     } finally {
       setLoadingRoster(false);
     }
   }
+  // Debounced re-query when the search changes; empty search restores the seed.
+  const rosterFirst = useRef(true);
+  useEffect(() => {
+    if (rosterFirst.current) {
+      rosterFirst.current = false;
+      return;
+    }
+    const s = ++rosterSeq.current;
+    const t = setTimeout(async () => {
+      if (!rosterQ.trim()) {
+        setRoster(rosterInitial);
+        setRosterCount(rosterTotal);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/orgs/roster?${rosterParams(0)}`);
+        const data = await res.json();
+        if (s === rosterSeq.current) {
+          setRoster((data.rows ?? []) as OrgRosterRow[]);
+          setRosterCount((data.total ?? 0) as number);
+        }
+      } catch {
+        /* keep what's shown */
+      }
+    }, 250);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rosterQ]);
 
   const rosterColumns: DataTableColumn<OrgRosterRow>[] = [
     {
       key: "name",
       label: "Provider",
       fixed: true,
+      // providerDisplayName flips NPPES "LAST FIRST" order for people and
+      // leaves org-shaped names alone — titleCase alone rendered the roster
+      // surname-first ("Aarons-Cooke Shawna Marie").
       // Unnamed rows (bare NPIs) sort to the bottom of a name sort.
-      sortValue: (r) => (r.name ? titleCase(r.name) : "￿"),
+      sortValue: (r) => (r.name ? providerDisplayName(r.name) : "￿"),
       cellClassName: "max-w-80",
       render: (r) =>
         r.name ? (
           <TextLink
             href={`/directory/providers/${r.npi}`}
             variant="name"
-            title={titleCase(r.name)}
+            title={providerDisplayName(r.name)}
             className="min-w-0 max-w-full"
             onClick={(e) => e.stopPropagation()}
           >
-            <span className="block truncate">{titleCase(r.name)}</span>
+            <span className="block truncate">{providerDisplayName(r.name)}</span>
           </TextLink>
         ) : (
           <span className="tabular-nums text-text-muted" title="Not in our directory">
@@ -243,6 +293,15 @@ export function OrgPanels({
       .then((d) => setParticipation((d.rows ?? []) as OrgParticipationRow[]))
       .catch(() => setParticipation([]));
   }, [view, participation, tin]);
+
+  const [partQ, setPartQ] = useState("");
+  const shownParticipation = useMemo(() => {
+    const needle = partQ.trim().toLowerCase();
+    if (!participation) return [];
+    return needle
+      ? participation.filter((r) => r.payer.toLowerCase().includes(needle) || r.network.toLowerCase().includes(needle))
+      : participation;
+  }, [participation, partQ]);
 
   const participationColumns: DataTableColumn<OrgParticipationRow>[] = [
     {
@@ -347,7 +406,7 @@ export function OrgPanels({
             // would leak from view to view — initialExpanded would never re-run.
             key="rates"
             columns={rateColumns}
-            rows={rateGroups}
+            rows={shownRateGroups}
             rowKey={rateRowKey}
             subRows={(r) => (r.group ? rateChildren.get(r.payer) : undefined)}
             isSubRow={(r) => !r.group}
@@ -355,6 +414,23 @@ export function OrgPanels({
             defaultSort={{ col: "clinicians", dir: "desc" }}
             fillHeight
             className="min-h-0 flex-1"
+            toolbarLeft={
+              <SearchInput
+                value={ratesQ}
+                onChange={(e) => setRatesQ(e.target.value)}
+                placeholder="Search by insurer"
+                className="w-full sm:w-[320px]"
+              />
+            }
+            rowActions={(r) => (
+              <KebabMenu label={`Actions for ${r.payer}`}>
+                <MenuItem
+                  icon="dollar"
+                  label="Open in Published rates"
+                  onClick={() => router.push(publishedRatesHref(r.payer))}
+                />
+              </KebabMenu>
+            )}
             records={rates.length}
             updatedDate={ratesAsOf || null}
           />
@@ -371,9 +447,17 @@ export function OrgPanels({
           selected={rosterSelected}
           onSelectedChange={setRosterSelected}
           onEndReached={rosterHasMore ? loadMoreRoster : undefined}
+          toolbarLeft={
+            <SearchInput
+              value={rosterQ}
+              onChange={(e) => setRosterQ(e.target.value)}
+              placeholder="Search the roster by name, city or NPI"
+              className="w-full sm:w-[380px]"
+            />
+          }
           rowActions={(r) =>
             r.name ? (
-              <KebabMenu label={`Actions for ${titleCase(r.name)}`}>
+              <KebabMenu label={`Actions for ${providerDisplayName(r.name)}`}>
                 <MenuItem
                   icon="person-circle"
                   label="Open provider"
@@ -382,7 +466,7 @@ export function OrgPanels({
               </KebabMenu>
             ) : null
           }
-          records={rosterTotal}
+          records={rosterCount}
           updatedDate={roster.reduce<string | null>((m, r) => (r.lastFileDate && (!m || r.lastFileDate > m) ? r.lastFileDate : m), null)}
         />
       ) : participation === null ? (
@@ -396,11 +480,28 @@ export function OrgPanels({
         <DataTable
           key="participation"
           columns={participationColumns}
-          rows={participation}
+          rows={shownParticipation}
           rowKey={(r) => `${r.payer}|${r.network}`}
           defaultSort={{ col: "clinicians", dir: "desc" }}
           fillHeight
           className="min-h-0 flex-1"
+          toolbarLeft={
+            <SearchInput
+              value={partQ}
+              onChange={(e) => setPartQ(e.target.value)}
+              placeholder="Search by insurer or network"
+              className="w-full sm:w-[320px]"
+            />
+          }
+          rowActions={(r) => (
+            <KebabMenu label={`Actions for ${r.payer}`}>
+              <MenuItem
+                icon="dollar"
+                label="Open insurer in Published rates"
+                onClick={() => router.push(publishedRatesHref(r.payer))}
+              />
+            </KebabMenu>
+          )}
           records={participation.length}
         />
       )}

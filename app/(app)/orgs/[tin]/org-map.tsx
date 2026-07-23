@@ -24,7 +24,7 @@ import "@xyflow/react/dist/style.css";
 import { Banner } from "@/components/ui/banner";
 import { InsurerMark } from "@/components/rates/insurer-mark";
 import { cptLabel } from "@/components/rates/cpt";
-import { titleCase } from "@/lib/format";
+import { normalizeOrgName, providerDisplayName, titleCase } from "@/lib/format";
 // From lib/org-graph (no db import), never lib/repos — a VALUE import from a
 // repo pulls lib/db into this bundle and the Neon proxy throws in the browser.
 import { ORG_GRAPH_CODES, type OrgGraph, type OrgGraphCode, type OrgGraphRate } from "@/lib/org-graph";
@@ -81,9 +81,9 @@ function ProviderNode(props: NodeProps) {
     <div
       className="cursor-pointer rounded-field border border-border bg-surface px-3 py-2 shadow-card transition-colors hover:border-primary"
       style={{ width: NODE_W.provider }}
-      title={titleCase(d.label)}
+      title={providerDisplayName(d.label)}
     >
-      <p className="truncate text-[13px] font-medium text-text">{titleCase(d.label)}</p>
+      <p className="truncate text-[13px] font-medium text-text">{providerDisplayName(d.label)}</p>
       <p className="truncate text-[11.5px] text-text-muted">{d.profession ? titleCase(d.profession) : "Clinician"}</p>
       <Handle type="source" position={Position.Right} className={anchor} />
     </div>
@@ -108,7 +108,7 @@ function OrgNode(props: NodeProps) {
   const d = props.data as unknown as OrgData;
   return (
     <div className="rounded-card bg-[#1C2440] px-4 py-3 text-white shadow-card" style={{ width: NODE_W.org }}>
-      <p className="text-[14px] font-semibold leading-snug">{d.label}</p>
+      <p className="text-[14px] font-semibold leading-snug">{normalizeOrgName(d.label)}</p>
       <p className="mt-0.5 text-[12px] text-white/70">
         {d.clinicians.toLocaleString("en-US")} {d.clinicians === 1 ? "clinician" : "clinicians"} ·{" "}
         {d.payers.toLocaleString("en-US")} {d.payers === 1 ? "payer" : "payers"}

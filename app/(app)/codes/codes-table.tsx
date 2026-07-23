@@ -1,7 +1,12 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { KebabMenu } from "@/components/ui/kebab-menu";
+import { MenuItem } from "@/components/ui/dropdown-menu";
+import { SearchInput } from "@/components/ui/search-input";
+import { useToast } from "@/components/ui/toast";
 import type { CodeRow } from "@/lib/repos/codes";
 
 // The billing codes as a sortable table (DataTable, stacked), default-ranked by
@@ -64,13 +69,41 @@ const columns: DataTableColumn<CodeRow>[] = [
 ];
 
 export function CodesTable({ codes }: { codes: CodeRow[] }) {
+  const toast = useToast();
+  const [q, setQ] = useState("");
+  const shown = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return needle
+      ? codes.filter((r) => r.code.includes(needle) || r.description.toLowerCase().includes(needle))
+      : codes;
+  }, [codes, q]);
   return (
     <DataTable
       columns={columns}
-      rows={codes}
+      rows={shown}
       rowKey={(r) => r.code}
       defaultSort={{ col: "rows", dir: "desc" }}
-      stacked
+      toolbarLeft={
+        <SearchInput
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search by code or description"
+          className="w-full sm:w-[320px]"
+        />
+      }
+      rowActions={(r) => (
+        <KebabMenu label={`Actions for ${r.code}`}>
+          <MenuItem
+            icon="copy"
+            label="Copy code"
+            onClick={() => {
+              void navigator.clipboard.writeText(r.code);
+              toast(`${r.code} copied.`, "success");
+            }}
+          />
+        </KebabMenu>
+      )}
+      records={codes.length}
     />
   );
 }

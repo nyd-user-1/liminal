@@ -248,17 +248,27 @@ export async function getOrgRates(tin: string): Promise<OrgRateBand[]> {
   }));
 }
 
-/** Roster page: the TIN's NPIs, enriched from the directory when we know them. */
+/** Roster page: the TIN's NPIs, enriched from the directory when we know them.
+ *  `q` searches name / city / NPI server-side (the roster is 13k+ for the
+ *  platform TINs — a client subset would lie about coverage). */
 export async function getOrgRoster(
   tin: string,
-  opts: { limit?: number; offset?: number } = {},
+  opts: { limit?: number; offset?: number; q?: string } = {},
 ): Promise<{ total: number; rows: OrgRosterRow[] }> {
   const key = normTin(tin);
   const limit = Math.min(opts.limit ?? 50, 200);
   const offset = Math.max(opts.offset ?? 0, 0);
+  const q = (opts.q ?? "").trim() ? `%${opts.q!.trim()}%` : null;
   if (!hasDb) return { total: 0, rows: [] };
   const totalRows = (await sql`
-    SELECT count(*)::int AS n FROM org_tin_rosters WHERE tin = ${key}
+    SELECT count(*)::int AS n
+    FROM org_tin_rosters r
+    LEFT JOIN LATERAL (
+      SELECT name, city FROM directory_providers
+      WHERE npi = r.npi ORDER BY (source = 'medicaid') DESC LIMIT 1
+    ) d ON true
+    WHERE r.tin = ${key}
+      AND (${q}::text IS NULL OR d.name ILIKE ${q} OR d.city ILIKE ${q} OR r.npi LIKE ${q})
   `) as Array<{ n: number }>;
   const rows = (await sql`
     SELECT r.npi, r.payer_count, r.last_file_date,
@@ -269,6 +279,7 @@ export async function getOrgRoster(
       WHERE npi = r.npi ORDER BY (source = 'medicaid') DESC LIMIT 1
     ) d ON true
     WHERE r.tin = ${key}
+      AND (${q}::text IS NULL OR d.name ILIKE ${q} OR d.city ILIKE ${q} OR r.npi LIKE ${q})
     ORDER BY (d.name IS NULL), d.name, r.npi
     LIMIT ${limit} OFFSET ${offset}
   `) as Array<{ npi: string; payer_count: number; last_file_date: Date | null; name: string | null; profession: string | null; city: string | null; slug: string | null }>;

@@ -48,7 +48,9 @@ export function OrgRail({ header, fhirNames }: { header: OrgHeader; fhirNames: O
     <Card className="flex h-full min-h-0 flex-col overflow-hidden !p-0">
       <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto p-6">
         <div className="mb-5 flex items-start gap-2.5">
-          <h2 className="min-w-0 flex-1 text-[16px] font-semibold leading-snug text-text">{header.label}</h2>
+          <h2 className="min-w-0 flex-1 text-[16px] font-semibold leading-snug text-text">
+            {normalizeOrgName(header.label)}
+          </h2>
           <OrgRailMenu tin={header.tin} />
         </div>
 
@@ -60,7 +62,10 @@ export function OrgRail({ header, fhirNames }: { header: OrgHeader; fhirNames: O
           {nppes && (
             <>
               <FieldDisplay label="Organization NPI" value={<span className="tabular-nums">{nppes.npi}</span>} />
-              {nppes.otherName && <FieldDisplay label="Also known as" value={titleCase(nppes.otherName)} />}
+              {/* NPPES writes "<UNAVAIL>" as its null marker — never render it. */}
+              {nppes.otherName && !/^<.*>$/.test(nppes.otherName.trim()) && (
+                <FieldDisplay label="Also known as" value={normalizeOrgName(nppes.otherName)} />
+              )}
               {nppes.taxonomy && <FieldDisplay label="Taxonomy" value={nppes.taxonomy} />}
               {location && <FieldDisplay label="Location" value={location} />}
               {nppes.authorizedOfficial && (
