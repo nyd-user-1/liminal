@@ -119,7 +119,7 @@ export function AppShell({
         {/* The inset content panel: white surface, rounded only where it meets
             the sidebar/topbar junction (md+); the paper root shows through that
             corner. The scrollbar is hidden (scrolling still works). */}
-        <main className="flex-1 overflow-y-auto border border-[#f8fafd] bg-surface p-4 pb-[calc(1rem_+_env(safe-area-inset-bottom))] [scrollbar-width:none] md:rounded-tl-2xl md:p-6 md:pb-6 [&::-webkit-scrollbar]:hidden">
+        <main className="flex-1 overflow-y-auto border border-[#e2e4e9] bg-surface p-4 pb-[calc(1rem_+_env(safe-area-inset-bottom))] [scrollbar-width:none] md:rounded-tl-2xl md:p-6 md:pb-6 [&::-webkit-scrollbar]:hidden">
           <ContentHeader className="mb-6" />
           {children}
         </main>
