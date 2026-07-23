@@ -76,6 +76,9 @@ interface Props {
   /** Default visibility of suggested follow-ups under answers. */
   followUpsDefault: boolean;
   onFollowUpsDefaultChange: (v: boolean) => void;
+  /** Bump to request focus (the Leuk orb does this). If the textarea already
+   *  has focus, the container's teal border flashes thicker instead. */
+  ping?: number;
   placeholder?: string;
   autoFocus?: boolean;
 }
@@ -88,6 +91,7 @@ export function ChatInput({
   onModelChange,
   followUpsDefault,
   onFollowUpsDefaultChange,
+  ping,
   placeholder,
   autoFocus,
 }: Props) {
@@ -114,6 +118,21 @@ export function ChatInput({
     if (wasStreaming.current && !isStreaming) textareaRef.current?.focus();
     wasStreaming.current = isStreaming;
   }, [isStreaming]);
+
+  // Orb ping: focus the textarea — or, if it's already focused, flash the
+  // teal border thicker for a beat as the visual acknowledgement.
+  const [borderFlash, setBorderFlash] = useState(false);
+  const lastPing = useRef(ping ?? 0);
+  useEffect(() => {
+    if (ping === undefined || ping === lastPing.current) return;
+    lastPing.current = ping;
+    if (document.activeElement === textareaRef.current) {
+      setBorderFlash(true);
+      const t = setTimeout(() => setBorderFlash(false), 650);
+      return () => clearTimeout(t);
+    }
+    textareaRef.current?.focus();
+  }, [ping]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -154,7 +173,11 @@ export function ChatInput({
   return (
     <div className="bg-transparent p-1.5 sm:p-4" style={TOKEN_MAP}>
       <div className="max-w-[770px] mx-auto w-full">
-        <div className="rounded-2xl sm:rounded-3xl bg-[var(--inp-bg)] border border-border focus-within:border-primary transition-colors px-3 pt-3 pb-2 sm:px-4 sm:pt-4 sm:pb-2.5">
+        <div
+          className={`rounded-2xl sm:rounded-3xl bg-[var(--inp-bg)] border transition-all px-3 pt-3 pb-2 sm:px-4 sm:pt-4 sm:pb-2.5 ${
+            borderFlash ? "border-primary ring-2 ring-primary/25" : "border-border focus-within:border-primary"
+          }`}
+        >
           <textarea
             ref={textareaRef}
             value={value}

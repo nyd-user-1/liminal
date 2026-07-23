@@ -202,6 +202,7 @@ function AssistantMessage({
   followUpsDefault,
   onSend,
   onRegenerate,
+  onOrbActivate,
 }: {
   message: UIMessage;
   isCurrent: boolean;
@@ -209,6 +210,7 @@ function AssistantMessage({
   followUpsDefault: boolean;
   onSend: (q: string) => void;
   onRegenerate: () => void;
+  onOrbActivate: () => void;
 }) {
   const [open, setOpen] = useState(followUpsDefault);
   useEffect(() => setOpen(followUpsDefault), [followUpsDefault]);
@@ -298,7 +300,12 @@ function AssistantMessage({
         )}
         {isCurrent && (
           <div className="mt-4">
-            <ThinkingOrb size={26} isThinking={isStreaming} />
+            <ThinkingOrb
+              size={26}
+              isThinking={isStreaming}
+              tooltip="Hi, I'm Leuk. How can I help you today?"
+              onActivate={onOrbActivate}
+            />
           </div>
         )}
       </div>
@@ -356,6 +363,9 @@ export default function ChatPage() {
     void sendMessage({ text });
   };
 
+  const [inputPing, setInputPing] = useState(0);
+  const pingInput = () => setInputPing((p) => p + 1);
+
   const input = (
     <ChatInput
       onSend={send}
@@ -365,6 +375,7 @@ export default function ChatPage() {
       onModelChange={setModel}
       followUpsDefault={followUpsDefault}
       onFollowUpsDefaultChange={changeFollowUpsDefault}
+      ping={inputPing}
       autoFocus
     />
   );
@@ -421,12 +432,13 @@ export default function ChatPage() {
                 followUpsDefault={followUpsDefault}
                 onSend={send}
                 onRegenerate={() => void regenerate()}
+                onOrbActivate={pingInput}
               />
             ),
           )}
           {status === "submitted" && (
             <div className="px-1 py-2">
-              <ThinkingOrb size={30} isThinking />
+              <ThinkingOrb size={30} isThinking tooltip="Hi, I'm Leuk. How can I help you today?" onActivate={pingInput} />
             </div>
           )}
           {error && (

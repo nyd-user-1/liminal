@@ -16,11 +16,15 @@ export function Tooltip({
   label,
   placement = "top",
   className,
+  labelClassName,
   children,
 }: {
   label: string;
   placement?: Placement;
   className?: string;
+  /** Overrides the label's default type treatment (text-[13px]) — e.g. the
+   *  orb's small-italic greeting. Bubble chrome is not affected. */
+  labelClassName?: string;
   children: ReactNode;
 }) {
   const wrapRef = useRef<HTMLSpanElement>(null);
@@ -74,7 +78,7 @@ export function Tooltip({
               top: pos?.top ?? 0,
               visibility: pos ? "visible" : "hidden",
             }}
-            className="pointer-events-none fixed z-100 whitespace-nowrap rounded-field bg-navy-900 px-2.5 py-1.5 text-[13px] text-white shadow-menu"
+            className={`pointer-events-none fixed z-100 whitespace-nowrap rounded-field bg-navy-900 px-2.5 py-1.5 text-white shadow-menu ${labelClassName ?? "text-[13px]"}`}
           >
             {label}
           </div>,

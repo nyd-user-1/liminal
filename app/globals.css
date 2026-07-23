@@ -186,6 +186,15 @@ body {
     animation: none;
   }
 }
+/* A brief hello when the orb is clicked at rest — two quick breaths. */
+.orb-poke {
+  animation: orb-pulse 0.45s ease-in-out 4 alternate;
+}
+@media (prefers-reduced-motion: reduce) {
+  .orb-poke {
+    animation: none;
+  }
+}
 
 /* ── Thinking-label shimmer (/chat ReasoningBlock) — gray sweeping to near-
    black while the model is reasoning; reduced-motion gets static gray. */
