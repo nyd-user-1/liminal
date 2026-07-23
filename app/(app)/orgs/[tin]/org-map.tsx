@@ -5,11 +5,17 @@ import { useRouter } from "next/navigation";
 import {
   Background,
   BackgroundVariant,
+  BaseEdge,
   Controls,
+  EdgeLabelRenderer,
+  getBezierPath,
   Handle,
+  Panel,
   Position,
   ReactFlow,
   type Edge,
+  type EdgeProps,
+  type EdgeTypes,
   type Node,
   type NodeProps,
   type NodeTypes,
@@ -41,20 +47,24 @@ import { ORG_GRAPH_CODES, type OrgGraph, type OrgGraphCode, type OrgGraphRate } 
 const TEAL = "#3F8290";
 
 // Column geometry (graph coordinates — fitView scales the whole thing).
-const COL_X = { provider: 0, org: 380, payer: 760 } as const;
-const NODE_W = { provider: 240, org: 280, payer: 300 } as const;
-const ROW_H = { provider: 64, payer: 72 } as const;
+// These are STARTING positions: nodes are draggable, so the layout is the
+// deterministic default, not a cage.
+const COL_X = { provider: 0, org: 380, payer: 920 } as const;
+const NODE_W = { provider: 240, org: 280, payer: 280 } as const;
+const ROW_H = { provider: 64, payer: 88 } as const;
 
 type ProviderData = { label: string; profession: string | null; href: string };
 type MoreData = { label: string; onShowRoster: () => void };
 type OrgData = { label: string; clinicians: number; payers: number };
 type PayerData = { label: string; clinicians: number; href: string };
+type RateEdgeData = { amount?: string; suffix?: string; href: string };
 
-function rateLabel(rate: OrgGraphRate | undefined): string | undefined {
-  if (!rate) return undefined;
-  if (rate.kind === "published") return `$${rate.amount.toFixed(2)}`;
-  if (rate.kind === "median") return `$${rate.amount.toFixed(2)} median`;
-  return `${rate.nRates} rates`;
+/** Split a rate into chip parts: the dollar figure and its qualifier. */
+function rateParts(rate: OrgGraphRate | undefined): { amount?: string; suffix?: string } {
+  if (!rate) return {};
+  if (rate.kind === "published") return { amount: `$${rate.amount.toFixed(2)}` };
+  if (rate.kind === "median") return { amount: `$${rate.amount.toFixed(2)}`, suffix: "median" };
+  return { suffix: `${rate.nRates} rates` };
 }
 
 function rateAmount(rate: OrgGraphRate | undefined): number | null {
@@ -111,17 +121,19 @@ function OrgNode(props: NodeProps) {
 
 function PayerNode(props: NodeProps) {
   const d = props.data as unknown as PayerData;
+  // Same footprint as the org card (width, padding, type scale) — the two ends
+  // of a rates edge carry equal visual weight.
   return (
     <div
-      className="cursor-pointer rounded-field border border-border bg-surface px-3 py-2 shadow-card transition-colors hover:border-primary"
+      className="cursor-pointer rounded-card border border-border bg-surface px-4 py-3 shadow-card transition-colors hover:border-primary"
       style={{ width: NODE_W.payer }}
       title={`${d.label} — open in Published rates`}
     >
-      <span className="flex items-center gap-2">
+      <span className="flex items-center gap-2.5">
         <InsurerMark payer={d.label} />
         <span className="min-w-0">
-          <span className="block truncate text-[13px] font-medium text-text">{d.label}</span>
-          <span className="block text-[11.5px] text-text-muted">
+          <span className="block truncate text-[14px] font-semibold leading-snug text-text">{d.label}</span>
+          <span className="mt-0.5 block text-[12px] text-text-muted">
             {d.clinicians.toLocaleString("en-US")} {d.clinicians === 1 ? "clinician" : "clinicians"} in book
           </span>
         </span>
@@ -132,6 +144,45 @@ function PayerNode(props: NodeProps) {
 }
 
 const nodeTypes: NodeTypes = { provider: ProviderNode, more: MoreNode, org: OrgNode, payer: PayerNode };
+
+// The rates edge: a BaseEdge stroke plus an HTML label chip (EdgeLabelRenderer
+// escapes SVG, so the label can be a real design-system pill instead of the
+// library's flat text-on-rect). The chip tracks the bezier midpoint, so it
+// follows when either end is dragged; clicking it (or the edge) opens the
+// payer's filtered /published-rates view.
+function RateEdge(props: EdgeProps) {
+  const router = useRouter();
+  const [path, labelX, labelY] = getBezierPath({
+    sourceX: props.sourceX,
+    sourceY: props.sourceY,
+    sourcePosition: props.sourcePosition,
+    targetX: props.targetX,
+    targetY: props.targetY,
+    targetPosition: props.targetPosition,
+  });
+  const d = props.data as unknown as RateEdgeData;
+  return (
+    <>
+      <BaseEdge id={props.id} path={path} style={props.style} />
+      {(d.amount || d.suffix) && (
+        <EdgeLabelRenderer>
+          <button
+            type="button"
+            onClick={() => router.push(d.href)}
+            style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`, pointerEvents: "all" }}
+            className="nodrag nopan absolute inline-flex cursor-pointer items-baseline gap-1 whitespace-nowrap rounded-full border border-border bg-surface px-2.5 py-1 shadow-card transition-colors hover:border-primary"
+            title="Open in Published rates"
+          >
+            {d.amount && <span className="text-[12px] font-semibold tabular-nums text-text">{d.amount}</span>}
+            {d.suffix && <span className="text-[11px] text-text-muted">{d.suffix}</span>}
+          </button>
+        </EdgeLabelRenderer>
+      )}
+    </>
+  );
+}
+
+const edgeTypes: EdgeTypes = { rate: RateEdge };
 
 // ── The map ──────────────────────────────────────────────────────────────────
 
@@ -201,17 +252,13 @@ export function OrgMap({ graph, onShowRoster }: { graph: OrgGraph; onShowRoster:
         id: e.id,
         source: e.source,
         target: e.target,
-        label: rateLabel(rate),
-        data: { href: e.href },
+        type: "rate",
+        data: { ...rateParts(rate), href: e.href } satisfies RateEdgeData,
         style: {
           stroke: TEAL,
           strokeOpacity: amount != null ? 0.85 : 0.35,
           strokeWidth: amount != null && maxAmount > 0 ? 1.5 + 4.5 * (amount / maxAmount) : 1.25,
         },
-        labelStyle: { fontSize: 11, fill: "#1C2440", fontWeight: 500 },
-        labelBgStyle: { fill: "#ffffff", fillOpacity: 0.95 },
-        labelBgPadding: [5, 3] as [number, number],
-        labelBgBorderRadius: 5,
       };
     });
 
@@ -227,52 +274,52 @@ export function OrgMap({ graph, onShowRoster }: { graph: OrgGraph; onShowRoster:
   }
 
   return (
-    <>
-      {/* The CPT chip row — flipping codes relabels and reweighs every edge. */}
-      <div className="mb-3 flex shrink-0 items-center gap-1.5">
-        {ORG_GRAPH_CODES.map((c) => (
-          <button
-            key={c}
-            type="button"
-            onClick={() => setCode(c)}
-            title={cptLabel(c)}
-            className={`inline-flex h-8 items-center rounded-full border px-3 text-[13px] font-medium tabular-nums transition-colors ${
-              code === c
-                ? "border-primary bg-primary-wash text-primary"
-                : "border-field-border text-text-body hover:border-field-border-focus"
-            }`}
-          >
-            {c}
-          </button>
-        ))}
-        <span className="ml-auto hidden truncate text-[12.5px] text-text-muted sm:block">{cptLabel(code)}</span>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-hidden rounded-card border border-border">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={nodeTypes}
-          fitView
-          fitViewOptions={{ padding: 0.12, maxZoom: 1 }}
-          minZoom={0.3}
-          maxZoom={1.5}
-          nodesDraggable={false}
-          nodesConnectable={false}
-          onNodeClick={(_, node) => {
-            const d = node.data as { href?: string; onShowRoster?: () => void };
-            if (d.onShowRoster) d.onShowRoster();
-            else if (d.href) router.push(d.href);
-          }}
-          onEdgeClick={(_, edge) => {
-            const href = (edge.data as { href?: string } | undefined)?.href;
-            if (href) router.push(href);
-          }}
-        >
-          <Background variant={BackgroundVariant.Dots} gap={22} size={1.25} color="#dcdfe6" />
-          <Controls showInteractive={false} position="bottom-right" />
-        </ReactFlow>
-      </div>
-    </>
+    <div className="min-h-0 flex-1 overflow-hidden rounded-card border border-border">
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        fitView
+        fitViewOptions={{ padding: 0.12, maxZoom: 1 }}
+        minZoom={0.3}
+        maxZoom={1.5}
+        nodesConnectable={false}
+        onNodeClick={(_, node) => {
+          const d = node.data as { href?: string; onShowRoster?: () => void };
+          if (d.onShowRoster) d.onShowRoster();
+          else if (d.href) router.push(d.href);
+        }}
+        onEdgeClick={(_, edge) => {
+          const href = (edge.data as { href?: string } | undefined)?.href;
+          if (href) router.push(href);
+        }}
+      >
+        {/* The CPT chip rail, floating in the canvas corner — flipping codes
+            relabels and reweighs every edge. */}
+        <Panel position="top-left" className="flex items-center gap-1.5">
+          {ORG_GRAPH_CODES.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setCode(c)}
+              title={cptLabel(c)}
+              className={`inline-flex h-8 items-center rounded-full border px-3 text-[13px] font-medium tabular-nums shadow-card transition-colors ${
+                code === c
+                  ? "border-primary bg-primary-wash text-primary"
+                  : "border-border bg-surface text-text-body hover:border-field-border-focus"
+              }`}
+            >
+              {c}
+            </button>
+          ))}
+        </Panel>
+        <Panel position="top-right" className="max-w-64">
+          <span className="block truncate text-[13px] font-medium text-text">{cptLabel(code)}</span>
+        </Panel>
+        <Background variant={BackgroundVariant.Dots} gap={22} size={1.25} color="#dcdfe6" />
+        <Controls showInteractive={false} position="bottom-right" />
+      </ReactFlow>
+    </div>
   );
 }
