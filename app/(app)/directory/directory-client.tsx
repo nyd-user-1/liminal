@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Avatar, avatarHue } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -623,7 +622,6 @@ export function DirectoryClient({
                 </Td>
                 <Td className="max-w-56">
                   <span className="flex min-w-0 items-center gap-2.5">
-                    <Avatar name={name} hue={avatarHue(r.id)} size="sm" className="shrink-0" />
                     <TextLink variant="name" className="min-w-0 truncate" title={name} onClick={(e) => { e.stopPropagation(); openProvider(r); }}>
                       {name}
                     </TextLink>
@@ -710,12 +708,9 @@ export function DirectoryClient({
                 <Checkbox aria-label={`Select ${r.programName}`} checked={checked.has(r.id)} onChange={() => toggleChecked(r.id)} />
               </Td>
               <Td className="max-w-64">
-                <span className="flex min-w-0 items-center gap-2.5">
-                  <Avatar name={r.programName} hue={avatarHue(r.id)} size="sm" className="shrink-0" />
-                  <TextLink variant="name" className="min-w-0 truncate" title={r.programName} onClick={(e) => { e.stopPropagation(); setSelected(r); }}>
-                    {r.programName}
-                  </TextLink>
-                </span>
+                <TextLink variant="name" className="min-w-0 truncate" title={r.programName} onClick={(e) => { e.stopPropagation(); setSelected(r); }}>
+                  {r.programName}
+                </TextLink>
               </Td>
               <Td className="max-w-40 truncate" title={r.agency ?? undefined}>{r.agency ?? "–"}</Td>
               <Td className="max-w-48 truncate" title={r.programType ?? undefined}>{r.programType ?? "–"}</Td>

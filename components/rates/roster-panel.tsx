@@ -18,6 +18,7 @@ import { InsurerCell, InsurerMark } from "@/components/rates/insurer-mark";
 import { TableSkeleton } from "@/components/rates/table-skeleton";
 import { RelatedLink, TextLink } from "@/components/ui/text-link";
 import { billingIdKind, billingIdValue } from "@/lib/rate-table";
+import { normalizeOrgName } from "@/lib/format";
 import type {
   Attestation,
   CredentialingFootprint,
@@ -366,10 +367,10 @@ const BOOK_COLS: DataTableColumn<RateBookRow>[] = [
         href={`/orgs/${encodeURIComponent(r.tin)}`}
         variant="name"
         className="!block min-w-0 truncate"
-        title={r.holder}
+        title={normalizeOrgName(r.holder)}
         onClick={(e) => e.stopPropagation()}
       >
-        {r.holder}
+        {normalizeOrgName(r.holder)}
       </TextLink>
     ),
   },

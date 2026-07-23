@@ -16,6 +16,7 @@ import { useToast } from "@/components/ui/toast";
 import { IndexHeader } from "@/components/ui/index-header";
 import { TextLink } from "@/components/ui/text-link";
 import { Toolbar } from "@/components/ui/toolbar";
+import { normalizeOrgName } from "@/lib/format";
 import type { OrgListRow } from "@/lib/repos/orgs";
 
 // Organizations index — same chrome as Clients/Directory/Rates: a tab bar, a
@@ -103,10 +104,13 @@ function ChipMenu({
 
 export function OrgsIndex({
   initial,
+  initialTotal,
   initialQ,
   payerOptions,
 }: {
   initial: OrgListRow[];
+  /** Full match count for the seeded view — the footer's record count. */
+  initialTotal: number;
   /** Search seed from ?q= — the server already filtered `initial` by it. */
   initialQ?: string;
   payerOptions: string[];
@@ -117,25 +121,57 @@ export function OrgsIndex({
   const [payer, setPayer] = useState<string | undefined>();
   const [type, setType] = useState<(typeof TYPE_OPTIONS)[number] | undefined>();
   const [rows, setRows] = useState<OrgListRow[]>(initial);
+  const [total, setTotal] = useState(initialTotal);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [sort, toggleSort] = useSort<Col>({ col: "npis", dir: "desc" });
   const seq = useRef(0);
   const first = useRef(true);
 
+  const buildParams = useCallback(
+    (offset: number) => {
+      const params = new URLSearchParams();
+      if (q.trim()) params.set("q", q.trim());
+      if (tab === "named") params.set("named", "1");
+      if (payer) params.set("payer", payer);
+      if (type) params.set("kind", type === "EIN" ? "ein" : "npi");
+      if (offset) params.set("offset", String(offset));
+      return params;
+    },
+    [q, tab, payer, type],
+  );
+
   const load = useCallback(async () => {
     const s = ++seq.current;
-    const params = new URLSearchParams();
-    if (q.trim()) params.set("q", q.trim());
-    if (tab === "named") params.set("named", "1");
-    if (payer) params.set("payer", payer);
-    if (type) params.set("kind", type === "EIN" ? "ein" : "npi");
     try {
-      const res = await fetch(`/api/orgs?${params.toString()}`);
+      const res = await fetch(`/api/orgs?${buildParams(0).toString()}`);
       const data = await res.json();
-      if (s === seq.current) setRows((data.orgs ?? []) as OrgListRow[]);
+      if (s === seq.current) {
+        setRows((data.orgs ?? []) as OrgListRow[]);
+        setTotal((data.total ?? 0) as number);
+      }
     } catch {
-      if (s === seq.current) setRows([]);
+      if (s === seq.current) {
+        setRows([]);
+        setTotal(0);
+      }
     }
-  }, [q, tab, payer, type]);
+  }, [buildParams]);
+
+  // Scroll paging — the sentinel at the table's bottom asks for the next page.
+  const loadMore = useCallback(async () => {
+    if (loadingMore || rows.length >= total) return;
+    setLoadingMore(true);
+    const s = seq.current;
+    try {
+      const res = await fetch(`/api/orgs?${buildParams(rows.length).toString()}`);
+      const data = await res.json();
+      if (s === seq.current) setRows((prev) => [...prev, ...((data.orgs ?? []) as OrgListRow[])]);
+    } catch {
+      /* sentinel refires on next scroll */
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, rows.length, total, buildParams]);
 
   // Re-query on any tab/search/filter change (debounced). Skip the very first
   // run — the server already seeded the default view.
@@ -174,11 +210,11 @@ export function OrgsIndex({
           <TextLink
             href={href(o.tin)}
             variant="name"
-            title={o.name}
+            title={normalizeOrgName(o.name)}
             className="min-w-0 max-w-full"
             onClick={(e) => e.stopPropagation()}
           >
-            <span className="block truncate">{o.name}</span>
+            <span className="block truncate">{normalizeOrgName(o.name)}</span>
           </TextLink>
         ) : (
           <span className="flex items-center gap-2">
@@ -235,7 +271,8 @@ export function OrgsIndex({
           onSelectedChange={setSelected}
           onExport={() => toast("Export isn\u2019t wired up yet.", "info")}
           onRefresh={() => load()}
-          records={sorted.length}
+          onEndReached={rows.length < total ? loadMore : undefined}
+          records={total}
           updatedDate={latestFile}
           filter={
             <ChipMenu

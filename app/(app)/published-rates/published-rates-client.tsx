@@ -12,7 +12,7 @@ import { KebabMenu } from "@/components/ui/kebab-menu";
 import { SearchInput } from "@/components/ui/search-input";
 import { Tabs } from "@/components/ui/tabs";
 import { RelatedLink, TextLink } from "@/components/ui/text-link";
-import { prettyNetworkLabel, providerDisplayName, titleCase } from "@/lib/format";
+import { normalizeOrgName, prettyNetworkLabel, providerDisplayName, titleCase } from "@/lib/format";
 // From lib/rate-table (no db import), never lib/repos — a VALUE import from a
 // repo pulls lib/db into this bundle and the Neon proxy throws in the browser.
 import {
@@ -77,7 +77,9 @@ function rowName(r: RateTableRow): string {
   if (!r.displayName) return `Unnamed practice ${r.unnamedNo ?? "?"}`;
   if (INDIVIDUAL_SUFFIX.test(r.displayName))
     return providerDisplayName(r.displayName.replace(INDIVIDUAL_SUFFIX, ""), "1");
-  return r.displayName;
+  // Orgs keep their legal name but drop the SHOUTING — suffixes ("LCSW, PLLC")
+  // stay uppercase via the normalizer's keep-list.
+  return normalizeOrgName(r.displayName);
 }
 
 /**

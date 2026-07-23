@@ -77,6 +77,7 @@ const MOCK_ORG: OrgListRow = {
 export type OrgListFilters = {
   q?: string;
   limit?: number;
+  offset?: number;
   /** true = only orgs with a resolved name; false = only unnamed TINs. */
   named?: boolean;
   /** Only orgs appearing in this payer's rate book. */
@@ -85,16 +86,20 @@ export type OrgListFilters = {
   tinKind?: "ein" | "npi";
 };
 
-/** Top organizations by roster size; filtered by name/named/payer/TIN-kind. */
-export async function listOrgs(opts: OrgListFilters = {}): Promise<OrgListRow[]> {
+/** Top organizations by roster size; filtered by name/named/payer/TIN-kind.
+ *  Server-paginated (offset) with the full match count — page + count fire in
+ *  parallel, the table-standard lightning stack. */
+export async function listOrgs(opts: OrgListFilters = {}): Promise<{ rows: OrgListRow[]; total: number }> {
   const limit = Math.min(opts.limit ?? 50, 200);
+  const offset = Math.max(opts.offset ?? 0, 0);
   const q = (opts.q ?? "").trim();
   const { named, payer, tinKind } = opts;
   if (!hasDb) {
     const okQ = !q || MOCK_ORG.name!.toLowerCase().includes(q.toLowerCase());
     const okNamed = named === undefined || named === !!MOCK_ORG.name;
     const okKind = !tinKind || MOCK_ORG.tin.startsWith(`${tinKind}:`);
-    return okQ && okNamed && okKind && !payer ? [MOCK_ORG] : [];
+    const hit = okQ && okNamed && okKind && !payer;
+    return { rows: hit && offset === 0 ? [MOCK_ORG] : [], total: hit ? 1 : 0 };
   }
   // Dynamic WHERE over org_tin_rosters (grain: tin × npi) — several optional
   // filters, so parameterized query rather than the tagged template.
@@ -112,10 +117,9 @@ export async function listOrgs(opts: OrgListFilters = {}): Promise<OrgListRow[]>
     params.push(payer);
     where.push(`EXISTS (SELECT 1 FROM org_tin_rate_summary s2 WHERE s2.tin = r.tin AND s2.payer = $${params.length})`);
   }
-  params.push(limit);
-  const limitPh = `$${params.length}`;
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
-  const rows = (await sql.query(
+  const pageParams = [...params, limit, offset];
+  const pagePromise = sql.query(
     `SELECT g.tin, g.name, g.npis, p.payer_count, g.last_file_date
      FROM (
        SELECT r.tin, t.business_name AS name,
@@ -126,23 +130,38 @@ export async function listOrgs(opts: OrgListFilters = {}): Promise<OrgListRow[]>
        ${whereSql}
        GROUP BY r.tin, t.business_name
        ORDER BY count(*) DESC, r.tin
-       LIMIT ${limitPh}
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
      ) g
      LEFT JOIN LATERAL (
        SELECT count(DISTINCT payer)::int AS payer_count
        FROM org_tin_rate_summary s WHERE s.tin = g.tin
      ) p ON true
      ORDER BY g.npis DESC, g.tin`,
-    params,
-  )) as Array<{ tin: string; name: string | null; npis: number; payer_count: number; last_file_date: Date | null }>;
-  return rows.map((r) => ({
-    tin: r.tin,
-    name: r.name,
-    label: r.name ?? formatTin(r.tin),
-    npis: r.npis,
-    payerCount: r.payer_count,
-    lastFileDate: r.last_file_date ? isoDateOnly(r.last_file_date) : null,
-  }));
+    pageParams,
+  ) as unknown as Promise<Array<{ tin: string; name: string | null; npis: number; payer_count: number; last_file_date: Date | null }>>;
+  // Count only on the first page — scroll pages reuse the number they have.
+  const countPromise =
+    offset === 0
+      ? (sql.query(
+          `SELECT count(DISTINCT r.tin)::int AS n
+           FROM org_tin_rosters r
+           LEFT JOIN tin_registry t ON t.tin_norm = r.tin
+           ${whereSql}`,
+          params,
+        ) as unknown as Promise<Array<{ n: number }>>)
+      : Promise.resolve([{ n: 0 }]);
+  const [rows, countRows] = await Promise.all([pagePromise, countPromise]);
+  return {
+    total: countRows[0]?.n ?? 0,
+    rows: rows.map((r) => ({
+      tin: r.tin,
+      name: r.name,
+      label: r.name ?? formatTin(r.tin),
+      npis: r.npis,
+      payerCount: r.payer_count,
+      lastFileDate: r.last_file_date ? isoDateOnly(r.last_file_date) : null,
+    })),
+  };
 }
 
 /** Filter-chip options for the /orgs toolbar: the payer books orgs appear in. */

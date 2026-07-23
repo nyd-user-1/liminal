@@ -67,6 +67,33 @@ export function titleCase(s: string): string {
     .replace(/\bMhotrs\b/i, "MHOTRS");
 }
 
+// Org-name normalization (promoted from the org rail, 2026-07-23 — every table
+// renders org names through this, no SHOUTING rows). Suffixes/acronyms stay
+// uppercase; connective words stay lowercase except in first position:
+// "TRUSTEES OF COLUMBIA UNIVERSITY IN THE CITY OF NEW YORK" →
+// "Trustees of Columbia University in the City of New York".
+const KEEP_UPPER = new Set([
+  "LLC", "PLLC", "PC", "INC", "LP", "LLP", "PA", "MD", "DO", "NP", "LCSW",
+  "USA", "NY", "NYC", "NJ", "CT", "FL", "II", "III", "IV", "CHC", "OMH", "PT", "OT",
+]);
+const LOWER_WORDS = new Set(["of", "and", "the", "in", "at", "on", "for", "to", "by", "with", "a", "an"]);
+
+/** Title-case a SHOUTING org name ("HEADWAY" → "Headway", "ALMA … LLC" →
+ *  "Alma … LLC"); already mixed-case names pass through untouched. */
+export function normalizeOrgName(s: string): string {
+  const t = s.trim();
+  if (/[a-z]/.test(t)) return t;
+  let first = true;
+  return t.replace(/\S+/g, (w) => {
+    const bare = w.replace(/[^A-Za-z]/g, "").toUpperCase();
+    const wasFirst = first;
+    first = false;
+    if (KEEP_UPPER.has(bare)) return w.toUpperCase();
+    if (!wasFirst && LOWER_WORDS.has(bare.toLowerCase())) return w.toLowerCase();
+    return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+  });
+}
+
 // Org detection for directory names: NPPES rows carry entity_type ("1" person /
 // "2" org), but Medicaid rows are unenriched — for those, a digit or an
 // org-shaped token means the name is a business and must not be reordered.
@@ -83,9 +110,11 @@ const SURNAME_PARTICLES = new Set([
 /** Directory provider names arrive "LAST FIRST [MIDDLE …]" (NPPES order) —
  *  show people as "First [Middle] Last". Organizations keep their name as-is. */
 export function providerDisplayName(raw: string, entityType?: string | null): string {
-  const t = titleCase(raw.replace(/^[^A-Za-z0-9]+/, "").trim()); // strip stray leading punctuation ("/MOLLOY MELISSA")
-  if (entityType === "2") return t;
-  if (entityType !== "1" && ORG_NAME.test(raw)) return t;
+  const cleaned = raw.replace(/^[^A-Za-z0-9]+/, "").trim(); // strip stray leading punctuation ("/MOLLOY MELISSA")
+  // Orgs go through the org normalizer (suffixes stay upper, connectives lower).
+  if (entityType === "2") return normalizeOrgName(cleaned);
+  if (entityType !== "1" && ORG_NAME.test(raw)) return normalizeOrgName(cleaned);
+  const t = titleCase(cleaned);
   const parts = t.split(/\s+/).filter(Boolean);
   if (parts.length < 2) return t;
   // A multi-word surname keeps its particles attached to the token after them;

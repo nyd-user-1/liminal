@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
     const [clients, providers, orgs, employers] = await Promise.all([
       listClients({ q }).catch(() => []),
       searchProviders({ q, pageSize: CAP }).catch(() => ({ items: [] })),
-      listOrgs({ q, limit: CAP }).catch(() => []),
+      listOrgs({ q, limit: CAP }).then((r) => r.rows).catch(() => []),
       searchEmployers(q, CAP).catch(() => []),
     ]);
 

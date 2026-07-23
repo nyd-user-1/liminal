@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icons";
 import { Tooltip } from "@/components/ui/tooltip";
-import { titleCase } from "@/lib/format";
+import { normalizeOrgName, titleCase } from "@/lib/format";
 import { formatTin } from "@/lib/repos/tin-registry";
 import { FieldDisplay } from "../../clients/ui";
 import { OrgRailMenu } from "./org-rail-menu";
@@ -13,21 +13,6 @@ import type { OrgFhirName, OrgHeader } from "@/lib/repos/orgs";
 // (w-80), full height with a scrolling body and a provenance footer (mirrors
 // the calendar rail's footer). Names are payer-roster / NPI-registry
 // attestations, never legal-entity lookups.
-
-// Org suffixes that must stay uppercase when we title-case an all-caps name.
-const KEEP_UPPER = new Set(["LLC", "PLLC", "PC", "INC", "LP", "LLP", "PA", "MD", "DO", "NP", "LCSW", "USA", "NY", "NYC"]);
-
-/** Title-case a SHOUTING payer name ("HEADWAY" → "Headway", "ALMA … LLC" →
- *  "Alma … LLC"); already mixed-case names pass through untouched. */
-function normalizeOrgName(s: string): string {
-  const t = s.trim();
-  if (/[a-z]/.test(t)) return t;
-  return t.replace(/\S+/g, (w) => {
-    const bare = w.replace(/[^A-Za-z]/g, "").toUpperCase();
-    if (KEEP_UPPER.has(bare)) return w.toUpperCase();
-    return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
-  });
-}
 
 const key = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 

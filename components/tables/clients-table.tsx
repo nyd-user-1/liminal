@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Avatar } from "@/components/ui/avatar";
 import { DotBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
@@ -21,7 +20,7 @@ import type { PractitionerOption } from "@/lib/repos/clients";
 // The clients route still owns its status vocabulary and create panel; the
 // table reaches back for them rather than forking a second copy. Both want to
 // move to components/clients/ once something else needs them.
-import { CLIENT_STATUS, ClientStatusBadge, clientHue, tagHue } from "@/app/(app)/clients/ui";
+import { CLIENT_STATUS, ClientStatusBadge, tagHue } from "@/app/(app)/clients/ui";
 import { NewClientPanel } from "@/app/(app)/clients/new-client-panel";
 
 // The clients object table: everything from the search bar down, page chrome
@@ -305,16 +304,13 @@ export function ClientsTable({
           fixed: true,
           sortValue: clientName,
           render: (c) => (
-            <span className="flex items-center gap-2.5">
-              <Avatar name={clientName(c)} hue={clientHue(c.id)} size="sm" />
-              {/* Open the name the SAME way the row opens — a tab when the host
-                  provides onRowOpen, else navigate (see `open`). An href here
-                  navigated away and collapsed the browser-tab model to one
-                  record: /directory's provider name uses this exact onClick. */}
-              <TextLink onClick={(e) => { e.stopPropagation(); open(c); }} variant="name">
-                {clientName(c)}
-              </TextLink>
-            </span>
+            // Open the name the SAME way the row opens — a tab when the host
+            // provides onRowOpen, else navigate (see `open`). An href here
+            // navigated away and collapsed the browser-tab model to one
+            // record: /directory's provider name uses this exact onClick.
+            <TextLink onClick={(e) => { e.stopPropagation(); open(c); }} variant="name">
+              {clientName(c)}
+            </TextLink>
           ),
         },
         { key: "rx", label: "Rx", align: "right", render: (c) => <RxCell client={c} counts={rxCounts} /> },
@@ -352,12 +348,7 @@ export function ClientsTable({
                 render: (c: Client) => {
                   const p = c.primaryPractitionerId ? practitionerById.get(c.primaryPractitionerId) : undefined;
                   if (!p) return <span className="text-text-muted">Unassigned</span>;
-                  return (
-                    <span className="flex items-center gap-2.5">
-                      <Avatar name={p.name} hue={p.avatarHue} size="sm" />
-                      <span>{p.name}</span>
-                    </span>
-                  );
+                  return <span>{p.name}</span>;
                 },
               } as DataTableColumn<Client>,
             ]
@@ -452,6 +443,7 @@ export function ClientsTable({
         onSelectedChange={setSelected}
         onExport={() => toast("Export isn’t wired up yet.", "info")}
         onRefresh={() => router.refresh()}
+        records={filtered.length}
         filter={
           <FilterMenu
             categories={filterCategories}

@@ -71,12 +71,13 @@ export function RatesShell({ userEmail }: { userEmail?: string }) {
         </Button>
       </TopBarActions>
 
-      <Tabs className="mt-4 shrink-0" items={TABS} active={tab} onChange={setTab} slideActive />
+      {/* mb-4 below the rail = the index-page standard gap (IndexHeader). */}
+      <Tabs className="mb-4 shrink-0" items={TABS} active={tab} onChange={setTab} slideActive />
 
       {/* Sits under the tab hairline, above the tab body — one line saying what
           this tab's table is. Tabs without a blurb get their space back. */}
       {BLURBS[tab] && (
-        <div className="mb-4 mt-3 flex shrink-0 flex-wrap items-center justify-between gap-3">
+        <div className="-mt-1 mb-4 flex shrink-0 flex-wrap items-center justify-between gap-3">
           <p className="text-[15px] text-text-body">{BLURBS[tab]}</p>
         </div>
       )}

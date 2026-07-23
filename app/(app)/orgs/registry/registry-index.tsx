@@ -11,7 +11,7 @@ import { KebabMenu } from "@/components/ui/kebab-menu";
 import { SearchInput } from "@/components/ui/search-input";
 import { useToast } from "@/components/ui/toast";
 import { ChipMenu } from "@/components/rates/chip-menu";
-import { formatDate } from "@/lib/format";
+import { formatDate, normalizeOrgName } from "@/lib/format";
 import type { OrganizationFilter, OrganizationRow } from "@/lib/repos/orgs";
 
 // The NPI-2 registry table, on the standard index layout (tabs · toolbar
@@ -64,8 +64,8 @@ export function RegistryIndex({ initial }: { initial: Result }) {
       sortValue: (r) => r.name ?? "￿",
       cellClassName: "max-w-96 truncate",
       render: (r) => (
-        <span className="font-medium" title={r.otherNames?.length ? `Also: ${r.otherNames.join(", ")}` : undefined}>
-          {r.name ?? <span className="italic text-text-muted">Unnamed · {r.npi}</span>}
+        <span className="font-medium" title={r.otherNames?.length ? `Also: ${r.otherNames.map(normalizeOrgName).join(", ")}` : undefined}>
+          {r.name ? normalizeOrgName(r.name) : <span className="italic text-text-muted">Unnamed · {r.npi}</span>}
           {r.deactivated && (
             <Badge variant="danger" className="ml-2 align-middle">
               Deactivated

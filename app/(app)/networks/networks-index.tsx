@@ -108,7 +108,7 @@ export function NetworksIndex({ initial }: { initial: NetworkListRow[] }) {
     <div className="flex h-full min-h-0 flex-col">
       <Tabs
         slideActive
-        className="mb-3 shrink-0"
+        className="mb-4 shrink-0"
         items={[
           { key: "all", label: "All", count: searched.length },
           { key: "network", label: "Networks", count: searched.filter((n) => n.kind === "network").length },

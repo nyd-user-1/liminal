@@ -16,5 +16,5 @@ export default async function OrgsPage({ searchParams }: { searchParams: Promise
   // ?q= seeds the search (deep links from an org rail's Related list).
   const { q } = await searchParams;
   const [orgs, facets] = await Promise.all([listOrgs({ q, limit: 50 }), orgFacets()]);
-  return <OrgsIndex initial={orgs} initialQ={q} payerOptions={facets.payers} />;
+  return <OrgsIndex initial={orgs.rows} initialTotal={orgs.total} initialQ={q} payerOptions={facets.payers} />;
 }
