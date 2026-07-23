@@ -31,24 +31,36 @@ const FOLLOWUPS_KEY = "leuk-chat-followups";
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-// Per-call status labels, specific where the tool input names a subject
-// ("Checked Oxford published rates", "Searched providers in Brooklyn").
-function toolLabel(type: string, input: unknown): [active: string, done: string] | null {
-  const inp = (input ?? {}) as Record<string, unknown>;
+// One status line per GROUP of consecutive same-tool calls — parallel calls
+// merge their subjects ("Checked Oxford and Empire published rates") instead
+// of listing the same tool twice.
+function joinSubjects(vals: Array<string | undefined>): string {
+  const uniq = [...new Set(vals.filter((v): v is string => !!v).map((v) => cap(v.trim())))];
+  if (!uniq.length) return "";
+  if (uniq.length === 1) return ` ${uniq[0]}`;
+  return ` ${uniq.slice(0, -1).join(", ")} and ${uniq[uniq.length - 1]}`;
+}
+
+function groupToolLabel(type: string, inputs: Array<Record<string, unknown>>, running: boolean): string | null {
   switch (type) {
     case "tool-market_rates": {
-      const payer = typeof inp.payer === "string" && inp.payer.trim() ? ` ${cap(inp.payer.trim())}` : "";
-      return [`Checking${payer} published rates…`, `Checked${payer} published rates`];
+      const s = joinSubjects(inputs.map((i) => (typeof i.payer === "string" ? i.payer : undefined)));
+      return running ? `Checking${s} published rates…` : `Checked${s} published rates`;
     }
     case "tool-search_providers": {
-      const where = [inp.city, inp.county, inp.zip].find((v) => typeof v === "string" && v) as string | undefined;
-      const suffix = where ? ` in ${cap(where)}` : "";
-      return [`Searching providers${suffix}…`, `Searched providers${suffix}`];
+      const s = joinSubjects(
+        inputs.map((i) => [i.city, i.county, i.zip].find((v) => typeof v === "string" && v) as string | undefined),
+      );
+      const suffix = s ? ` in${s}` : "";
+      return running ? `Searching providers${suffix}…` : `Searched providers${suffix}`;
     }
-    case "tool-get_provider":
-      return ["Pulling provider record…", "Pulled provider record"];
+    case "tool-get_provider": {
+      const n = inputs.length;
+      if (n > 1) return running ? `Pulling ${n} provider records…` : `Pulled ${n} provider records`;
+      return running ? "Pulling provider record…" : "Pulled provider record";
+    }
     case "tool-directory_facets":
-      return ["Loading filters…", "Loaded filters"];
+      return running ? "Loading filters…" : "Loaded filters";
     default:
       return null;
   }
@@ -69,27 +81,28 @@ function splitFollowUps(text: string): { body: string; followUps: string[] } {
   return { body: text.slice(0, idx).trimEnd(), followUps };
 }
 
-// Chain-of-thought block: expanded while its answer is streaming, then
-// auto-collapses into a one-line accordion once the answer lands (it serves
-// no ongoing function at full size — reopen on click).
+// Chain-of-thought: collapsed accordion always — just the "Thinking" label,
+// shimmering gray→black while the model reasons, settling to teal when done.
+// Expand it to read the full internal chain of thought (works mid-stream too).
 function ReasoningBlock({ text, live }: { text: string; live: boolean }) {
-  const [open, setOpen] = useState(live);
-  useEffect(() => {
-    if (!live) setOpen(false);
-  }, [live]);
-  if (!text.trim()) return null;
+  const [open, setOpen] = useState(false);
+  if (!text.trim() && !live) return null;
   return (
     <div className="my-2">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide text-text-muted transition-colors hover:text-text"
+        className="flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide"
       >
-        Thinking
-        <Icon name="chevron-down" size={12} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+        <span className={live ? "text-shimmer" : "text-primary"}>Thinking</span>
+        <Icon
+          name="chevron-down"
+          size={12}
+          className={`transition-transform ${open ? "rotate-180" : ""} ${live ? "text-text-muted" : "text-primary"}`}
+        />
       </button>
-      {open && (
+      {open && text.trim() && (
         <div className="mt-1 border-l-2 border-primary/30 pl-3">
           <p className="whitespace-pre-wrap text-[12.5px] italic leading-relaxed text-text-muted">{text}</p>
         </div>
@@ -201,42 +214,63 @@ function AssistantMessage({
   useEffect(() => setOpen(followUpsDefault), [followUpsDefault]);
 
   const settled = !(isStreaming && isCurrent);
-  const lastTextIdx = message.parts.reduce((acc, p, i) => (p.type === "text" ? i : acc), -1);
+  const parts = message.parts;
+  const lastTextIdx = parts.reduce((acc, p, i) => (p.type === "text" ? i : acc), -1);
   const bodyTexts: string[] = [];
   let followUps: string[] = [];
-  const rendered = message.parts.map((part, i) => {
+  const rendered: React.ReactNode[] = [];
+  let pi = 0;
+  while (pi < parts.length) {
+    const part = parts[pi];
     if (part.type === "text") {
       let body = part.text;
-      if (i === lastTextIdx) {
+      if (pi === lastTextIdx) {
         const split = splitFollowUps(part.text);
         body = split.body;
         followUps = split.followUps;
       }
       bodyTexts.push(body);
-      return <Markdown key={i} md={body} />;
+      rendered.push(<Markdown key={pi} md={body} />);
+      pi++;
+      continue;
     }
-    // Internal chain-of-thought — expanded while streaming, accordion after.
     if (part.type === "reasoning") {
-      return <ReasoningBlock key={i} text={part.text} live={!settled} />;
+      const reasoningLive = "state" in part ? part.state === "streaming" : !settled;
+      rendered.push(<ReasoningBlock key={pi} text={part.text} live={reasoningLive && !settled} />);
+      pi++;
+      continue;
     }
-    const running = "state" in part && part.state !== "output-available" && part.state !== "output-error";
-    const label = toolLabel(part.type, "input" in part ? part.input : undefined);
-    if (label && "state" in part) {
-      // Teal while running, then FADE to a lighter teal (never grey).
-      return (
-        <p
-          key={i}
-          className={`my-1 flex items-center gap-1.5 text-[12px] transition-colors duration-700 ${
-            running ? "animate-pulse text-primary" : "text-primary/50"
-          }`}
-        >
-          <span className={`inline-block h-1.5 w-1.5 rounded-full ${running ? "bg-primary" : "bg-primary/40"}`} />
-          {running ? label[0] : label[1]}
-        </p>
-      );
+    if (part.type.startsWith("tool-")) {
+      // Group consecutive calls to the SAME tool into one status line.
+      const type = part.type;
+      const inputs: Array<Record<string, unknown>> = [];
+      let running = false;
+      const groupKey = pi;
+      while (pi < parts.length && parts[pi].type === type) {
+        const p = parts[pi];
+        inputs.push((("input" in p ? p.input : undefined) ?? {}) as Record<string, unknown>);
+        if ("state" in p && p.state !== "output-available" && p.state !== "output-error") running = true;
+        pi++;
+      }
+      const label = groupToolLabel(type, inputs, running);
+      if (label) {
+        // Teal while running, then FADE to a lighter teal (never grey).
+        rendered.push(
+          <p
+            key={groupKey}
+            className={`my-1 flex items-center gap-1.5 text-[12px] transition-colors duration-700 ${
+              running ? "animate-pulse text-primary" : "text-primary/50"
+            }`}
+          >
+            <span className={`inline-block h-1.5 w-1.5 rounded-full ${running ? "bg-primary" : "bg-primary/40"}`} />
+            {label}
+          </p>,
+        );
+      }
+      continue;
     }
-    return null;
-  });
+    pi++;
+  }
 
   return (
     <div className="px-1">

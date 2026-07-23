@@ -187,6 +187,32 @@ body {
   }
 }
 
+/* ── Thinking-label shimmer (/chat ReasoningBlock) — gray sweeping to near-
+   black while the model is reasoning; reduced-motion gets static gray. */
+@keyframes text-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+.text-shimmer {
+  background-image: linear-gradient(90deg, #9ca3af 40%, #111827 50%, #9ca3af 60%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: text-shimmer 2s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .text-shimmer {
+    animation: none;
+    color: var(--color-text-muted);
+    background-image: none;
+  }
+}
+
 /* ── Marketing landing motion (additive; safe to remove with the redesign) ──
    Entrance choreography for the home hero + sections. Elements are visible by
    default and only animate as an enhancement, so headless/prefers-reduced
