@@ -108,6 +108,13 @@ export function ChatInput({
     if (autoFocus) textareaRef.current?.focus();
   }, [autoFocus]);
 
+  // Hand the cursor back the moment a response finishes streaming.
+  const wasStreaming = useRef(isStreaming);
+  useEffect(() => {
+    if (wasStreaming.current && !isStreaming) textareaRef.current?.focus();
+    wasStreaming.current = isStreaming;
+  }, [isStreaming]);
+
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
