@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
-// Catalog `Tooltip` — dark navy rounded bubble, white 13px label, on hover.
+// Catalog `Tooltip` — white rounded bubble, dark 13px label, on hover
+// (light chrome ruling 2026-07-23; was navy/white).
 // Portaled to <body> so it escapes scroll/stacking contexts; measured after
 // mount, anchored to `placement`, then clamped into the viewport.
 // (Positioning pattern adapted from hq's tooltip.tsx.)
@@ -78,7 +79,7 @@ export function Tooltip({
               top: pos?.top ?? 0,
               visibility: pos ? "visible" : "hidden",
             }}
-            className={`pointer-events-none fixed z-100 whitespace-nowrap rounded-field bg-navy-900 px-2.5 py-1.5 text-white shadow-menu ${labelClassName ?? "text-[13px]"}`}
+            className={`pointer-events-none fixed z-100 whitespace-nowrap rounded-field border border-border bg-surface px-2.5 py-1.5 text-text shadow-menu ${labelClassName ?? "text-[13px]"}`}
           >
             {label}
           </div>,
