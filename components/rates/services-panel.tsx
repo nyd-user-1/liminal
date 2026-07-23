@@ -12,7 +12,7 @@ import { InsurerCell } from "@/components/rates/insurer-mark";
 import { TextLink } from "@/components/ui/text-link";
 import { TableSkeleton } from "@/components/rates/table-skeleton";
 import { networkLabel, settingLabel } from "@/lib/rate-table";
-import { formatDate, providerDisplayName } from "@/lib/format";
+import { formatDate, prettyNetworkLabel, providerDisplayName } from "@/lib/format";
 import type { RateRow } from "@/lib/repos/rate-rows";
 
 // Services — the rates themselves, one row per service, as the payer published
@@ -114,6 +114,8 @@ export function ServicesPanel() {
   // this q (the server already ILIKE-filtered), so it's safe to apply always.
   const qn = q.trim().toLowerCase();
   const rows = qn ? loaded.filter((r) => clientMatch(r, qn)) : loaded;
+  // Freshest publication date among loaded rows — the footer's "Updated" value.
+  const latestAsOf = loaded.reduce<string | null>((m, r) => (r.asOf && (!m || r.asOf > m) ? r.asOf : m), null);
 
   // Grows the loaded set on scroll (no "Load more" button). Offset is the count
   // of rows actually FETCHED (loaded), not the client-filtered subset shown.
@@ -139,20 +141,43 @@ export function ServicesPanel() {
       // Truncate on the inner BLOCK, not the <td>: a table cell ignores
       // max-width in auto-layout, so the column grows to the longest hospital
       // name and shoves the sticky header sideways. A capped block holds it.
+      // No entityType hint: the ORG_NAME heuristic must decide, or an org NPI
+      // in the roster gets person-reordered ("Of Columbia University In The…").
+      render: (r) =>
+        r.displayName ? (
+          <TextLink
+            href={`/directory/providers/${r.npi}`}
+            variant="name"
+            className="!block max-w-56 min-w-0 truncate"
+            title={providerDisplayName(r.displayName)}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {providerDisplayName(r.displayName)}
+          </TextLink>
+        ) : (
+          <span className="block max-w-56 truncate tabular-nums text-text-muted">NPI {r.npi}</span>
+        ),
+    },
+    {
+      key: "service",
+      label: "Service",
       render: (r) => (
-        <span className="block max-w-56 truncate font-medium text-text" title={r.displayName ?? r.npi}>
-          {r.displayName ? providerDisplayName(r.displayName, "1") : `NPI ${r.npi}`}
+        <span className="block max-w-52 truncate" title={cptLabel(r.billingCode)}>
+          {cptLabel(r.billingCode)}
         </span>
       ),
     },
-    { key: "service", label: "Service", render: (r) => cptLabel(r.billingCode) },
     { key: "code", label: "Code", render: (r) => <span className="text-text-muted">{r.billingCode}</span> },
     { key: "insurer", label: "Insurer", render: (r) => <InsurerCell payer={r.payer} /> },
     {
       key: "plan",
       label: "Plan",
       headTitle: "The plan/network the insurer published this rate under — their product, not an employer's plan",
-      render: (r) => <span className="block max-w-52 truncate" title={r.network}>{networkLabel(r.network, r.payer)}</span>,
+      render: (r) => (
+        <span className="block max-w-52 truncate" title={r.network}>
+          {prettyNetworkLabel(networkLabel(r.network, r.payer))}
+        </span>
+      ),
     },
     {
       key: "setting",
@@ -162,18 +187,32 @@ export function ServicesPanel() {
     },
     {
       key: "rate",
-      label: "Rate In-Ntwk",
+      // "In Ntwk", not "Rate In-Ntwk": when the column shows the actual dollar,
+      // the word "Rate" restates the value under it (ruling 2026-07-23).
+      label: "In Ntwk",
       align: "right",
-      render: (r) =>
-        r.rate != null ? (
-          <span className="font-medium text-text">${r.rate.toFixed(2)}</span>
-        ) : (
-          // Not a missing rate — the payer published several for this exact
-          // cell and we will not pick one for them (NYS-64).
-          <span title={`The payer published ${r.nRates} different rates for this exact cell`}>
-            <Badge variant="warning" className="!font-normal">{r.nRates} rates</Badge>
-          </span>
-        ),
+      render: (r) => {
+        if (r.rate != null) return <span className="font-medium text-text">${r.rate.toFixed(2)}</span>;
+        // Several published rates for this exact cell (NYS-64 — the modifier
+        // that separates them is dropped at ingest). Never a chip hiding the
+        // numbers (ruling 2026-07-23): two rates render as both; more render
+        // as the range + count. Picking one is still forbidden.
+        const title = `The payer published ${r.nRates} different rates for this exact cell`;
+        if (r.nRates === 2 && r.minRate != null && r.maxRate != null)
+          return (
+            <span className="whitespace-nowrap font-medium tabular-nums text-text" title={title}>
+              ${r.minRate.toFixed(2)} / ${r.maxRate.toFixed(2)}
+            </span>
+          );
+        if (r.minRate != null && r.maxRate != null)
+          return (
+            <span className="whitespace-nowrap tabular-nums text-text-body" title={title}>
+              ${r.minRate.toFixed(2)}–${r.maxRate.toFixed(2)}
+              <span className="ml-1 text-[13px] text-text-muted">({r.nRates})</span>
+            </span>
+          );
+        return <span className="text-text-muted" title={title}>{r.nRates} rates</span>;
+      },
     },
     {
       key: "asOf",
@@ -237,22 +276,8 @@ export function ServicesPanel() {
           </div>
         ) : undefined
       }
-      tableFooter={
-        <p className="text-[13px] text-text-muted">
-          Search <span className="tabular-nums">{data.total.toLocaleString("en-US")}</span> published rates. For Billing
-          groups with more than 100 published rate rows see the corresponding <TextLink href="/orgs">organization</TextLink>.
-          {syncing ? (
-            <span className="ml-2">Searching all…</span>
-          ) : (
-            qn && (
-              <span className="ml-2 tabular-nums">
-                {rows.length.toLocaleString("en-US")} shown
-              </span>
-            )
-          )}
-          {busy && <span className="ml-2">Loading more…</span>}
-        </p>
-      }
+      records={data.total}
+      updatedDate={latestAsOf ? formatDate(`${latestAsOf}T00:00:00`) : null}
     />
   );
 }

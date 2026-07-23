@@ -17,8 +17,9 @@ import { cptLabel } from "@/components/rates/cpt";
 import { EconomicsButton } from "@/components/rates/economics-dialog";
 import { InsurerMark } from "@/components/rates/insurer-mark";
 import { TableSkeleton } from "@/components/rates/table-skeleton";
-import { providerDisplayName } from "@/lib/format";
+import { prettyNetworkLabel, providerDisplayName } from "@/lib/format";
 import { networkLabel, settingLabel } from "@/lib/rate-table";
+import { TextLink } from "@/components/ui/text-link";
 import type { RateRow } from "@/lib/repos/rate-rows";
 import type { Attestation, EconCard, NpiStanding } from "@/lib/repos/rate-signals";
 
@@ -63,7 +64,7 @@ const HEAD_BASE = [
   "Insurer",
   "Network",
   "Code",
-  nowrap("Rate In-Ntwk"),
+  nowrap("In Ntwk"),
   "Schedule",
   nowrap("As-of"),
   "TIN",
@@ -301,7 +302,7 @@ export function PanelsPanel({
     <SortableHead key="payer" label="Insurer" col="payer" sort={sort} onSort={toggleSort} />,
     "Network",
     <SortableHead key="code" label="Code" col="code" sort={sort} onSort={toggleSort} />,
-    nowrap("Rate In-Ntwk"),
+    nowrap("In Ntwk"),
     "Schedule",
     <SortableHead key="asOf" label="As-of" col="asOf" sort={sort} onSort={toggleSort} />,
     "TIN",
@@ -514,7 +515,22 @@ const DEFAULT_COLS: DataTableColumn<DefaultRow>[] = [
     label: "Clinician",
     fixed: true,
     sortValue: (r) => r.displayName ?? r.npi,
-    render: (r) => <span className="font-medium text-text">{r.displayName ? providerDisplayName(r.displayName, "1") : `NPI ${r.npi}`}</span>,
+    // No entityType hint: the ORG_NAME heuristic decides, so an org NPI in the
+    // roster keeps its name order instead of being person-flipped.
+    render: (r) =>
+      r.displayName ? (
+        <TextLink
+          href={`/directory/providers/${r.npi}`}
+          variant="name"
+          className="!block max-w-56 min-w-0 truncate"
+          title={providerDisplayName(r.displayName)}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {providerDisplayName(r.displayName)}
+        </TextLink>
+      ) : (
+        <span className="tabular-nums text-text-muted">NPI {r.npi}</span>
+      ),
   },
   {
     key: "payer",
@@ -534,24 +550,35 @@ const DEFAULT_COLS: DataTableColumn<DefaultRow>[] = [
     label: "Network",
     sortValue: (r) => r.network,
     cellClassName: "max-w-44 truncate",
-    render: (r) => <span title={r.network}>{networkLabel(r.network, r.payer) || r.network}</span>,
+    render: (r) => <span title={r.network}>{prettyNetworkLabel(networkLabel(r.network, r.payer) || r.network)}</span>,
   },
   { key: "code", label: "Code", sortValue: (r) => r.billingCode, render: (r) => <span title={cptLabel(r.billingCode)}>{r.billingCode}</span> },
   {
     key: "rate",
-    label: "Rate In-Ntwk",
+    label: "In Ntwk",
     align: "right",
     sortValue: (r) => r.rate ?? -1,
-    // nRates>1 means the payer published several rates for this exact cell, so
-    // there is no single figure to show — never a bare 0.
-    render: (r) =>
-      r.rate == null ? (
-        <span className="text-text-muted" title={`${r.nRates} rates published for this cell`}>
-          {r.nRates} rates
-        </span>
-      ) : (
-        <span className="font-medium text-text">${r.rate.toFixed(2)}</span>
-      ),
+    // nRates>1: the payer published several rates for this exact cell. Show the
+    // numbers, never a chip (ruling 2026-07-23) — two rates render as both, more
+    // as the range + count. Picking one is still forbidden (NYS-64).
+    render: (r) => {
+      if (r.rate != null) return <span className="font-medium text-text">${r.rate.toFixed(2)}</span>;
+      const title = `${r.nRates} rates published for this cell`;
+      if (r.nRates === 2 && r.minRate != null && r.maxRate != null)
+        return (
+          <span className="whitespace-nowrap font-medium tabular-nums text-text" title={title}>
+            ${r.minRate.toFixed(2)} / ${r.maxRate.toFixed(2)}
+          </span>
+        );
+      if (r.minRate != null && r.maxRate != null)
+        return (
+          <span className="whitespace-nowrap tabular-nums text-text-body" title={title}>
+            ${r.minRate.toFixed(2)}–${r.maxRate.toFixed(2)}
+            <span className="ml-1 text-[13px] text-text-muted">({r.nRates})</span>
+          </span>
+        );
+      return <span className="text-text-muted" title={title}>{r.nRates} rates</span>;
+    },
   },
   { key: "setting", label: "Setting", sortValue: (r) => r.setting, render: (r) => <span className="text-text-body" title={r.setting}>{settingLabel(r.setting) || "—"}</span> },
   { key: "asOf", label: "As-of", sortValue: (r) => r.asOf ?? "", render: (r) => <span className="text-text-muted">{r.asOf ?? "—"}</span> },
@@ -592,6 +619,8 @@ function DefaultPanels({ rows, q, toolbarLeft }: { rows: DefaultRow[]; q: string
           onSelect={(_k, v) => setPayer(v)}
         />
       }
+      records={rows.length}
+      updatedDate={rows.reduce<string | null>((m, r) => (r.asOf && (!m || r.asOf > m) ? r.asOf : m), null)}
       footnote={
         filtered.length === 0 ? (
           <div className="rounded-card border border-border bg-surface shadow-card">

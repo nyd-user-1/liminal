@@ -104,13 +104,15 @@ export function DataTable<T>({
   filter,
   onExport,
   onRefresh,
-  stacked = false,
-  collapseActions = false,
+  stacked = true,
+  collapseActions = true,
   title,
   status,
   titleMeta,
   source,
   updatedAt,
+  records,
+  updatedDate,
 }: {
   columns: DataTableColumn<T>[];
   rows: T[];
@@ -235,6 +237,13 @@ export function DataTable<T>({
   /** TABLE STANDARD v2 footer, RIGHT: data freshness — the matview refresh time,
    *  the query time, or a row count. When it moves, the reader knows the data did. */
   updatedAt?: ReactNode;
+  /** STANDARD FOOTER (2026-07-23): total record count, rendered left as
+   *  "N records". Pair with `updatedDate`; "Data set by NYSgpt" always sits
+   *  right whenever any footer content renders. */
+  records?: number;
+  /** STANDARD FOOTER: the data's date, rendered "Updated {date}" beside the
+   *  record count. */
+  updatedDate?: string | null;
 }) {
   const [visible, toggle] = useColumnVisibility(storageKey, columns);
   const shown = columns.filter((c) => c.fixed || !storageKey || visible.has(c.key));
@@ -272,24 +281,43 @@ export function DataTable<T>({
   });
 
   // ── select-all ────────────────────────────────────────────────────────────
-  // Scoped to the rows currently in view (post-filter), not the whole dataset:
-  // "select all" must mean the same thing the user can see.
-  const selectable = !!selected && !!onSelectedChange;
-  const allSelected = selectable && rows.length > 0 && rows.every((r) => selected!.has(rowKey(r)));
+  // EVERY table carries the select column (unified-table ruling 2026-07-23) —
+  // callers that don't wire `selected`/`onSelectedChange` get internal state,
+  // so the anatomy is constant even where nothing consumes the selection yet.
+  // Select-all is scoped to the rows currently in view (post-filter), not the
+  // whole dataset: it must mean the same thing the user can see.
+  const [internalSelected, setInternalSelected] = useState<Set<string>>(new Set());
+  const sel = selected ?? internalSelected;
+  const setSel = onSelectedChange ?? setInternalSelected;
+  const selectable = true;
+  const allSelected = rows.length > 0 && rows.every((r) => sel.has(rowKey(r)));
   const toggleAll = () => {
-    const next = new Set(selected);
+    const next = new Set(sel);
     for (const r of rows) {
       const k = rowKey(r);
       if (allSelected) next.delete(k);
       else next.add(k);
     }
-    onSelectedChange!(next);
+    setSel(next);
   };
   const toggleOne = (key: string) => {
-    const next = new Set(selected);
+    const next = new Set(sel);
     if (!next.delete(key)) next.add(key);
-    onSelectedChange!(next);
+    setSel(next);
   };
+
+  // The kebab column is part of the standard anatomy: pages supply rowActions,
+  // and a page that only wired onRowClick still gets an "Open" kebab so the
+  // trailing column exists everywhere it can mean something.
+  const effectiveRowActions =
+    rowActions ??
+    (onRowClick
+      ? (row: T) => (
+          <KebabMenu label="Row actions">
+            <MenuItem icon="chevron-right" label="Open" onClick={() => onRowClick(row)} />
+          </KebabMenu>
+        )
+      : undefined);
 
   const head = [
     ...(selectable
@@ -297,7 +325,7 @@ export function DataTable<T>({
       : []),
     ...dataHead,
     // Reserved for the kebab — deliberately unlabelled.
-    ...(rowActions ? [""] : []),
+    ...(effectiveRowActions ? [""] : []),
   ];
 
   // ── tree ─────────────────────────────────────────────────────────────────
@@ -393,14 +421,31 @@ export function DataTable<T>({
       </div>
     ) : null;
 
-  // TABLE STANDARD v2 footer — honest source (left) + freshness (right). An
-  // explicit `tableFooter` still wins for a table that needs a bespoke summary.
+  // STANDARD FOOTER (2026-07-23): "{N} records · Updated {date}" left,
+  // "Data set by NYSgpt" right. Legacy `source`/`updatedAt` render into the
+  // left slot for tables not yet migrated; an explicit `tableFooter` still
+  // wins for a bespoke summary.
+  const footerLeft = [
+    records != null ? `${records.toLocaleString("en-US")} records` : null,
+    updatedDate ? `Updated ${updatedDate}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const hasFooter = footerLeft !== "" || source != null || updatedAt != null;
   const effectiveFooter =
     tableFooter ??
-    (source != null || updatedAt != null ? (
+    (hasFooter ? (
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[13px] text-text-muted">
-        <span className="min-w-0 truncate">{source}</span>
-        <span className="shrink-0 tabular-nums">{updatedAt}</span>
+        <span className="min-w-0 truncate tabular-nums">
+          {footerLeft || (
+            <>
+              {source}
+              {source != null && updatedAt != null ? " · " : ""}
+              {updatedAt}
+            </>
+          )}
+        </span>
+        <span className="shrink-0">Data set by NYSgpt</span>
       </div>
     ) : undefined);
 
@@ -545,7 +590,7 @@ export function DataTable<T>({
               {selectable && (
                 // stopPropagation: selecting a row must not also open it.
                 <Td className="w-10" onClick={(e) => e.stopPropagation()}>
-                  <Checkbox aria-label="Select row" checked={selected!.has(key)} onChange={() => toggleOne(key)} />
+                  <Checkbox aria-label="Select row" checked={sel.has(key)} onChange={() => toggleOne(key)} />
                 </Td>
               )}
               {shown.map((c, i) => (
@@ -591,19 +636,19 @@ export function DataTable<T>({
                   )}
                 </Td>
               ))}
-              {rowActions && (
+              {effectiveRowActions && (
                 <Td className="w-12" onClick={(e) => e.stopPropagation()}>
-                  {rowActions(row)}
+                  {effectiveRowActions(row)}
                 </Td>
               )}
             </Tr>
           );
         })}
         {lazy && hasMore && (
-          <LoadMoreRow sentinelRef={sentinelRef} colSpan={shown.length + (selectable ? 1 : 0) + (rowActions ? 1 : 0)} />
+          <LoadMoreRow sentinelRef={sentinelRef} colSpan={shown.length + (selectable ? 1 : 0) + (effectiveRowActions ? 1 : 0)} />
         )}
         {onEndReached && !(lazy && hasMore) && (
-          <LoadMoreRow sentinelRef={endSentinelRef} colSpan={shown.length + (selectable ? 1 : 0) + (rowActions ? 1 : 0)} />
+          <LoadMoreRow sentinelRef={endSentinelRef} colSpan={shown.length + (selectable ? 1 : 0) + (effectiveRowActions ? 1 : 0)} />
         )}
       </Table>
       {footnote}

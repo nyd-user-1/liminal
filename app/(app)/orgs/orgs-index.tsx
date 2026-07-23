@@ -235,8 +235,8 @@ export function OrgsIndex({
           onSelectedChange={setSelected}
           onExport={() => toast("Export isn\u2019t wired up yet.", "info")}
           onRefresh={() => load()}
-          source="Billing groups observed in insurer rate files; names from payer rosters and the NPI registry."
-          updatedAt={`${sorted.length.toLocaleString()} organizations${latestFile ? ` \u00b7 latest file ${latestFile}` : ""}`}
+          records={sorted.length}
+          updatedDate={latestFile}
           filter={
             <ChipMenu
               label="Filter"

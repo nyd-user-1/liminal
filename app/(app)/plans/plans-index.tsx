@@ -162,6 +162,7 @@ export function PlansIndex({ employers }: { employers: Employer[] }) {
             <MenuItem icon="eye" label="Open sponsor" onClick={() => open(e)} />
           </KebabMenu>
         )}
+        records={filtered.length}
         toolbarLeft={
           <>
             <SearchInput

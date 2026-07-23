@@ -162,14 +162,13 @@ export function NetworksIndex({ initial }: { initial: NetworkListRow[] }) {
             )}
           </>
         }
+        records={initial.length}
         footnote={
           rows.length === 0 ? (
             <div className="rounded-card border border-border bg-surface shadow-card">
               <EmptyState icon="globe" title="No networks" subtext="Try a broader search or clear the filters." />
             </div>
-          ) : (
-            <span className="text-sm text-text-muted">{rows.length} canonical networks · resolved from 1,133 raw payer networks</span>
-          )
+          ) : undefined
         }
       />
     </div>

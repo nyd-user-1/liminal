@@ -121,8 +121,11 @@ export function Tr({
 }
 
 export function Td({ className = "", children, ...rest }: TdHTMLAttributes<HTMLTableCellElement>) {
+  // h-12: ONE row height everywhere (the /rates tables' height, ruling
+  // 2026-07-23). Content centers inside it; cells must stay single-line
+  // (truncate long values — never let a cell wrap into a taller row).
   return (
-    <td className={`px-4 py-2 text-[15px] text-text-body ${className}`} {...rest}>
+    <td className={`h-12 px-4 py-0 text-[15px] text-text-body ${className}`} {...rest}>
       {children}
     </td>
   );
@@ -166,9 +169,10 @@ export function SortableHead<Col extends string>({
     <button
       type="button"
       onClick={() => onSort(col)}
-      // primary-deep, not primary-hover: teal-600 → teal-700 is a ~7% luminance
-      // step and reads as no change at 14px. teal-800 actually registers.
-      className={`-mx-1 flex items-center gap-1 whitespace-nowrap rounded px-1 transition-colors hover:text-primary-deep ${className}`}
+      // The muted wash on hover is the visible "this sorts" affordance
+      // (ruling 2026-07-23); primary-deep (not primary-hover) because the
+      // teal-600 → teal-700 step reads as no change at 14px.
+      className={`-mx-1.5 -my-1 flex items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-1 transition-colors hover:bg-black/[0.04] hover:text-primary-deep ${className}`}
     >
       {label}
       <Icon name={active && sort.dir === "asc" ? "chevron-up" : "chevron-down"} size={14} className={active ? "" : "opacity-30"} />

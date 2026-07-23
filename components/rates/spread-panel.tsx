@@ -272,11 +272,16 @@ export function SpreadPanel() {
           </>
         }
         tableFooter={
-          <p className="text-[13px] text-text-muted">
-            {result
-              ? result.assumptions
-              : `Each figure is the payer's median published in-network rate across the NY book, on deduped payer-published rows — hover a figure for its as-of date. All ${codes.length} priced codes are here; Columns adds the ones beyond the five shown. Enter what your platform remits to price your spread against every book at once.`}
-          </p>
+          result ? (
+            // A personalized run states its assumptions — that beats the
+            // standard count line while the numbers on screen depend on them.
+            <p className="text-[13px] text-text-muted">{result.assumptions}</p>
+          ) : (
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[13px] text-text-muted">
+              <span className="min-w-0 truncate tabular-nums">{rows.length.toLocaleString("en-US")} records</span>
+              <span className="shrink-0">Data set by NYSgpt</span>
+            </div>
+          )
         }
         footnote={
           rows.length === 0 ? (

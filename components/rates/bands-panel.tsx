@@ -1,15 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Banner } from "@/components/ui/banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SearchInput } from "@/components/ui/search-input";
-import { LoadMoreRow, SortableHead, Table, Td, Tr, useLazyBatch, useSort } from "@/components/ui/table";
+import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { KebabMenu } from "@/components/ui/kebab-menu";
+import { MenuItem } from "@/components/ui/dropdown-menu";
 import { ChipMenu } from "@/components/rates/chip-menu";
 import { ALL_CPTS, cptLabel } from "@/components/rates/cpt";
 import { InsurerCell, InsurerMark } from "@/components/rates/insurer-mark";
 import { TableSkeleton } from "@/components/rates/table-skeleton";
+import { prettyNetworkLabel } from "@/lib/format";
 import type { RateBand } from "@/lib/repos/rate-signals";
 
 // Screen: the negotiation card. Per-payer × CPT × license-tier bands on
@@ -19,6 +23,10 @@ import type { RateBand } from "@/lib/repos/rate-signals";
 // "+ License" filter chips — all three are pure client-side filters over one
 // unconditional fetch of every priced code, unchecked by default, table
 // sorted Insurer A-Z out of the box. Nothing gates the initial view.
+//
+// On DataTable (2026-07-23, unified-table sweep): a band is an AGGREGATE — it
+// has no drill-down page of its own, so the kebab links out to the insurer's
+// published-rates view instead of "opening" the row.
 
 const LICENSE_OPTIONS = [
   { value: "Masters-level", label: "Masters-level" },
@@ -31,8 +39,7 @@ const LICENSE_RANK: Record<string, number> = {
   "Prescriber (MD/NP)": 2,
 };
 
-const HEAD = ["Service", "Code", "Insurer", "Network", "Clinicians", "License", "25% In-Ntwk", "Median In-Ntwk", "75% In-Ntwk", "Schedule", "As-of"];
-type SortCol = "payer" | "code" | "license" | "clinicians" | "asOf";
+const SKELETON_HEAD = ["Service", "Code", "Insurer", "Network", "Clinicians", "License", "25% In-Ntwk", "Median In-Ntwk", "75% In-Ntwk", "Schedule", "As-of"];
 
 export function BandsPanel({
   codes,
@@ -45,13 +52,13 @@ export function BandsPanel({
    *  filter and makes sure the code is selected. */
   pin?: { payer: string; billingCode: string } | null;
 }) {
+  const router = useRouter();
   const [bands, setBands] = useState<RateBand[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [insurer, setInsurer] = useState<string | undefined>();
   const [license, setLicense] = useState<string | undefined>();
-  const [sort, toggleSort] = useSort<SortCol>({ col: "payer", dir: "asc" });
 
   useEffect(() => {
     if (!pin) return;
@@ -97,145 +104,128 @@ export function BandsPanel({
 
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    const dir = sort.dir === "asc" ? 1 : -1;
-    return bands
-      .filter(
-        (b) =>
-          (!needle || b.payer.toLowerCase().includes(needle)) &&
-          (codes.length === 0 || codes.includes(b.billingCode)) &&
-          (!insurer || b.payer === insurer) &&
-          (!license || b.license === license),
-      )
-      .sort((a, b) => {
-        const primary =
-          sort.col === "code"
-            ? a.billingCode.localeCompare(b.billingCode)
-            : sort.col === "license"
-              ? (LICENSE_RANK[a.license] ?? 9) - (LICENSE_RANK[b.license] ?? 9)
-              : sort.col === "clinicians"
-                ? a.clinicians - b.clinicians
-                : sort.col === "asOf"
-                  ? a.asOf.localeCompare(b.asOf)
-                  : a.payer.localeCompare(b.payer);
-        return (
-          primary * dir ||
-          a.payer.localeCompare(b.payer) ||
-          a.billingCode.localeCompare(b.billingCode) ||
-          (LICENSE_RANK[a.license] ?? 9) - (LICENSE_RANK[b.license] ?? 9)
-        );
-      });
-  }, [bands, q, codes, insurer, license, sort]);
+    return bands.filter(
+      (b) =>
+        (!needle || b.payer.toLowerCase().includes(needle)) &&
+        (codes.length === 0 || codes.includes(b.billingCode)) &&
+        (!insurer || b.payer === insurer) &&
+        (!license || b.license === license),
+    );
+  }, [bands, q, codes, insurer, license]);
 
-  const { visible, hasMore, sentinelRef } = useLazyBatch(shown, {
-    resetKey: `${codes.join(",")}|${q}|${insurer}|${license}`,
-  });
+  const latestAsOf = bands.reduce<string | null>((m, b) => (b.asOf && (!m || b.asOf > m) ? b.asOf : m), null);
 
-  const codeOptions = ALL_CPTS.map((c) => ({ value: c.code, label: `${c.code} · ${c.label}` }));
+  const columns: DataTableColumn<RateBand>[] = [
+    {
+      key: "service",
+      label: "Service",
+      fixed: true,
+      sortValue: (b) => b.billingCode,
+      render: (b) => (
+        <span className="block max-w-52 truncate" title={cptLabel(b.billingCode)}>
+          {cptLabel(b.billingCode)}
+        </span>
+      ),
+    },
+    { key: "code", label: "Code", sortValue: (b) => b.billingCode, render: (b) => <span className="text-text-muted">{b.billingCode}</span> },
+    { key: "payer", label: "Insurer", sortValue: (b) => b.payer, render: (b) => <InsurerCell payer={b.payer} /> },
+    {
+      key: "network",
+      label: "Network",
+      render: (b) => (
+        <span className="block max-w-44 truncate" title={b.network}>
+          {prettyNetworkLabel(b.network)}
+        </span>
+      ),
+    },
+    { key: "clinicians", label: "Clinicians", sortValue: (b) => b.clinicians, render: (b) => b.clinicians.toLocaleString("en-US") },
+    {
+      key: "license",
+      label: "License",
+      sortValue: (b) => LICENSE_RANK[b.license] ?? 9,
+      render: (b) => <span title={b.license}>{b.license.replace(" (MD/NP)", "")}</span>,
+    },
+    { key: "p25", label: "25% In-Ntwk", align: "right", render: (b) => b.p25 },
+    { key: "median", label: "Median In-Ntwk", align: "right", render: (b) => <span className="font-semibold text-text">{b.median}</span> },
+    { key: "p75", label: "75% In-Ntwk", align: "right", render: (b) => b.p75 },
+    {
+      key: "schedule",
+      label: "Schedule",
+      render: (b) => (
+        <Badge variant={b.negotiability === "flat" ? "neutral" : "info"} className="!font-normal">
+          {b.negotiability === "flat" ? "Flat" : "Group"}
+        </Badge>
+      ),
+    },
+    { key: "asOf", label: "As-of", sortValue: (b) => b.asOf, render: (b) => <span className="text-text-muted">{b.asOf}</span> },
+  ];
+
+  if (error) return <Banner variant="danger">{error}</Banner>;
+  if (loading) return <TableSkeleton head={SKELETON_HEAD} />;
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3">
-      {error && <Banner className="shrink-0" variant="danger">{error}</Banner>}
-
-      {loading ? (
-        <TableSkeleton head={HEAD} />
-      ) : (
-        <Table
-          className="min-h-0 flex-1"
-          stickyHeader
-          tintedHeader
-          toolbar={
-            <>
-              {/* Search + facets together INSIDE the chrome — the stacked
-                  standard the other /rates tables settled on (NYS-98/99). The
-                  toolbar stays rendered even at zero matches, so a filter that
-                  strands the table can always be cleared from where it was set. */}
-              <SearchInput
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Search by insurer"
-                className="w-full sm:w-[320px]"
-              />
-              <ChipMenu
-                label="Code"
-                options={codeOptions}
-                values={codes}
-                onToggle={(v) => onCodesChange(codes.includes(v) ? codes.filter((c) => c !== v) : [...codes, v])}
-                onClear={() => onCodesChange([])}
-              />
-              <ChipMenu
-                label="Insurer"
-                options={insurerOptions}
-                value={insurer}
-                onSelect={setInsurer}
-                onClear={() => setInsurer(undefined)}
-              />
-              <ChipMenu
-                label="License"
-                options={LICENSE_OPTIONS}
-                value={license}
-                onSelect={setLicense}
-                onClear={() => setLicense(undefined)}
-              />
-              <span className="ml-auto text-sm tabular-nums text-text-muted">
-                {shown.length.toLocaleString("en-US")} of {bands.length.toLocaleString("en-US")} bands
-              </span>
-            </>
-          }
-          head={[
-            <SortableHead key="service" label="Service" col="code" sort={sort} onSort={toggleSort} />,
-            <SortableHead key="code" label="Code" col="code" sort={sort} onSort={toggleSort} />,
-            <SortableHead key="payer" label="Insurer" col="payer" sort={sort} onSort={toggleSort} />,
-            "Network",
-            <SortableHead key="clinicians" label="Clinicians" col="clinicians" sort={sort} onSort={toggleSort} />,
-            <SortableHead key="license" label="License" col="license" sort={sort} onSort={toggleSort} />,
-            "25% In-Ntwk",
-            "Median In-Ntwk",
-            "75% In-Ntwk",
-            "Schedule",
-            <SortableHead key="asOf" label="As-of" col="asOf" sort={sort} onSort={toggleSort} />,
-          ]}
-        >
-          {shown.length === 0 && (
-            <Tr>
-              <Td colSpan={HEAD.length}>
-                <EmptyState
-                  icon="clipboard"
-                  title={bands.length === 0 ? "No published bands yet" : "No bands match these filters"}
-                  subtext="Bands are computed on deduped payer-published rows, NY-book entities only."
-                />
-              </Td>
-            </Tr>
-          )}
-          {visible.map((b) => (
-            <Tr key={`${b.payer}|${b.network}|${b.billingCode}|${b.license}`}>
-              <Td className="whitespace-nowrap">{cptLabel(b.billingCode)}</Td>
-              <Td className="whitespace-nowrap text-text-muted">{b.billingCode}</Td>
-              <Td>
-                <InsurerCell payer={b.payer} />
-              </Td>
-              <Td>
-                <span className="block max-w-44 truncate" title={b.network}>
-                  {b.network}
-                </span>
-              </Td>
-              <Td className="whitespace-nowrap">{b.clinicians.toLocaleString("en-US")}</Td>
-              <Td className="whitespace-nowrap" title={b.license}>
-                {b.license.replace(" (MD/NP)", "")}
-              </Td>
-              <Td className="whitespace-nowrap">{b.p25}</Td>
-              <Td className="whitespace-nowrap font-semibold text-text">{b.median}</Td>
-              <Td className="whitespace-nowrap">{b.p75}</Td>
-              <Td className="whitespace-nowrap">
-                <Badge variant={b.negotiability === "flat" ? "neutral" : "info"} className="!font-normal">
-                  {b.negotiability === "flat" ? "Flat" : "Group"}
-                </Badge>
-              </Td>
-              <Td className="whitespace-nowrap text-text-muted">{b.asOf}</Td>
-            </Tr>
-          ))}
-          {hasMore && <LoadMoreRow sentinelRef={sentinelRef} colSpan={11} />}
-        </Table>
+    <DataTable
+      columns={columns}
+      rows={shown}
+      rowKey={(b) => `${b.payer}|${b.network}|${b.billingCode}|${b.license}`}
+      storageKey="rates.bands.columns"
+      defaultSort={{ col: "payer", dir: "asc" }}
+      lazy
+      fillHeight
+      className="min-h-0 flex-1"
+      toolbarLeft={
+        <>
+          <SearchInput
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search by insurer"
+            className="w-full sm:w-[320px]"
+          />
+          <ChipMenu
+            label="Code"
+            options={ALL_CPTS.map((c) => ({ value: c.code, label: `${c.code} · ${c.label}` }))}
+            values={codes}
+            onToggle={(v) => onCodesChange(codes.includes(v) ? codes.filter((c) => c !== v) : [...codes, v])}
+            onClear={() => onCodesChange([])}
+          />
+          <ChipMenu
+            label="Insurer"
+            options={insurerOptions}
+            value={insurer}
+            onSelect={setInsurer}
+            onClear={() => setInsurer(undefined)}
+          />
+          <ChipMenu
+            label="License"
+            options={LICENSE_OPTIONS}
+            value={license}
+            onSelect={setLicense}
+            onClear={() => setLicense(undefined)}
+          />
+        </>
+      }
+      rowActions={(b) => (
+        <KebabMenu label={`Actions for ${b.payer} ${b.billingCode}`}>
+          <MenuItem
+            icon="dollar"
+            label="Open insurer in Published rates"
+            onClick={() => router.push(`/published-rates?payer=${encodeURIComponent(b.payer)}`)}
+          />
+        </KebabMenu>
       )}
-    </div>
+      records={bands.length}
+      updatedDate={latestAsOf}
+      footnote={
+        shown.length === 0 ? (
+          <div className="rounded-card border border-border bg-surface shadow-card">
+            <EmptyState
+              icon="clipboard"
+              title={bands.length === 0 ? "No published bands yet" : "No bands match these filters"}
+              subtext="Bands are computed on deduped payer-published rows, NY-book entities only."
+            />
+          </div>
+        ) : undefined
+      }
+    />
   );
 }

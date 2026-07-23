@@ -180,12 +180,11 @@ export function RegistryIndex({ initial }: { initial: Result }) {
               onChange={(e) => setTerm(e.target.value)}
             />
           }
-          footnote={
-            <p className="text-[13px] text-text-muted">
-              {result.total.toLocaleString("en-US")} organizations match · showing the first {result.rows.length.toLocaleString("en-US")} —
-              NPPES entity-type-2 book (sql/034), NY orgs + national platforms our data references.
-            </p>
-          }
+          records={result.total}
+          updatedDate={result.rows.reduce<string | null>(
+            (m, r) => (r.lastUpdate && (!m || r.lastUpdate > m) ? r.lastUpdate : m),
+            null,
+          )}
         />
       </div>
     </div>

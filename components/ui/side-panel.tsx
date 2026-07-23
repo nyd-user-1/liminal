@@ -152,8 +152,10 @@ export function SidePanel({
         {mobileSheet && (
           <div className={`mx-auto mt-2 h-1 w-9 shrink-0 rounded-full lg:hidden ${spec ? "bg-[#23252a]" : "bg-border"}`} />
         )}
+        {/* No leading icon on the panel title — the no-heading-icons rule
+            (2026-07-23). The `icon` prop is still accepted so the many call
+            sites keep compiling; it just no longer renders. */}
         <div className={`flex items-center gap-3 border-b px-6 py-4 ${EDGE[variant]}`}>
-          {icon && !spec && <IconSquare name={icon} />}
           <div className="min-w-0">
             {kicker && (
               <p className={`font-mono text-[11px] uppercase tracking-[0.14em] ${KICKER[variant]}`}>{kicker}</p>

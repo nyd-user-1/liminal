@@ -355,8 +355,8 @@ export function OrgPanels({
             defaultSort={{ col: "clinicians", dir: "desc" }}
             fillHeight
             className="min-h-0 flex-1"
-            source="What each insurer pays this group's clinicians — in-network professional rates from the insurers' own files."
-            updatedAt={ratesAsOf ? `as-of ${ratesAsOf}` : undefined}
+            records={rates.length}
+            updatedDate={ratesAsOf || null}
           />
         )
       ) : view === "roster" ? (
@@ -382,8 +382,8 @@ export function OrgPanels({
               </KebabMenu>
             ) : null
           }
-          source="Clinicians published under this group's billing ID in insurer rate files; identities from the provider directory."
-          updatedAt={`${roster.length.toLocaleString()} of ${rosterTotal.toLocaleString()} loaded`}
+          records={rosterTotal}
+          updatedDate={roster.reduce<string | null>((m, r) => (r.lastFileDate && (!m || r.lastFileDate > m) ? r.lastFileDate : m), null)}
         />
       ) : participation === null ? (
         <TableSkeleton head={["Insurer", "Network", "Clinicians", "Accepting new patients"]} />
@@ -401,8 +401,7 @@ export function OrgPanels({
           defaultSort={{ col: "clinicians", dir: "desc" }}
           fillHeight
           className="min-h-0 flex-1"
-          source="Payer provider directories; accepting = listed as accepting new patients (liveness, not membership)."
-          updatedAt={`${participation.length.toLocaleString()} networks`}
+          records={participation.length}
         />
       )}
     </>

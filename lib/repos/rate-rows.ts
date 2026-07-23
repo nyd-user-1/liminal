@@ -58,6 +58,9 @@ export interface RateRow {
   rate: number | null;
   /** Distinct rates the payer published for this cell. >1 ⇒ rate is null. */
   nRates: number;
+  /** The spread when nRates > 1 (sql/065): for n=2 these ARE the two rates. */
+  minRate: number | null;
+  maxRate: number | null;
   asOf: string | null;
 }
 
@@ -103,7 +106,7 @@ export async function listRateRows(
   const pagePromise = sql`
     SELECT u.npi, u.display_name, u.credential, u.profession, u.city,
            u.payer, u.network, u.setting, u.tin, u.as_of,
-           u.billing_code, u.rate, u.n_rates
+           u.billing_code, u.rate, u.n_rates, u.min_rate, u.max_rate
     FROM rate_service_rows_mv u
     WHERE (${payer}::text IS NULL OR u.payer = ${payer})
       AND (${code}::text IS NULL OR u.billing_code = ${code})
@@ -148,6 +151,8 @@ export async function listRateRows(
       billingCode: r.billing_code as string,
       rate: r.rate == null ? null : Number(r.rate),
       nRates: Number(r.n_rates),
+      minRate: r.min_rate == null ? null : Number(r.min_rate),
+      maxRate: r.max_rate == null ? null : Number(r.max_rate),
       // Neon hands back Date objects; repos return ISO strings.
       asOf: r.as_of ? isoDateOnly(r.as_of as string) : null,
     })),

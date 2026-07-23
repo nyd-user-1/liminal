@@ -12,7 +12,7 @@ import { KebabMenu } from "@/components/ui/kebab-menu";
 import { SearchInput } from "@/components/ui/search-input";
 import { Tabs } from "@/components/ui/tabs";
 import { RelatedLink, TextLink } from "@/components/ui/text-link";
-import { formatDate, providerDisplayName, titleCase } from "@/lib/format";
+import { prettyNetworkLabel, providerDisplayName, titleCase } from "@/lib/format";
 // From lib/rate-table (no db import), never lib/repos — a VALUE import from a
 // repo pulls lib/db into this bundle and the Neon proxy throws in the browser.
 import {
@@ -45,11 +45,6 @@ const text = (s: string | null) => s ?? "￿";
 
 /** Case- and diacritic-insensitive. */
 const norm = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
-
-/** "2026-07-01" → "Jul 1, 2026". Parsed at LOCAL midnight on purpose: formatDate's
- *  bare `new Date("2026-07-01")` is UTC midnight, which renders as the day before
- *  west of Greenwich — and this date is the whole point of the footer. */
-const formatAsOf = (iso: string) => formatDate(`${iso}T00:00:00`);
 
 /**
  * tin_registry stores people as NPPES writes them — "PADGETT MARISA
@@ -361,7 +356,7 @@ export function PublishedRatesClient({
         render: (r: RateTableRow) => {
           const n = networkLabel(r.network, r.payer);
           return n ? (
-            <span className="text-text-muted" title={r.network ?? undefined}>{n}</span>
+            <span className="text-text-muted" title={r.network ?? undefined}>{prettyNetworkLabel(n)}</span>
           ) : null;
         },
       },
@@ -441,13 +436,6 @@ export function PublishedRatesClient({
     [router],
   );
 
-  // One date per insurer, never one for the table: the books are months apart
-  // (Cigna 2026-07-01 vs MetroPlus 2024-02-07) and a folded date would render
-  // MetroPlus's two-year-old book as current.
-  const dates = RATE_TABLE_PAYERS.filter((p) => data.asOfByPayer[p]).map(
-    (p) => `${p} ${formatAsOf(data.asOfByPayer[p]!)}`,
-  );
-
   const toggler = (set: React.Dispatch<React.SetStateAction<Set<string>>>) => (v: string) =>
     set((s) => {
       const next = new Set(s);
@@ -505,13 +493,12 @@ export function PublishedRatesClient({
             />
           </>
         }
-        footnote={
-          <p className="shrink-0 text-[13px] leading-relaxed text-text-muted">
-            Source: Transparency in Coverage machine-readable files published by each insurer shown. Rates as of{" "}
-            {dates.join(" · ")}. A rate is what the insurer publishes it pays the billing entity for an in-network
-            professional service — it is not what a patient pays.
-          </p>
-        }
+        // The standard footer, minus a folded "Updated" date on purpose: the
+        // books are months apart (Cigna 2026-07-01 vs MetroPlus 2024-02-07) and
+        // one date would render MetroPlus's two-year-old book as current. The
+        // per-insurer dates live on the As-of column; the header tooltip on
+        // Rate cells carries the not-what-a-patient-pays framing.
+        records={data.rows.length}
       />
     </div>
   );

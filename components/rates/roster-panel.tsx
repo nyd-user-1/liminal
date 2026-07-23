@@ -16,6 +16,8 @@ import { clinicianName } from "@/components/rates/clinician-name";
 import { cptLabel } from "@/components/rates/cpt";
 import { InsurerCell, InsurerMark } from "@/components/rates/insurer-mark";
 import { TableSkeleton } from "@/components/rates/table-skeleton";
+import { RelatedLink, TextLink } from "@/components/ui/text-link";
+import { billingIdKind, billingIdValue } from "@/lib/rate-table";
 import type {
   Attestation,
   CredentialingFootprint,
@@ -357,22 +359,41 @@ const BOOK_COLS: DataTableColumn<RateBookRow>[] = [
     label: "Contract holder",
     sortValue: (r) => r.holder,
     cellClassName: "max-w-72",
+    // One line, always (no-two-line-rows ruling 2026-07-23) — the billing ID
+    // moved to its own column. The holder IS an org record, so it links there.
     render: (r) => (
-      <span className="min-w-0">
-        <span className="block truncate font-medium text-text" title={r.holder}>
-          {r.holder}
-        </span>
-        <span className="block truncate font-mono text-[12px] text-text-muted">{r.tin}</span>
+      <TextLink
+        href={`/orgs/${encodeURIComponent(r.tin)}`}
+        variant="name"
+        className="!block min-w-0 truncate"
+        title={r.holder}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {r.holder}
+      </TextLink>
+    ),
+  },
+  {
+    key: "tin",
+    label: "Billing ID",
+    headTitle: "The identifier the insurer publishes for this billing group — an EIN, or an NPI standing in for one",
+    sortValue: (r) => r.tin,
+    render: (r) => (
+      <span className="tabular-nums">
+        <span className="mr-1.5 text-[13px] text-text-muted">{billingIdKind(r.tin)}</span>
+        <RelatedLink href={`/orgs/${encodeURIComponent(r.tin)}`} title="Open this billing group in the org book">
+          {billingIdValue(r.tin)}
+        </RelatedLink>
       </span>
     ),
   },
   { key: "county", label: "County", sortValue: (r) => r.county ?? "", render: (r) => <span className="text-text-body">{r.county ?? "–"}</span> },
   { key: "clinicians", label: "Clinicians", align: "right", sortValue: (r) => r.clinicians, render: (r) => r.clinicians.toLocaleString("en-US") },
-  { key: "workhorse", label: "90837 in-network rate", align: "right", sortValue: (r) => r.workhorse ?? "", render: (r) => <span className="text-text">{r.workhorse ?? "–"}</span> },
+  { key: "workhorse", label: "90837 In Ntwk", headTitle: "The insurer's published in-network rate for a 60-minute therapy session (90837)", align: "right", sortValue: (r) => r.workhorse ?? "", render: (r) => <span className="text-text">{r.workhorse ?? "–"}</span> },
   { key: "asOf", label: "As-of", sortValue: (r) => r.asOf, render: (r) => <span className="text-text-muted">{r.asOf}</span> },
 ];
 
-function BookTable({ rows, total, truncated, toolbarLeft }: { rows: RateBookRow[]; total: number; truncated: boolean; toolbarLeft: React.ReactNode }) {
+function BookTable({ rows, total, toolbarLeft }: { rows: RateBookRow[]; total: number; toolbarLeft: React.ReactNode }) {
   // Client-side Insurer facet over the loaded books — the "filter after search"
   // the toolbar spec calls for. The search itself (server-side) is toolbarLeft.
   const [payer, setPayer] = useState<string | undefined>();
@@ -396,19 +417,8 @@ function BookTable({ rows, total, truncated, toolbarLeft }: { rows: RateBookRow[
           onSelect={(_k, v) => setPayer(v)}
         />
       }
-      footnote={
-        // Say what this covers. It is NOT every book we hold rates for: sql/027
-        // allowlists the six insurers whose schedules resolve to one publishable
-        // figure per billing ID, and excludes both Aetna labels and the
-        // out-of-state Blues on purpose.
-        <p className="text-[13px] leading-relaxed text-text-muted">
-          {truncated
-            ? `Showing ${rows.length.toLocaleString("en-US")} of ${total.toLocaleString("en-US")} contract books — search to narrow, or enter a 10-digit NPI to see one clinician's.`
-            : `${total.toLocaleString("en-US")} contract ${total === 1 ? "book" : "books"}. Enter a 10-digit NPI to see one clinician's.`}{" "}
-          Covers the insurers whose published schedules resolve to a single rate per billing ID — Aetna and the
-          out-of-state Blues publish multi-rate schedules a single figure can&rsquo;t honestly represent.
-        </p>
-      }
+      records={total}
+      updatedDate={shown.reduce<string | null>((m, r) => (r.asOf && (!m || r.asOf > m) ? r.asOf : m), null)}
     />
   );
 }
@@ -531,7 +541,7 @@ export function RosterPanel({
             subtext="Search an insurer or a contract holder — or clear the box to see every book we index."
           />
         ) : (
-          <BookTable rows={books.rows} total={books.total} truncated={books.truncated} toolbarLeft={searchNode} />
+          <BookTable rows={books.rows} total={books.total} toolbarLeft={searchNode} />
         )
       )}
 

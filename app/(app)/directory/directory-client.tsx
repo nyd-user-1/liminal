@@ -424,6 +424,82 @@ export function DirectoryClient({
     });
   }, [tab, items, programSort]);
 
+  // The in-chrome toolbar (search + chips left, utilities kebab right) and the
+  // standard footer, shared by both tabs' tables.
+  const tableToolbar = (
+    <>
+      <SearchInput
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && load(1, true)}
+        placeholder={tab === "providers" ? "Search by name, city, specialty or ZIP" : "Search by program, agency or city"}
+        className="w-full sm:w-[380px]"
+      />
+      {tab === "providers" ? (
+        <>
+          <ChipMenu
+            label="Specialty"
+            value={need ? titleCase(need) : undefined}
+            options={needOptions}
+            annotate={(o) => (PRESCRIBER_SPECIALTIES.has(o) ? <Badge variant="info">Rx</Badge> : null)}
+            onSelect={(v) => setNeed(v)}
+            onClear={() => setNeed(undefined)}
+          />
+          {(facets.subspecialties?.length ?? 0) > 0 && (
+            <ChipMenu
+              label="Sub-specialty"
+              value={subspecialty}
+              options={facets.subspecialties ?? []}
+              onSelect={(v) => setSubspecialty(v)}
+              onClear={() => setSubspecialty(undefined)}
+            />
+          )}
+        </>
+      ) : (
+        <>
+          <ChipMenu
+            label="County"
+            value={county ? titleCase(county) : undefined}
+            options={facets.counties}
+            onSelect={(v) => setCounty(v)}
+            onClear={() => setCounty(undefined)}
+          />
+          <ChipMenu
+            label="Type"
+            value={need ? titleCase(need) : undefined}
+            options={needOptions}
+            onSelect={(v) => setNeed(v)}
+            onClear={() => setNeed(undefined)}
+          />
+        </>
+      )}
+      {hasFilters && <TextLink onClick={resetFilters}>Reset</TextLink>}
+      <span className="ml-auto">
+        <KebabMenu label="Table options" icon="dots-horizontal">
+          {tab === "providers" && (
+            <MenuItem
+              icon="columns-3"
+              label="Columns"
+              onClick={() => {
+                const r = document.getElementById("directory-utils")?.getBoundingClientRect();
+                setColMenu(r ? { x: r.right, y: r.bottom + 4 } : { x: 24, y: 120 });
+              }}
+            />
+          )}
+          <MenuItem icon="download" label="Export" onClick={() => toast("Export isn’t wired up yet.", "info")} />
+          <MenuItem icon="refresh-cw" label="Refresh" onClick={() => load(1, true)} />
+        </KebabMenu>
+      </span>
+      <span id="directory-utils" aria-hidden />
+    </>
+  );
+  const tableFooter = (
+    <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[13px] text-text-muted">
+      <span className="min-w-0 truncate tabular-nums">{total.toLocaleString("en-US")} records</span>
+      <span className="shrink-0">Data set by NYSgpt</span>
+    </div>
+  );
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <IndexHeader
@@ -452,77 +528,9 @@ export function DirectoryClient({
       />
 
       <div className="flex min-h-0 flex-1 flex-col" hidden={view !== "list"}>
-      <Toolbar className="mb-4 shrink-0 flex-wrap md:mb-6">
-        <SearchInput
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && load(1, true)}
-          placeholder={tab === "providers" ? "Search by name, city, specialty or ZIP" : "Search by program, agency or city"}
-          className="max-w-md flex-1"
-        />
-        {tab === "providers" ? (
-          <>
-            <ChipMenu
-              label="Specialty"
-              value={need ? titleCase(need) : undefined}
-              options={needOptions}
-              annotate={(o) => (PRESCRIBER_SPECIALTIES.has(o) ? <Badge variant="info">Rx</Badge> : null)}
-              onSelect={(v) => setNeed(v)}
-              onClear={() => setNeed(undefined)}
-            />
-            {(facets.subspecialties?.length ?? 0) > 0 && (
-              <ChipMenu
-                label="Sub-specialty"
-                value={subspecialty}
-                options={facets.subspecialties ?? []}
-                onSelect={(v) => setSubspecialty(v)}
-                onClear={() => setSubspecialty(undefined)}
-              />
-            )}
-          </>
-        ) : (
-          <>
-            <ChipMenu
-              label="County"
-              value={county ? titleCase(county) : undefined}
-              options={facets.counties}
-              onSelect={(v) => setCounty(v)}
-              onClear={() => setCounty(undefined)}
-            />
-            <ChipMenu
-              label="Type"
-              value={need ? titleCase(need) : undefined}
-              options={needOptions}
-              onSelect={(v) => setNeed(v)}
-              onClear={() => setNeed(undefined)}
-            />
-          </>
-        )}
-        {hasFilters && <TextLink onClick={resetFilters}>Reset</TextLink>}
-        <span className="ml-auto flex items-center gap-2">
-          {tab === "providers" && (
-            <ColumnPicker options={PROVIDER_COLUMNS} visible={visibleCols} onToggle={toggleCol} />
-          )}
-          <Button
-            variant="secondary"
-            size="sm"
-            leftIcon="download"
-            onClick={() => toast("Export isn\u2019t wired up yet.", "info")}
-            className="!border-field-border !text-text-body hover:!border-field-border-focus"
-          >
-            Export
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            leftIcon="refresh-cw"
-            onClick={() => load(1, true)}
-            className="!border-field-border !text-text-body hover:!border-field-border-focus"
-          >
-            Refresh
-          </Button>
-        </span>
-      </Toolbar>
+      {/* The toolbar lives INSIDE the table chrome, atop the header row (the
+          stacked standard, 2026-07-23): search + filter chips left, utilities
+          folded into one kebab right. Shared by both tabs' tables below. */}
 
       {/* Right-click any header for the column menu — same gesture the standard
           DataTable ships; cursor-anchored + fixed, so the Table cannot clip it. */}
@@ -553,6 +561,8 @@ export function DirectoryClient({
         <Table
           className="min-h-0 flex-1"
           stickyHeader
+          toolbar={tableToolbar}
+          footer={tableFooter}
           onHeaderContextMenu={(e) => {
             e.preventDefault();
             setColMenu({ x: e.clientX, y: e.clientY });
@@ -614,7 +624,7 @@ export function DirectoryClient({
                 <Td className="max-w-56">
                   <span className="flex min-w-0 items-center gap-2.5">
                     <Avatar name={name} hue={avatarHue(r.id)} size="sm" className="shrink-0" />
-                    <TextLink className="min-w-0 truncate" title={name} onClick={(e) => { e.stopPropagation(); openProvider(r); }}>
+                    <TextLink variant="name" className="min-w-0 truncate" title={name} onClick={(e) => { e.stopPropagation(); openProvider(r); }}>
                       {name}
                     </TextLink>
                     {pinnedIds.has(r.id) && <Icon name="pin" size={13} className="shrink-0 fill-primary-wash text-text" />}
@@ -683,6 +693,8 @@ export function DirectoryClient({
         <Table
           className="min-h-0 flex-1"
           stickyHeader
+          toolbar={tableToolbar}
+          footer={tableFooter}
           head={[
             <Checkbox key="all" aria-label="Select all loaded" checked={allLoadedChecked} onChange={toggleAllLoaded} />,
             <SortableHead key="name" label="Program" col="name" sort={programSort} onSort={toggleProgramSort} />,
@@ -700,7 +712,7 @@ export function DirectoryClient({
               <Td className="max-w-64">
                 <span className="flex min-w-0 items-center gap-2.5">
                   <Avatar name={r.programName} hue={avatarHue(r.id)} size="sm" className="shrink-0" />
-                  <TextLink className="min-w-0 truncate" title={r.programName} onClick={(e) => { e.stopPropagation(); setSelected(r); }}>
+                  <TextLink variant="name" className="min-w-0 truncate" title={r.programName} onClick={(e) => { e.stopPropagation(); setSelected(r); }}>
                     {r.programName}
                   </TextLink>
                 </span>

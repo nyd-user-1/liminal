@@ -71,7 +71,14 @@ export function titleCase(s: string): string {
 // "2" org), but Medicaid rows are unenriched — for those, a digit or an
 // org-shaped token means the name is a business and must not be reordered.
 const ORG_NAME =
-  /\d|\b(INC|LLC|PLLC|LLP|LP|PC|CORP|CO|COMPANY|CENTER|CENTRE|SERVICES?|ASSOCIATES?|GROUP|CLINIC|HOSPITAL|HEALTH|MEDICAL|CARE|COUNSELING|PSYCHOLOGY|PSYCHOTHERAPY|THERAPY|WELLNESS|PRACTICE|PARTNERS?|FOUNDATION|INSTITUTE|NETWORK|AGENCY|PROGRAM|OPERATING|DEPARTMENT|UNIVERSITY|COLLEGE|OFFICE)\b/i;
+  /\d|\b(INC|LLC|PLLC|LLP|LP|PC|CORP|CO|COMPANY|CENTER|CENTRE|SERVICES?|ASSOCIATES?|GROUP|CLINIC|HOSPITAL|HEALTH|MEDICAL|CARE|COUNSELING|PSYCHOLOGY|PSYCHOTHERAPY|THERAPY|WELLNESS|PRACTICE|PARTNERS?|FOUNDATION|INSTITUTE|NETWORK|AGENCY|PROGRAM|OPERATING|DEPARTMENT|UNIVERSITY|COLLEGE|OFFICE|TRUSTEES?|TRUST)\b/i;
+
+// Surname particles that travel WITH the last name when NPPES's "LAST FIRST"
+// order is flipped: "DA SILVA NICOLE" is Nicole Da Silva, not "Silva Nicole Da".
+const SURNAME_PARTICLES = new Set([
+  "da", "das", "de", "del", "della", "den", "der", "di", "dos", "du",
+  "la", "le", "mac", "mc", "o", "san", "santa", "st", "van", "vander", "von",
+]);
 
 /** Directory provider names arrive "LAST FIRST [MIDDLE …]" (NPPES order) —
  *  show people as "First [Middle] Last". Organizations keep their name as-is. */
@@ -80,7 +87,12 @@ export function providerDisplayName(raw: string, entityType?: string | null): st
   if (entityType === "2") return t;
   if (entityType !== "1" && ORG_NAME.test(raw)) return t;
   const parts = t.split(/\s+/).filter(Boolean);
-  return parts.length < 2 ? t : [...parts.slice(1), parts[0]].join(" ");
+  if (parts.length < 2) return t;
+  // A multi-word surname keeps its particles attached to the token after them;
+  // the guard leaves at least one given-name token or the name stays put.
+  let end = 0;
+  while (end < parts.length - 2 && SURNAME_PARTICLES.has(parts[end].toLowerCase())) end++;
+  return [...parts.slice(end + 1), ...parts.slice(0, end + 1)].join(" ");
 }
 
 /** "5184561211" → "(518) 456-1211"; non-10-digit values pass through untouched. */
