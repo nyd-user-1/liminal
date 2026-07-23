@@ -33,8 +33,9 @@ const TABS = [
 
 // One line per tab, in the space the search vacated when it moved above the
 // table: say what the table IS before the reader has to infer it from columns.
+// The Rates tab carries none (founder cut, 2026-07-23) — its table explains
+// itself; the row collapses so the table takes the space back.
 const BLURBS: Record<string, string> = {
-  rates: "Every rate we hold for a service, exactly as the insurer published it — clinician, plan and place of service.",
   bands: "The spread across a cohort: 25th / median / 75th percentile per insurer, plan and licence tier.",
   panels: "Panels are the payer × network contracts a clinician is listed under, and what each one pays.",
   roster: "Who is still publishing you, and what that listing was worth.",
@@ -73,10 +74,12 @@ export function RatesShell({ userEmail }: { userEmail?: string }) {
       <Tabs className="mt-4 shrink-0" items={TABS} active={tab} onChange={setTab} slideActive />
 
       {/* Sits under the tab hairline, above the tab body — one line saying what
-          this tab's table is. */}
-      <div className="mb-4 mt-3 flex shrink-0 flex-wrap items-center justify-between gap-3">
-        <p className="text-[15px] text-text-body">{BLURBS[tab]}</p>
-      </div>
+          this tab's table is. Tabs without a blurb get their space back. */}
+      {BLURBS[tab] && (
+        <div className="mb-4 mt-3 flex shrink-0 flex-wrap items-center justify-between gap-3">
+          <p className="text-[15px] text-text-body">{BLURBS[tab]}</p>
+        </div>
+      )}
 
       {/* Each table owns its scroll internally (sticky-header table); Spread is a
           form-then-small-result screen, so its tab body scrolls normally. Rates
