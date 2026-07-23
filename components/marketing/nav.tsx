@@ -163,13 +163,13 @@ const FIND_CATEGORIES: FindCategory[] = [
     sections: [
       {
         links: [
-          { label: "Mental health programs", href: "/programs", icon: "globe" },
-          { label: "Crisis support", href: "/programs/family/crisis", icon: "phone" },
+          { label: "Mental health programs", href: "/care/programs", icon: "globe" },
+          { label: "Crisis support", href: "/care/programs/family/crisis", icon: "phone" },
           { label: "What to expect", href: "/#for-providers", icon: "note" },
         ],
       },
     ],
-    viewAll: { label: "Explore resources", href: "/programs" },
+    viewAll: { label: "Explore resources", href: "/care/programs" },
   },
 ];
 

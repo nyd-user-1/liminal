@@ -1,6 +1,6 @@
 import { requireRole } from "@/lib/auth";
 import { listClients } from "@/lib/repos/clients";
-import { programFacets, providerFacets } from "@/lib/repos/directory";
+import { providerFacets } from "@/lib/repos/directory";
 import { DirectoryClient } from "./directory-client";
 
 // Referral Directory — searchable view over the NY open-data provider and
@@ -12,11 +12,10 @@ export const dynamic = "force-dynamic";
 
 export default async function DirectoryPage() {
   await requireRole("practitioner");
-  const [pf, prf, clients] = await Promise.all([providerFacets(), programFacets(), listClients()]);
+  const [pf, clients] = await Promise.all([providerFacets(), listClients()]);
   return (
     <DirectoryClient
       providerFacets={pf}
-      programFacets={prf}
       clients={clients.map((c) => ({ id: c.id, name: `${c.firstName} ${c.lastName}` }))}
     />
   );

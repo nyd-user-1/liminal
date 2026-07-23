@@ -68,7 +68,7 @@ function FamilyCard({ family }: { family: ProgramFamilyFacet }) {
   const ui = FAMILY_CONTENT[family.slug];
   return (
     <Link
-      href={`/programs/family/${family.slug}`}
+      href={`/care/programs/family/${family.slug}`}
       className="group flex flex-col rounded-card border border-border bg-surface p-6 shadow-card transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-menu"
     >
       <span className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-field bg-primary-wash">
@@ -105,7 +105,7 @@ function CrisisBanner() {
         </p>
       </div>
       <Link
-        href="/programs/family/crisis"
+        href="/care/programs/family/crisis"
         className="inline-flex h-11 shrink-0 items-center justify-center rounded-field bg-primary px-5 text-[15px] font-semibold text-white transition-colors hover:bg-primary-hover"
       >
         See crisis resources

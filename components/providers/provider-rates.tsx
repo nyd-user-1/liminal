@@ -10,6 +10,9 @@ import { Icon } from "@/components/ui/icons";
 import { KebabMenu } from "@/components/ui/kebab-menu";
 import { MenuItem } from "@/components/ui/dropdown-menu";
 import { SortableHead, Table, Td, Tr, useSort } from "@/components/ui/table";
+import { Tabs } from "@/components/ui/tabs";
+import { TabReveal } from "@/components/ui/tab-reveal";
+import { SearchInput } from "@/components/ui/search-input";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cptLabel } from "@/components/rates/cpt";
 import { InsurerMark } from "@/components/rates/insurer-mark";
@@ -52,20 +55,6 @@ const RATE_FIELD: Record<RateColKey, keyof NetworkMembershipRow> = {
   b90853: "best90853",
   b99214: "best99214",
 };
-
-function ToggleChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`inline-flex h-10 items-center rounded-field border px-4 text-sm font-medium transition-colors ${
-        active ? "border-primary bg-primary-wash text-primary" : "border-field-border text-text-body hover:border-field-border-focus"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
 
 export function ProviderRates({ npi }: { npi: string | null }) {
   const router = useRouter();
@@ -135,13 +124,20 @@ export function ProviderRates({ npi }: { npi: string | null }) {
     };
   }, [npi]);
 
+  // In-chrome search (the table standard): one box filters whichever view is
+  // active — payer/network/code text over rows that are all loaded client-side.
+  const [q, setQ] = useState("");
+  const needle = q.trim().toLowerCase();
+
   const sortedMembers = useMemo(() => {
     if (!memberships) return [];
     const dir = sort.dir === "asc" ? 1 : -1;
     const money = (v: string | null) => (v == null ? -Infinity : Number(v.slice(1)));
     const accRank = (m: NetworkMembershipRow) =>
       m.accepting === "accepting" ? 2 : m.accepting === "not_accepting" ? 1 : 0;
-    return [...memberships].sort((a, b) => {
+    return [...memberships]
+      .filter((m) => !needle || `${m.payer} ${m.network}`.toLowerCase().includes(needle))
+      .sort((a, b) => {
       let cmp = 0;
       if (sort.col === "network") cmp = a.network.localeCompare(b.network);
       else if (sort.col === "accepting") cmp = accRank(a) - accRank(b);
@@ -151,7 +147,15 @@ export function ProviderRates({ npi }: { npi: string | null }) {
       else cmp = a.payer.localeCompare(b.payer);
       return cmp * dir || a.payer.localeCompare(b.payer) || a.network.localeCompare(b.network);
     });
-  }, [memberships, sort]);
+  }, [memberships, sort, needle]);
+
+  const shownRates = useMemo(
+    () =>
+      (rates ?? []).filter(
+        (r) => !needle || `${r.payer} ${r.network} ${r.billingCode}`.toLowerCase().includes(needle),
+      ),
+    [rates, needle],
+  );
 
   if (rates === null || memberships === null)
     return <TableSkeleton head={["Insurer", "Network", "Accepting", "Updated", ...RATE_COLS.map((c) => c.label)]} />;
@@ -166,24 +170,44 @@ export function ProviderRates({ npi }: { npi: string | null }) {
     );
   }
 
+  // The in-chrome toolbar both views share: search left, utilities right
+  // (the Networks view's column picker rides here).
+  const tableToolbar = (
+    <>
+      <SearchInput
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Search by insurer, network or code"
+        className="w-full sm:w-[320px]"
+      />
+      <span className="ml-auto">
+        {view === "networks" && <ColumnPicker options={NETWORK_COLUMNS} visible={visibleCols} onToggle={toggleCol} />}
+      </span>
+    </>
+  );
+
   return (
     <>
-      <div className="mb-3 flex shrink-0 items-center gap-2">
-        <ToggleChip active={view === "rates"} onClick={() => setView("rates")}>
-          All rates
-        </ToggleChip>
-        <ToggleChip active={view === "networks"} onClick={() => setView("networks")}>
-          Networks
-        </ToggleChip>
-        {view === "networks" && (
-          <ColumnPicker options={NETWORK_COLUMNS} visible={visibleCols} onToggle={toggleCol} className="ml-auto" />
-        )}
-      </div>
+      {/* The drill-down tab rail (founder spec 2026-07-23) — same anatomy as
+          the /orgs record; TabReveal plays the switch. */}
+      <Tabs
+        slideActive
+        className="mb-4 shrink-0"
+        active={view}
+        onChange={(k) => setView(k as "networks" | "rates")}
+        items={[
+          { key: "rates", label: "All rates" },
+          { key: "networks", label: "Networks" },
+        ]}
+      />
+
+      <TabReveal id={view} className="flex min-h-0 flex-1 flex-col">
 
       {view === "networks" ? (
         <Table
           className="min-h-0 flex-1"
           stickyHeader
+          toolbar={tableToolbar}
           footer={stdFooter(sortedMembers.length)}
           head={[
             <span key="__sel" aria-hidden />,
@@ -276,7 +300,8 @@ export function ProviderRates({ npi }: { npi: string | null }) {
         <Table
           className="min-h-0 flex-1"
           stickyHeader
-          footer={stdFooter(rates.length)}
+          toolbar={tableToolbar}
+          footer={stdFooter(shownRates.length)}
           head={[
             <span key="__sel" aria-hidden />,
             "Insurer",
@@ -292,7 +317,7 @@ export function ProviderRates({ npi }: { npi: string | null }) {
             "",
           ]}
         >
-          {rates.map((r, i) => (
+          {shownRates.map((r, i) => (
             <Tr key={`${r.payer}|${r.network}|${r.billingCode}|${r.figure}|${i}`}>
               <Td className="w-10" onClick={(e) => e.stopPropagation()}>
                 <Checkbox
@@ -337,6 +362,7 @@ export function ProviderRates({ npi }: { npi: string | null }) {
           ))}
         </Table>
       )}
+      </TabReveal>
     </>
   );
 }

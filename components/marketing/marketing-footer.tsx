@@ -78,10 +78,10 @@ const BOTTOM_COLUMNS: FooterColumn[] = [
   },
   {
     heading: "Programs",
-    href: "/programs",
+    href: "/care/programs",
     links: [
       ...PROGRAM_FAMILIES.slice(0, 5).map((f) => ({ label: f.label, href: `/programs/family/${f.slug}` })),
-      { label: "View more", href: "/programs" },
+      { label: "View more", href: "/care/programs" },
     ],
   },
   {

@@ -79,7 +79,7 @@ export default async function ProgramFamilyPage({
           />
           <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-14 sm:py-16">
             <div className="lg:max-w-[54%]">
-              <Link href="/programs" className="group inline-flex items-center gap-1 text-sm font-medium text-primary">
+              <Link href="/care/programs" className="group inline-flex items-center gap-1 text-sm font-medium text-primary">
                 <span aria-hidden className="inline-block transition-transform group-hover:-translate-x-0.5">
                   ←
                 </span>
@@ -267,7 +267,7 @@ function ProgramRow({ program, icon, crisis }: { program: DirectoryProgram; icon
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <Link href={`/programs/${program.id}`} className="text-[17px] font-semibold text-text hover:text-primary hover:underline">
+          <Link href={`/care/programs/${program.id}`} className="text-[17px] font-semibold text-text hover:text-primary hover:underline">
             {name}
           </Link>
           {tag && <Badge variant="warning">{tag}</Badge>}

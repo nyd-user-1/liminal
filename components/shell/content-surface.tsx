@@ -40,6 +40,7 @@ const SWITCH_DESTINATIONS: Array<{ label: string; href: string; icon: IconName }
   { label: "Library", href: "/library", icon: "clipboard" },
   { label: "Rates", href: "/rates", icon: "activity" },
   { label: "Directory", href: "/directory", icon: "globe" },
+  { label: "Programs", href: "/programs", icon: "hand-heart" },
   { label: "Organizations", href: "/orgs", icon: "id-card" },
   { label: "Networks", href: "/networks", icon: "link" },
   { label: "Plans", href: "/plans", icon: "credit-card" },

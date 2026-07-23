@@ -9,6 +9,8 @@ import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { KebabMenu } from "@/components/ui/kebab-menu";
 import { MenuItem } from "@/components/ui/dropdown-menu";
 import { SearchInput } from "@/components/ui/search-input";
+import { Tabs } from "@/components/ui/tabs";
+import { TabReveal } from "@/components/ui/tab-reveal";
 import { Spinner } from "@/components/ui/spinner";
 import { TextLink } from "@/components/ui/text-link";
 import { TableSkeleton } from "@/components/rates/table-skeleton";
@@ -51,20 +53,6 @@ function median(nums: number[]): number {
 }
 
 type View = "rates" | "roster" | "participation" | "map";
-
-function ToggleChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`inline-flex h-10 items-center rounded-field border px-4 text-sm font-medium transition-colors ${
-        active ? "border-primary bg-primary-wash text-primary" : "border-field-border text-text-body hover:border-field-border-focus"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
 
 // One flat row type for the rates TREE: an insurer group opens to its per-code
 // bands in the same columns (the /published-rates pattern).
@@ -368,21 +356,24 @@ export function OrgPanels({
 
   return (
     <>
-      <div className="mb-3 flex shrink-0 items-center gap-2">
-        <ToggleChip active={view === "roster"} onClick={() => setView("roster")}>
-          Roster
-        </ToggleChip>
-        <ToggleChip active={view === "rates"} onClick={() => setView("rates")}>
-          Rates
-        </ToggleChip>
-        <ToggleChip active={view === "participation"} onClick={() => setView("participation")}>
-          Participation
-        </ToggleChip>
-        <ToggleChip active={view === "map"} onClick={() => setView("map")}>
-          Map
-        </ToggleChip>
-      </div>
+      {/* The drill-down tab rail (founder spec 2026-07-23): same anatomy as the
+          index pages' rail, resting atop the content column; the object panel
+          beside it stays fixed. TabReveal below plays the framer-motion reveal
+          on every switch. */}
+      <Tabs
+        slideActive
+        className="mb-4 shrink-0"
+        active={view}
+        onChange={(k) => setView(k as View)}
+        items={[
+          { key: "roster", label: "Roster" },
+          { key: "rates", label: "Rates" },
+          { key: "participation", label: "Participation" },
+          { key: "map", label: "Map" },
+        ]}
+      />
 
+      <TabReveal id={view} className="flex min-h-0 flex-1 flex-col">
       {view === "map" ? (
         graphFailed ? (
           <Banner variant="info">The relationship map didn&rsquo;t load — reload the page to try again.</Banner>
@@ -505,6 +496,7 @@ export function OrgPanels({
           records={participation.length}
         />
       )}
+      </TabReveal>
     </>
   );
 }

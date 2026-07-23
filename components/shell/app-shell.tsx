@@ -48,6 +48,7 @@ const WORKSPACE_NAV: SidebarNavSection[] = [
     items: [
       { label: "Rates", href: "/rates", icon: "activity" },
       { label: "Directory", href: "/directory", icon: "globe" },
+      { label: "Programs", href: "/programs", icon: "hand-heart" },
       { label: "Organizations", href: "/orgs", icon: "id-card" },
       { label: "Networks", href: "/networks", icon: "link" },
       { label: "Plans", href: "/plans", icon: "credit-card" },
