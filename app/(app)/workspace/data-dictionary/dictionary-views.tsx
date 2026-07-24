@@ -7,11 +7,14 @@ import { DataDictionary } from "../../admin/data/data-dictionary";
 import type { DictionaryGroup } from "@/lib/repos/admin";
 import type { SchemaGraph } from "@/lib/repos/schema-map";
 import type { SchemaTableMeta } from "@/components/maps/schema-canvas";
+import type { SchemaDraftMeta } from "@/lib/schema-draft";
+import { SchemaDraftClient } from "./schema-draft-client";
 
-// Registry | Schema map — two views of the same truth. The registry is the
-// curated prose (what each table means); the map is the live catalog drawn
-// as a canvas (columns, FKs, matview lineage). Toggle is the org-map
-// segmented pattern.
+// Registry | Schema map | Draft — three views of the same truth. The
+// registry is curated prose; the map is the live catalog as a read-only
+// canvas; the draft is a redesign sandbox — user-invented tables/columns/
+// edges, never applied to the real schema. Toggle is the org-map segmented
+// pattern.
 
 const SchemaCanvas = dynamic(() => import("@/components/maps/schema-canvas").then((m) => m.SchemaCanvas), {
   ssr: false,
@@ -26,12 +29,14 @@ export function DictionaryViews({
   groups,
   schema,
   meta,
+  initialDrafts,
 }: {
   groups: DictionaryGroup[];
   schema: SchemaGraph;
   meta: Record<string, SchemaTableMeta>;
+  initialDrafts: SchemaDraftMeta[];
 }) {
-  const [view, setView] = useState<"registry" | "map">("registry");
+  const [view, setView] = useState<"registry" | "map" | "draft">("registry");
   return (
     <div className="flex flex-col gap-4">
       <div className="flex h-9 w-fit items-center overflow-hidden rounded-field border border-border bg-surface shadow-card">
@@ -39,6 +44,7 @@ export function DictionaryViews({
           [
             ["registry", "Registry"],
             ["map", "Schema map"],
+            ["draft", "Draft"],
           ] as const
         ).map(([key, label], i) => (
           <span key={key} className="flex h-full items-center">
@@ -56,13 +62,13 @@ export function DictionaryViews({
           </span>
         ))}
       </div>
-      {view === "registry" ? (
-        <DataDictionary groups={groups} />
-      ) : (
+      {view === "registry" && <DataDictionary groups={groups} />}
+      {view === "map" && (
         <div className="flex h-[72vh] min-h-[480px] flex-col">
           <SchemaCanvas schema={schema} meta={meta} />
         </div>
       )}
+      {view === "draft" && <SchemaDraftClient schema={schema} initialDrafts={initialDrafts} />}
     </div>
   );
 }

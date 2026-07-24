@@ -1,4 +1,4 @@
-# Handoff — the xyflow canvases (org map · chat · /maps · schema map)
+# Handoff — the xyflow canvases (org map · chat · /maps · schema map · schema draft)
 
 **Date:** 2026-07-23 · **Branch:** `bedrock-clinical-notes` · **Commits:** `f725ca7`, `1833817`, + the pivot commit after this file.
 **Founder-reviewed on :3010 through the rate drill; pivot-on-node landed after the last review pass.**
@@ -80,6 +80,42 @@ edges (gray, column-to-column handles) + 23 matview-lineage edges (teal dashed, 
 pg_rewrite — `provider_rate_signals` fans into 7 rollups). Node-search top-right flies to a
 table or column. Draggable, no deletion.
 
+### 5. Schema draft — `components/maps/schema-draft-canvas.tsx` (Workspace → Data dictionary → Draft tab)
+Added 2026-07-23, after Brendan asked for the ability to "edit a copy of the schema"
+to redesign it. Deliberately the cheapest of the three options considered (diagram-only,
+no in-UI migration generator) because the draft doc is structured JSON (tables/columns/
+FKs), not pixels — a later session (person or agent) opens it and hand-writes the real
+migration, the same way every migration in sql/ already gets written. That's *more*
+flexible than a UI diff button: intent questions (rename vs. drop+add? does a new column
+need a backfill default? does a new FK want a supporting index?) get asked in
+conversation instead of guessed heuristically.
+- Unlike every other canvas here, edges are USER-DRAWN and tables/columns are fiction —
+  the opposite of the /maps rule. Nothing ever runs as DDL against the real database.
+- Fork from live schema (`lib/schema-draft.ts` `forkFromLiveSchema`) seeds a draft from
+  the same `SchemaGraph` the read-only map uses, in a simple 4-per-row grid (not the
+  banded layout) — a start-from-real-schema point, not a live sync; once forked, a
+  draft never looks at the catalog again.
+- Every table/column is inline-editable (name, type, PK, kind toggle table/matview);
+  add/remove column, add/delete table (trash icon only — see gotcha below), draw FK
+  edges column-to-column or "feeds" edges table-to-table via the same handle IDs the
+  read-only view uses, keyed by a stable column `id` (not name) so edges survive a
+  rename.
+- Saved per user (`schema_drafts`, sql/070; `/api/schema-drafts*`, admin-gated same as
+  the page) — "My drafts" switcher mirrors /maps' "My maps" exactly (fork/new/save/
+  load/delete via `TopBarActions`, portal-mounted only while the Draft tab is active).
+- **Gotcha that cost time**: a newly added table must NOT reuse a fixed `(40, 40)`
+  position — every "Add table" click has to land at a fresh grid cell keyed on current
+  node count, or the new node stacks exactly on the previous one and becomes
+  unclickable (Playwright caught this as a false "element intercepts pointer events";
+  it's real — a second stacked node's icons are visually unreachable in the browser
+  too). Fixed by cascading through the same per-row grid math the fork layout uses.
+- **Gotcha**: table deletion is trash-icon only, never the keyboard — `onNodesChange`
+  strips "remove" changes before applying them, because a stray Backspace while
+  editing a table/column name (an actual `<input>`, unlike every other canvas node
+  here) would otherwise delete the whole table out from under the user. Edge deletion
+  is untouched (`Backspace`/`Delete` on a selected edge works normally) since edges
+  hold no text input to type into.
+
 ## Data layer
 
 - `lib/org-graph.ts` — db-free shape (`OrgGraph`, `PayerGraph`, `OrgGraphRate`); dynamic
@@ -95,6 +131,7 @@ table or column. Draggable, no deletion.
   - `068` — `provider_rate_signals (tin, payer, billing_code)` index (the drill).
   - `069` — `org_tin_rate_summary (payer, npis DESC)` index (pivot; recreate if 066 reruns —
     DROP MATERIALIZED VIEW drops indexes).
+  - `070` — `schema_drafts` table (the schema-draft canvas's saved documents).
 
 ## Copy & product rulings (violations get called out fast)
 

@@ -3,6 +3,7 @@ import { BoardTabs } from "@/components/shell/board-tabs";
 import { requireUser } from "@/lib/auth";
 import { platformInventory } from "@/lib/repos/admin";
 import { getSchemaGraph } from "@/lib/repos/schema-map";
+import { listSchemaDrafts } from "@/lib/repos/schema-drafts";
 import type { SchemaTableMeta } from "@/components/maps/schema-canvas";
 import { DictionaryViews } from "./dictionary-views";
 
@@ -17,7 +18,11 @@ export default async function WorkspaceDataDictionaryPage() {
   const user = await requireUser();
   if (user.role !== "admin") redirect("/workspace");
 
-  const [inventory, schema] = await Promise.all([platformInventory(), getSchemaGraph()]);
+  const [inventory, schema, drafts] = await Promise.all([
+    platformInventory(),
+    getSchemaGraph(),
+    listSchemaDrafts(user.id),
+  ]);
 
   // Curated group/meaning/count per table — the canvas bands and tooltips.
   const meta: Record<string, SchemaTableMeta> = {};
@@ -30,7 +35,7 @@ export default async function WorkspaceDataDictionaryPage() {
   return (
     <div className="mx-auto flex min-w-0 max-w-[1400px] flex-col gap-6">
       <BoardTabs />
-      <DictionaryViews groups={inventory.groups} schema={schema} meta={meta} />
+      <DictionaryViews groups={inventory.groups} schema={schema} meta={meta} initialDrafts={drafts} />
     </div>
   );
 }
