@@ -36,7 +36,7 @@ import { cptLabel } from "@/components/rates/cpt";
 import { normalizeOrgName, providerDisplayName, titleCase } from "@/lib/format";
 // From lib/org-graph (no db import), never lib/repos — a VALUE import from a
 // repo pulls lib/db into this bundle and the Neon proxy throws in the browser.
-import { type OrgGraph, type OrgGraphEdge, type OrgGraphRate } from "@/lib/org-graph";
+import { type OrgGraph, type OrgGraphEdge, type OrgGraphRate, type PayerGraph } from "@/lib/org-graph";
 
 // The org relationship map — one organization's relationships as a
 // deterministic three-column graph: member providers | the org | insurers.
@@ -75,13 +75,19 @@ const PROVIDER_NODE_LIMIT = 8;
 type ProviderData = { label: string; profession: string | null; href: string };
 type MoreData = { label: string; onShowRoster?: () => void; href?: string };
 type OrgData = { label: string; clinicians: number; payers: number };
-type PayerData = { label: string; clinicians: number; href: string };
+type PayerData = { label: string; clinicians: number; href: string; onPivot?: () => void };
+type PivotPayerData = { label: string; orgs: number; href: string };
+type OrgLiteData = { label: string; clinicians: number; href: string };
 type RateEdgeData = {
   amount?: string;
   suffix?: string;
   href: string;
   title?: string;
   animated?: boolean;
+  /** Dot direction: money always flows payer→org. The org view draws paths
+      org→payer (dot runs the path in reverse); the pivot view draws
+      payer→org (dot runs forward). */
+  dotForward?: boolean;
   /** Count chips ("78 rates") open the drill panel instead of navigating. */
   onOpen?: () => void;
 };
@@ -158,7 +164,7 @@ function PayerNode(props: NodeProps) {
     <div
       className="cursor-pointer rounded-card border border-border bg-surface px-4 py-3 shadow-card transition-colors hover:border-primary"
       style={{ width: NODE_W.payer }}
-      title={`${d.label} — open in Published rates`}
+      title={`${d.label} — see this plan's organizations`}
     >
       <span className="flex items-center gap-2.5">
         <InsurerMark payer={d.label} />
@@ -174,7 +180,50 @@ function PayerNode(props: NodeProps) {
   );
 }
 
-const nodeTypes: NodeTypes = { provider: ProviderNode, more: MoreNode, org: OrgNode, payer: PayerNode };
+// Pivot mode's focal card: the insurer takes the navy treatment the org had.
+function PivotPayerNode(props: NodeProps) {
+  const d = props.data as unknown as PivotPayerData;
+  return (
+    <div
+      className="cursor-pointer rounded-card bg-[#1C2440] px-4 py-3 text-white shadow-card"
+      style={{ width: NODE_W.org }}
+      title={`${d.label} — open in Published rates`}
+    >
+      <p className="truncate text-[14px] font-semibold leading-snug">{d.label}</p>
+      <p className="mt-0.5 text-[12px] text-white/70">
+        {d.orgs.toLocaleString("en-US")} {d.orgs === 1 ? "organization" : "organizations"} in plan
+      </p>
+      <Handle type="source" position={Position.Right} className={anchor} />
+    </div>
+  );
+}
+
+// Pivot mode's org cards — doors into each organization's workspace.
+function OrgLiteNode(props: NodeProps) {
+  const d = props.data as unknown as OrgLiteData;
+  return (
+    <div
+      className="cursor-pointer rounded-card border border-border bg-surface px-4 py-3 shadow-card transition-colors hover:border-primary"
+      style={{ width: NODE_W.payer }}
+      title={`${normalizeOrgName(d.label)} — open the organization`}
+    >
+      <p className="truncate text-[14px] font-semibold leading-snug text-text">{normalizeOrgName(d.label)}</p>
+      <p className="mt-0.5 text-[12px] text-text-muted">
+        {d.clinicians.toLocaleString("en-US")} {d.clinicians === 1 ? "clinician" : "clinicians"} in plan
+      </p>
+      <Handle type="target" position={Position.Left} className={anchor} />
+    </div>
+  );
+}
+
+const nodeTypes: NodeTypes = {
+  provider: ProviderNode,
+  more: MoreNode,
+  org: OrgNode,
+  payer: PayerNode,
+  pivotPayer: PivotPayerNode,
+  orgLite: OrgLiteNode,
+};
 
 // The rates edge: a BaseEdge stroke plus an HTML label chip (EdgeLabelRenderer
 // escapes SVG, so the label can be a real design-system pill instead of the
@@ -204,7 +253,13 @@ export function RateEdge(props: EdgeProps) {
         // pointer it steals the node's hover, kills itself, and the
         // enter/leave loop shakes the whole canvas.
         <circle r="4" fill={TEAL} style={{ pointerEvents: "none" }}>
-          <animateMotion dur="1.6s" repeatCount="indefinite" path={path} keyPoints="1;0" keyTimes="0;1" />
+          <animateMotion
+            dur="1.6s"
+            repeatCount="indefinite"
+            path={path}
+            keyPoints={d.dotForward ? "0;1" : "1;0"}
+            keyTimes="0;1"
+          />
         </circle>
       )}
       {(d.amount || d.suffix) && (
@@ -418,8 +473,55 @@ export function OrgMap({
   // org card animates every inflow. Nothing moves unhovered.
   const [flowFocus, setFlowFocus] = useState<string | null>(null);
 
-  // The "78 rates" drill: which (payer, code) cell's published rates are open.
-  const [drill, setDrill] = useState<{ payer: string; code: string; nRates: number; href: string } | null>(null);
+  // The "78 rates" drill: which (org, payer, code) cell's published rates are
+  // open — pivot edges carry their own org tin, so the tin rides the state.
+  const [drill, setDrill] = useState<{
+    tin: string;
+    payer: string;
+    code: string;
+    nRates: number;
+    href: string;
+  } | null>(null);
+
+  // Pivot-on-node: click an insurer card → re-root the canvas to that plan's
+  // biggest organizations. Fetched lazily, cached per payer; back pill
+  // returns to the org view.
+  const [pivot, setPivot] = useState<string | null>(null);
+  const [pivotGraph, setPivotGraph] = useState<PayerGraph | null>(null);
+  const [pivotLoading, setPivotLoading] = useState(false);
+  const pivotCache = useRef(new Map<string, PayerGraph>());
+  useEffect(() => {
+    if (!pivot) {
+      setPivotGraph(null);
+      return;
+    }
+    const hit = pivotCache.current.get(pivot);
+    if (hit) {
+      setPivotGraph(hit);
+      return;
+    }
+    let stale = false;
+    setPivotLoading(true);
+    fetch(`/api/orgs/payer-graph?payer=${encodeURIComponent(pivot)}`)
+      .then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
+      .then((g: PayerGraph) => {
+        if (stale) return;
+        pivotCache.current.set(pivot, g);
+        setPivotGraph(g);
+      })
+      .catch(() => {
+        if (!stale) setPivot(null);
+      })
+      .finally(() => {
+        if (!stale) setPivotLoading(false);
+      });
+    return () => {
+      stale = true;
+    };
+  }, [pivot]);
   useEffect(() => {
     if (!expanded) return;
     const onKey = (e: KeyboardEvent) => {
@@ -432,6 +534,33 @@ export function OrgMap({
   const payerCount = graph.nodes.filter((n) => n.kind === "payer").length;
 
   const { nodes: baseNodes, providers, payers } = useMemo(() => {
+    // Pivot layout: the insurer takes the center-left, its top orgs stack
+    // right — two columns, same geometry family as the org view.
+    if (pivotGraph) {
+      const orgs = pivotGraph.orgs;
+      const height = Math.max(orgs.length * ROW_H.payer, 200);
+      const yOff = (height - orgs.length * ROW_H.payer) / 2;
+      const nodes: Node[] = [
+        {
+          id: "pivot-payer",
+          type: "pivotPayer",
+          position: { x: 0, y: height / 2 - 44 },
+          data: {
+            label: pivotGraph.payer,
+            orgs: pivotGraph.orgCount,
+            href: `/published-rates?payer=${encodeURIComponent(pivotGraph.payer)}`,
+          } satisfies PivotPayerData,
+        },
+        ...orgs.map((o, i) => ({
+          id: `t:${o.tin}`,
+          type: "orgLite",
+          position: { x: 560, y: yOff + i * ROW_H.payer },
+          data: { label: o.label, clinicians: o.clinicians, href: o.href } satisfies OrgLiteData,
+        })),
+      ];
+      return { nodes, providers: [] as typeof graph.nodes, payers: [] as typeof graph.nodes };
+    }
+
     // Cap named providers; anyone dropped joins the "+N more" supernode's count
     // (synthesized here if the repo didn't send one).
     const named = graph.nodes.filter((n) => n.kind === "provider").slice(0, PROVIDER_NODE_LIMIT);
@@ -487,12 +616,17 @@ export function OrgMap({
         id: n.id,
         type: "payer",
         position: { x: COL_X.payer, y: yOffset + i * ROW_H.payer },
-        data: { label: n.label, clinicians: n.clinicians, href: n.href } satisfies PayerData,
+        data: {
+          label: n.label,
+          clinicians: n.clinicians,
+          href: n.href,
+          onPivot: () => setPivot(n.payer),
+        } satisfies PayerData,
       });
     });
 
     return { nodes, providers, payers };
-  }, [graph, onShowRoster]);
+  }, [graph, onShowRoster, pivotGraph]);
 
   // Nodes live as STATE seeded from the layout (re-seeded when the graph
   // itself changes — rank toggle, new org). React Flow v12 drops drag changes
@@ -507,6 +641,42 @@ export function OrgMap({
   );
 
   const edges = useMemo(() => {
+    // Pivot edges: payer → each org, dots run FORWARD (payer pays org).
+    if (pivotGraph) {
+      const amounts = pivotGraph.orgs
+        .map((o) => rateAmount(o.rates[code]))
+        .filter((v): v is number => v != null);
+      const maxAmount = amounts.length ? Math.max(...amounts) : 0;
+      return pivotGraph.orgs.map((o) => {
+        const rate = o.rates[code];
+        const amount = rateAmount(rate);
+        const drillHref = `/published-rates?payer=${encodeURIComponent(pivotGraph.payer)}&q=${o.tin.replace(/\D/g, "")}`;
+        return {
+          id: `pr:${o.tin}`,
+          source: "pivot-payer",
+          target: `t:${o.tin}`,
+          type: "rate",
+          data: {
+            ...rateParts(rate),
+            href: drillHref,
+            dotForward: true,
+            ...(rate?.kind === "multiple"
+              ? {
+                  title: `See the ${rate.nRates.toLocaleString("en-US")} published rates`,
+                  onOpen: () =>
+                    setDrill({ tin: o.tin, payer: pivotGraph.payer, code, nRates: rate.nRates, href: drillHref }),
+                }
+              : {}),
+          } satisfies RateEdgeData,
+          style: {
+            stroke: TEAL,
+            strokeOpacity: amount != null ? 0.85 : 0.35,
+            strokeWidth: amount != null && maxAmount > 0 ? 1.5 + 4.5 * (amount / maxAmount) : 1.25,
+          },
+        } satisfies Edge;
+      });
+    }
+
     // Member edges are rebuilt from the rendered provider list (capping may
     // have dropped or synthesized nodes); rate edges keep only rendered payers.
     const payerIds = new Set(payers.map((n) => n.id));
@@ -554,7 +724,8 @@ export function OrgMap({
             ...(rate?.kind === "multiple"
               ? {
                   title: `See the ${rate.nRates.toLocaleString("en-US")} published rates`,
-                  onOpen: () => setDrill({ payer: e.payer, code, nRates: rate.nRates, href: e.href }),
+                  onOpen: () =>
+                    setDrill({ tin: graph.tin, payer: e.payer, code, nRates: rate.nRates, href: e.href }),
                 }
               : {}),
           } satisfies RateEdgeData,
@@ -568,7 +739,7 @@ export function OrgMap({
     ];
 
     return edges;
-  }, [graph, providers, payers, code]);
+  }, [graph, providers, payers, code, pivotGraph]);
 
   // Money-flow overlay, deliberately OUTSIDE the graph memo: hovering must
   // not rebuild nodes (React Flow re-measures everything it's handed — with
@@ -578,7 +749,7 @@ export function OrgMap({
   const displayEdges = useMemo(() => {
     if (!flowFocus) return edges;
     return edges.map((e) =>
-      e.type === "rate" && (flowFocus === "org" || flowFocus === e.target)
+      e.type === "rate" && (flowFocus === e.source || flowFocus === e.target)
         ? { ...e, data: { ...(e.data as RateEdgeData), animated: true } }
         : e,
     );
@@ -604,6 +775,9 @@ export function OrgMap({
       }
     >
       <ReactFlow
+        // Keyed by view: entering/leaving a pivot remounts so fitView reframes
+        // the new column geometry.
+        key={pivot ?? "org"}
         nodes={nodes}
         edges={displayEdges}
         nodeTypes={nodeTypes}
@@ -616,12 +790,14 @@ export function OrgMap({
         maxZoom={1.5}
         nodesConnectable={false}
         onNodeMouseEnter={(_, node) => {
-          if (node.type === "payer" || node.type === "org") setFlowFocus(node.id);
+          if (node.type === "payer" || node.type === "org" || node.type === "pivotPayer" || node.type === "orgLite")
+            setFlowFocus(node.id);
         }}
         onNodeMouseLeave={() => setFlowFocus(null)}
         onNodeClick={(_, node) => {
-          const d = node.data as { href?: string; onShowRoster?: () => void };
+          const d = node.data as { href?: string; onShowRoster?: () => void; onPivot?: () => void };
           if (d.onShowRoster) d.onShowRoster();
+          else if (d.onPivot) d.onPivot();
           else if (d.href) router.push(d.href);
         }}
         onEdgeClick={(_, edge) => {
@@ -642,6 +818,17 @@ export function OrgMap({
           >
             {expanded ? ARROW_DOWN_RIGHT : ARROW_UP_LEFT}
           </button>
+          {pivot && (
+            <button
+              type="button"
+              onClick={() => setPivot(null)}
+              className="flex h-9 items-center gap-1.5 rounded-field border border-border bg-surface px-3 text-[13px] font-medium text-text-body shadow-card transition-colors hover:border-primary hover:text-primary"
+            >
+              <Icon name="arrow-left" size={14} />
+              <span className="max-w-[220px] truncate">{normalizeOrgName(graph.label)}</span>
+            </button>
+          )}
+          {!pivot && (
           <div className="flex h-9 items-center overflow-hidden rounded-field border border-border bg-surface shadow-card">
             <button
               type="button"
@@ -667,13 +854,14 @@ export function OrgMap({
               Top paid
             </button>
           </div>
-          {rankLoading && <Spinner size={16} className="text-text-muted" />}
+          )}
+          {(rankLoading || pivotLoading) && <Spinner size={16} className="text-text-muted" />}
         </Panel>
         {/* The billing-code switcher — flipping codes relabels and reweighs
             every edge. */}
-        {graph.codes.length > 0 && (
+        {(pivotGraph?.codes ?? graph.codes).length > 0 && (
           <Panel position="top-right">
-            <CodeSwitcher codes={graph.codes} code={code} onChange={setCode} />
+            <CodeSwitcher codes={pivotGraph?.codes ?? graph.codes} code={code} onChange={setCode} />
           </Panel>
         )}
         <Background variant={BackgroundVariant.Dots} gap={22} size={1.25} color="#D4D4D4" bgColor="#FAFAFA" />
@@ -687,7 +875,7 @@ export function OrgMap({
   return (
     <>
       {host ? createPortal(canvas, host) : canvas}
-      <RateDrillPanel tin={graph.tin} drill={drill} onClose={() => setDrill(null)} />
+      <RateDrillPanel drill={drill} onClose={() => setDrill(null)} />
     </>
   );
 }
@@ -697,18 +885,16 @@ export function OrgMap({
 // (plan, code) cell, each attributed to the named plans that publish it. Raw
 // facts, never a summary — this is the honest answer to "why 78 rates?".
 function RateDrillPanel({
-  tin,
   drill,
   onClose,
 }: {
-  tin: string;
-  drill: { payer: string; code: string; nRates: number; href: string } | null;
+  drill: { tin: string; payer: string; code: string; nRates: number; href: string } | null;
   onClose: () => void;
 }) {
   const [rows, setRows] = useState<RateDrillRow[] | null>(null);
   const cache = useRef(new Map<string, RateDrillRow[]>());
 
-  const key = drill ? `${drill.payer}|${drill.code}` : null;
+  const key = drill ? `${drill.tin}|${drill.payer}|${drill.code}` : null;
   useEffect(() => {
     if (!key || !drill) return;
     const hit = cache.current.get(key);
@@ -719,7 +905,7 @@ function RateDrillPanel({
     let stale = false;
     setRows(null);
     fetch(
-      `/api/orgs/rate-drill?tin=${encodeURIComponent(tin)}&payer=${encodeURIComponent(drill.payer)}&code=${encodeURIComponent(drill.code)}`,
+      `/api/orgs/rate-drill?tin=${encodeURIComponent(drill.tin)}&payer=${encodeURIComponent(drill.payer)}&code=${encodeURIComponent(drill.code)}`,
     )
       .then((r) => {
         if (!r.ok) throw new Error(String(r.status));
@@ -737,7 +923,7 @@ function RateDrillPanel({
       stale = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, tin]);
+  }, [key]);
 
   return (
     <SidePanel

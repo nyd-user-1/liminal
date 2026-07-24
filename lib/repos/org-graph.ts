@@ -1,8 +1,8 @@
 import { hasDb, sql } from "@/lib/db";
 import { isoDateOnly } from "@/lib/format";
-import type { OrgGraph, OrgGraphEdge, OrgGraphNode, OrgGraphRate } from "@/lib/org-graph";
+import type { OrgGraph, OrgGraphEdge, OrgGraphNode, OrgGraphRate, PayerGraph } from "@/lib/org-graph";
 import { getOrgHeader } from "@/lib/repos/orgs";
-import { normTin } from "@/lib/repos/tin-registry";
+import { formatTin, normTin } from "@/lib/repos/tin-registry";
 
 // Relationship graph for ONE organization — the /orgs Map tab's data layer.
 // Pure {nodes, edges}: no React, no layout coordinates. The same shape feeds
@@ -129,6 +129,82 @@ export async function getOrgPayerRateDrill(
 }
 
 const PROVIDER_NODE_LIMIT = 10;
+const PIVOT_ORG_LIMIT = 8;
+
+/** Pivot-on-node: one insurer re-rooted to the top organizations in its
+ *  book (by clinician reach), each org→edge carrying the same fact/count
+ *  chips. Null when the payer has no book. */
+export async function getPayerGraph(payer: string): Promise<PayerGraph | null> {
+  if (!hasDb) {
+    if (payer !== "Oxford Health Insurance Inc") return null;
+    return {
+      payer,
+      orgCount: 1,
+      codes: ["90837"],
+      orgs: [
+        {
+          tin: "ein:832675429",
+          label: "New York Medical Behavioral Health Services (Headway NY)",
+          clinicians: 3251,
+          href: "/orgs/ein%3A832675429",
+          rates: { "90837": { kind: "multiple", nRates: 42 } },
+        },
+      ],
+    };
+  }
+  const [rowsRaw, countRaw] = await Promise.all([
+    sql`
+      WITH top AS (
+        SELECT tin, max(npis)::int AS npis
+        FROM org_tin_rate_summary
+        WHERE payer = ${payer}
+        GROUP BY tin
+        ORDER BY 2 DESC, 1
+        LIMIT ${PIVOT_ORG_LIMIT}
+      )
+      SELECT s.tin, s.billing_code, s.distinct_rates, s.min_rate,
+             top.npis, t.business_name
+      FROM org_tin_rate_summary s
+      JOIN top ON top.tin = s.tin
+      LEFT JOIN tin_registry t ON t.tin_norm = s.tin
+      WHERE s.payer = ${payer}
+    `,
+    sql`SELECT count(DISTINCT tin)::int AS n FROM org_tin_rate_summary WHERE payer = ${payer}`,
+  ]);
+  const rows = rowsRaw as Array<{
+    tin: string;
+    billing_code: string;
+    distinct_rates: number;
+    min_rate: unknown;
+    npis: number;
+    business_name: string | null;
+  }>;
+  if (!rows.length) return null;
+
+  const byTin = new Map<string, { label: string; clinicians: number; rates: Record<string, OrgGraphRate> }>();
+  const codes = new Set<string>();
+  for (const r of rows) {
+    codes.add(r.billing_code);
+    const hit = byTin.get(r.tin) ?? {
+      label: r.business_name ?? formatTin(r.tin),
+      clinicians: r.npis,
+      rates: {},
+    };
+    hit.rates[r.billing_code] =
+      r.distinct_rates === 1
+        ? { kind: "published", amount: Number(r.min_rate) }
+        : { kind: "multiple", nRates: r.distinct_rates };
+    byTin.set(r.tin, hit);
+  }
+  return {
+    payer,
+    orgCount: (countRaw as Array<{ n: number }>)[0]?.n ?? byTin.size,
+    codes: [...codes].sort(),
+    orgs: [...byTin.entries()]
+      .map(([tin, o]) => ({ tin, ...o, href: `/orgs/${encodeURIComponent(tin)}` }))
+      .sort((a, b) => b.clinicians - a.clinicians || a.tin.localeCompare(b.tin)),
+  };
+}
 
 /** /published-rates deep link: insurer filter + search lands on the org's row. */
 function publishedRatesHref(payer: string, tin: string): string {

@@ -42,6 +42,24 @@ export type OrgGraphEdge =
       href: string;
     };
 
+/** Pivot-on-node: the payer-centric view — one insurer re-rooted to the
+ *  biggest organizations in its book, same chip grammar. */
+export type PayerGraphOrg = {
+  tin: string;
+  label: string;
+  /** Clinicians of THIS org in the plan's book. */
+  clinicians: number;
+  href: string; // /orgs/[tin]
+  rates: Record<string, OrgGraphRate>;
+};
+export type PayerGraph = {
+  payer: string;
+  /** Total orgs in the plan's book (the canvas shows the top slice). */
+  orgCount: number;
+  codes: string[];
+  orgs: PayerGraphOrg[];
+};
+
 export type OrgGraph = {
   tin: string;
   label: string;
