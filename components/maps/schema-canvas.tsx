@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  applyNodeChanges,
   Background,
   BackgroundVariant,
   Controls,
@@ -14,6 +15,7 @@ import {
   useReactFlow,
   type Edge,
   type Node,
+  type NodeChange,
   type NodeProps,
   type NodeTypes,
 } from "@xyflow/react";
@@ -111,7 +113,7 @@ function nodeHeight(shownRows: number, hasMore: boolean): number {
 function SchemaCanvasInner({ schema, meta }: { schema: SchemaGraph; meta: Record<string, SchemaTableMeta> }) {
   const { setCenter } = useReactFlow();
 
-  const { nodes, edges, centers } = useMemo(() => {
+  const { nodes: layoutNodes, edges, heights } = useMemo(() => {
     // Columns that participate in an FK stay visible past the display cap —
     // their edges must land on a real row handle.
     const fkCols = new Map<string, Set<string>>();
@@ -136,7 +138,7 @@ function SchemaCanvasInner({ schema, meta }: { schema: SchemaGraph; meta: Record
     }
 
     const nodes: Node[] = [];
-    const centers = new Map<string, { x: number; y: number }>();
+    const heights = new Map<string, number>();
     bandOrder.forEach((band, bi) => {
       let y = 0;
       for (const t of byBand.get(band) ?? []) {
@@ -158,7 +160,7 @@ function SchemaCanvasInner({ schema, meta }: { schema: SchemaGraph; meta: Record
             moreCount,
           } satisfies SchemaNodeData,
         });
-        centers.set(t.name, { x: x + NODE_W / 2, y: y + h / 2 });
+        heights.set(t.name, h);
         y += h + BAND_GAP_Y;
       }
     });
@@ -191,8 +193,18 @@ function SchemaCanvasInner({ schema, meta }: { schema: SchemaGraph; meta: Record
         interactionWidth: 0,
       });
     }
-    return { nodes, edges, centers };
+    return { nodes, edges, heights };
   }, [schema, meta]);
+
+  // Draggable views need onNodesChange in v12 or drags are silently dropped —
+  // node state seeds from the layout and re-seeds if the schema changes.
+  // Rearrangement is session-local; no deletion (deleteKeyCode null).
+  const [nodes, setNodes] = useState(layoutNodes);
+  useEffect(() => setNodes(layoutNodes), [layoutNodes]);
+  const onNodesChange = useCallback(
+    (changes: NodeChange[]) => setNodes((ns) => applyNodeChanges(changes, ns)),
+    [],
+  );
 
   // Node search: table-name (or column) match → fly the viewport to it.
   const [q, setQ] = useState("");
@@ -212,8 +224,12 @@ function SchemaCanvasInner({ schema, meta }: { schema: SchemaGraph; meta: Record
     return out;
   }, [needle, schema.tables]);
   const flyTo = (table: string) => {
-    const c = centers.get(table);
-    if (c) void setCenter(c.x, c.y, { zoom: 1, duration: 500 });
+    // Current position (the user may have dragged the card), layout height.
+    const n = nodes.find((x) => x.id === table);
+    if (n) {
+      const h = heights.get(table) ?? 120;
+      void setCenter(n.position.x + NODE_W / 2, n.position.y + h / 2, { zoom: 1, duration: 500 });
+    }
     setQ("");
   };
 
@@ -222,6 +238,8 @@ function SchemaCanvasInner({ schema, meta }: { schema: SchemaGraph; meta: Record
       nodes={nodes}
       edges={edges}
       nodeTypes={nodeTypes}
+      onNodesChange={onNodesChange}
+      deleteKeyCode={null}
       fitView
       fitViewOptions={{ padding: 0.06 }}
       minZoom={0.05}

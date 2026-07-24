@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
+  applyNodeChanges,
   Background,
   BackgroundVariant,
   BaseEdge,
@@ -14,6 +15,7 @@ import {
   Panel,
   Position,
   ReactFlow,
+  type NodeChange,
   type Edge,
   type EdgeProps,
   type EdgeTypes,
@@ -24,7 +26,10 @@ import {
 import "@xyflow/react/dist/style.css";
 import { Banner } from "@/components/ui/banner";
 import { Icon } from "@/components/ui/icons";
+import { SidePanel } from "@/components/ui/side-panel";
 import { Spinner } from "@/components/ui/spinner";
+import { TextLink } from "@/components/ui/text-link";
+import type { RateDrillRow } from "@/lib/repos/org-graph";
 import { MAIN_PANEL_ID } from "@/components/shell/main-panel";
 import { InsurerMark } from "@/components/rates/insurer-mark";
 import { cptLabel } from "@/components/rates/cpt";
@@ -71,7 +76,15 @@ type ProviderData = { label: string; profession: string | null; href: string };
 type MoreData = { label: string; onShowRoster?: () => void; href?: string };
 type OrgData = { label: string; clinicians: number; payers: number };
 type PayerData = { label: string; clinicians: number; href: string };
-type RateEdgeData = { amount?: string; suffix?: string; href: string; title?: string; animated?: boolean };
+type RateEdgeData = {
+  amount?: string;
+  suffix?: string;
+  href: string;
+  title?: string;
+  animated?: boolean;
+  /** Count chips ("78 rates") open the drill panel instead of navigating. */
+  onOpen?: () => void;
+};
 
 // SMIL has no prefers-reduced-motion hook — gate the traveling dot in JS.
 const reducedMotion = () =>
@@ -186,7 +199,11 @@ export function RateEdge(props: EdgeProps) {
           The bezier is drawn org→payer but the payer PAYS the org, so the
           motion runs the path in reverse (keyPoints 1→0). */}
       {d.animated && !reducedMotion() && (
-        <circle r="4" fill={TEAL}>
+        // pointerEvents none is load-bearing: the dot spawns at the payer end
+        // of the path, right under the hovering cursor — if it can catch the
+        // pointer it steals the node's hover, kills itself, and the
+        // enter/leave loop shakes the whole canvas.
+        <circle r="4" fill={TEAL} style={{ pointerEvents: "none" }}>
           <animateMotion dur="1.6s" repeatCount="indefinite" path={path} keyPoints="1;0" keyTimes="0;1" />
         </circle>
       )}
@@ -198,7 +215,7 @@ export function RateEdge(props: EdgeProps) {
             // switch that lands on the same figure stays quiet.
             key={`${d.amount ?? ""}|${d.suffix ?? ""}`}
             type="button"
-            onClick={() => router.push(d.href)}
+            onClick={() => (d.onOpen ? d.onOpen() : router.push(d.href))}
             style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`, pointerEvents: "all" }}
             className="edge-chip-pulse nodrag nopan absolute inline-flex cursor-pointer items-baseline gap-1 whitespace-nowrap rounded-full border border-border bg-surface px-2.5 py-1 shadow-card transition-colors hover:border-primary"
             title={d.title ?? "Open in Published rates"}
@@ -400,6 +417,9 @@ export function OrgMap({
   // Money-flow focus: hovering a payer card animates ITS edge; hovering the
   // org card animates every inflow. Nothing moves unhovered.
   const [flowFocus, setFlowFocus] = useState<string | null>(null);
+
+  // The "78 rates" drill: which (payer, code) cell's published rates are open.
+  const [drill, setDrill] = useState<{ payer: string; code: string; nRates: number; href: string } | null>(null);
   useEffect(() => {
     if (!expanded) return;
     const onKey = (e: KeyboardEvent) => {
@@ -411,7 +431,7 @@ export function OrgMap({
 
   const payerCount = graph.nodes.filter((n) => n.kind === "payer").length;
 
-  const { nodes, edges } = useMemo(() => {
+  const { nodes: baseNodes, providers, payers } = useMemo(() => {
     // Cap named providers; anyone dropped joins the "+N more" supernode's count
     // (synthesized here if the repo didn't send one).
     const named = graph.nodes.filter((n) => n.kind === "provider").slice(0, PROVIDER_NODE_LIMIT);
@@ -471,6 +491,22 @@ export function OrgMap({
       });
     });
 
+    return { nodes, providers, payers };
+  }, [graph, onShowRoster]);
+
+  // Nodes live as STATE seeded from the layout (re-seeded when the graph
+  // itself changes — rank toggle, new org). React Flow v12 drops drag changes
+  // unless onNodesChange applies them, so without this the "draggable"
+  // promise above was a lie. Code switches don't touch nodes, so a rearranged
+  // canvas survives flipping codes; positions are session-local by design.
+  const [nodes, setNodes] = useState(baseNodes);
+  useEffect(() => setNodes(baseNodes), [baseNodes]);
+  const onNodesChange = useCallback(
+    (changes: NodeChange[]) => setNodes((ns) => applyNodeChanges(changes, ns)),
+    [],
+  );
+
+  const edges = useMemo(() => {
     // Member edges are rebuilt from the rendered provider list (capping may
     // have dropped or synthesized nodes); rate edges keep only rendered payers.
     const payerIds = new Set(payers.map((n) => n.id));
@@ -515,7 +551,12 @@ export function OrgMap({
           data: {
             ...rateParts(rate),
             href: e.href,
-            animated: flowFocus === "org" || flowFocus === e.target,
+            ...(rate?.kind === "multiple"
+              ? {
+                  title: `See the ${rate.nRates.toLocaleString("en-US")} published rates`,
+                  onOpen: () => setDrill({ payer: e.payer, code, nRates: rate.nRates, href: e.href }),
+                }
+              : {}),
           } satisfies RateEdgeData,
           style: {
             stroke: TEAL,
@@ -526,8 +567,22 @@ export function OrgMap({
       }),
     ];
 
-    return { nodes, edges };
-  }, [graph, code, onShowRoster, flowFocus]);
+    return edges;
+  }, [graph, providers, payers, code]);
+
+  // Money-flow overlay, deliberately OUTSIDE the graph memo: hovering must
+  // not rebuild nodes (React Flow re-measures everything it's handed — with
+  // hover inside the big memo the whole canvas visibly shook for a beat).
+  // Unhovered, the same edges array passes through untouched; hovered, only
+  // the affected edge objects are replaced.
+  const displayEdges = useMemo(() => {
+    if (!flowFocus) return edges;
+    return edges.map((e) =>
+      e.type === "rate" && (flowFocus === "org" || flowFocus === e.target)
+        ? { ...e, data: { ...(e.data as RateEdgeData), animated: true } }
+        : e,
+    );
+  }, [edges, flowFocus]);
 
   if (payerCount === 0) {
     return (
@@ -550,9 +605,11 @@ export function OrgMap({
     >
       <ReactFlow
         nodes={nodes}
-        edges={edges}
+        edges={displayEdges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
+        onNodesChange={onNodesChange}
+        deleteKeyCode={null}
         fitView
         fitViewOptions={{ padding: 0.12, maxZoom: 1 }}
         minZoom={0.3}
@@ -568,8 +625,9 @@ export function OrgMap({
           else if (d.href) router.push(d.href);
         }}
         onEdgeClick={(_, edge) => {
-          const href = (edge.data as { href?: string } | undefined)?.href;
-          if (href) router.push(href);
+          const d = edge.data as RateEdgeData | undefined;
+          if (d?.onOpen) d.onOpen();
+          else if (d?.href) router.push(d.href);
         }}
       >
         {/* Full-container toggle in the corner it grows toward, then the
@@ -624,9 +682,126 @@ export function OrgMap({
     </div>
   );
 
-  if (expanded) {
-    const host = typeof document === "undefined" ? null : document.getElementById(MAIN_PANEL_ID);
-    if (host) return createPortal(canvas, host);
-  }
-  return canvas;
+  const host =
+    expanded && typeof document !== "undefined" ? document.getElementById(MAIN_PANEL_ID) : null;
+  return (
+    <>
+      {host ? createPortal(canvas, host) : canvas}
+      <RateDrillPanel tin={graph.tin} drill={drill} onClose={() => setDrill(null)} />
+    </>
+  );
+}
+
+// ── The "78 rates" drill ─────────────────────────────────────────────────────
+// A count chip's SidePanel: the actual distinct published rates for that
+// (plan, code) cell, each attributed to the named plans that publish it. Raw
+// facts, never a summary — this is the honest answer to "why 78 rates?".
+function RateDrillPanel({
+  tin,
+  drill,
+  onClose,
+}: {
+  tin: string;
+  drill: { payer: string; code: string; nRates: number; href: string } | null;
+  onClose: () => void;
+}) {
+  const [rows, setRows] = useState<RateDrillRow[] | null>(null);
+  const cache = useRef(new Map<string, RateDrillRow[]>());
+
+  const key = drill ? `${drill.payer}|${drill.code}` : null;
+  useEffect(() => {
+    if (!key || !drill) return;
+    const hit = cache.current.get(key);
+    if (hit) {
+      setRows(hit);
+      return;
+    }
+    let stale = false;
+    setRows(null);
+    fetch(
+      `/api/orgs/rate-drill?tin=${encodeURIComponent(tin)}&payer=${encodeURIComponent(drill.payer)}&code=${encodeURIComponent(drill.code)}`,
+    )
+      .then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
+      .then((data: { rows: RateDrillRow[] }) => {
+        if (stale) return;
+        cache.current.set(key, data.rows);
+        setRows(data.rows);
+      })
+      .catch(() => {
+        if (!stale) setRows([]);
+      });
+    return () => {
+      stale = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, tin]);
+
+  return (
+    <SidePanel
+      open={!!drill}
+      onClose={onClose}
+      kicker="Published rates"
+      title={drill?.payer ?? ""}
+      icon="dollar"
+      width="max-w-lg"
+    >
+      {drill && (
+        <div className="flex flex-col gap-4">
+          <p className="text-[14px] leading-relaxed text-text">
+            {"The plan publishes "}
+            <span className="font-semibold">{drill.nRates.toLocaleString("en-US")} distinct rates</span>
+            {" for "}
+            <span className="tabular-nums">{drill.code}</span>
+            {` · ${cptLabel(drill.code)} under this organization. Every figure below is the insurer's own published amount — listed, not summarized.`}
+          </p>
+          {rows === null ? (
+            <div className="flex items-center justify-center py-10">
+              <Spinner size={20} className="text-text-muted" />
+            </div>
+          ) : rows.length === 0 ? (
+            <Banner variant="info">No dollar-denominated rows for this cell.</Banner>
+          ) : (
+            <div className="flex flex-col divide-y divide-border/60">
+              {rows.map((r) => (
+                <div key={r.rate} className="flex items-baseline gap-3 py-2">
+                  <span className="w-20 shrink-0 text-[14px] font-semibold tabular-nums text-text">
+                    ${r.rate.toFixed(2)}
+                  </span>
+                  <span className="min-w-0 flex-1 text-[12.5px] leading-relaxed text-text-body">
+                    {r.plans.map((p) => p.network).join(" · ")}
+                  </span>
+                  {r.clinicians?.length ? (
+                    <span className="flex max-w-[45%] shrink-0 flex-col items-end text-right">
+                      {r.clinicians.map((c) => (
+                        <TextLink
+                          key={c.npi}
+                          href={`/directory/providers/${c.npi}`}
+                          className="!text-[12px]"
+                          title={c.name ? providerDisplayName(c.name) : c.npi}
+                        >
+                          <span className="block max-w-full truncate">
+                            {c.name ? providerDisplayName(c.name) : c.npi}
+                          </span>
+                        </TextLink>
+                      ))}
+                    </span>
+                  ) : (
+                    <span className="shrink-0 text-[12px] tabular-nums text-text-muted">
+                      {r.npis.toLocaleString("en-US")} {r.npis === 1 ? "clinician" : "clinicians"}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-[13px]">
+            <TextLink href={drill.href}>Open in Published rates</TextLink>
+          </p>
+        </div>
+      )}
+    </SidePanel>
+  );
 }

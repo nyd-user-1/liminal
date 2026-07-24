@@ -18,7 +18,7 @@ import { normTin } from "@/lib/repos/tin-registry";
 // Chip honesty (ruling 2026-07-23): a cell shows the ONE published rate when
 // exactly one distinct dollar value exists (min = max in the rollup — a
 // quotable fact), else the COUNT of distinct published rates ("78 rates").
-// No medians, no bands: one insurer publishing 78 prices for one code at one
+// No medians, no bands: one insurer publishing 78 rates for one code at one
 // org IS the finding. Both rollups come from sql/066.
 //
 // Provider ranking: 'breadth' = most payer books (stable across codes);
@@ -28,6 +28,105 @@ import { normTin } from "@/lib/repos/tin-registry";
 export type { OrgGraph, OrgGraphEdge, OrgGraphNode, OrgGraphRate };
 
 export type OrgGraphRank = "breadth" | "rate";
+
+// The "78 rates" drill: the actual distinct published rates for ONE
+// (tin, payer, code) cell, with plan/network attribution. Raw facts, not a
+// summary — each row is a dollar value the plan itself publishes, so listing
+// them stays inside the honesty rules that banned medians. Rides sql/068's
+// (tin, payer, billing_code) index.
+
+export type RateDrillPlan = { network: string; npis: number; asOf: string | null };
+export type RateDrillRow = {
+  rate: number;
+  npis: number;
+  plans: RateDrillPlan[];
+  /** Named when ≤3 clinicians hold this price — "1 clinician" is coy when the
+      corpus knows exactly who. Absent for wider tiers. */
+  clinicians?: Array<{ npi: string; name: string | null }>;
+};
+
+export async function getOrgPayerRateDrill(
+  tin: string,
+  payer: string,
+  code: string,
+): Promise<RateDrillRow[]> {
+  const key = normTin(tin);
+  if (!hasDb) {
+    return key === MOCK_GRAPH.tin
+      ? [
+          { rate: 155.13, npis: 2101, plans: [{ network: "Freedom Network", npis: 2101, asOf: "2026-07-13" }] },
+          { rate: 137.78, npis: 3250, plans: [{ network: "Liberty Network", npis: 3250, asOf: "2026-07-13" }] },
+        ]
+      : [];
+  }
+  const [byPlanRaw, byRateRaw, namesRaw] = await Promise.all([
+    sql`
+      SELECT negotiated_rate::float8 AS rate, plan_or_network,
+             count(DISTINCT npi)::int AS npis, max(as_of) AS as_of
+      FROM provider_rate_signals
+      WHERE tin = ${key} AND payer = ${payer} AND billing_code = ${code}
+        AND negotiated_type NOT ILIKE '%percent%'
+      GROUP BY 1, 2
+      ORDER BY 1 DESC, 2
+    `,
+    // Distinct clinicians per rate ACROSS plans — summing the per-plan counts
+    // would double-count an NPI listed in several plans at the same price.
+    sql`
+      SELECT negotiated_rate::float8 AS rate, count(DISTINCT npi)::int AS npis
+      FROM provider_rate_signals
+      WHERE tin = ${key} AND payer = ${payer} AND billing_code = ${code}
+        AND negotiated_type NOT ILIKE '%percent%'
+      GROUP BY 1
+    `,
+    // Who holds a price, but only where the answer is short (≤3 NPIs): those
+    // rows name the clinician instead of counting them.
+    sql`
+      WITH per AS (
+        SELECT negotiated_rate::float8 AS rate, npi
+        FROM provider_rate_signals
+        WHERE tin = ${key} AND payer = ${payer} AND billing_code = ${code}
+          AND negotiated_type NOT ILIKE '%percent%'
+        GROUP BY 1, 2
+      ),
+      small AS (SELECT rate FROM per GROUP BY 1 HAVING count(*) <= 3)
+      SELECT p.rate, p.npi, d.name
+      FROM per p
+      JOIN small s ON s.rate = p.rate
+      LEFT JOIN LATERAL (
+        SELECT name FROM directory_providers
+        WHERE npi = p.npi ORDER BY (source = 'medicaid') DESC LIMIT 1
+      ) d ON true
+      ORDER BY p.rate DESC, d.name
+    `,
+  ]);
+  const npisByRate = new Map(
+    (byRateRaw as Array<{ rate: number; npis: number }>).map((r) => [Number(r.rate), r.npis]),
+  );
+  const namesByRate = new Map<number, Array<{ npi: string; name: string | null }>>();
+  for (const r of namesRaw as Array<{ rate: number; npi: string; name: string | null }>) {
+    const rate = Number(r.rate);
+    const arr = namesByRate.get(rate) ?? [];
+    arr.push({ npi: r.npi, name: r.name });
+    namesByRate.set(rate, arr);
+  }
+  const rows = new Map<number, RateDrillRow>();
+  for (const r of byPlanRaw as Array<{ rate: number; plan_or_network: string; npis: number; as_of: Date | null }>) {
+    const rate = Number(r.rate);
+    const row = rows.get(rate) ?? {
+      rate,
+      npis: npisByRate.get(rate) ?? 0,
+      plans: [],
+      ...(namesByRate.has(rate) ? { clinicians: namesByRate.get(rate) } : {}),
+    };
+    row.plans.push({
+      network: r.plan_or_network || "(unnamed plan)",
+      npis: r.npis,
+      asOf: r.as_of ? isoDateOnly(r.as_of) : null,
+    });
+    rows.set(rate, row);
+  }
+  return [...rows.values()];
+}
 
 const PROVIDER_NODE_LIMIT = 10;
 
