@@ -6,10 +6,11 @@
 // the nohup-and-hope era: jobs are declared in ops/harvest/jobs.json, MRF
 // manifests dropped into .harvest/mrf/manifests/queue/ become jobs
 // automatically, every run is ledgered to sync_runs (the same table the
-// Vercel matview cron writes, so /workspace shows both), and failures email
-// LIMINAL_OPS_EMAIL. If the Mac slept through 01:04, launchd runs the job on
-// next wake and the interval math below self-heals — nothing is ever "missed",
-// only late.
+// Vercel matview cron writes, so /workspace shows both), failures email
+// LIMINAL_OPS_EMAIL, and Farmer John (a Linear bot, app/api/harvest/report)
+// files or updates a ticket per failed/suspect job. If the Mac slept through
+// 01:04, launchd runs the job on next wake and the interval math below
+// self-heals — nothing is ever "missed", only late.
 //
 // Design debts to ~/Code/hq: the lock/PID-liveness check (dev-server.ts), the
 // detached-group spawn + group kill (same), and launchd bootstrap/bootout as
@@ -225,6 +226,35 @@ async function emailFailures(results) {
     });
   } catch (e) {
     log(`failure email did not send: ${e.message ?? e}`);
+  }
+}
+
+// ── Linear report (Farmer John) ───────────────────────────────────────────────
+// Plain fetch, same as emailFailures — this is plain node, not the Next app.
+// Farmer John's actual Linear token is minted server-side by
+// app/api/harvest/report/route.ts (getToken() needs Vercel's own request-time
+// infra and only works for code running on Vercel), so the runner just POSTs
+// the raw results to that deployed route with the same Bearer CRON_SECRET
+// every other machine caller in this app already uses. The route itself
+// no-ops when nothing is flagged, so it's safe to call every run.
+async function reportFailuresToLinear(results) {
+  const url = process.env.LIMINAL_APP_URL;
+  const secret = process.env.CRON_SECRET;
+  if (!url || !secret) return;
+  try {
+    const res = await fetch(`${url.replace(/\/$/, "")}/api/harvest/report`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ results }),
+    });
+    if (!res.ok) {
+      log(`Linear report failed: ${res.status} ${(await res.text().catch(() => "")).slice(0, 300)}`);
+      return;
+    }
+    const data = await res.json();
+    log(`Linear report: ${data.filed ?? 0} filed, ${data.commented ?? 0} commented`);
+  } catch (e) {
+    log(`Linear report did not send: ${e.message ?? e}`);
   }
 }
 
@@ -578,6 +608,7 @@ async function main() {
     results.push(await runDailyRebuild());
 
     await emailFailures(results);
+    await reportFailuresToLinear(results);
     // A suspect run needs a human as much as a failure — both raise the bell and
     // both make the runner exit non-zero.
     const flagged = results.filter((r) => !r.ok || r.suspect);
